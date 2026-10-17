@@ -196,7 +196,7 @@ export default function StatusPage() {
     );
   }
 
-  if (!result || !result.ok) {
+  if (!result || !result.ok || !result.application) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4 pt-16">
         <div className="w-full max-w-md space-y-6 text-center">

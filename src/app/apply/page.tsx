@@ -1,22 +1,48 @@
 "use client";
 
-import { useMemo } from "react";
+import { useSyncExternalStore } from "react";
 import { redirect } from "next/navigation";
 import { ApplyForm } from "@/components/apply/ApplyForm";
 
-function getAuthState(): { verified: boolean; email: string | null } {
+type AuthState = { verified: boolean; email: string | null };
+
+const SERVER_SNAPSHOT: AuthState = { verified: false, email: null };
+
+let cachedClientSnapshot: AuthState | null = null;
+
+function getAuthSnapshot(): AuthState {
   if (typeof window === "undefined") {
-    return { verified: false, email: null };
+    return SERVER_SNAPSHOT;
   }
-  const verified = localStorage.getItem("hackhive_verified") === "true";
-  const email = localStorage.getItem("hackhive_user_email");
-  return { verified, email };
+  if (cachedClientSnapshot === null) {
+    cachedClientSnapshot = {
+      verified: localStorage.getItem("hackhive_verified") === "true",
+      email: localStorage.getItem("hackhive_user_email"),
+    };
+  }
+  return cachedClientSnapshot;
+}
+
+function getServerSnapshot(): AuthState {
+  return SERVER_SNAPSHOT;
+}
+
+function subscribeToAuth(callback: () => void): () => void {
+  const handler = () => {
+    cachedClientSnapshot = {
+      verified: localStorage.getItem("hackhive_verified") === "true",
+      email: localStorage.getItem("hackhive_user_email"),
+    };
+    callback();
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
 }
 
 export default function ApplyPage() {
-  const authState = useMemo(() => getAuthState(), []);
+  const auth = useSyncExternalStore(subscribeToAuth, getAuthSnapshot, getServerSnapshot);
 
-  if (!authState.verified || !authState.email) {
+  if (!auth.verified || !auth.email) {
     if (typeof window !== "undefined") {
       redirect("/signup");
     }
@@ -39,7 +65,7 @@ export default function ApplyPage() {
             Fill out the form below to apply. Your progress is saved automatically.
           </p>
         </div>
-        <ApplyForm userEmail={authState.email} />
+        <ApplyForm userEmail={auth.email} />
       </div>
     </main>
   );
