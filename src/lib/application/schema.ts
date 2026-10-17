@@ -1,119 +1,315 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-export const APPLICATION_STATUS = ["draft", "submitted"] as const;
-export type ApplicationStatus = (typeof APPLICATION_STATUS)[number];
+const MAX_WORDS_Q1_Q2 = 200;
+const RECOMMENDED_WORDS_Q1_Q2 = 150;
+const MAX_CHARS_Q1_Q2 = 2000;
+const MAX_CHARS_Q3 = 2000;
 
-export const TEAM_STATUS = ["solo", "has_team", "looking"] as const;
-export type TeamStatus = (typeof TEAM_STATUS)[number];
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
 
-export const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
-export type TshirtSize = (typeof TSHIRT_SIZES)[number];
+function normalizeUnicode(val: string): string {
+  return val.trim().normalize('NFC');
+}
 
-export const FIELD_LIMITS = {
-  first_name: 100,
-  last_name: 100,
-  phone: 30,
-  pronouns: 50,
-  city: 100,
-  country: 100,
-  university: 200,
-  program: 200,
-  linkedin_url: 500,
-  github_url: 500,
-  portfolio_url: 500,
-  q_proud: 150,
-  q_hack: 150,
-  q_anything_else: 150,
-  dietary: 500,
-  accessibility: 1000,
-  guardian_name: 100,
-  guardian_phone: 30,
-  guardian_relationship: 100,
-  gender: 100,
-  ethnicity: 200,
-  teammate_emails_max: 3,
-} as const;
+const unicodeNameRegex = /^[\p{L}\p{M}'\- ]+$/u;
 
-export const applicationSchema = z.object({
-  id: z.string().uuid().optional(),
-  user_id: z.string().uuid().optional(),
-  email: z.string().email().toLowerCase(),
-  status: z.enum(APPLICATION_STATUS).default("draft"),
-  submitted_at: z.string().datetime().nullable().optional(),
-  submission_id: z.string().uuid().nullable().optional(),
-  created_at: z.string().datetime().optional(),
-  updated_at: z.string().datetime().optional(),
+const urlSchema = z
+  .string()
+  .max(500)
+  .url()
+  .optional()
+  .or(z.literal(''));
 
-  first_name: z.string().min(1).max(FIELD_LIMITS.first_name),
-  last_name: z.string().min(1).max(FIELD_LIMITS.last_name),
-  phone: z.string().min(1).max(FIELD_LIMITS.phone),
-  age: z.number().int().min(13).max(120),
-  pronouns: z.string().max(FIELD_LIMITS.pronouns).optional().nullable(),
-  city: z.string().min(1).max(FIELD_LIMITS.city),
-  country: z.string().min(1).max(FIELD_LIMITS.country),
+const linkedinUrlSchema = z
+  .string()
+  .max(500)
+  .refine(
+    (val) => !val || val.startsWith('https://linkedin.com/') || val.startsWith('https://www.linkedin.com/'),
+    { message: 'Must be a valid LinkedIn URL' }
+  )
+  .optional()
+  .or(z.literal(''));
 
-  university: z.string().min(1).max(FIELD_LIMITS.university),
-  program: z.string().min(1).max(FIELD_LIMITS.program),
-  year_of_study: z.number().int().min(1).max(10),
-  grad_date: z.string().min(1),
+const githubUrlSchema = z
+  .string()
+  .max(500)
+  .refine(
+    (val) => !val || val.startsWith('https://github.com/'),
+    { message: 'Must be a valid GitHub URL' }
+  )
+  .optional()
+  .or(z.literal(''));
 
-  hackathons_count: z.number().int().min(0).max(100),
-  linkedin_url: z.string().url().max(FIELD_LIMITS.linkedin_url).optional().nullable(),
-  github_url: z.string().url().max(FIELD_LIMITS.github_url).optional().nullable(),
-  portfolio_url: z.string().url().max(FIELD_LIMITS.portfolio_url).optional().nullable(),
-  resume_path: z.string().optional().nullable(),
+const teammateEmailsSchema = z
+  .array(z.string().email())
+  .max(3, 'Maximum 3 teammate emails allowed')
+  .optional();
 
-  q_proud: z.string().min(1).max(2000),
-  q_hack: z.string().min(1).max(2000),
-  q_anything_else: z.string().max(2000).optional().nullable(),
+const questionSchema = (maxWords: number, maxChars: number) =>
+  z
+    .string()
+    .max(maxChars, `Maximum ${maxChars} characters`)
+    .refine(
+      (val) => !val || countWords(val) <= maxWords,
+      { message: `Maximum ${maxWords} words allowed (recommended: ${RECOMMENDED_WORDS_Q1_Q2})` }
+    )
+    .transform(normalizeUnicode)
+    .optional()
+    .or(z.literal(''));
 
-  team_status: z.enum(TEAM_STATUS),
-  teammate_emails: z.array(z.string().email()).max(FIELD_LIMITS.teammate_emails_max).optional().nullable(),
+const nameFieldSchema = z
+  .string()
+  .max(100)
+  .refine(
+    (val) => !val || unicodeNameRegex.test(val),
+    { message: 'Name contains invalid characters' }
+  )
+  .transform(normalizeUnicode)
+  .optional()
+  .or(z.literal(''));
 
-  dietary: z.string().max(FIELD_LIMITS.dietary).optional().nullable(),
-  accessibility: z.string().max(FIELD_LIMITS.accessibility).optional().nullable(),
-  tshirt_size: z.enum(TSHIRT_SIZES),
-  needs_travel_help: z.boolean(),
-
-  gender: z.string().max(FIELD_LIMITS.gender).optional().nullable(),
-  ethnicity: z.string().max(FIELD_LIMITS.ethnicity).optional().nullable(),
-
-  guardian_name: z.string().max(FIELD_LIMITS.guardian_name).optional().nullable(),
-  guardian_phone: z.string().max(FIELD_LIMITS.guardian_phone).optional().nullable(),
-  guardian_relationship: z.string().max(FIELD_LIMITS.guardian_relationship).optional().nullable(),
-
-  consent_coc: z.boolean(),
-  consent_privacy: z.boolean(),
+export const applicationDraftSchema = z.object({
+  first_name: nameFieldSchema,
+  last_name: nameFieldSchema,
+  phone: z.string().max(30).optional().or(z.literal('')),
+  age: z.coerce.number().int().min(13).max(100).optional().nullable(),
+  pronouns: z.string().max(50).optional().or(z.literal('')),
+  city: z.string().max(100).transform(normalizeUnicode).optional().or(z.literal('')),
+  country: z.string().max(100).transform(normalizeUnicode).optional().or(z.literal('')),
+  
+  university: z.string().max(200).transform(normalizeUnicode).optional().or(z.literal('')),
+  program: z.string().max(200).transform(normalizeUnicode).optional().or(z.literal('')),
+  year_of_study: z.string().max(50).optional().or(z.literal('')),
+  grad_date: z.coerce.date().optional().nullable(),
+  hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
+  
+  linkedin_url: linkedinUrlSchema,
+  github_url: githubUrlSchema,
+  portfolio_url: urlSchema,
+  resume_path: z.string().max(500).optional().or(z.literal('')),
+  
+  q_proud: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
+  q_hack: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
+  q_anything_else: z.string().max(MAX_CHARS_Q3).transform(normalizeUnicode).optional().or(z.literal('')),
+  
+  team_status: z.enum(['solo', 'has_team', 'looking']).optional().nullable(),
+  teammate_emails: teammateEmailsSchema,
+  
+  dietary: z.string().max(500).optional().or(z.literal('')),
+  accessibility: z.string().max(1000).optional().or(z.literal('')),
+  tshirt_size: z.string().max(20).optional().or(z.literal('')),
+  needs_travel_help: z.boolean().optional().nullable(),
+  
+  gender: z.string().max(50).optional().or(z.literal('')),
+  ethnicity: z.string().max(100).optional().or(z.literal('')),
+  
+  guardian_name: z.string().max(200).transform(normalizeUnicode).optional().or(z.literal('')),
+  guardian_phone: z.string().max(30).optional().or(z.literal('')),
+  guardian_relationship: z.string().max(100).transform(normalizeUnicode).optional().or(z.literal('')),
+  
+  consent_coc: z.boolean().optional().nullable(),
+  consent_privacy: z.boolean().optional().nullable(),
   consent_photo: z.boolean().optional().nullable(),
   share_resume_with_sponsors: z.boolean().optional().nullable(),
 });
 
-export type Application = z.infer<typeof applicationSchema>;
+export type ApplicationDraft = z.infer<typeof applicationDraftSchema>;
 
-export const draftSchema = applicationSchema.partial().required({
-  email: true,
-});
-
-export type DraftApplication = z.infer<typeof draftSchema>;
-
-export const submitSchema = applicationSchema
-  .omit({ id: true, user_id: true, status: true, submitted_at: true, created_at: true, updated_at: true })
+const requiredName = z
+  .string()
+  .min(1, 'Required')
+  .max(100)
   .refine(
-    (data) => {
-      if (data.age < 18) {
-        return !!data.guardian_name && !!data.guardian_phone && !!data.guardian_relationship;
-      }
-      return true;
-    },
-    { message: "Guardian information required for applicants under 18", path: ["guardian_name"] }
+    (val) => unicodeNameRegex.test(val),
+    { message: 'Name contains invalid characters' }
   )
-  .refine((data) => data.consent_coc === true, {
-    message: "You must agree to the Code of Conduct",
-    path: ["consent_coc"],
+  .transform(normalizeUnicode);
+
+const requiredQuestion = (maxWords: number, maxChars: number) =>
+  z
+    .string()
+    .min(1, 'Required')
+    .max(maxChars, `Maximum ${maxChars} characters`)
+    .refine(
+      (val) => countWords(val) <= maxWords,
+      { message: `Maximum ${maxWords} words allowed (recommended: ${RECOMMENDED_WORDS_Q1_Q2})` }
+    )
+    .transform(normalizeUnicode);
+
+export const applicationSubmitSchema = z
+  .object({
+    first_name: requiredName,
+    last_name: requiredName,
+    phone: z.string().min(1, 'Required').max(30),
+    age: z.coerce.number().int().min(13, 'Must be at least 13').max(100, 'Must be at most 100'),
+    pronouns: z.string().max(50).optional().or(z.literal('')),
+    city: z.string().min(1, 'Required').max(100).transform(normalizeUnicode),
+    country: z.string().min(1, 'Required').max(100).transform(normalizeUnicode),
+
+    university: z.string().min(1, 'Required').max(200).transform(normalizeUnicode),
+    program: z.string().min(1, 'Required').max(200).transform(normalizeUnicode),
+    year_of_study: z.string().min(1, 'Required').max(50),
+    grad_date: z.coerce.date().optional().nullable(),
+    hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
+
+    linkedin_url: linkedinUrlSchema,
+    github_url: githubUrlSchema,
+    portfolio_url: urlSchema,
+    resume_path: z.string().min(1, 'Resume is required').max(500),
+
+    q_proud: requiredQuestion(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
+    q_hack: requiredQuestion(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
+    q_anything_else: z.string().max(MAX_CHARS_Q3).transform(normalizeUnicode).optional().or(z.literal('')),
+
+    team_status: z.enum(['solo', 'has_team', 'looking'], {
+      error: 'Please select your team status',
+    }),
+    teammate_emails: z
+      .array(z.string().email('Invalid email'))
+      .max(3, 'Maximum 3 teammate emails allowed')
+      .optional(),
+
+    dietary: z.string().max(500).optional().or(z.literal('')),
+    accessibility: z.string().max(1000).optional().or(z.literal('')),
+    tshirt_size: z.string().min(1, 'Required').max(20),
+    needs_travel_help: z.boolean().optional().nullable(),
+
+    gender: z.string().max(50).optional().or(z.literal('')),
+    ethnicity: z.string().max(100).optional().or(z.literal('')),
+
+    guardian_name: z.string().max(200).transform(normalizeUnicode).optional().or(z.literal('')),
+    guardian_phone: z.string().max(30).optional().or(z.literal('')),
+    guardian_relationship: z.string().max(100).transform(normalizeUnicode).optional().or(z.literal('')),
+
+    consent_coc: z.literal(true, {
+      error: 'You must agree to the Code of Conduct',
+    }),
+    consent_privacy: z.literal(true, {
+      error: 'You must agree to the Privacy Policy',
+    }),
+    consent_photo: z.boolean().optional().nullable(),
+    share_resume_with_sponsors: z.boolean().optional().nullable(),
   })
-  .refine((data) => data.consent_privacy === true, {
-    message: "You must agree to the Privacy Policy",
-    path: ["consent_privacy"],
+  .superRefine((data, ctx) => {
+    if (data.age < 18) {
+      if (!data.guardian_name || data.guardian_name.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Guardian name is required for applicants under 18',
+          path: ['guardian_name'],
+        });
+      }
+      if (!data.guardian_phone || data.guardian_phone.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Guardian phone is required for applicants under 18',
+          path: ['guardian_phone'],
+        });
+      }
+      if (!data.guardian_relationship || data.guardian_relationship.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Guardian relationship is required for applicants under 18',
+          path: ['guardian_relationship'],
+        });
+      }
+    }
+
+    if (data.resume_path) {
+      const parts = data.resume_path.split('/');
+      if (parts.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Invalid resume path format',
+          path: ['resume_path'],
+        });
+      }
+    }
   });
 
-export type SubmitApplication = z.infer<typeof submitSchema>;
+export type ApplicationSubmit = z.infer<typeof applicationSubmitSchema>;
+
+export const submitRequestSchema = applicationSubmitSchema.extend({
+  turnstileToken: z.string().min(1, 'Captcha token required'),
+  startedAt: z.coerce.number(),
+  website: z.string().optional(),
+  submissionId: z.string().min(1, 'Submission ID required'),
+});
+
+export type SubmitRequest = z.infer<typeof submitRequestSchema>;
+
+export const ERROR_CODES = [
+  'validation',
+  'rate_limited',
+  'turnstile',
+  'too_fast',
+  'locked',
+  'already_submitted',
+  'not_verified',
+  'server',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export type SaveDraftResult =
+  | { ok: true; savedAt: string }
+  | { ok: false; code: ErrorCode; error: string; fieldErrors?: Record<string, string[]> };
+
+export type GetResumeUploadUrlResult =
+  | { ok: true; path: string; signedUrl: string; token: string }
+  | { ok: false; code: ErrorCode; error: string };
+
+export type SubmitApplicationResult =
+  | { ok: true; applicationId: string; submittedAt: string }
+  | { ok: false; code: ErrorCode; error: string; fieldErrors?: Record<string, string[]> };
+
+export type Application = {
+  id: string;
+  user_id: string;
+  email: string;
+  status: 'draft' | 'submitted';
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  age: number | null;
+  pronouns: string | null;
+  city: string | null;
+  country: string | null;
+  university: string | null;
+  program: string | null;
+  year_of_study: string | null;
+  grad_date: string | null;
+  hackathons_count: number | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  resume_path: string | null;
+  q_proud: string | null;
+  q_hack: string | null;
+  q_anything_else: string | null;
+  team_status: 'solo' | 'has_team' | 'looking' | null;
+  teammate_emails: string[] | null;
+  dietary: string | null;
+  accessibility: string | null;
+  tshirt_size: string | null;
+  needs_travel_help: boolean | null;
+  gender: string | null;
+  ethnicity: string | null;
+  guardian_name: string | null;
+  guardian_phone: string | null;
+  guardian_relationship: string | null;
+  consent_coc: boolean | null;
+  consent_privacy: boolean | null;
+  consent_photo: boolean | null;
+  share_resume_with_sponsors: boolean | null;
+};
+
+export type GetMyApplicationResult =
+  | { ok: true; application: Application }
+  | { ok: true; application: null }
+  | { ok: false; code: ErrorCode; error: string };
