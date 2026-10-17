@@ -10,6 +10,26 @@ export const WORD_LIMITS = {
   q_anything_else: 150,
 } as const;
 
+export const FIELD_LIMITS = {
+  first_name: 100,
+  last_name: 100,
+  phone: 30,
+  pronouns: 50,
+  city: 100,
+  country: 100,
+  university: 200,
+  program: 200,
+  linkedin_url: 500,
+  github_url: 500,
+  portfolio_url: 500,
+  dietary: 500,
+  accessibility: 1000,
+  guardian_name: 200,
+  guardian_phone: 30,
+  guardian_relationship: 100,
+  teammate_emails_max: 3,
+} as const;
+
 export const COMMON_EMAIL_DOMAINS = [
   "gmail.com",
   "yahoo.com",
