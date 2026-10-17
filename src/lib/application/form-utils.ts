@@ -41,23 +41,52 @@ export function isDeadlinePassed(deadline: Date): boolean {
   return new Date() > deadline;
 }
 
-const STORAGE_KEY = "hackhive_application_draft";
+export function isValidRedirectPath(path: string): boolean {
+  if (!path || typeof path !== "string") return false;
+  if (!path.startsWith("/")) return false;
+  if (path.startsWith("//")) return false;
+  if (path.startsWith("/\\")) return false;
+  return true;
+}
 
-export function saveDraftToLocalStorage(data: Record<string, unknown>): void {
+const STORAGE_KEY = "hackhive_application_draft";
+const SUBMISSION_ID_KEY = "hackhive_submission_id";
+
+export interface StoredDraft {
+  data: Record<string, unknown>;
+  submissionId: string;
+  _savedAt: number;
+}
+
+export function saveDraftToLocalStorage(data: Record<string, unknown>, submissionId: string): void {
   try {
-    const existing = loadDraftFromLocalStorage();
-    const merged = { ...existing, ...data, _savedAt: Date.now() };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    const stored: StoredDraft = {
+      data,
+      submissionId,
+      _savedAt: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   } catch (e) {
     console.error("Failed to save draft to localStorage:", e);
   }
 }
 
-export function loadDraftFromLocalStorage(): Record<string, unknown> | null {
+export function loadDraftFromLocalStorage(): StoredDraft | null {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    if (parsed.data && parsed.submissionId) {
+      return parsed as StoredDraft;
+    }
+    if (!parsed.submissionId) {
+      return {
+        data: parsed,
+        submissionId: generateSubmissionId(),
+        _savedAt: parsed._savedAt || Date.now(),
+      };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -69,4 +98,28 @@ export function clearDraftFromLocalStorage(): void {
   } catch {
     // Ignore
   }
+}
+
+export function getOrCreateSubmissionId(): string {
+  try {
+    const stored = loadDraftFromLocalStorage();
+    if (stored?.submissionId) {
+      return stored.submissionId;
+    }
+    const existing = localStorage.getItem(SUBMISSION_ID_KEY);
+    if (existing) {
+      return existing;
+    }
+    const newId = generateSubmissionId();
+    localStorage.setItem(SUBMISSION_ID_KEY, newId);
+    return newId;
+  } catch {
+    return generateSubmissionId();
+  }
+}
+
+let saveDraftQueue: Promise<void> = Promise.resolve();
+
+export function enqueueSaveDraft(saveFn: () => Promise<void>): void {
+  saveDraftQueue = saveDraftQueue.then(saveFn).catch(() => {});
 }
