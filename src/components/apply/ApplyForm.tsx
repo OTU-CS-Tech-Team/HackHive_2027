@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { FormSection } from "./FormSection";
 import { FormField } from "./FormField";
@@ -11,34 +11,18 @@ import { RadioGroupField } from "./RadioGroupField";
 import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
 import { TurnstileWidget } from "./TurnstileWidget";
-import { TSHIRT_SIZES, TEAM_STATUS, FIELD_LIMITS, type DraftApplication } from "@/lib/application/schema";
 import { saveDraft, submitApplication, ERROR_MESSAGES, type ErrorCode } from "@/lib/application/api";
 import {
   saveDraftToLocalStorage,
   loadDraftFromLocalStorage,
   clearDraftFromLocalStorage,
-  generateSubmissionId,
+  getOrCreateSubmissionId,
+  enqueueSaveDraft,
   countWords,
 } from "@/lib/application/form-utils";
-import { APPLICATION_DEADLINE, WORD_LIMITS } from "@/lib/constants";
+import { APPLICATION_DEADLINE, WORD_LIMITS, FIELD_LIMITS } from "@/lib/constants";
 
-function getInitialFormStartTime(): number {
-  return Date.now();
-}
-
-function checkDeadlinePassed(): boolean {
-  return new Date() > APPLICATION_DEADLINE;
-}
-
-function loadSavedDraft(): FormData {
-  const saved = loadDraftFromLocalStorage();
-  if (!saved) return initialFormData;
-  return {
-    ...initialFormData,
-    ...saved,
-    teammate_emails: Array.isArray(saved.teammate_emails) ? saved.teammate_emails as string[] : [],
-  } as FormData;
-}
+const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
 const YEAR_OF_STUDY_OPTIONS = [
   { value: "1", label: "1st year" },
@@ -133,83 +117,127 @@ interface ApplyFormProps {
   userEmail: string;
 }
 
+function getInitialDeadlineState(): boolean {
+  if (typeof window === "undefined") return false;
+  return new Date() > APPLICATION_DEADLINE;
+}
+
+function getInitialFormData(): FormData {
+  if (typeof window === "undefined") return initialFormData;
+  const stored = loadDraftFromLocalStorage();
+  if (!stored?.data) return initialFormData;
+  return {
+    ...initialFormData,
+    ...stored.data,
+    teammate_emails: Array.isArray(stored.data.teammate_emails) ? stored.data.teammate_emails as string[] : [],
+  } as FormData;
+}
+
+function getInitialSubmissionId(): string {
+  if (typeof window === "undefined") return "";
+  return getOrCreateSubmissionId();
+}
+
+function getInitialStartTime(): number {
+  if (typeof window === "undefined") return 0;
+  return Date.now();
+}
+
 export function ApplyForm({ userEmail }: ApplyFormProps) {
   const router = useRouter();
-  const savedDraft = useMemo(() => loadSavedDraft(), []);
-  const [formData, setFormData] = useState<FormData>(savedDraft);
+  const [formData, setFormData] = useState<FormData>(getInitialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const isDeadlinePassed = useMemo(() => checkDeadlinePassed(), []);
-  const formStartedAt = useRef<number | null>(null);
-  const submissionIdRef = useRef<string | null>(null);
+  const [isDeadlinePassed] = useState<boolean>(getInitialDeadlineState);
+  const [needsTurnstileReset, setNeedsTurnstileReset] = useState(0);
+  const formStartedAt = useRef<number>(getInitialStartTime());
+  const submissionIdRef = useRef<string>(getInitialSubmissionId());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  if (formStartedAt.current === null) {
-    formStartedAt.current = getInitialFormStartTime();
-  }
-
   const isUnder18 = formData.age && parseInt(formData.age, 10) < 18;
+
+  const performSaveDraft = useCallback(async (data: FormData, includeResumePath: boolean = true) => {
+    const draftFields: Record<string, unknown> = {};
+    
+    if (data.first_name) draftFields.first_name = data.first_name;
+    if (data.last_name) draftFields.last_name = data.last_name;
+    if (data.phone) draftFields.phone = data.phone;
+    if (data.age) draftFields.age = parseInt(data.age, 10);
+    if (data.pronouns) draftFields.pronouns = data.pronouns;
+    if (data.city) draftFields.city = data.city;
+    if (data.country) draftFields.country = data.country;
+    if (data.university) draftFields.university = data.university;
+    if (data.program) draftFields.program = data.program;
+    if (data.year_of_study) draftFields.year_of_study = data.year_of_study;
+    if (data.grad_date) draftFields.grad_date = data.grad_date;
+    if (data.hackathons_count) draftFields.hackathons_count = parseInt(data.hackathons_count, 10);
+    if (data.linkedin_url) draftFields.linkedin_url = data.linkedin_url;
+    if (data.github_url) draftFields.github_url = data.github_url;
+    if (data.portfolio_url) draftFields.portfolio_url = data.portfolio_url;
+    if (includeResumePath && data.resume_path) draftFields.resume_path = data.resume_path;
+    if (data.q_proud) draftFields.q_proud = data.q_proud;
+    if (data.q_hack) draftFields.q_hack = data.q_hack;
+    if (data.q_anything_else) draftFields.q_anything_else = data.q_anything_else;
+    if (data.team_status) draftFields.team_status = data.team_status;
+    const filteredEmails = data.teammate_emails.filter(Boolean);
+    if (filteredEmails.length > 0) draftFields.teammate_emails = filteredEmails;
+    if (data.dietary) draftFields.dietary = data.dietary;
+    if (data.accessibility) draftFields.accessibility = data.accessibility;
+    if (data.tshirt_size) draftFields.tshirt_size = data.tshirt_size;
+    draftFields.needs_travel_help = data.needs_travel_help;
+    if (data.gender) draftFields.gender = data.gender;
+    if (data.ethnicity) draftFields.ethnicity = data.ethnicity;
+    if (data.guardian_name) draftFields.guardian_name = data.guardian_name;
+    if (data.guardian_phone) draftFields.guardian_phone = data.guardian_phone;
+    if (data.guardian_relationship) draftFields.guardian_relationship = data.guardian_relationship;
+    draftFields.consent_coc = data.consent_coc;
+    draftFields.consent_privacy = data.consent_privacy;
+    draftFields.consent_photo = data.consent_photo;
+    draftFields.share_resume_with_sponsors = data.share_resume_with_sponsors;
+
+    const result = await saveDraft(draftFields);
+    if (result.ok) {
+      setLastSaved(new Date(result.savedAt));
+    }
+  }, []);
 
   const debouncedSave = useCallback((data: FormData) => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    saveDraftToLocalStorage(data as unknown as Record<string, unknown>);
+    saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current);
 
-    saveTimeoutRef.current = setTimeout(async () => {
-      const draftData: Partial<DraftApplication> = {
-        email: userEmail,
-        first_name: data.first_name || undefined,
-        last_name: data.last_name || undefined,
-        phone: data.phone || undefined,
-        age: data.age ? parseInt(data.age, 10) : undefined,
-        pronouns: data.pronouns || undefined,
-        city: data.city || undefined,
-        country: data.country || undefined,
-        university: data.university || undefined,
-        program: data.program || undefined,
-        year_of_study: data.year_of_study ? parseInt(data.year_of_study, 10) : undefined,
-        grad_date: data.grad_date || undefined,
-        hackathons_count: data.hackathons_count ? parseInt(data.hackathons_count, 10) : undefined,
-        linkedin_url: data.linkedin_url || undefined,
-        github_url: data.github_url || undefined,
-        portfolio_url: data.portfolio_url || undefined,
-        resume_path: data.resume_path || undefined,
-        q_proud: data.q_proud || undefined,
-        q_hack: data.q_hack || undefined,
-        q_anything_else: data.q_anything_else || undefined,
-        team_status: data.team_status as "solo" | "has_team" | "looking" | undefined,
-        teammate_emails: data.teammate_emails.filter(Boolean).length > 0 ? data.teammate_emails.filter(Boolean) : undefined,
-        dietary: data.dietary || undefined,
-        accessibility: data.accessibility || undefined,
-        tshirt_size: data.tshirt_size as typeof TSHIRT_SIZES[number] | undefined,
-        needs_travel_help: data.needs_travel_help,
-        gender: data.gender || undefined,
-        ethnicity: data.ethnicity || undefined,
-        guardian_name: data.guardian_name || undefined,
-        guardian_phone: data.guardian_phone || undefined,
-        guardian_relationship: data.guardian_relationship || undefined,
-        consent_coc: data.consent_coc,
-        consent_privacy: data.consent_privacy,
-        consent_photo: data.consent_photo,
-        share_resume_with_sponsors: data.share_resume_with_sponsors,
-      };
+    saveTimeoutRef.current = setTimeout(() => {
+      enqueueSaveDraft(() => performSaveDraft(data));
+    }, 2000);
+  }, [performSaveDraft]);
 
-      const result = await saveDraft(draftData);
+  const saveResumePath = useCallback((path: string, currentData: FormData) => {
+    const updatedData = { ...currentData, resume_path: path };
+    saveDraftToLocalStorage(updatedData as unknown as Record<string, unknown>, submissionIdRef.current);
+    
+    enqueueSaveDraft(async () => {
+      const result = await saveDraft({ resume_path: path });
       if (result.ok) {
         setLastSaved(new Date(result.savedAt));
       }
-    }, 2000);
-  }, [userEmail]);
+    });
+  }, []);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
-      debouncedSave(next);
+      
+      if (field === "resume_path" && typeof value === "string") {
+        saveResumePath(value, prev);
+      } else {
+        debouncedSave(next);
+      }
+      
       return next;
     });
     if (errors[field]) {
@@ -291,14 +319,9 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
     setIsSubmitting(true);
     setSubmitError(null);
 
-    if (!submissionIdRef.current) {
-      submissionIdRef.current = generateSubmissionId();
-    }
-
     try {
       const result = await submitApplication(
         {
-          email: userEmail,
           first_name: formData.first_name,
           last_name: formData.last_name,
           phone: formData.phone,
@@ -308,7 +331,7 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
           country: formData.country,
           university: formData.university,
           program: formData.program,
-          year_of_study: parseInt(formData.year_of_study, 10),
+          year_of_study: formData.year_of_study,
           grad_date: formData.grad_date,
           hackathons_count: parseInt(formData.hackathons_count, 10),
           linkedin_url: formData.linkedin_url || null,
@@ -318,11 +341,11 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
           q_proud: formData.q_proud,
           q_hack: formData.q_hack,
           q_anything_else: formData.q_anything_else || null,
-          team_status: formData.team_status as typeof TEAM_STATUS[number],
+          team_status: formData.team_status as "solo" | "has_team" | "looking",
           teammate_emails: formData.teammate_emails.filter(Boolean),
           dietary: formData.dietary || null,
           accessibility: formData.accessibility || null,
-          tshirt_size: formData.tshirt_size as typeof TSHIRT_SIZES[number],
+          tshirt_size: formData.tshirt_size,
           needs_travel_help: formData.needs_travel_help,
           gender: formData.gender || null,
           ethnicity: formData.ethnicity || null,
@@ -333,7 +356,6 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
           consent_privacy: formData.consent_privacy,
           consent_photo: formData.consent_photo || null,
           share_resume_with_sponsors: formData.share_resume_with_sponsors || null,
-          submission_id: submissionIdRef.current,
         },
         {
           turnstileToken,
@@ -358,9 +380,13 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
           );
         }
 
-        if (errorCode === "not_verified") {
+        if (errorCode === "turnstile") {
+          setTurnstileToken(null);
+          setNeedsTurnstileReset((n) => n + 1);
+        } else if (errorCode === "not_verified") {
           router.push("/verify");
         } else if (errorCode === "already_submitted") {
+          clearDraftFromLocalStorage();
           router.push("/apply/status");
         }
       }
@@ -386,7 +412,6 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8" noValidate>
-      {/* Honeypot field - visually hidden but not display:none */}
       <div
         aria-hidden="true"
         style={{
@@ -788,6 +813,7 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
 
       <div className="space-y-4">
         <TurnstileWidget
+          key={needsTurnstileReset}
           onVerify={(token) => setTurnstileToken(token)}
           onError={() => setTurnstileToken(null)}
           onExpire={() => setTurnstileToken(null)}

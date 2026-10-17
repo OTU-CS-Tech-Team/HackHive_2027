@@ -2,7 +2,7 @@
 
 import { useState, useId } from "react";
 import { suggestEmailCorrection } from "@/lib/application/form-utils";
-import { FIELD_LIMITS } from "@/lib/application/schema";
+import { FIELD_LIMITS } from "@/lib/constants";
 
 interface TeammateEmailsProps {
   value: string[];
