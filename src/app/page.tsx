@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
@@ -5,6 +6,21 @@ import { SponsorsSection } from "@/components/sections/SponsorsSection";
 export default function Home() {
   return (
     <main>
+      <section className="flex min-h-[80vh] flex-col items-center justify-center px-4 pt-16 text-center">
+        <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+          HackHive 2027
+        </h1>
+        <p className="mb-8 max-w-2xl text-lg text-neutral-600">
+          Join Ontario Tech University&apos;s premier hackathon. Build, learn, and connect with
+          fellow hackers from across the globe.
+        </p>
+        <Link
+          href="/signup"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
+        >
+          Sign up as a hacker
+        </Link>
+      </section>
       <SponsorsSection />
       <HackHive2025Section />
       <FaqSection />
