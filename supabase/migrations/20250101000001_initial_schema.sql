@@ -1,11 +1,19 @@
 -- HackHive 2027 Registration Backend Schema
 -- Migration 1: Initial schema setup
+--
+-- IMPORTANT: This migration ONLY creates new objects with reg_ prefix.
+-- It never alters, drops, replaces, or truncates existing tables/functions.
+-- All functions use plain CREATE (not CREATE OR REPLACE) so collisions fail loudly.
 
--- Enable required extensions
+-- Enable required extensions (safe if already exists)
 create extension if not exists "pgcrypto";
 
--- App settings table (single row for global configuration)
-create table public.app_settings (
+-- ============================================================================
+-- TABLES (all use IF NOT EXISTS, no destructive operations)
+-- ============================================================================
+
+-- Registration settings table (single row for global configuration)
+create table if not exists public.reg_settings (
   id int primary key default 1 check (id = 1),
   applications_open boolean not null default true,
   deadline timestamptz,
@@ -13,29 +21,27 @@ create table public.app_settings (
   updated_at timestamptz not null default now()
 );
 
--- Insert default settings row
-insert into public.app_settings (id) values (1);
+-- Insert default settings row only if table is empty
+insert into public.reg_settings (id)
+select 1
+where not exists (select 1 from public.reg_settings where id = 1);
 
--- Admins table
-create table public.admins (
+-- Registration admins table (separate from any existing admin_users table)
+create table if not exists public.reg_admins (
   user_id uuid primary key references auth.users on delete cascade,
   created_at timestamptz not null default now()
 );
 
--- Security definer function to check if current user is admin
-create or replace function public.is_admin()
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from public.admins where user_id = auth.uid()
-  );
-$$;
+-- Rate limiting table (keyed by SHA-256 hash of IP or email)
+create table if not exists public.reg_rate_limits (
+  key_hash text primary key,
+  count int not null default 1,
+  window_start timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
 
 -- Applications table with all required fields and constraints
-create table public.applications (
+create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique not null references auth.users on delete cascade,
   email text unique not null,
@@ -98,11 +104,44 @@ create table public.applications (
   share_resume_with_sponsors boolean default false,
   
   -- Email must be lowercase
-  constraint email_lowercase check (email = lower(email))
+  constraint applications_email_lowercase check (email = lower(email))
 );
 
--- Function to update updated_at timestamp
-create or replace function public.update_updated_at()
+-- ============================================================================
+-- FUNCTIONS (plain CREATE, no OR REPLACE - collisions fail loudly)
+-- All helper functions prefixed with reg_
+-- ============================================================================
+
+-- Function to check if current user is a registration admin
+-- Used by RLS policies, granted to authenticated
+create function public.reg_is_admin()
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from public.reg_admins where user_id = auth.uid()
+  );
+$$;
+
+-- Function to check if applications are currently accepting submissions
+-- Used by RLS policies, granted to authenticated
+create function public.reg_can_submit()
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select 
+    coalesce(applications_open, true) 
+    and (deadline is null or deadline > now())
+  from public.reg_settings 
+  where id = 1;
+$$;
+
+-- Function to update updated_at timestamp (trigger function)
+create function public.reg_update_updated_at()
 returns trigger
 language plpgsql
 as $$
@@ -112,29 +151,20 @@ begin
 end;
 $$;
 
--- Trigger for applications updated_at
-create trigger applications_updated_at
-  before update on public.applications
-  for each row
-  execute function public.update_updated_at();
-
--- Trigger for app_settings updated_at
-create trigger app_settings_updated_at
-  before update on public.app_settings
-  for each row
-  execute function public.update_updated_at();
-
--- Rate limiting table (keyed by SHA-256 hash of IP or email)
-create table public.application_rate_limits (
-  key_hash text primary key,
-  count int not null default 1,
-  window_start timestamptz not null default now(),
-  created_at timestamptz not null default now()
-);
+-- Function to get deadline and open status
+-- SERVICE ROLE ONLY - not callable by clients
+create function public.reg_get_settings()
+returns table(applications_open boolean, deadline timestamptz)
+language sql
+security definer
+stable
+as $$
+  select applications_open, deadline from public.reg_settings where id = 1;
+$$;
 
 -- Atomic check-and-increment function for rate limiting
--- Returns true if within limit, false if exceeded
-create or replace function public.check_rate_limit(
+-- SERVICE ROLE ONLY - not callable by clients
+create function public.reg_check_rate_limit(
   p_key_hash text,
   p_window_seconds int default 3600,
   p_max_attempts int default 5
@@ -148,18 +178,17 @@ declare
   v_window_start timestamptz := v_now - (p_window_seconds || ' seconds')::interval;
   v_count int;
 begin
-  -- Insert or update atomically using ON CONFLICT
-  insert into public.application_rate_limits (key_hash, count, window_start)
+  insert into public.reg_rate_limits (key_hash, count, window_start)
   values (p_key_hash, 1, v_now)
   on conflict (key_hash) do update
   set
     count = case
-      when application_rate_limits.window_start < v_window_start then 1
-      else application_rate_limits.count + 1
+      when reg_rate_limits.window_start < v_window_start then 1
+      else reg_rate_limits.count + 1
     end,
     window_start = case
-      when application_rate_limits.window_start < v_window_start then v_now
-      else application_rate_limits.window_start
+      when reg_rate_limits.window_start < v_window_start then v_now
+      else reg_rate_limits.window_start
     end
   returning count into v_count;
   
@@ -168,7 +197,8 @@ end;
 $$;
 
 -- Cleanup function for old rate limit entries
-create or replace function public.cleanup_rate_limits(p_older_than_hours int default 24)
+-- SERVICE ROLE ONLY - not callable by clients
+create function public.reg_cleanup_rate_limits(p_older_than_hours int default 24)
 returns int
 language plpgsql
 security definer
@@ -176,7 +206,7 @@ as $$
 declare
   v_deleted int;
 begin
-  delete from public.application_rate_limits
+  delete from public.reg_rate_limits
   where window_start < now() - (p_older_than_hours || ' hours')::interval;
   
   get diagnostics v_deleted = row_count;
@@ -184,32 +214,88 @@ begin
 end;
 $$;
 
--- Function to get deadline and open status
-create or replace function public.get_application_settings()
-returns table(applications_open boolean, deadline timestamptz)
-language sql
-security definer
-stable
+-- Trigger function to protect restricted columns from client modification
+-- Allows changes only from service_role or the reg_submit_application function
+create function public.reg_protect_columns()
+returns trigger
+language plpgsql
 as $$
-  select applications_open, deadline from public.app_settings where id = 1;
-$$;
-
--- Function to check if applications are currently accepting submissions
-create or replace function public.can_submit_application()
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select 
-    coalesce(applications_open, true) 
-    and (deadline is null or deadline > now())
-  from public.app_settings 
-  where id = 1;
+begin
+  -- Service role bypasses all checks
+  if current_setting('role', true) = 'service_role' then
+    return new;
+  end if;
+  
+  -- For INSERT: enforce protected column values
+  if TG_OP = 'INSERT' then
+    -- id is auto-generated, user cannot set it
+    if new.id is distinct from gen_random_uuid() then
+      -- Allow the default, but if they try to set a specific value, block it
+      -- Actually we can't easily check this, so we rely on RLS + the checks below
+      null;
+    end if;
+    
+    -- These must match auth context on insert
+    if new.user_id is distinct from auth.uid() then
+      raise exception 'Cannot set user_id to a different user';
+    end if;
+    
+    if lower(new.email) is distinct from lower(auth.jwt()->>'email') then
+      raise exception 'Email must match authenticated user email';
+    end if;
+    
+    -- These must be null/draft on insert
+    if new.status is distinct from 'draft' then
+      raise exception 'New applications must have status draft';
+    end if;
+    
+    if new.submitted_at is not null then
+      raise exception 'Cannot set submitted_at on insert';
+    end if;
+    
+    if new.submission_id is not null then
+      raise exception 'Cannot set submission_id on insert';
+    end if;
+  end if;
+  
+  -- For UPDATE: block changes to protected columns
+  if TG_OP = 'UPDATE' then
+    if new.id is distinct from old.id then
+      raise exception 'Cannot change id';
+    end if;
+    
+    if new.user_id is distinct from old.user_id then
+      raise exception 'Cannot change user_id';
+    end if;
+    
+    if new.email is distinct from old.email then
+      raise exception 'Cannot change email';
+    end if;
+    
+    if new.status is distinct from old.status then
+      raise exception 'Cannot change status directly';
+    end if;
+    
+    if new.submitted_at is distinct from old.submitted_at then
+      raise exception 'Cannot change submitted_at directly';
+    end if;
+    
+    if new.submission_id is distinct from old.submission_id then
+      raise exception 'Cannot change submission_id directly';
+    end if;
+    
+    if new.created_at is distinct from old.created_at then
+      raise exception 'Cannot change created_at';
+    end if;
+  end if;
+  
+  return new;
+end;
 $$;
 
 -- RPC function for atomic submit (prevents race conditions)
-create or replace function public.submit_application(
+-- SERVICE ROLE ONLY - called from server action, not directly by clients
+create function public.reg_submit_application(
   p_submission_id text,
   p_first_name text,
   p_last_name text,
@@ -244,33 +330,32 @@ create or replace function public.submit_application(
   p_consent_coc boolean,
   p_consent_privacy boolean,
   p_consent_photo boolean,
-  p_share_resume_with_sponsors boolean
+  p_share_resume_with_sponsors boolean,
+  p_user_id uuid  -- passed from server, not from auth.uid()
 )
 returns jsonb
 language plpgsql
 security definer
 as $$
 declare
-  v_user_id uuid := auth.uid();
   v_now timestamptz := now();
-  v_result jsonb;
   v_app_id uuid;
   v_submitted_at timestamptz;
   v_existing record;
 begin
-  if v_user_id is null then
-    return jsonb_build_object('error', 'not_authenticated');
-  end if;
-  
   -- Check if applications are open and before deadline
-  if not public.can_submit_application() then
+  if not (
+    select coalesce(applications_open, true) and (deadline is null or deadline > now())
+    from public.reg_settings where id = 1
+  ) then
     return jsonb_build_object('error', 'applications_closed');
   end if;
   
   -- Check for existing row with same submission_id (return original success)
+  -- This MUST happen before rate limiting since Turnstile tokens are single-use
   select id, submitted_at into v_existing
   from public.applications
-  where submission_id = p_submission_id and user_id = v_user_id;
+  where submission_id = p_submission_id and user_id = p_user_id;
   
   if found and v_existing.submitted_at is not null then
     return jsonb_build_object(
@@ -283,10 +368,14 @@ begin
   -- Check if already submitted (different submission_id but same user)
   select id, submitted_at into v_existing
   from public.applications
-  where user_id = v_user_id and status = 'submitted';
+  where user_id = p_user_id and status = 'submitted';
   
   if found then
-    return jsonb_build_object('error', 'already_submitted');
+    return jsonb_build_object(
+      'ok', true,
+      'application_id', v_existing.id,
+      'submitted_at', v_existing.submitted_at
+    );
   end if;
   
   -- Atomic update with conditional WHERE clause
@@ -329,11 +418,10 @@ begin
     consent_privacy = p_consent_privacy,
     consent_photo = p_consent_photo,
     share_resume_with_sponsors = p_share_resume_with_sponsors
-  where user_id = v_user_id and status = 'draft'
+  where user_id = p_user_id and status = 'draft'
   returning id, submitted_at into v_app_id, v_submitted_at;
   
   if v_app_id is null then
-    -- No draft found - either doesn't exist or already submitted
     return jsonb_build_object('error', 'no_draft_found');
   end if;
   
@@ -345,73 +433,131 @@ begin
 end;
 $$;
 
--- Enable RLS on all tables
+-- ============================================================================
+-- TRIGGERS (drop if exists then create, all prefixed with reg_)
+-- ============================================================================
+
+drop trigger if exists reg_applications_updated_at on public.applications;
+create trigger reg_applications_updated_at
+  before update on public.applications
+  for each row
+  execute function public.reg_update_updated_at();
+
+drop trigger if exists reg_settings_updated_at on public.reg_settings;
+create trigger reg_settings_updated_at
+  before update on public.reg_settings
+  for each row
+  execute function public.reg_update_updated_at();
+
+drop trigger if exists reg_applications_protect_columns on public.applications;
+create trigger reg_applications_protect_columns
+  before insert or update on public.applications
+  for each row
+  execute function public.reg_protect_columns();
+
+-- ============================================================================
+-- ROW LEVEL SECURITY
+-- ============================================================================
+
 alter table public.applications enable row level security;
-alter table public.admins enable row level security;
-alter table public.app_settings enable row level security;
-alter table public.application_rate_limits enable row level security;
+alter table public.reg_admins enable row level security;
+alter table public.reg_settings enable row level security;
+alter table public.reg_rate_limits enable row level security;
 
--- RLS Policies for applications
-
--- Applicants can view their own row
-create policy "Users can view own application"
+-- Applications: users can view their own
+drop policy if exists "reg_users_select_own_application" on public.applications;
+create policy "reg_users_select_own_application"
   on public.applications for select
   using (auth.uid() = user_id);
 
--- Applicants can insert their own row
-create policy "Users can insert own application"
+-- Applications: users can insert their own draft (with strict checks)
+drop policy if exists "reg_users_insert_own_application" on public.applications;
+create policy "reg_users_insert_own_application"
   on public.applications for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and lower(email) = lower(auth.jwt()->>'email')
+    and status = 'draft'
+    and submitted_at is null
+    and submission_id is null
+    and (
+      select coalesce(applications_open, true) and (deadline is null or deadline > now())
+      from public.reg_settings where id = 1
+    )
+  );
 
--- Applicants can update their own row ONLY while draft and before deadline
--- Note: They cannot update status, submitted_at, user_id, or email directly
-create policy "Users can update own draft application"
+-- Applications: users can update their own draft while open
+drop policy if exists "reg_users_update_own_draft" on public.applications;
+create policy "reg_users_update_own_draft"
   on public.applications for update
   using (
     auth.uid() = user_id 
     and status = 'draft'
-    and public.can_submit_application()
+    and (
+      select coalesce(applications_open, true) and (deadline is null or deadline > now())
+      from public.reg_settings where id = 1
+    )
   )
   with check (
     auth.uid() = user_id
     and status = 'draft'
   );
 
--- Admins can view all applications
-create policy "Admins can view all applications"
+-- Applications: admins can view all
+drop policy if exists "reg_admins_select_all_applications" on public.applications;
+create policy "reg_admins_select_all_applications"
   on public.applications for select
-  using (public.is_admin());
+  using (public.reg_is_admin());
 
--- No delete policy for applicants (they cannot delete)
+-- reg_admins: admins can view
+drop policy if exists "reg_admins_select_reg_admins" on public.reg_admins;
+create policy "reg_admins_select_reg_admins"
+  on public.reg_admins for select
+  using (public.reg_is_admin());
 
--- RLS Policies for admins table
-create policy "Admins can view admins"
-  on public.admins for select
-  using (public.is_admin());
-
--- RLS Policies for app_settings
-create policy "Anyone can view app_settings"
-  on public.app_settings for select
+-- reg_settings: anyone can view
+drop policy if exists "reg_anyone_select_settings" on public.reg_settings;
+create policy "reg_anyone_select_settings"
+  on public.reg_settings for select
   using (true);
 
-create policy "Admins can update app_settings"
-  on public.app_settings for update
-  using (public.is_admin());
+-- reg_settings: admins can update
+drop policy if exists "reg_admins_update_settings" on public.reg_settings;
+create policy "reg_admins_update_settings"
+  on public.reg_settings for update
+  using (public.reg_is_admin());
 
--- RLS Policies for rate_limits (not readable by clients)
--- No select/insert/update/delete policies for regular users
-create policy "Service role only for rate_limits"
-  on public.application_rate_limits for all
+-- reg_rate_limits: no client access (service role only)
+drop policy if exists "reg_no_client_access_rate_limits" on public.reg_rate_limits;
+create policy "reg_no_client_access_rate_limits"
+  on public.reg_rate_limits for all
   using (false);
 
--- Grant execute on functions
-grant execute on function public.is_admin() to authenticated;
-grant execute on function public.get_application_settings() to anon, authenticated;
-grant execute on function public.can_submit_application() to authenticated;
-grant execute on function public.submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean) to authenticated;
+-- ============================================================================
+-- PERMISSIONS
+-- ============================================================================
 
--- Index for faster lookups
-create index idx_applications_user_id on public.applications(user_id);
-create index idx_applications_status on public.applications(status);
-create index idx_applications_submission_id on public.applications(submission_id) where submission_id is not null;
-create index idx_rate_limits_window on public.application_rate_limits(window_start);
+-- Functions needed by RLS policies - grant to authenticated
+grant execute on function public.reg_is_admin() to authenticated;
+grant execute on function public.reg_can_submit() to authenticated;
+
+-- Revoke all privileges from public/anon/authenticated on service-role-only functions
+revoke all on function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, uuid) from public, anon, authenticated;
+revoke all on function public.reg_check_rate_limit(text, int, int) from public, anon, authenticated;
+revoke all on function public.reg_cleanup_rate_limits(int) from public, anon, authenticated;
+revoke all on function public.reg_get_settings() from public, anon, authenticated;
+
+-- Grant service-role-only functions to service_role
+grant execute on function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, uuid) to service_role;
+grant execute on function public.reg_check_rate_limit(text, int, int) to service_role;
+grant execute on function public.reg_cleanup_rate_limits(int) to service_role;
+grant execute on function public.reg_get_settings() to service_role;
+
+-- ============================================================================
+-- INDEXES
+-- ============================================================================
+
+create index if not exists idx_applications_user_id on public.applications(user_id);
+create index if not exists idx_applications_status on public.applications(status);
+create index if not exists idx_applications_submission_id on public.applications(submission_id) where submission_id is not null;
+create index if not exists idx_reg_rate_limits_window on public.reg_rate_limits(window_start);

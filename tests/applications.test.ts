@@ -7,11 +7,12 @@
  * 3. Run tests: npm run test
  * 
  * These tests cover:
- * - RLS policies (user isolation, admin access)
+ * - RLS policies (user isolation, admin access, protected column triggers)
  * - Double submit / concurrent submit handling
  * - Idempotency (via submission_id)
  * - Deadline lock
- * - Rate limiting under concurrency
+ * - Rate limiting under concurrency (service_role only)
+ * - Authenticated users cannot call service-role-only functions
  * - Honeypot detection
  * - Too-fast submission detection
  * - Under-18 guardian rule (including guardian_relationship)
@@ -84,18 +85,18 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Applications RLS', () => {
     userB = await createTestUser(`test-user-b-${Date.now()}@test.com`);
     adminUser = await createTestUser(`test-admin-${Date.now()}@test.com`);
 
-    await serviceClient.from('admins').insert({ user_id: adminUser.id });
+    await serviceClient.from('reg_admins').insert({ user_id: adminUser.id });
   });
 
   afterAll(async () => {
     await serviceClient.from('applications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await serviceClient.from('admins').delete().eq('user_id', adminUser.id);
+    await serviceClient.from('reg_admins').delete().eq('user_id', adminUser.id);
     await deleteTestUser(userA.id);
     await deleteTestUser(userB.id);
     await deleteTestUser(adminUser.id);
   });
 
-  it('user can insert their own application', async () => {
+  it('user can insert their own application with draft status', async () => {
     const clientA = createAuthenticatedClient(userA.accessToken);
     
     const { error } = await clientA.from('applications').insert({
@@ -118,6 +119,7 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Applications RLS', () => {
     expect(error).toBeNull();
     expect(data).not.toBeNull();
     expect(data?.user_id).toBe(userA.id);
+    expect(data?.status).toBe('draft');
   });
 
   it('user cannot read another user\'s application', async () => {
@@ -153,21 +155,67 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Applications RLS', () => {
     expect(error).toBeNull();
   });
 
-  it('user cannot set status directly', async () => {
+  it('user cannot set status to submitted directly', async () => {
     const clientA = createAuthenticatedClient(userA.accessToken);
     
-    await clientA
+    const { error } = await clientA
       .from('applications')
       .update({ status: 'submitted' })
       .eq('user_id', userA.id);
 
-    const { data } = await clientA
-      .from('applications')
-      .select('status')
-      .eq('user_id', userA.id)
-      .single();
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain('Cannot change status');
+  });
 
-    expect(data?.status).toBe('draft');
+  it('user cannot change email directly', async () => {
+    const clientA = createAuthenticatedClient(userA.accessToken);
+    
+    const { error } = await clientA
+      .from('applications')
+      .update({ email: 'hacked@evil.com' })
+      .eq('user_id', userA.id);
+
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain('Cannot change email');
+  });
+
+  it('user cannot set submitted_at directly', async () => {
+    const clientA = createAuthenticatedClient(userA.accessToken);
+    
+    const { error } = await clientA
+      .from('applications')
+      .update({ submitted_at: new Date().toISOString() })
+      .eq('user_id', userA.id);
+
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain('Cannot change submitted_at');
+  });
+
+  it('user cannot set submission_id directly', async () => {
+    const clientA = createAuthenticatedClient(userA.accessToken);
+    
+    const { error } = await clientA
+      .from('applications')
+      .update({ submission_id: 'fake-id' })
+      .eq('user_id', userA.id);
+
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain('Cannot change submission_id');
+  });
+
+  it('user cannot insert with status submitted', async () => {
+    await serviceClient.from('applications').delete().eq('user_id', userB.id);
+    
+    const clientB = createAuthenticatedClient(userB.accessToken);
+    
+    const { error } = await clientB.from('applications').insert({
+      user_id: userB.id,
+      email: userB.email.toLowerCase(),
+      status: 'submitted',
+    });
+
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain('status draft');
   });
 
   it('anon cannot read any applications', async () => {
@@ -189,7 +237,137 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Applications RLS', () => {
   });
 });
 
-describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application', () => {
+describe.skipIf(!process.env.SUPABASE_RUNNING)('Service-Role Only Functions', () => {
+  let testUser: TestUser;
+
+  beforeAll(async () => {
+    testUser = await createTestUser(`test-rpc-${Date.now()}@test.com`);
+  });
+
+  afterAll(async () => {
+    await serviceClient.from('applications').delete().eq('user_id', testUser.id);
+    await deleteTestUser(testUser.id);
+  });
+
+  it('authenticated user cannot call reg_submit_application directly', async () => {
+    const client = createAuthenticatedClient(testUser.accessToken);
+    
+    const { error } = await client.rpc('reg_submit_application', {
+      p_submission_id: 'test',
+      p_first_name: 'Test',
+      p_last_name: 'User',
+      p_phone: '1234567890',
+      p_age: 21,
+      p_pronouns: null,
+      p_city: 'TestCity',
+      p_country: 'TestCountry',
+      p_university: 'Test University',
+      p_program: 'Computer Science',
+      p_year_of_study: '3rd',
+      p_grad_date: null,
+      p_hackathons_count: null,
+      p_linkedin_url: null,
+      p_github_url: null,
+      p_portfolio_url: null,
+      p_resume_path: `${testUser.id}/resume.pdf`,
+      p_q_proud: 'Test',
+      p_q_hack: 'Test',
+      p_q_anything_else: null,
+      p_team_status: 'solo',
+      p_teammate_emails: null,
+      p_dietary: null,
+      p_accessibility: null,
+      p_tshirt_size: 'M',
+      p_needs_travel_help: null,
+      p_gender: null,
+      p_ethnicity: null,
+      p_guardian_name: null,
+      p_guardian_phone: null,
+      p_guardian_relationship: null,
+      p_consent_coc: true,
+      p_consent_privacy: true,
+      p_consent_photo: null,
+      p_share_resume_with_sponsors: null,
+      p_user_id: testUser.id,
+    });
+
+    expect(error).not.toBeNull();
+  });
+
+  it('authenticated user cannot call reg_check_rate_limit directly', async () => {
+    const client = createAuthenticatedClient(testUser.accessToken);
+    
+    const { error } = await client.rpc('reg_check_rate_limit', {
+      p_key_hash: 'test-key',
+      p_window_seconds: 3600,
+      p_max_attempts: 5,
+    });
+
+    expect(error).not.toBeNull();
+  });
+
+  it('authenticated user cannot call reg_cleanup_rate_limits directly', async () => {
+    const client = createAuthenticatedClient(testUser.accessToken);
+    
+    const { error } = await client.rpc('reg_cleanup_rate_limits', {
+      p_older_than_hours: 24,
+    });
+
+    expect(error).not.toBeNull();
+  });
+
+  it('service role can call reg_submit_application', async () => {
+    await serviceClient.from('applications').insert({
+      user_id: testUser.id,
+      email: testUser.email.toLowerCase(),
+      status: 'draft',
+    });
+
+    const { data, error } = await serviceClient.rpc('reg_submit_application', {
+      p_submission_id: `test-${Date.now()}`,
+      p_first_name: 'Test',
+      p_last_name: 'User',
+      p_phone: '1234567890',
+      p_age: 21,
+      p_pronouns: null,
+      p_city: 'TestCity',
+      p_country: 'TestCountry',
+      p_university: 'Test University',
+      p_program: 'Computer Science',
+      p_year_of_study: '3rd',
+      p_grad_date: null,
+      p_hackathons_count: null,
+      p_linkedin_url: null,
+      p_github_url: null,
+      p_portfolio_url: null,
+      p_resume_path: `${testUser.id}/resume.pdf`,
+      p_q_proud: 'Test',
+      p_q_hack: 'Test',
+      p_q_anything_else: null,
+      p_team_status: 'solo',
+      p_teammate_emails: null,
+      p_dietary: null,
+      p_accessibility: null,
+      p_tshirt_size: 'M',
+      p_needs_travel_help: null,
+      p_gender: null,
+      p_ethnicity: null,
+      p_guardian_name: null,
+      p_guardian_phone: null,
+      p_guardian_relationship: null,
+      p_consent_coc: true,
+      p_consent_privacy: true,
+      p_consent_photo: null,
+      p_share_resume_with_sponsors: null,
+      p_user_id: testUser.id,
+    });
+
+    expect(error).toBeNull();
+    expect(data?.ok).toBe(true);
+  });
+});
+
+describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service Role', () => {
   let testUser: TestUser;
 
   beforeAll(async () => {
@@ -205,17 +383,16 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application', () => {
     await serviceClient.from('applications').delete().eq('user_id', testUser.id);
   });
 
-  it('prevents double submit with submission_id', async () => {
+  it('prevents double submit with submission_id (returns original success)', async () => {
     await serviceClient.from('applications').insert({
       user_id: testUser.id,
       email: testUser.email.toLowerCase(),
       status: 'draft',
     });
 
-    const client = createAuthenticatedClient(testUser.accessToken);
     const submissionId = `sub-${Date.now()}`;
 
-    const result1 = await client.rpc('submit_application', {
+    const result1 = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: submissionId,
       p_first_name: 'Test',
       p_last_name: 'User',
@@ -251,12 +428,13 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application', () => {
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
+      p_user_id: testUser.id,
     });
 
     expect(result1.data?.ok).toBe(true);
     const firstSubmittedAt = result1.data?.submitted_at;
 
-    const result2 = await client.rpc('submit_application', {
+    const result2 = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: submissionId,
       p_first_name: 'Test',
       p_last_name: 'User',
@@ -292,6 +470,7 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application', () => {
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
+      p_user_id: testUser.id,
     });
 
     expect(result2.data?.ok).toBe(true);
@@ -305,17 +484,16 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application', () => {
     expect(count).toBe(1);
   });
 
-  it('rejects submit after already submitted', async () => {
+  it('returns original success if already submitted with different submission_id', async () => {
     await serviceClient.from('applications').insert({
       user_id: testUser.id,
       email: testUser.email.toLowerCase(),
       status: 'submitted',
       submitted_at: new Date().toISOString(),
+      submission_id: 'original-submission',
     });
 
-    const client = createAuthenticatedClient(testUser.accessToken);
-
-    const result = await client.rpc('submit_application', {
+    const result = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: `new-key-${Date.now()}`,
       p_first_name: 'Test',
       p_last_name: 'User',
@@ -351,9 +529,11 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application', () => {
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
+      p_user_id: testUser.id,
     });
 
-    expect(result.data?.error).toBe('already_submitted');
+    expect(result.data?.ok).toBe(true);
+    expect(result.data?.application_id).toBeDefined();
   });
 });
 
@@ -366,13 +546,13 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Deadline Lock', () => {
 
   afterAll(async () => {
     await serviceClient.from('applications').delete().eq('user_id', testUser.id);
-    await serviceClient.from('app_settings').update({ deadline: null, applications_open: true }).eq('id', 1);
+    await serviceClient.from('reg_settings').update({ deadline: null, applications_open: true }).eq('id', 1);
     await deleteTestUser(testUser.id);
   });
 
   it('prevents submit after deadline', async () => {
     const pastDeadline = new Date(Date.now() - 1000).toISOString();
-    await serviceClient.from('app_settings').update({ deadline: pastDeadline }).eq('id', 1);
+    await serviceClient.from('reg_settings').update({ deadline: pastDeadline }).eq('id', 1);
 
     await serviceClient.from('applications').insert({
       user_id: testUser.id,
@@ -380,9 +560,7 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Deadline Lock', () => {
       status: 'draft',
     });
 
-    const client = createAuthenticatedClient(testUser.accessToken);
-
-    const result = await client.rpc('submit_application', {
+    const result = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: `deadline-test-${Date.now()}`,
       p_first_name: 'Test',
       p_last_name: 'User',
@@ -418,28 +596,30 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Deadline Lock', () => {
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
+      p_user_id: testUser.id,
     });
 
     expect(result.data?.error).toBe('applications_closed');
   });
 
-  it('prevents update after deadline', async () => {
+  it('prevents update after deadline via RLS', async () => {
     const client = createAuthenticatedClient(testUser.accessToken);
 
-    const { error } = await client
+    const { data } = await client
       .from('applications')
       .update({ first_name: 'Updated' })
-      .eq('user_id', testUser.id);
+      .eq('user_id', testUser.id)
+      .select();
 
-    expect(error).not.toBeNull();
+    expect(data).toHaveLength(0);
   });
 });
 
-describe.skipIf(!process.env.SUPABASE_RUNNING)('Rate Limiting', () => {
-  it('check_rate_limit returns true for first request', async () => {
+describe.skipIf(!process.env.SUPABASE_RUNNING)('Rate Limiting (Service Role)', () => {
+  it('reg_check_rate_limit returns true for first request', async () => {
     const keyHash = `test-key-${Date.now()}`;
     
-    const { data } = await serviceClient.rpc('check_rate_limit', {
+    const { data } = await serviceClient.rpc('reg_check_rate_limit', {
       p_key_hash: keyHash,
       p_window_seconds: 3600,
       p_max_attempts: 5,
@@ -448,18 +628,18 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Rate Limiting', () => {
     expect(data).toBe(true);
   });
 
-  it('check_rate_limit returns false after exceeding limit', async () => {
+  it('reg_check_rate_limit returns false after exceeding limit', async () => {
     const keyHash = `test-key-exceed-${Date.now()}`;
     
     for (let i = 0; i < 5; i++) {
-      await serviceClient.rpc('check_rate_limit', {
+      await serviceClient.rpc('reg_check_rate_limit', {
         p_key_hash: keyHash,
         p_window_seconds: 3600,
         p_max_attempts: 5,
       });
     }
 
-    const { data } = await serviceClient.rpc('check_rate_limit', {
+    const { data } = await serviceClient.rpc('reg_check_rate_limit', {
       p_key_hash: keyHash,
       p_window_seconds: 3600,
       p_max_attempts: 5,

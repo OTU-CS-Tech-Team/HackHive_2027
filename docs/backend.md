@@ -6,8 +6,63 @@ This document describes the backend implementation for HackHive 2027 registratio
 
 - **Next.js 16** (App Router) with Server Actions
 - **Supabase** for database, auth, and storage
-- **Zod** for validation
+- **Zod 4** for validation
 - **Cloudflare Turnstile** for bot protection
+
+## Security Model
+
+### Client vs Service Role
+
+The backend enforces a strict separation between client-accessible and server-only operations:
+
+**Client-accessible (via RLS):**
+- Read/update own draft application
+- Upload resume to own folder
+- View registration settings
+
+**Service-role only (not callable by clients):**
+- `reg_submit_application()` - Atomic application submission
+- `reg_check_rate_limit()` - Rate limiting
+- `reg_cleanup_rate_limits()` - Rate limit cleanup
+- `reg_get_settings()` - Settings retrieval for server logic
+
+All service-role functions have `EXECUTE` revoked from `public`, `anon`, and `authenticated` roles. Only `service_role` can call them. The server actions use a sessionless service-role client for these operations.
+
+### Protected Columns Trigger
+
+A `BEFORE INSERT/UPDATE` trigger (`reg_protect_columns`) blocks client changes to:
+- `id`, `user_id`, `email` - Identity columns
+- `status`, `submitted_at`, `submission_id` - Submission state
+- `created_at` - Immutable timestamp
+
+Only service-role connections (via `reg_submit_application()`) can modify these columns.
+
+### RLS Policies
+
+**INSERT policy:**
+- `user_id = auth.uid()`
+- `lower(email) = lower(auth.jwt()->>'email')`
+- `status = 'draft'`
+- `submitted_at is null`
+- `submission_id is null`
+- Applications must be open and before deadline
+
+**UPDATE policy:**
+- Own row only
+- Status must be 'draft'
+- Applications must be open and before deadline
+
+## Important: Non-Destructive Migrations
+
+The HackHive Supabase project has existing tables (`profiles`, `admin_users`, `events`, `sponsors`, etc.). Our migrations:
+
+- **ONLY create new objects** - never alter, drop, or truncate existing tables
+- Use plain `CREATE FUNCTION` (not `CREATE OR REPLACE`) - collisions fail loudly
+- Use `CREATE ... IF NOT EXISTS` for tables
+- Use `DROP POLICY IF EXISTS` before `CREATE POLICY` for idempotency
+- Prefix all helper tables/functions with `reg_` to avoid conflicts
+- Never touch pre-existing functions like `public.is_admin()` (used by other team features)
+- The `applications` table keeps its name (no prefix)
 
 ## Setup
 
@@ -48,16 +103,23 @@ This document describes the backend implementation for HackHive 2027 registratio
 
 ### Making an Admin
 
-To make a user an admin, insert their user_id into the admins table:
+Registration admins are stored in the `reg_admins` table (separate from any existing `admin_users` table).
+
+To add a registration admin:
 
 ```sql
--- Using Supabase Studio or psql
-INSERT INTO public.admins (user_id) VALUES ('user-uuid-here');
+-- First, find the user's UUID from auth.users
+SELECT id, email FROM auth.users WHERE email = 'admin@example.com';
+
+-- Then insert into reg_admins
+INSERT INTO public.reg_admins (user_id) VALUES ('user-uuid-here');
 ```
 
 Or via the Supabase dashboard:
-1. Go to Table Editor → admins
-2. Insert a new row with the user's UUID
+1. Go to Table Editor → `reg_admins`
+2. Insert a new row with the user's UUID from `auth.users`
+
+**Note:** The `reg_admins` table is independent of any existing `admin_users` table in the project. A user must be explicitly added to `reg_admins` to have registration admin privileges.
 
 ## Database Schema
 
@@ -69,8 +131,8 @@ Main table storing hackathon applications. One row per user.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | uuid | Primary key |
-| user_id | uuid | References auth.users |
-| email | text | User's email (lowercase) |
+| user_id | uuid | References auth.users (unique) |
+| email | text | User's email (lowercase, unique) |
 | status | text | 'draft' or 'submitted' |
 | submitted_at | timestamptz | When submitted |
 | submission_id | text | Unique idempotency key for submission |
@@ -82,29 +144,52 @@ Main table storing hackathon applications. One row per user.
 | share_resume_with_sponsors | boolean | Whether to share resume |
 | ... | ... | See migration for full list |
 
-#### `admins`
-List of admin users.
+#### `reg_admins`
+List of registration admin users. Separate from any existing `admin_users` table.
 
 | Column | Type | Description |
 |--------|------|-------------|
 | user_id | uuid | Primary key, references auth.users |
+| created_at | timestamptz | When added |
 
-#### `app_settings`
-Single-row table for global settings.
+#### `reg_settings`
+Single-row table for registration settings.
 
 | Column | Type | Description |
 |--------|------|-------------|
 | applications_open | boolean | Whether applications are accepting |
 | deadline | timestamptz | Submission deadline |
 
-#### `application_rate_limits`
-Rate limiting table (not accessible by clients).
+#### `reg_rate_limits`
+Rate limiting table (not accessible by clients via RLS).
+
+### Functions (all prefixed with `reg_`)
+
+| Function | Callable By | Description |
+|----------|-------------|-------------|
+| `reg_is_admin()` | authenticated | Check if current user is a registration admin |
+| `reg_can_submit()` | authenticated | Check if applications are open and before deadline |
+| `reg_get_settings()` | service_role | Get deadline and open status |
+| `reg_submit_application(...)` | service_role | Atomic application submission |
+| `reg_check_rate_limit(...)` | service_role | Atomic rate limit check-and-increment |
+| `reg_cleanup_rate_limits(...)` | service_role | Clean up old rate limit entries |
+| `reg_update_updated_at()` | (trigger) | Trigger function for updated_at |
+| `reg_protect_columns()` | (trigger) | Trigger to block client changes to protected columns |
+
+### Triggers
+
+| Trigger | Table | Description |
+|---------|-------|-------------|
+| `reg_applications_updated_at` | applications | Updates `updated_at` on row changes |
+| `reg_settings_updated_at` | reg_settings | Updates `updated_at` on settings changes |
+| `reg_applications_protect_columns` | applications | Blocks client changes to protected columns |
 
 ### RLS Policies
 
-- **Applicants**: Can only read/write their own application
-- **Updates**: Only allowed while status='draft' and before deadline
-- **Admins**: Can read all applications
+- **Applicants**: Can only read/write their own draft application
+- **INSERT**: Requires `status='draft'`, matching user email, no submitted_at/submission_id, and open+before deadline
+- **UPDATE**: Only allowed while `status='draft'` and before deadline
+- **Registration Admins** (in `reg_admins`): Can read all applications
 - **No deletes**: Applicants cannot delete applications
 
 ## API Contract
@@ -115,7 +200,7 @@ All server actions are in `src/app/actions/applications.ts`.
 
 #### `saveDraft(fields)`
 
-Save a partial application draft.
+Save a partial application draft. Uses upsert with `onConflict: 'user_id'` to handle concurrent saves.
 
 **Input:** Partial application fields (all optional)
 
@@ -150,6 +235,17 @@ Submit the final application. Validates all fields and prevents modifications.
 - `startedAt`: Timestamp when user started filling form (for bot detection)
 - `website`: Honeypot field (should be empty)
 - `submissionId`: Unique key for idempotent submission
+
+**Processing order:**
+1. Check for existing submission by `submissionId` (returns original success if found)
+2. Check if already submitted (returns original success if found)
+3. Honeypot and timing checks
+4. Zod validation
+5. Rate limiting (only after validation passes)
+6. Turnstile verification
+7. Deadline check
+8. Resume verification
+9. Atomic submit via `reg_submit_application()`
 
 **Output:**
 ```typescript
@@ -187,6 +283,8 @@ Get the current user's application.
 - **Allowed types:** `application/pdf` only
 - **Path structure:** `<user_id>/resume-<uuid>.pdf`
 
+The bucket is created only if it doesn't exist (no destructive operations).
+
 ## Authentication
 
 Uses Supabase Auth with email verification.
@@ -211,23 +309,45 @@ Uses Supabase Auth with email verification.
 - `/auth/callback` - OAuth/magic link callback handler
 - `/auth/error` - Auth error page
 
+### Open Redirect Protection
+
+The `/auth/callback` route validates the `next` parameter:
+- Must start with a single `/` (not `//` or `/\`)
+- No protocol handlers (`:` not allowed)
+- URL origin must match the request origin
+- Falls back to `/` if validation fails
+
 ## Security Features
 
 ### Rate Limiting
-- By IP and email
-- 5 attempts per hour window
+
+- **Per-IP:** 100 attempts per hour (high limit for campus Wi-Fi shared IPs)
+- **Per-email:** 5 attempts per hour (tight limit)
+- Rate limit only counts after Zod validation passes
 - Uses HMAC-SHA256 hashed keys (never stores raw IP/email)
-- Atomic check-and-increment in database
+- Atomic check-and-increment via `reg_check_rate_limit()`
+- Called via service-role client only
 
 ### Bot Protection
+
 - Cloudflare Turnstile captcha
 - Honeypot field (`website`)
 - Minimum time check (3 seconds)
 
 ### Idempotency
+
 - Prevents double submissions
-- Same `submissionId` returns original success response
-- Concurrent submissions handled atomically in database
+- Same `submissionId` returns original success response (critical because Turnstile tokens are single-use)
+- Already-submitted users get their original success (not an error)
+- Concurrent submissions handled atomically via `reg_submit_application()`
+
+### Service Role Client
+
+The `createServiceClient()` function creates a sessionless Supabase client:
+- Uses `@supabase/supabase-js` (not `@supabase/ssr`)
+- No cookies, no session persistence
+- `autoRefreshToken: false`, `persistSession: false`
+- Only used server-side for calling service-role-only functions
 
 ## Environment Variables
 
@@ -251,17 +371,38 @@ Uses Supabase Auth with email verification.
 
 - `guardian_relationship` (required with `guardian_name` and `guardian_phone` when age < 18)
 
+## Table/Function Naming Convention
+
+All helper tables and functions are prefixed with `reg_` to avoid conflicts with existing project objects:
+
+| Original Name | Prefixed Name |
+|---------------|---------------|
+| `admins` | `reg_admins` |
+| `app_settings` | `reg_settings` |
+| `application_rate_limits` | `reg_rate_limits` |
+| `is_admin()` | `reg_is_admin()` |
+| `check_rate_limit()` | `reg_check_rate_limit()` |
+| `can_submit_application()` | `reg_can_submit()` |
+| `submit_application()` | `reg_submit_application()` |
+| `get_application_settings()` | `reg_get_settings()` |
+| `cleanup_rate_limits()` | `reg_cleanup_rate_limits()` |
+| `update_updated_at()` | `reg_update_updated_at()` |
+| (new) | `reg_protect_columns()` |
+
+The `applications` table keeps its name (no prefix).
+
 ## Deployment Checklist
 
 ### Supabase Setup (Production)
 
-1. Create a new Supabase project
-2. Run migrations: `supabase db push --linked`
-3. Configure Auth settings:
+1. Run migrations: `supabase db push --linked`
+   - Migrations are safe to run on existing databases
+   - They only create new objects, never alter/drop existing ones
+2. Configure Auth settings:
    - Enable email confirmations
    - Set site URL and redirect URLs
    - Configure SMTP for email sending
-4. Create the resumes storage bucket (migrations handle this)
+3. The resumes storage bucket is created by migrations if it doesn't exist
 
 ### Vercel Setup
 
@@ -277,7 +418,7 @@ Uses Supabase Auth with email verification.
 
 ### Post-Deploy
 
-1. Insert initial admin user
-2. Set `applications_open` and `deadline` in `app_settings`
+1. Add registration admins to `reg_admins` table (see "Making an Admin" above)
+2. Set `applications_open` and `deadline` in `reg_settings`
 3. Test auth flow end-to-end
 4. Test application submission flow

@@ -17,7 +17,8 @@ import crypto from 'crypto';
 
 const MIN_SUBMIT_TIME_MS = 3000;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const RATE_LIMIT_IP_MAX_ATTEMPTS = 100;
+const RATE_LIMIT_EMAIL_MAX_ATTEMPTS = 5;
 
 function hashKey(key: string): string {
   const secret = process.env.RATE_LIMIT_HASH_SECRET;
@@ -73,33 +74,55 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   }
 }
 
-async function checkRateLimit(ipHash: string, emailHash: string): Promise<boolean> {
-  const serviceClient = await createServiceClient();
+async function checkRateLimits(ipHash: string, emailHash: string): Promise<{ allowed: boolean; limitType?: 'ip' | 'email' }> {
+  const serviceClient = createServiceClient();
   
-  const { data: ipOk } = await serviceClient.rpc('check_rate_limit', {
+  const { data: ipOk, error: ipError } = await serviceClient.rpc('reg_check_rate_limit', {
     p_key_hash: `ip:${ipHash}`,
     p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-    p_max_attempts: RATE_LIMIT_MAX_ATTEMPTS,
+    p_max_attempts: RATE_LIMIT_IP_MAX_ATTEMPTS,
   });
   
-  if (ipOk === false) {
-    return false;
+  if (ipError) {
+    console.error('IP rate limit check error:', ipError);
   }
   
-  const { data: emailOk } = await serviceClient.rpc('check_rate_limit', {
+  if (ipOk === false) {
+    return { allowed: false, limitType: 'ip' };
+  }
+  
+  const { data: emailOk, error: emailError } = await serviceClient.rpc('reg_check_rate_limit', {
     p_key_hash: `email:${emailHash}`,
     p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-    p_max_attempts: RATE_LIMIT_MAX_ATTEMPTS,
+    p_max_attempts: RATE_LIMIT_EMAIL_MAX_ATTEMPTS,
   });
   
-  return emailOk !== false;
+  if (emailError) {
+    console.error('Email rate limit check error:', emailError);
+  }
+  
+  if (emailOk === false) {
+    return { allowed: false, limitType: 'email' };
+  }
+  
+  return { allowed: true };
 }
 
 async function checkDeadlineAndOpen(): Promise<boolean> {
   const supabase = await createClient();
   
-  const { data } = await supabase.rpc('can_submit_application');
-  return data === true;
+  const { data } = await supabase
+    .from('reg_settings')
+    .select('applications_open, deadline')
+    .eq('id', 1)
+    .single();
+  
+  if (!data) return false;
+  
+  const isOpen = data.applications_open !== false;
+  const beforeDeadline = !data.deadline || new Date(data.deadline) > new Date();
+  
+  return isOpen && beforeDeadline;
 }
 
 export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<SaveDraftResult> {
@@ -131,16 +154,6 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
 
     const supabase = await createClient();
 
-    const { data: existing } = await supabase
-      .from('applications')
-      .select('id, status')
-      .eq('user_id', user.id)
-      .single();
-
-    if (existing?.status === 'submitted') {
-      return { ok: false, code: 'already_submitted', error: 'Application already submitted' };
-    }
-
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(result.data)) {
       if (value !== undefined) {
@@ -148,30 +161,23 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
       }
     }
 
-    if (existing) {
-      const { error } = await supabase
-        .from('applications')
-        .update(updateData)
-        .eq('user_id', user.id)
-        .eq('status', 'draft');
-
-      if (error) {
-        console.error('Draft update error:', error);
-        return { ok: false, code: 'server', error: 'Failed to save draft' };
-      }
-    } else {
-      const { error } = await supabase
-        .from('applications')
-        .insert({
+    const { error } = await supabase
+      .from('applications')
+      .upsert(
+        {
           user_id: user.id,
           email: user.email.toLowerCase(),
           ...updateData,
-        });
+        },
+        { onConflict: 'user_id' }
+      );
 
-      if (error) {
-        console.error('Draft insert error:', error);
-        return { ok: false, code: 'server', error: 'Failed to create draft' };
+    if (error) {
+      console.error('Draft upsert error:', error);
+      if (error.message?.includes('already submitted') || error.message?.includes('status')) {
+        return { ok: false, code: 'already_submitted', error: 'Application already submitted' };
       }
+      return { ok: false, code: 'server', error: 'Failed to save draft' };
     }
 
     return { ok: true, savedAt: new Date().toISOString() };
@@ -260,6 +266,38 @@ export async function submitApplication(input: {
       return { ok: false, code: 'not_verified', error: 'Email not verified' };
     }
 
+    const serviceClient = createServiceClient();
+    
+    const { data: existingSubmission } = await serviceClient
+      .from('applications')
+      .select('id, submitted_at')
+      .eq('submission_id', input.submissionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    if (existingSubmission?.submitted_at) {
+      return {
+        ok: true,
+        applicationId: existingSubmission.id,
+        submittedAt: existingSubmission.submitted_at,
+      };
+    }
+    
+    const { data: alreadySubmitted } = await serviceClient
+      .from('applications')
+      .select('id, submitted_at')
+      .eq('user_id', user.id)
+      .eq('status', 'submitted')
+      .maybeSingle();
+    
+    if (alreadySubmitted?.submitted_at) {
+      return {
+        ok: true,
+        applicationId: alreadySubmitted.id,
+        submittedAt: alreadySubmitted.submitted_at,
+      };
+    }
+
     if (input.website && input.website.trim() !== '') {
       return { ok: false, code: 'validation', error: 'Invalid submission' };
     }
@@ -267,25 +305,6 @@ export async function submitApplication(input: {
     const elapsed = Date.now() - input.startedAt;
     if (elapsed < MIN_SUBMIT_TIME_MS) {
       return { ok: false, code: 'too_fast', error: 'Please take more time to fill out the form' };
-    }
-
-    const clientIp = await getClientIp();
-    const ipHash = hashKey(clientIp);
-    const emailHash = hashKey(user.email.toLowerCase());
-    
-    const withinLimit = await checkRateLimit(ipHash, emailHash);
-    if (!withinLimit) {
-      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
-    }
-
-    const turnstileValid = await verifyTurnstile(input.turnstileToken, clientIp);
-    if (!turnstileValid) {
-      return { ok: false, code: 'turnstile', error: 'Captcha verification failed. Please try again.' };
-    }
-
-    const canSubmit = await checkDeadlineAndOpen();
-    if (!canSubmit) {
-      return { ok: false, code: 'locked', error: 'Applications are closed or past deadline' };
     }
 
     const result = applicationSubmitSchema.safeParse(input.fields);
@@ -300,6 +319,25 @@ export async function submitApplication(input: {
         fieldErrors[path].push(issue.message);
       }
       return { ok: false, code: 'validation', error: 'Validation failed', fieldErrors };
+    }
+
+    const clientIp = await getClientIp();
+    const ipHash = hashKey(clientIp);
+    const emailHash = hashKey(user.email.toLowerCase());
+    
+    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
+    if (!rateLimitResult.allowed) {
+      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
+    }
+
+    const turnstileValid = await verifyTurnstile(input.turnstileToken, clientIp);
+    if (!turnstileValid) {
+      return { ok: false, code: 'turnstile', error: 'Captcha verification failed. Please try again.' };
+    }
+
+    const canSubmit = await checkDeadlineAndOpen();
+    if (!canSubmit) {
+      return { ok: false, code: 'locked', error: 'Applications are closed or past deadline' };
     }
 
     const data = result.data;
@@ -325,7 +363,7 @@ export async function submitApplication(input: {
       };
     }
 
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_application', {
+    const { data: rpcResult, error: rpcError } = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: input.submissionId,
       p_first_name: data.first_name,
       p_last_name: data.last_name,
@@ -361,6 +399,7 @@ export async function submitApplication(input: {
       p_consent_privacy: data.consent_privacy,
       p_consent_photo: data.consent_photo ?? null,
       p_share_resume_with_sponsors: data.share_resume_with_sponsors ?? null,
+      p_user_id: user.id,
     });
 
     if (rpcError) {
