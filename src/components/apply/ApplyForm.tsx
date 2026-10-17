@@ -115,6 +115,7 @@ const initialFormData: FormData = {
 
 interface ApplyFormProps {
   userEmail: string;
+  initialDraft?: Partial<FormData> | null;
 }
 
 function getInitialDeadlineState(): boolean {
@@ -122,15 +123,26 @@ function getInitialDeadlineState(): boolean {
   return new Date() > APPLICATION_DEADLINE;
 }
 
-function getInitialFormData(): FormData {
-  if (typeof window === "undefined") return initialFormData;
-  const stored = loadDraftFromLocalStorage();
-  if (!stored?.data) return initialFormData;
-  return {
-    ...initialFormData,
-    ...stored.data,
-    teammate_emails: Array.isArray(stored.data.teammate_emails) ? stored.data.teammate_emails as string[] : [],
-  } as FormData;
+function createInitialFormData(serverDraft?: Partial<FormData> | null): () => FormData {
+  return () => {
+    if (typeof window === "undefined") return initialFormData;
+    
+    const localStored = loadDraftFromLocalStorage();
+    const localData = localStored?.data || {};
+    
+    const merged = {
+      ...initialFormData,
+      ...serverDraft,
+      ...localData,
+    };
+    
+    return {
+      ...merged,
+      teammate_emails: Array.isArray(merged.teammate_emails) ? merged.teammate_emails as string[] : [],
+      age: merged.age?.toString() || "",
+      hackathons_count: merged.hackathons_count?.toString() || "0",
+    } as FormData;
+  };
 }
 
 function getInitialSubmissionId(): string {
@@ -143,9 +155,9 @@ function getInitialStartTime(): number {
   return Date.now();
 }
 
-export function ApplyForm({ userEmail }: ApplyFormProps) {
+export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
   const router = useRouter();
-  const [formData, setFormData] = useState<FormData>(getInitialFormData);
+  const [formData, setFormData] = useState<FormData>(createInitialFormData(initialDraft));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -320,8 +332,8 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
     setSubmitError(null);
 
     try {
-      const result = await submitApplication(
-        {
+      const result = await submitApplication({
+        fields: {
           first_name: formData.first_name,
           last_name: formData.last_name,
           phone: formData.phone,
@@ -333,7 +345,7 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
           program: formData.program,
           year_of_study: formData.year_of_study,
           grad_date: formData.grad_date,
-          hackathons_count: parseInt(formData.hackathons_count, 10),
+          hackathons_count: parseInt(formData.hackathons_count, 10) || null,
           linkedin_url: formData.linkedin_url || null,
           github_url: formData.github_url || null,
           portfolio_url: formData.portfolio_url || null,
@@ -357,13 +369,11 @@ export function ApplyForm({ userEmail }: ApplyFormProps) {
           consent_photo: formData.consent_photo || null,
           share_resume_with_sponsors: formData.share_resume_with_sponsors || null,
         },
-        {
-          turnstileToken,
-          startedAt: formStartedAt.current || Date.now(),
-          website: "",
-          submissionId: submissionIdRef.current,
-        }
-      );
+        turnstileToken,
+        startedAt: formStartedAt.current || Date.now(),
+        website: "",
+        submissionId: submissionIdRef.current,
+      });
 
       if (result.ok) {
         clearDraftFromLocalStorage();

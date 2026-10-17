@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -15,12 +16,22 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      await new Promise((r) => setTimeout(r, 500));
+      const supabase = createClient();
+      
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/apply`,
+        },
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
 
       setEmailSent(true);
-      localStorage.setItem("hackhive_pending_email", email);
-    } catch {
-      setError("Failed to send verification email. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send verification email. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -57,14 +68,6 @@ export default function SignupPage() {
             </button>
             .
           </p>
-          <div className="pt-4">
-            <Link
-              href="/verify"
-              className="text-sm text-neutral-600 underline hover:text-neutral-900"
-            >
-              I already have a verification code
-            </Link>
-          </div>
         </div>
       </main>
     );
@@ -114,10 +117,7 @@ export default function SignupPage() {
         </form>
 
         <p className="text-center text-sm text-neutral-600">
-          Already have an account?{" "}
-          <Link href="/verify" className="font-medium text-neutral-900 underline hover:no-underline">
-            Sign in
-          </Link>
+          A magic link will be sent to your email to sign in.
         </p>
       </div>
     </main>

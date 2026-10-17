@@ -1,10 +1,20 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getMyApplication, type GetApplicationResult } from "@/lib/application/api";
+import { getVerifiedUser } from "@/lib/auth/helpers";
+import { getMyApplication } from "@/lib/application/api";
 import type { Application } from "@/lib/application/schema";
+
+function LoadingSpinner() {
+  return (
+    <main className="flex min-h-screen items-center justify-center pt-16">
+      <div className="text-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+        <p className="mt-4 text-neutral-600">Loading your application...</p>
+      </div>
+    </main>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const styles =
@@ -163,40 +173,33 @@ function ApplicationView({ application }: { application: Application }) {
   );
 }
 
-export default function StatusPage() {
-  const router = useRouter();
-  const [result, setResult] = useState<GetApplicationResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+async function StatusPageContent() {
+  const user = await getVerifiedUser();
 
-  useEffect(() => {
-    const verified = localStorage.getItem("hackhive_verified");
+  if (!user) {
+    redirect("/auth/login?next=/apply/status");
+  }
 
-    if (!verified) {
-      router.replace("/signup");
-      return;
-    }
+  const result = await getMyApplication();
 
-    async function fetchApplication() {
-      const res = await getMyApplication();
-      setResult(res);
-      setIsLoading(false);
-    }
-
-    fetchApplication();
-  }, [router]);
-
-  if (isLoading) {
+  if (!result.ok) {
     return (
-      <main className="flex min-h-screen items-center justify-center pt-16">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
-          <p className="mt-4 text-neutral-600">Loading your application...</p>
+      <main className="flex min-h-screen flex-col items-center justify-center px-4 pt-16">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <h1 className="text-2xl font-bold">Error Loading Application</h1>
+          <p className="text-neutral-600">{result.error}</p>
+          <Link
+            href="/apply"
+            className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-6 py-3 font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
+          >
+            Go to Application
+          </Link>
         </div>
       </main>
     );
   }
 
-  if (!result || !result.ok || !result.application) {
+  if (!result.application) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4 pt-16">
         <div className="w-full max-w-md space-y-6 text-center">
@@ -221,7 +224,7 @@ export default function StatusPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold">My Application</h1>
           <p className="mt-2 text-neutral-600">
-            Review your submitted application details below.
+            Review your application details below.
           </p>
         </div>
         <ApplicationView application={result.application} />
@@ -235,5 +238,13 @@ export default function StatusPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function StatusPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <StatusPageContent />
+    </Suspense>
   );
 }

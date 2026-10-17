@@ -44,10 +44,18 @@ export function ResumeUpload({ value, onChange, disabled = false, error }: Resum
 
       setUploadProgress(30);
 
-      await new Promise((r) => setTimeout(r, 500));
-      setUploadProgress(70);
+      const uploadResponse = await fetch(result.signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/pdf",
+        },
+        body: file,
+      });
 
-      await new Promise((r) => setTimeout(r, 300));
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to storage");
+      }
+
       setUploadProgress(100);
 
       onChange(result.path);

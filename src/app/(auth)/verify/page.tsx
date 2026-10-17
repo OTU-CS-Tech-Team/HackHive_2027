@@ -1,19 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-function getInitialEmail(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("hackhive_pending_email") || "";
-}
+import { createClient } from "@/lib/supabase/client";
 
 export default function VerifyPage() {
   const router = useRouter();
   const [code, setCode] = useState("");
-  const initialEmail = useMemo(() => getInitialEmail(), []);
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,15 +18,21 @@ export default function VerifyPage() {
     setError(null);
 
     try {
-      await new Promise((r) => setTimeout(r, 500));
+      const supabase = createClient();
+      
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "email",
+      });
 
-      localStorage.setItem("hackhive_user_email", email);
-      localStorage.removeItem("hackhive_pending_email");
-      localStorage.setItem("hackhive_verified", "true");
+      if (verifyError) {
+        throw verifyError;
+      }
 
       router.push("/apply");
-    } catch {
-      setError("Invalid verification code. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid verification code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -82,9 +83,6 @@ export default function VerifyPage() {
               placeholder="000000"
               maxLength={6}
             />
-            <p className="mt-2 text-sm text-neutral-500">
-              For testing, enter any 6-digit code.
-            </p>
           </div>
 
           {error && (
