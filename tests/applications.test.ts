@@ -935,6 +935,27 @@ describe('Schema Validation', () => {
     });
     expect(allOptionalEmptyResult.success).toBe(true);
   });
+
+  it('draft schema produces null for cleared optional fields (not undefined)', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    // Simulate clearing a previously filled optional field
+    const clearedFieldsResult = applicationDraftSchema.safeParse({
+      pronouns: '',  // was 'they/them', now cleared
+      linkedin_url: '',  // was 'https://linkedin.com/in/user', now cleared
+      q_anything_else: null,  // form sends null for cleared fields
+      dietary: '   ',  // whitespace-only should also clear
+    });
+    
+    expect(clearedFieldsResult.success).toBe(true);
+    if (clearedFieldsResult.success) {
+      // These should be null, not undefined, so saveDraft will write them to DB
+      expect(clearedFieldsResult.data.pronouns).toBe(null);
+      expect(clearedFieldsResult.data.linkedin_url).toBe(null);
+      expect(clearedFieldsResult.data.q_anything_else).toBe(null);
+      expect(clearedFieldsResult.data.dietary).toBe(null);
+    }
+  });
 });
 
 describe('Redirect Validation', () => {

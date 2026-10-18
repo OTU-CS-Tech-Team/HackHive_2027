@@ -15,12 +15,29 @@ function normalizeUnicode(val: string): string {
 
 const unicodeNameRegex = /^[\p{L}\p{M}'\- ]+$/u;
 
-const urlSchema = z.preprocess(
+const urlSchemaForDraft = z.preprocess(
+  (val) => (val === null || val === '' || (typeof val === 'string' && val.trim() === '') ? null : val),
+  z.string().max(500).url().optional().nullable()
+);
+
+const urlSchemaForSubmit = z.preprocess(
   (val) => (val === null || val === '' ? undefined : val),
   z.string().max(500).url().optional()
 );
 
-const linkedinUrlSchema = z.preprocess(
+const linkedinUrlSchemaForDraft = z.preprocess(
+  (val) => (val === null || val === '' || (typeof val === 'string' && val.trim() === '') ? null : val),
+  z.string()
+    .max(500)
+    .refine(
+      (val) => !val || val.startsWith('https://linkedin.com/') || val.startsWith('https://www.linkedin.com/'),
+      { message: 'Must be a valid LinkedIn URL' }
+    )
+    .optional()
+    .nullable()
+);
+
+const linkedinUrlSchemaForSubmit = z.preprocess(
   (val) => (val === null || val === '' ? undefined : val),
   z.string()
     .max(500)
@@ -31,7 +48,19 @@ const linkedinUrlSchema = z.preprocess(
     .optional()
 );
 
-const githubUrlSchema = z.preprocess(
+const githubUrlSchemaForDraft = z.preprocess(
+  (val) => (val === null || val === '' || (typeof val === 'string' && val.trim() === '') ? null : val),
+  z.string()
+    .max(500)
+    .refine(
+      (val) => !val || val.startsWith('https://github.com/'),
+      { message: 'Must be a valid GitHub URL' }
+    )
+    .optional()
+    .nullable()
+);
+
+const githubUrlSchemaForSubmit = z.preprocess(
   (val) => (val === null || val === '' ? undefined : val),
   z.string()
     .max(500)
@@ -73,7 +102,15 @@ const nameFieldSchema = z
 const emptyToNull = <T,>(schema: z.ZodType<T>) =>
   z.preprocess((val) => (val === '' ? null : val), schema.optional().nullable());
 
-const optionalString = (maxLength: number, transform?: (val: string) => string) =>
+const optionalStringForDraft = (maxLength: number, transform?: (val: string) => string) =>
+  z.preprocess(
+    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? null : val),
+    transform
+      ? z.string().max(maxLength).transform(transform).optional().nullable()
+      : z.string().max(maxLength).optional().nullable()
+  );
+
+const optionalStringForSubmit = (maxLength: number, transform?: (val: string) => string) =>
   z.preprocess(
     (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val),
     transform
@@ -97,41 +134,41 @@ const teamStatusSchema = z.preprocess(
 export const applicationDraftSchema = z.object({
   first_name: nameFieldSchema,
   last_name: nameFieldSchema,
-  phone: optionalString(30),
+  phone: optionalStringForDraft(30),
   age: emptyToNull(z.coerce.number().int().min(13).max(100)),
-  pronouns: optionalString(50),
-  city: optionalString(100, normalizeUnicode),
-  country: optionalString(100, normalizeUnicode),
+  pronouns: optionalStringForDraft(50),
+  city: optionalStringForDraft(100, normalizeUnicode),
+  country: optionalStringForDraft(100, normalizeUnicode),
   
-  university: optionalString(200, normalizeUnicode),
-  program: optionalString(200, normalizeUnicode),
-  year_of_study: optionalString(50),
+  university: optionalStringForDraft(200, normalizeUnicode),
+  program: optionalStringForDraft(200, normalizeUnicode),
+  year_of_study: optionalStringForDraft(50),
   grad_date: gradDateSchema,
   hackathons_count: emptyToNull(z.coerce.number().int().min(0)),
   
-  linkedin_url: linkedinUrlSchema,
-  github_url: githubUrlSchema,
-  portfolio_url: urlSchema,
+  linkedin_url: linkedinUrlSchemaForDraft,
+  github_url: githubUrlSchemaForDraft,
+  portfolio_url: urlSchemaForDraft,
   resume_path: z.string().max(500).optional().nullable().or(z.literal('')),
   
   q_proud: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
   q_hack: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
-  q_anything_else: optionalString(MAX_CHARS_Q3, normalizeUnicode),
+  q_anything_else: optionalStringForDraft(MAX_CHARS_Q3, normalizeUnicode),
   
   team_status: teamStatusSchema,
   teammate_emails: teammateEmailsSchema,
   
-  dietary: optionalString(500),
-  accessibility: optionalString(1000),
-  tshirt_size: optionalString(20),
+  dietary: optionalStringForDraft(500),
+  accessibility: optionalStringForDraft(1000),
+  tshirt_size: optionalStringForDraft(20),
   needs_travel_help: z.boolean().optional().nullable(),
   
-  gender: optionalString(50),
-  ethnicity: optionalString(100),
+  gender: optionalStringForDraft(50),
+  ethnicity: optionalStringForDraft(100),
   
-  guardian_name: optionalString(200, normalizeUnicode),
-  guardian_phone: optionalString(30),
-  guardian_relationship: optionalString(100, normalizeUnicode),
+  guardian_name: optionalStringForDraft(200, normalizeUnicode),
+  guardian_phone: optionalStringForDraft(30),
+  guardian_relationship: optionalStringForDraft(100, normalizeUnicode),
   
   consent_coc: z.boolean().optional().nullable(),
   consent_privacy: z.boolean().optional().nullable(),
@@ -168,7 +205,7 @@ export const applicationSubmitSchema = z
     last_name: requiredName,
     phone: z.string().min(1, 'Required').max(30),
     age: z.coerce.number().int().min(13, 'Must be at least 13').max(100, 'Must be at most 100'),
-    pronouns: optionalString(50),
+    pronouns: optionalStringForSubmit(50),
     city: z.string().min(1, 'Required').max(100).transform(normalizeUnicode),
     country: z.string().min(1, 'Required').max(100).transform(normalizeUnicode),
 
@@ -178,14 +215,14 @@ export const applicationSubmitSchema = z
     grad_date: z.coerce.date().optional().nullable(),
     hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
 
-    linkedin_url: linkedinUrlSchema,
-    github_url: githubUrlSchema,
-    portfolio_url: urlSchema,
+    linkedin_url: linkedinUrlSchemaForSubmit,
+    github_url: githubUrlSchemaForSubmit,
+    portfolio_url: urlSchemaForSubmit,
     resume_path: z.string().min(1, 'Resume is required').max(500),
 
     q_proud: requiredQuestion(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
     q_hack: requiredQuestion(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
-    q_anything_else: optionalString(MAX_CHARS_Q3, normalizeUnicode),
+    q_anything_else: optionalStringForSubmit(MAX_CHARS_Q3, normalizeUnicode),
 
     team_status: z.enum(['solo', 'has_team', 'looking'], {
       error: 'Please select your team status',
@@ -195,17 +232,17 @@ export const applicationSubmitSchema = z
       .max(3, 'Maximum 3 teammate emails allowed')
       .optional(),
 
-    dietary: optionalString(500),
-    accessibility: optionalString(1000),
+    dietary: optionalStringForSubmit(500),
+    accessibility: optionalStringForSubmit(1000),
     tshirt_size: z.string().min(1, 'Required').max(20),
     needs_travel_help: z.boolean().optional().nullable(),
 
-    gender: optionalString(50),
-    ethnicity: optionalString(100),
+    gender: optionalStringForSubmit(50),
+    ethnicity: optionalStringForSubmit(100),
 
-    guardian_name: optionalString(200, normalizeUnicode),
-    guardian_phone: optionalString(30),
-    guardian_relationship: optionalString(100, normalizeUnicode),
+    guardian_name: optionalStringForSubmit(200, normalizeUnicode),
+    guardian_phone: optionalStringForSubmit(30),
+    guardian_relationship: optionalStringForSubmit(100, normalizeUnicode),
 
     consent_coc: z.literal(true, {
       error: 'You must agree to the Code of Conduct',
