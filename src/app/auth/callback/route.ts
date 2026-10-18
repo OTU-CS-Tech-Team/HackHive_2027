@@ -1,20 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-
-function getSafeRedirectPath(next: string | null): string {
-  if (!next) return '/apply';
-  
-  // Must start with exactly one forward slash (not // or /\)
-  if (!next.startsWith('/')) return '/apply';
-  if (next.startsWith('//')) return '/apply';
-  if (next.startsWith('/\\')) return '/apply';
-  if (next.length > 1 && next[1] === '\\') return '/apply';
-  
-  // Additional safety: no protocol handlers
-  if (next.includes(':')) return '/apply';
-  
-  return next;
-}
+import { isValidRedirectPath } from '@/lib/application/form-utils';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -33,7 +19,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(errorUrl);
   }
 
-  const safePath = getSafeRedirectPath(next);
+  const safePath = next && isValidRedirectPath(next) ? next : '/apply';
   
   // Build the redirect URL safely and verify origin matches
   const redirectUrl = new URL(safePath, origin);

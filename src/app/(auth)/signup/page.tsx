@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/helpers";
 import { SignupForm } from "./SignupForm";
 
 export const instant = false;
 
 export default async function SignupPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const verifiedUser = await getVerifiedUser();
   
-  if (user) {
+  if (verifiedUser) {
     redirect("/apply");
   }
 
