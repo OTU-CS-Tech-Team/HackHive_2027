@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { OAuthButtons, OrDivider } from "@/components/auth/OAuthButtons";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -79,9 +80,13 @@ export default function SignupPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold">Sign up for HackHive 2027</h1>
           <p className="mt-2 text-neutral-600">
-            Enter your email to get started with your application.
+            Create an account to start your application.
           </p>
         </div>
+
+        <OAuthButtons redirectPath="/apply" />
+
+        <OrDivider />
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>

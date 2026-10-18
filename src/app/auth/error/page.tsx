@@ -1,6 +1,13 @@
-import Link from "next/link";
+"use client";
 
-export default function AuthErrorPage() {
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+
+function AuthErrorContent() {
+  const searchParams = useSearchParams();
+  const errorMessage = searchParams.get("message");
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 pt-16">
       <div className="w-full max-w-md space-y-6 text-center">
@@ -22,7 +29,7 @@ export default function AuthErrorPage() {
         </div>
         <h1 className="text-2xl font-bold">Authentication Error</h1>
         <p className="text-neutral-600">
-          Something went wrong during authentication. The link may have expired or already been used.
+          {errorMessage || "Something went wrong during authentication. The link may have expired or already been used."}
         </p>
         <div className="flex flex-col gap-3 pt-4">
           <Link
@@ -40,5 +47,22 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center pt-16">
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+            <p className="mt-4 text-neutral-600">Loading...</p>
+          </div>
+        </main>
+      }
+    >
+      <AuthErrorContent />
+    </Suspense>
   );
 }

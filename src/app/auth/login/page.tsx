@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import { isValidRedirectPath } from "@/lib/application/form-utils";
+import { OAuthButtons, OrDivider } from "@/components/auth/OAuthButtons";
 
 function LoginForm() {
   const router = useRouter();
@@ -117,9 +118,13 @@ function LoginForm() {
         <div className="text-center">
           <h1 className="text-2xl font-bold">Sign in to HackHive 2027</h1>
           <p className="mt-2 text-neutral-600">
-            Enter your email to continue your application.
+            Sign in to continue your application.
           </p>
         </div>
+
+        <OAuthButtons redirectPath={next} />
+
+        <OrDivider />
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
