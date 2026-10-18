@@ -37,10 +37,6 @@ export function validatePdfFile(file: File): { valid: boolean; error?: string } 
   return { valid: true };
 }
 
-export function isDeadlinePassed(deadline: Date): boolean {
-  return new Date() > deadline;
-}
-
 export function isValidRedirectPath(path: string): boolean {
   if (!path || typeof path !== "string") return false;
   if (!path.startsWith("/")) return false;

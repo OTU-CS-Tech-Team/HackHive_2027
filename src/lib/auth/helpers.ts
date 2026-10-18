@@ -1,6 +1,5 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 
 export type VerifiedUser = User & {
@@ -20,30 +19,6 @@ export async function getVerifiedUser(): Promise<VerifiedUser | null> {
   if (!user) return null;
   if (!user.email) return null;
   if (!user.email_confirmed_at) return null;
-  
-  return user as VerifiedUser;
-}
-
-export async function requireUser(): Promise<User> {
-  const user = await getUser();
-  
-  if (!user) {
-    redirect('/auth/login');
-  }
-  
-  return user;
-}
-
-export async function requireVerifiedUser(): Promise<VerifiedUser> {
-  const user = await getUser();
-  
-  if (!user) {
-    redirect('/auth/login');
-  }
-  
-  if (!user.email || !user.email_confirmed_at) {
-    redirect('/auth/verify-email');
-  }
   
   return user as VerifiedUser;
 }

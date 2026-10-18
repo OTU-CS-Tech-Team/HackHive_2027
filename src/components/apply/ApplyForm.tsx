@@ -309,7 +309,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         turnstileRef.current?.reset();
 
         if (errorCode === "not_verified") {
-          router.push("/verify");
+          router.push("/auth/login");
         } else if (errorCode === "already_submitted") {
           clearDraftFromLocalStorage(userId);
           router.push("/apply/status");

@@ -161,15 +161,3 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 ```
-
-## Current Status
-
-**Schema source:** Placeholder (Tabish's file not yet on `origin/tabish-registration-backend`)
-
-**Frontend stubs implemented:**
-- `saveDraft` - Returns success after 300ms delay
-- `submitApplication` - Returns success after 500ms delay
-- `getResumeUploadUrl` - Returns mock signed URL
-- `getMyApplication` - Returns not found error
-
-All stubs are in `src/lib/application/api.ts` and should be replaced with real Supabase/server action implementations.

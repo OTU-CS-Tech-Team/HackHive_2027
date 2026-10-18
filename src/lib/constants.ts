@@ -2,8 +2,6 @@ export const APPLICATION_DEADLINE = new Date("2027-01-15T23:59:59Z");
 
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
 
-export const MIN_FORM_TIME_SECONDS = 3;
-
 export const WORD_LIMITS = {
   q_proud: 150,
   q_hack: 150,
@@ -29,17 +27,6 @@ export const FIELD_LIMITS = {
   guardian_relationship: 100,
   teammate_emails_max: 3,
 } as const;
-
-export const COMMON_EMAIL_DOMAINS = [
-  "gmail.com",
-  "yahoo.com",
-  "hotmail.com",
-  "outlook.com",
-  "icloud.com",
-  "mail.com",
-  "protonmail.com",
-  "aol.com",
-] as const;
 
 export const COMMON_TYPOS: Record<string, string> = {
   "gmial.com": "gmail.com",

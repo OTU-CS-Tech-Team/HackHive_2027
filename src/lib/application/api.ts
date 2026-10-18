@@ -5,13 +5,6 @@ export {
   getMyApplication,
 } from "@/app/actions/applications";
 
-export type {
-  SaveDraftResult,
-  GetResumeUploadUrlResult as ResumeUploadResult,
-  SubmitApplicationResult as SubmitResult,
-  GetMyApplicationResult as GetApplicationResult,
-} from "@/lib/application/schema";
-
 export type { ErrorCode } from "@/lib/application/schema";
 
 export const ERROR_MESSAGES: Record<string, string> = {

@@ -290,17 +290,6 @@ export const applicationSubmitSchema = z
     }
   });
 
-export type ApplicationSubmit = z.infer<typeof applicationSubmitSchema>;
-
-export const submitRequestSchema = applicationSubmitSchema.extend({
-  turnstileToken: z.string().min(1, 'Captcha token required'),
-  startedAt: z.coerce.number(),
-  website: z.string().optional(),
-  submissionId: z.string().min(1, 'Submission ID required'),
-});
-
-export type SubmitRequest = z.infer<typeof submitRequestSchema>;
-
 export const ERROR_CODES = [
   'validation',
   'rate_limited',
