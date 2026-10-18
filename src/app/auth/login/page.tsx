@@ -1,26 +1,22 @@
-import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
-import { getVerifiedUser } from '@/lib/auth/helpers';
+import { redirect } from "next/navigation";
+import { getVerifiedUser } from "@/lib/auth/helpers";
+import { isValidRedirectPath } from "@/lib/application/form-utils";
+import { LoginForm } from "./LoginForm";
 
-async function LoginContent() {
-  const user = await getVerifiedUser();
-  
-  if (user) {
-    redirect('/apply');
-  }
-  
-  return (
-    <div>
-      <h1>Login</h1>
-      <p>Login page - to be implemented by frontend team</p>
-    </div>
-  );
+export const instant = false;
+
+interface LoginPageProps {
+  searchParams: Promise<{ next?: string }>;
 }
 
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <LoginContent />
-    </Suspense>
-  );
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const next = params.next && isValidRedirectPath(params.next) ? params.next : "/apply";
+  
+  const verifiedUser = await getVerifiedUser();
+  if (verifiedUser) {
+    redirect(next);
+  }
+
+  return <LoginForm next={next} />;
 }

@@ -884,7 +884,7 @@ describe('Schema Validation', () => {
       consent_privacy: true,
     };
 
-    // Test empty string for q_anything_else
+    // Test empty string for q_anything_else (the reported bug)
     const emptyStringResult = applicationSubmitSchema.safeParse({
       ...baseValidSubmission,
       q_anything_else: '',
@@ -904,6 +904,36 @@ describe('Schema Validation', () => {
       q_anything_else: '   ',
     });
     expect(whitespaceResult.success).toBe(true);
+
+    // Test other optional fields with null (as form sends them)
+    const allOptionalNullResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      pronouns: null,
+      dietary: null,
+      accessibility: null,
+      gender: null,
+      ethnicity: null,
+      linkedin_url: null,
+      github_url: null,
+      portfolio_url: null,
+      q_anything_else: null,
+    });
+    expect(allOptionalNullResult.success).toBe(true);
+
+    // Test other optional fields with empty string
+    const allOptionalEmptyResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      pronouns: '',
+      dietary: '',
+      accessibility: '',
+      gender: '',
+      ethnicity: '',
+      linkedin_url: '',
+      github_url: '',
+      portfolio_url: '',
+      q_anything_else: '',
+    });
+    expect(allOptionalEmptyResult.success).toBe(true);
   });
 
   it('draft schema produces null for cleared optional fields (not undefined)', async () => {
@@ -925,5 +955,246 @@ describe('Schema Validation', () => {
       expect(clearedFieldsResult.data.q_anything_else).toBe(null);
       expect(clearedFieldsResult.data.dietary).toBe(null);
     }
+  });
+});
+
+describe('Redirect Validation', () => {
+  it('allows valid internal paths', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('/apply')).toBe(true);
+    expect(isValidRedirectPath('/apply/status')).toBe(true);
+    expect(isValidRedirectPath('/auth/callback?code=123')).toBe(true);
+    expect(isValidRedirectPath('/')).toBe(true);
+  });
+
+  it('rejects protocol-relative URLs (open redirect)', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('//evil.com')).toBe(false);
+    expect(isValidRedirectPath('//evil.com/path')).toBe(false);
+  });
+
+  it('rejects absolute URLs', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('https://evil.com')).toBe(false);
+    expect(isValidRedirectPath('http://evil.com/path')).toBe(false);
+    expect(isValidRedirectPath('javascript:alert(1)')).toBe(false);
+  });
+
+  it('rejects paths not starting with slash', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('evil.com')).toBe(false);
+    expect(isValidRedirectPath('apply')).toBe(false);
+  });
+
+  it('rejects backslash variants', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('/\\evil.com')).toBe(false);
+  });
+
+  it('rejects empty or non-string values', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('')).toBe(false);
+    expect(isValidRedirectPath(null as unknown as string)).toBe(false);
+    expect(isValidRedirectPath(undefined as unknown as string)).toBe(false);
+  });
+});
+
+describe('Draft Merge and User Keying', () => {
+  const mockLocalStorage = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, value: string) => { store[key] = value; },
+      removeItem: (key: string) => { delete store[key]; },
+      clear: () => { store = {}; },
+    };
+  })();
+
+  beforeEach(() => {
+    mockLocalStorage.clear();
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: mockLocalStorage,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('saves draft keyed by user id', async () => {
+    const { saveDraftToLocalStorage, loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userA = 'user-a-123';
+    const userB = 'user-b-456';
+    
+    saveDraftToLocalStorage({ first_name: 'Alice' }, 'sub-a', userA);
+    saveDraftToLocalStorage({ first_name: 'Bob' }, 'sub-b', userB);
+    
+    const draftA = loadDraftFromLocalStorage(userA);
+    const draftB = loadDraftFromLocalStorage(userB);
+    
+    expect(draftA?.data.first_name).toBe('Alice');
+    expect(draftB?.data.first_name).toBe('Bob');
+  });
+
+  it('does not load other user drafts', async () => {
+    const { saveDraftToLocalStorage, loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userA = 'user-a-123';
+    const userB = 'user-b-456';
+    
+    saveDraftToLocalStorage({ first_name: 'Alice', phone: '1234567890' }, 'sub-a', userA);
+    
+    const draftB = loadDraftFromLocalStorage(userB);
+    
+    expect(draftB).toBeNull();
+  });
+
+  it('newer local draft beats older server draft', async () => {
+    const { saveDraftToLocalStorage, loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userId = 'test-user';
+    const serverUpdatedAt = new Date(Date.now() - 60000).toISOString();
+    
+    saveDraftToLocalStorage({ first_name: 'LocalValue' }, 'sub-1', userId);
+    
+    const localStored = loadDraftFromLocalStorage(userId);
+    const localSavedAt = localStored?._savedAt || 0;
+    const serverSavedAt = new Date(serverUpdatedAt).getTime();
+    
+    expect(localSavedAt).toBeGreaterThan(serverSavedAt);
+  });
+
+  it('newer server draft beats older local draft', async () => {
+    const { loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userId = 'test-user';
+    const serverUpdatedAt = new Date(Date.now() + 60000).toISOString();
+    
+    mockLocalStorage.setItem(`hackhive_application_draft_${userId}`, JSON.stringify({
+      data: { first_name: 'OldLocal' },
+      submissionId: 'old-sub',
+      _savedAt: Date.now() - 120000,
+      userId,
+    }));
+    
+    const localStored = loadDraftFromLocalStorage(userId);
+    const localSavedAt = localStored?._savedAt || 0;
+    const serverSavedAt = new Date(serverUpdatedAt).getTime();
+    
+    expect(serverSavedAt).toBeGreaterThan(localSavedAt);
+  });
+});
+
+describe('saveDraft includes cleared values', () => {
+  it('accepts empty strings for clearable fields', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      first_name: '',
+      last_name: '',
+      phone: '',
+      pronouns: '',
+      linkedin_url: '',
+      github_url: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts null for resume_path', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      resume_path: null,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty string for resume_path', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      resume_path: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Blank form autosave', () => {
+  it('applicationDraftSchema accepts completely blank form payload', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    const { buildDraftPayload, initialFormData } = await import('../src/lib/application/draft-payload');
+    
+    const blankPayload = buildDraftPayload(initialFormData);
+    const result = applicationDraftSchema.safeParse(blankPayload);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('buildDraftPayload outputs null for enum/date/choice fields when blank', async () => {
+    const { buildDraftPayload, initialFormData } = await import('../src/lib/application/draft-payload');
+    
+    const payload = buildDraftPayload(initialFormData);
+
+    expect(payload.team_status).toBeNull();
+    expect(payload.grad_date).toBeNull();
+    expect(payload.tshirt_size).toBeNull();
+    expect(payload.year_of_study).toBeNull();
+    expect(payload.age).toBeNull();
+    expect(payload.hackathons_count).toBeNull();
+  });
+
+  it('buildDraftPayload outputs empty string for text fields when blank', async () => {
+    const { buildDraftPayload, initialFormData } = await import('../src/lib/application/draft-payload');
+    
+    const payload = buildDraftPayload(initialFormData);
+
+    expect(payload.first_name).toBe('');
+    expect(payload.last_name).toBe('');
+    expect(payload.phone).toBe('');
+    expect(payload.q_proud).toBe('');
+    expect(payload.dietary).toBe('');
+  });
+
+  it('applicationDraftSchema accepts empty string for team_status (converted to null)', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      team_status: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.team_status).toBeNull();
+  });
+
+  it('applicationDraftSchema accepts empty string for grad_date (converted to null)', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      grad_date: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.grad_date).toBeNull();
+  });
+
+  it('applicationDraftSchema accepts null for year_of_study and tshirt_size', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      year_of_study: null,
+      tshirt_size: null,
+    });
+
+    expect(result.success).toBe(true);
   });
 });

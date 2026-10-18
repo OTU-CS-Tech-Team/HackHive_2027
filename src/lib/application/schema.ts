@@ -15,22 +15,6 @@ function normalizeUnicode(val: string): string {
 
 const unicodeNameRegex = /^[\p{L}\p{M}'\- ]+$/u;
 
-const optionalStringForDraft = (maxLength: number, transform?: (val: string) => string) =>
-  z.preprocess(
-    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? null : val),
-    transform
-      ? z.string().max(maxLength).transform(transform).optional().nullable()
-      : z.string().max(maxLength).optional().nullable()
-  );
-
-const optionalStringForSubmit = (maxLength: number, transform?: (val: string) => string) =>
-  z.preprocess(
-    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val),
-    transform
-      ? z.string().max(maxLength).transform(transform).optional()
-      : z.string().max(maxLength).optional()
-  );
-
 const urlSchemaForDraft = z.preprocess(
   (val) => (val === null || val === '' || (typeof val === 'string' && val.trim() === '') ? null : val),
   z.string().max(500).url().optional().nullable()
@@ -115,11 +99,43 @@ const nameFieldSchema = z
   .optional()
   .or(z.literal(''));
 
+const emptyToNull = <T,>(schema: z.ZodType<T>) =>
+  z.preprocess((val) => (val === '' ? null : val), schema.optional().nullable());
+
+const optionalStringForDraft = (maxLength: number, transform?: (val: string) => string) =>
+  z.preprocess(
+    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? null : val),
+    transform
+      ? z.string().max(maxLength).transform(transform).optional().nullable()
+      : z.string().max(maxLength).optional().nullable()
+  );
+
+const optionalStringForSubmit = (maxLength: number, transform?: (val: string) => string) =>
+  z.preprocess(
+    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val),
+    transform
+      ? z.string().max(maxLength).transform(transform).optional()
+      : z.string().max(maxLength).optional()
+  );
+
+const gradDateSchema = z.preprocess(
+  (val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    return val;
+  },
+  z.coerce.date().optional().nullable()
+);
+
+const teamStatusSchema = z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.enum(['solo', 'has_team', 'looking']).optional().nullable()
+);
+
 export const applicationDraftSchema = z.object({
   first_name: nameFieldSchema,
   last_name: nameFieldSchema,
   phone: optionalStringForDraft(30),
-  age: z.coerce.number().int().min(13).max(100).optional().nullable(),
+  age: emptyToNull(z.coerce.number().int().min(13).max(100)),
   pronouns: optionalStringForDraft(50),
   city: optionalStringForDraft(100, normalizeUnicode),
   country: optionalStringForDraft(100, normalizeUnicode),
@@ -127,19 +143,19 @@ export const applicationDraftSchema = z.object({
   university: optionalStringForDraft(200, normalizeUnicode),
   program: optionalStringForDraft(200, normalizeUnicode),
   year_of_study: optionalStringForDraft(50),
-  grad_date: z.coerce.date().optional().nullable(),
-  hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
+  grad_date: gradDateSchema,
+  hackathons_count: emptyToNull(z.coerce.number().int().min(0)),
   
   linkedin_url: linkedinUrlSchemaForDraft,
   github_url: githubUrlSchemaForDraft,
   portfolio_url: urlSchemaForDraft,
-  resume_path: z.string().max(500).optional().or(z.literal('')),
+  resume_path: z.string().max(500).optional().nullable().or(z.literal('')),
   
   q_proud: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
   q_hack: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
   q_anything_else: optionalStringForDraft(MAX_CHARS_Q3, normalizeUnicode),
   
-  team_status: z.enum(['solo', 'has_team', 'looking']).optional().nullable(),
+  team_status: teamStatusSchema,
   teammate_emails: teammateEmailsSchema,
   
   dietary: optionalStringForDraft(500),
