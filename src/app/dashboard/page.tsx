@@ -4,9 +4,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
-import { SignOutButton } from "@/app/login/LoginButtons";
+import { signOut } from "@/app/actions/auth";
 import { formatDateTime } from "@/lib/time";
-import { createSupabaseServerClient } from "@/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "./AvatarUpload";
 import { CheckinQr } from "./CheckinQr";
@@ -25,11 +25,11 @@ export default function DashboardPage() {
 }
 
 async function Dashboard() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/auth/login?next=/dashboard");
 
   const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }, { data: shop }, { data: teammates }, { data: admin }, qr] =
     await Promise.all([
@@ -63,7 +63,11 @@ async function Dashboard() {
             Admin
           </Link>
         )}
-        <SignOutButton />
+        <form action={signOut}>
+          <button type="submit" className="rounded border px-4 py-2">
+            Sign out
+          </button>
+        </form>
       </header>
 
       {!emergency && (

@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { ActionForm } from "@/components/ActionForm";
-import { getSupabaseBrowserClient } from "@/supabase/browser-client";
+import { createClient } from "@/lib/supabase/client";
 import { deleteRow, saveRow } from "./actions";
 import { TABLES, type Field, type Row, type TableName } from "./tables";
 
@@ -17,7 +17,7 @@ function ImageInput({ field, table, value }: { field: Field; table: TableName; v
 
   async function upload(file: File) {
     setStatus("Uploading…");
-    const supabase = getSupabaseBrowserClient();
+    const supabase = createClient();
     const path = `${table}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]/g, "_")}`;
     const { error } = await supabase.storage.from("media").upload(path, file, { contentType: file.type });
     if (error) return setStatus(error.message);

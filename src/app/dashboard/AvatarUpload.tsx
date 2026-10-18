@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/supabase/browser-client";
+import { createClient } from "@/lib/supabase/client";
 import { saveAvatarUrl } from "./actions";
 
 // Phone photos are megabytes; avatars render small. Square-crop and shrink to
@@ -37,7 +37,7 @@ export function AvatarUpload() {
     setStatus("");
     setPending(true);
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

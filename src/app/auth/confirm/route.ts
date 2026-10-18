@@ -1,7 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest } from "next/server";
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 
 // Email links land here (custom templates use {{ .TokenHash }}), so the link in
 // the email points at our own domain instead of supabase.co — a mismatched link
@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
   const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
 
   if (token_hash && type) {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
     if (!error) redirect(next);
   }
 
-  redirect("/login?error=auth");
+  redirect("/auth/error");
 }

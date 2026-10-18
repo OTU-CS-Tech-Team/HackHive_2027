@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { createSupabaseServerClient } from "@/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 import { Scanner } from "./Scanner";
 
 export const metadata: Metadata = { title: "Scanner | HackHive 2027" };
@@ -19,7 +19,7 @@ export default function ScanPage() {
 }
 
 async function ScanContent() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

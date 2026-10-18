@@ -2,10 +2,10 @@
 
 import QRCode from "qrcode";
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 
 async function requireUser() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

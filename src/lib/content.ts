@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { supabasePublic } from "@/supabase/public-client";
+import { supabasePublic } from "@/lib/supabase/public";
 
 export type EventCategory = "hackhive" | "workshop" | "fun" | "food" | "ceremony";
 

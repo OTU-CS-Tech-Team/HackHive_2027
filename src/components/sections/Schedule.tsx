@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { EventCategory, HackEvent } from "@/lib/content";
 import { formatDay, formatTime } from "@/lib/time";
-import { getSupabaseBrowserClient } from "@/supabase/browser-client";
+import { createClient } from "@/lib/supabase/client";
 
 // Full class strings so Tailwind picks them up.
 export const CATEGORIES: Record<EventCategory, { label: string; bar: string; chip: string }> = {
@@ -31,7 +31,7 @@ export function Schedule({ initialEvents }: { initialEvents: HackEvent[] }) {
   // changes reach everyone with the page open. The server copy can be a few
   // minutes stale, so fetch once on mount too.
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = createClient();
     const refetch = async () => {
       const { data } = await supabase.from("events").select("*").order("starts_at");
       if (data) setEvents(data as HackEvent[]);

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { HackEvent } from "@/lib/content";
-import { createSupabaseServerClient } from "@/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 import { EventsAdmin } from "./EventsAdmin";
 import { TableAdmin } from "./TableAdmin";
 import { TABLES, type Row, type TableName } from "./tables";
@@ -38,7 +38,7 @@ export default function AdminPage() {
 }
 
 async function AdminContent() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
