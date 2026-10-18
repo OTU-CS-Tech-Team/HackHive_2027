@@ -82,7 +82,7 @@ export function Schedule({ initialEvents }: { initialEvents: HackEvent[] }) {
 
       {[...days].map(([day, dayEvents]) => (
         <section key={day} className="mb-10">
-          <h2 className="sticky top-16 z-10 mb-3 bg-white py-2 text-xl font-semibold">{day}</h2>
+          <h3 className="sticky top-16 z-10 mb-3 bg-white py-2 text-xl font-semibold">{day}</h3>
           <ol className="flex flex-col gap-3">
             {dayEvents.map((event) => {
               const live = now !== null && Date.parse(event.starts_at) <= now && now < Date.parse(event.ends_at);
@@ -95,7 +95,7 @@ export function Schedule({ initialEvents }: { initialEvents: HackEvent[] }) {
                   <span className={`w-1.5 shrink-0 ${CATEGORIES[event.category].bar}`} aria-hidden />
                   <div className="flex-1 p-4">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="font-semibold">{event.title}</h3>
+                      <h4 className="font-semibold">{event.title}</h4>
                       <span className="text-sm text-neutral-600">
                         {formatTime(event.starts_at)} – {formatTime(event.ends_at)}
                       </span>

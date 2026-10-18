@@ -1,10 +1,14 @@
 import { FaqSection } from "@/components/sections/FaqSection";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
+import { ScheduleSection } from "@/components/sections/ScheduleSection";
+import { SpeakersSection } from "@/components/sections/SpeakersSection";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
 
 export default function Home() {
   return (
-    <main>
+    <main className="pt-16">
+      <ScheduleSection />
+      <SpeakersSection />
       <SponsorsSection />
       <HackHive2025Section />
       <FaqSection />

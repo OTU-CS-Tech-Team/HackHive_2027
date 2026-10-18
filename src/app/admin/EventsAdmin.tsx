@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import type { HackEvent } from "@/lib/content";
 import { formatDateTime, formatTime, toLocalInput } from "@/lib/time";
-import { CATEGORIES } from "../schedule/Schedule";
+import { CATEGORIES } from "@/components/sections/Schedule";
 import { deleteEvent, saveEvent } from "./actions";
 
 const card = "rounded-lg border border-neutral-200 p-5";
