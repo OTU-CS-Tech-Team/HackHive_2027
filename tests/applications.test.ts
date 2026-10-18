@@ -861,6 +861,80 @@ describe('Schema Validation', () => {
     });
     expect(withinLimit.success).toBe(true);
   });
+
+  it('accepts blank values for optional fields (empty string, null, whitespace)', async () => {
+    const { applicationSubmitSchema } = await import('../src/lib/application/schema');
+    
+    const baseValidSubmission = {
+      first_name: 'Test',
+      last_name: 'User',
+      phone: '1234567890',
+      age: 21,
+      city: 'TestCity',
+      country: 'TestCountry',
+      university: 'Test University',
+      program: 'CS',
+      year_of_study: '3rd',
+      resume_path: 'user-id/resume.pdf',
+      q_proud: 'Test answer for proud question',
+      q_hack: 'Test answer for hack question',
+      team_status: 'solo',
+      tshirt_size: 'M',
+      consent_coc: true,
+      consent_privacy: true,
+    };
+
+    // Test empty string for q_anything_else (the reported bug)
+    const emptyStringResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      q_anything_else: '',
+    });
+    expect(emptyStringResult.success).toBe(true);
+
+    // Test null for q_anything_else
+    const nullResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      q_anything_else: null,
+    });
+    expect(nullResult.success).toBe(true);
+
+    // Test whitespace-only for q_anything_else
+    const whitespaceResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      q_anything_else: '   ',
+    });
+    expect(whitespaceResult.success).toBe(true);
+
+    // Test other optional fields with null (as form sends them)
+    const allOptionalNullResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      pronouns: null,
+      dietary: null,
+      accessibility: null,
+      gender: null,
+      ethnicity: null,
+      linkedin_url: null,
+      github_url: null,
+      portfolio_url: null,
+      q_anything_else: null,
+    });
+    expect(allOptionalNullResult.success).toBe(true);
+
+    // Test other optional fields with empty string
+    const allOptionalEmptyResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      pronouns: '',
+      dietary: '',
+      accessibility: '',
+      gender: '',
+      ethnicity: '',
+      linkedin_url: '',
+      github_url: '',
+      portfolio_url: '',
+      q_anything_else: '',
+    });
+    expect(allOptionalEmptyResult.success).toBe(true);
+  });
 });
 
 describe('Redirect Validation', () => {
