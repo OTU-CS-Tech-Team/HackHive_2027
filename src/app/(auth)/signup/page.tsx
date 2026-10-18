@@ -76,7 +76,7 @@ export default function SignupPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 pt-16">
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Sign up for HackHive 2027</h1>
           <p className="mt-2 text-neutral-600">
@@ -84,11 +84,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <OAuthButtons redirectPath="/apply" />
-
-        <OrDivider />
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-neutral-700">
               Email address
@@ -119,11 +115,15 @@ export default function SignupPage() {
           >
             {isLoading ? "Sending..." : "Continue with email"}
           </button>
+
+          <p className="text-center text-sm text-neutral-600">
+            A magic link will be sent to your email to sign in.
+          </p>
         </form>
 
-        <p className="text-center text-sm text-neutral-600">
-          A magic link will be sent to your email to sign in.
-        </p>
+        <OrDivider />
+
+        <OAuthButtons redirectPath="/apply" />
       </div>
     </main>
   );
