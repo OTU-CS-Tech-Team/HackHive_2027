@@ -3,7 +3,6 @@ import Link from "next/link";
 const links = [
   { href: "/#sponsors", label: "Sponsors" },
   { href: "/#hackhive-2025", label: "HackHive 2025" },
-  { href: "/hackhive/archive", label: "Museum" },
   { href: "/#faq", label: "FAQ" },
 ] as const;
 

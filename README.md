@@ -3,7 +3,7 @@ HackHive 2027 website
 
 ## HackHive Museum
 
-Open `/hackhive/archive` or select **Museum** in the navigation. The museum includes
+Open `/hackhive/archive`. The museum includes
 all 21 projects from 2026, 2025, and 2024, click-to-play videos, project thumbnails,
 and the scroll-driven puzzle navigation.
 
