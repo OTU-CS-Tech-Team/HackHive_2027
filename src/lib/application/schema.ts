@@ -70,20 +70,36 @@ const nameFieldSchema = z
   .optional()
   .or(z.literal(''));
 
+const emptyToNull = <T,>(schema: z.ZodType<T>) =>
+  z.preprocess((val) => (val === '' ? null : val), schema.optional().nullable());
+
+const gradDateSchema = z.preprocess(
+  (val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    return val;
+  },
+  z.coerce.date().optional().nullable()
+);
+
+const teamStatusSchema = z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.enum(['solo', 'has_team', 'looking']).optional().nullable()
+);
+
 export const applicationDraftSchema = z.object({
   first_name: nameFieldSchema,
   last_name: nameFieldSchema,
   phone: z.string().max(30).optional().or(z.literal('')),
-  age: z.coerce.number().int().min(13).max(100).optional().nullable(),
+  age: emptyToNull(z.coerce.number().int().min(13).max(100)),
   pronouns: z.string().max(50).optional().or(z.literal('')),
   city: z.string().max(100).transform(normalizeUnicode).optional().or(z.literal('')),
   country: z.string().max(100).transform(normalizeUnicode).optional().or(z.literal('')),
   
   university: z.string().max(200).transform(normalizeUnicode).optional().or(z.literal('')),
   program: z.string().max(200).transform(normalizeUnicode).optional().or(z.literal('')),
-  year_of_study: z.string().max(50).optional().or(z.literal('')),
-  grad_date: z.coerce.date().optional().nullable(),
-  hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
+  year_of_study: z.string().max(50).optional().or(z.literal('')).or(z.null()),
+  grad_date: gradDateSchema,
+  hackathons_count: emptyToNull(z.coerce.number().int().min(0)),
   
   linkedin_url: linkedinUrlSchema,
   github_url: githubUrlSchema,
@@ -94,12 +110,12 @@ export const applicationDraftSchema = z.object({
   q_hack: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
   q_anything_else: z.string().max(MAX_CHARS_Q3).transform(normalizeUnicode).optional().or(z.literal('')),
   
-  team_status: z.enum(['solo', 'has_team', 'looking']).optional().nullable(),
+  team_status: teamStatusSchema,
   teammate_emails: teammateEmailsSchema,
   
   dietary: z.string().max(500).optional().or(z.literal('')),
   accessibility: z.string().max(1000).optional().or(z.literal('')),
-  tshirt_size: z.string().max(20).optional().or(z.literal('')),
+  tshirt_size: z.string().max(20).optional().or(z.literal('')).or(z.null()),
   needs_travel_help: z.boolean().optional().nullable(),
   
   gender: z.string().max(50).optional().or(z.literal('')),

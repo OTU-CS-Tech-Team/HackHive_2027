@@ -1033,3 +1033,73 @@ describe('saveDraft includes cleared values', () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe('Blank form autosave', () => {
+  it('applicationDraftSchema accepts completely blank form payload', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    const { buildDraftPayload, initialFormData } = await import('../src/lib/application/draft-payload');
+    
+    const blankPayload = buildDraftPayload(initialFormData);
+    const result = applicationDraftSchema.safeParse(blankPayload);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('buildDraftPayload outputs null for enum/date/choice fields when blank', async () => {
+    const { buildDraftPayload, initialFormData } = await import('../src/lib/application/draft-payload');
+    
+    const payload = buildDraftPayload(initialFormData);
+
+    expect(payload.team_status).toBeNull();
+    expect(payload.grad_date).toBeNull();
+    expect(payload.tshirt_size).toBeNull();
+    expect(payload.year_of_study).toBeNull();
+    expect(payload.age).toBeNull();
+    expect(payload.hackathons_count).toBeNull();
+  });
+
+  it('buildDraftPayload outputs empty string for text fields when blank', async () => {
+    const { buildDraftPayload, initialFormData } = await import('../src/lib/application/draft-payload');
+    
+    const payload = buildDraftPayload(initialFormData);
+
+    expect(payload.first_name).toBe('');
+    expect(payload.last_name).toBe('');
+    expect(payload.phone).toBe('');
+    expect(payload.q_proud).toBe('');
+    expect(payload.dietary).toBe('');
+  });
+
+  it('applicationDraftSchema accepts empty string for team_status (converted to null)', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      team_status: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.team_status).toBeNull();
+  });
+
+  it('applicationDraftSchema accepts empty string for grad_date (converted to null)', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      grad_date: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.grad_date).toBeNull();
+  });
+
+  it('applicationDraftSchema accepts null for year_of_study and tshirt_size', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      year_of_study: null,
+      tshirt_size: null,
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
