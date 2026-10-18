@@ -861,4 +861,69 @@ describe('Schema Validation', () => {
     });
     expect(withinLimit.success).toBe(true);
   });
+
+  it('accepts blank values for optional fields (empty string, null, whitespace)', async () => {
+    const { applicationSubmitSchema } = await import('../src/lib/application/schema');
+    
+    const baseValidSubmission = {
+      first_name: 'Test',
+      last_name: 'User',
+      phone: '1234567890',
+      age: 21,
+      city: 'TestCity',
+      country: 'TestCountry',
+      university: 'Test University',
+      program: 'CS',
+      year_of_study: '3rd',
+      resume_path: 'user-id/resume.pdf',
+      q_proud: 'Test answer for proud question',
+      q_hack: 'Test answer for hack question',
+      team_status: 'solo',
+      tshirt_size: 'M',
+      consent_coc: true,
+      consent_privacy: true,
+    };
+
+    // Test empty string for q_anything_else
+    const emptyStringResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      q_anything_else: '',
+    });
+    expect(emptyStringResult.success).toBe(true);
+
+    // Test null for q_anything_else
+    const nullResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      q_anything_else: null,
+    });
+    expect(nullResult.success).toBe(true);
+
+    // Test whitespace-only for q_anything_else
+    const whitespaceResult = applicationSubmitSchema.safeParse({
+      ...baseValidSubmission,
+      q_anything_else: '   ',
+    });
+    expect(whitespaceResult.success).toBe(true);
+  });
+
+  it('draft schema produces null for cleared optional fields (not undefined)', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    // Simulate clearing a previously filled optional field
+    const clearedFieldsResult = applicationDraftSchema.safeParse({
+      pronouns: '',  // was 'they/them', now cleared
+      linkedin_url: '',  // was 'https://linkedin.com/in/user', now cleared
+      q_anything_else: null,  // form sends null for cleared fields
+      dietary: '   ',  // whitespace-only should also clear
+    });
+    
+    expect(clearedFieldsResult.success).toBe(true);
+    if (clearedFieldsResult.success) {
+      // These should be null, not undefined, so saveDraft will write them to DB
+      expect(clearedFieldsResult.data.pronouns).toBe(null);
+      expect(clearedFieldsResult.data.linkedin_url).toBe(null);
+      expect(clearedFieldsResult.data.q_anything_else).toBe(null);
+      expect(clearedFieldsResult.data.dietary).toBe(null);
+    }
+  });
 });
