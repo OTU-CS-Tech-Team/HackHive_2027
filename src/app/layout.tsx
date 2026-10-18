@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "HackHive 2027",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
