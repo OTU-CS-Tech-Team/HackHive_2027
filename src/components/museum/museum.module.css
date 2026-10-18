@@ -1,0 +1,412 @@
+.museum {
+  --canvas: #fff;
+  --ink: #1b003f;
+  --line: color-mix(in srgb, var(--ink) 16%, transparent);
+  min-height: calc(100dvh - 4rem);
+  background: #fff;
+  color: var(--ink);
+}
+
+.museum a {
+  color: inherit;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  align-items: start;
+  padding: 1.5rem clamp(1.25rem, 5vw, 4.5rem) 5rem;
+}
+
+.sidebar {
+  position: sticky;
+  top: 5.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding-top: 0.35rem;
+  overflow: visible;
+}
+
+.backLink {
+  width: fit-content;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink);
+}
+
+.backLink:hover,
+.backLink:focus-visible {
+  opacity: 0.7;
+  outline: none;
+}
+
+.backLink::before {
+  content: '← ';
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.squad {
+  --squad: 16.5rem;
+  position: relative;
+  width: var(--squad);
+  aspect-ratio: 236 / 208;
+  margin-top: 0.35rem;
+}
+
+.piece {
+  appearance: none;
+  position: absolute;
+  width: calc(var(--squad) * 136 / 236);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform-origin: 50% 80%;
+}
+
+.tl {
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+
+.tr {
+  top: 0;
+  left: calc(var(--squad) * 100 / 236);
+  z-index: 2;
+}
+
+.wide {
+  top: calc(var(--squad) * 100 / 236);
+  left: 0;
+  width: 100%;
+  z-index: 1;
+}
+
+.piece svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pieceIn {
+  animation: pieceFlyIn 0.72s cubic-bezier(0.18, 0.89, 0.24, 1.12) both;
+}
+
+.pieceOut {
+  animation: pieceFlyOut 0.42s cubic-bezier(0.55, 0.02, 0.8, 0.4) both;
+  pointer-events: none;
+}
+
+.pieceActive {
+  z-index: 2;
+}
+
+.piece:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.scrollHint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: var(--squad, 16.5rem);
+  margin: 0.85rem 0 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0.62;
+}
+
+.scrollArrow {
+  display: flex;
+  color: var(--ink);
+  opacity: 0.75;
+  animation: scrollNudge 1.8s ease-in-out infinite;
+}
+
+@keyframes scrollNudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(0.35rem);
+  }
+}
+
+.main {
+  min-width: 0;
+  padding-top: 0.2rem;
+}
+
+.welcome {
+  max-width: 40rem;
+  padding: 0.35rem 0 1.25rem;
+}
+
+.welcomeTitle {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.85rem, 3.2vw, 2.55rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+}
+
+.welcomeCopy {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  opacity: 0.82;
+}
+
+.yearSection {
+  min-height: 100vh;
+  padding: 2.25rem 0 7rem;
+  scroll-margin-top: 5.5rem;
+}
+
+.yearSection:last-child {
+  min-height: 115vh;
+  padding-bottom: 28vh;
+}
+
+.yearRule {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-bottom: 1.1rem;
+  background: var(--year-accent, var(--ink));
+  opacity: 0.85;
+}
+
+.yearTitle {
+  margin: 0 0 1.75rem;
+  color: var(--year-accent, var(--ink));
+  font-size: clamp(1.8rem, 3vw, 2.35rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.emptyYear {
+  margin: 0;
+  font-size: 0.98rem;
+  opacity: 0.62;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.rowRule {
+  width: 100%;
+  height: 2px;
+  margin: 2rem 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #e3b23c 12%,
+    #f0c857 50%,
+    #e3b23c 88%,
+    transparent
+  );
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.75rem 1.35rem;
+  align-items: stretch;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.cardMedia {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  margin-top: auto;
+  background: color-mix(in srgb, var(--ink) 8%, var(--canvas));
+  border: 1px solid var(--line);
+}
+
+.cardEmbed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.facade {
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: #111;
+  cursor: pointer;
+}
+
+.facadeImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.facadePlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #212121;
+  opacity: 0.88;
+  transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.facade:hover .facadePlay,
+.facade:focus-visible .facadePlay {
+  color: #f00;
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.facade:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.cardImage {
+  object-fit: cover;
+}
+
+.cardTitle {
+  margin: 0;
+  min-height: 1.35em;
+  color: var(--year-accent, var(--ink));
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.cardCopy {
+  margin: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-height: calc(1.45em * 2);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  opacity: 0.74;
+}
+
+@keyframes pieceFlyIn {
+  0% {
+    opacity: 0;
+    transform: translateY(58vh) rotate(-11deg);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-0.55rem) rotate(1.4deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+
+@keyframes pieceFlyOut {
+  to {
+    opacity: 0;
+    transform: translateY(46vh) rotate(8deg);
+  }
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+    padding-top: 1.15rem;
+  }
+
+  .sidebar {
+    position: relative;
+    top: 0;
+    gap: 1rem;
+  }
+
+  .squad {
+    --squad: 13.5rem;
+  }
+
+  .scrollHint {
+    width: 13.5rem;
+  }
+
+  .yearSection {
+    min-height: 90vh;
+    padding: 1.75rem 0 3.5rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pieceIn,
+  .pieceOut,
+  .scrollArrow {
+    animation: none;
+    transition: none;
+  }
+}

@@ -1,22 +1,25 @@
+import Link from "next/link";
+
 const links = [
-  { href: "#sponsors", label: "Sponsors" },
-  { href: "#hackhive-2025", label: "HackHive 2025" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#sponsors", label: "Sponsors" },
+  { href: "/#hackhive-2025", label: "HackHive 2025" },
+  { href: "/hackhive/archive", label: "Museum" },
+  { href: "/#faq", label: "FAQ" },
 ] as const;
 
 export function Navbar() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 grid h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-neutral-200 bg-white px-6">
+    <header className="fixed inset-x-0 top-0 z-50 grid h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-neutral-200 bg-white px-3 sm:px-6">
       <div />
-      <nav aria-label="Page sections" className="flex items-center justify-center gap-8">
+      <nav aria-label="Main navigation" className="flex items-center justify-center gap-3 sm:gap-8">
         {links.map((link) => (
-          <a
+          <Link
             key={link.href}
             href={link.href}
-            className="text-sm font-medium text-neutral-900"
+            className="whitespace-nowrap text-xs font-medium text-neutral-900 sm:text-sm"
           >
             {link.label}
-          </a>
+          </Link>
         ))}
       </nav>
       <div className="flex justify-end">
