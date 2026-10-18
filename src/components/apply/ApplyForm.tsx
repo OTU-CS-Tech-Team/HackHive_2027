@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo, useSyncExternalStore } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FormSection } from "./FormSection";
 import { FormField } from "./FormField";
@@ -19,7 +19,6 @@ import {
   getOrCreateSubmissionId,
   enqueueSaveDraft,
   countWords,
-  type StoredDraft,
 } from "@/lib/application/form-utils";
 import { WORD_LIMITS, FIELD_LIMITS } from "@/lib/constants";
 
@@ -79,59 +78,15 @@ function mergeLocalDraft(baseData: FormData, localData: Record<string, unknown>)
   } as FormData;
 }
 
-function subscribeToNothing() {
-  return () => {};
-}
-
-function useLocalDraft(userId: string): StoredDraft | null {
-  const getSnapshot = useCallback(() => {
-    return loadDraftFromLocalStorage(userId);
-  }, [userId]);
-
-  const getServerSnapshot = useCallback(() => {
-    return null;
-  }, []);
-
-  return useSyncExternalStore(subscribeToNothing, getSnapshot, getServerSnapshot);
-}
-
 export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, serverNow, deadlinePassed }: ApplyFormProps) {
   const router = useRouter();
   const formStartedAt = useRef<number>(serverNow);
   const submissionIdRef = useRef<string>("");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const localDraftMergedRef = useRef(false);
 
-  const baseFormData = useMemo(
-    () => createInitialFormData(initialDraft),
-    [initialDraft]
-  );
-
-  const localDraft = useLocalDraft(userId);
-  
-  const initialMergedFormData = useMemo(() => {
-    if (!localDraft) return baseFormData;
-    
-    const localData = localDraft.data || {};
-    const localSavedAt = localDraft._savedAt || 0;
-    const serverSavedAt = serverUpdatedAt ? new Date(serverUpdatedAt).getTime() : 0;
-
-    if (localSavedAt > serverSavedAt && Object.keys(localData).length > 0) {
-      return mergeLocalDraft(baseFormData, localData);
-    }
-    return baseFormData;
-  }, [localDraft, baseFormData, serverUpdatedAt]);
-
-  const [formDataOverride, setFormDataOverride] = useState<FormData | null>(null);
-  
-  const formData = formDataOverride ?? initialMergedFormData;
-  const setFormData = useCallback((updater: FormData | ((prev: FormData) => FormData)) => {
-    setFormDataOverride((prev) => {
-      const current = prev ?? initialMergedFormData;
-      return typeof updater === "function" ? updater(current) : updater;
-    });
-  }, [initialMergedFormData]);
-
+  const [formData, setFormData] = useState<FormData>(() => createInitialFormData(initialDraft));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -140,10 +95,23 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
   const [isDeadlinePassed] = useState<boolean>(deadlinePassed);
 
   useEffect(() => {
-    if (!submissionIdRef.current) {
-      submissionIdRef.current = getOrCreateSubmissionId(userId);
+    if (localDraftMergedRef.current) return;
+    localDraftMergedRef.current = true;
+
+    submissionIdRef.current = getOrCreateSubmissionId(userId);
+
+    const localStored = loadDraftFromLocalStorage(userId);
+    if (!localStored) return;
+
+    const localData = localStored.data || {};
+    const localSavedAt = localStored._savedAt || 0;
+    const serverSavedAt = serverUpdatedAt ? new Date(serverUpdatedAt).getTime() : 0;
+
+    if (localSavedAt > serverSavedAt && Object.keys(localData).length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- One-time merge of localStorage data on mount; not a subscription pattern
+      setFormData((prev) => mergeLocalDraft(prev, localData));
     }
-  }, [userId]);
+  }, [userId, serverUpdatedAt]);
 
   const isUnder18 = formData.age && parseInt(formData.age, 10) < 18;
 
