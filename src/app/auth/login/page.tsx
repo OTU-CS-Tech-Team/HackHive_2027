@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import { isValidRedirectPath } from "@/lib/application/form-utils";
 
 function LoginForm() {
   const router = useRouter();
@@ -14,7 +15,13 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   
-  const next = searchParams.get("next") || "/apply";
+  const next = useMemo(() => {
+    const nextParam = searchParams.get("next");
+    if (nextParam && isValidRedirectPath(nextParam)) {
+      return nextParam;
+    }
+    return "/apply";
+  }, [searchParams]);
 
   useEffect(() => {
     const checkAuth = async () => {

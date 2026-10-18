@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FormSection } from "./FormSection";
 import { FormField } from "./FormField";
@@ -10,7 +10,7 @@ import { CheckboxField } from "./CheckboxField";
 import { RadioGroupField } from "./RadioGroupField";
 import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
-import { TurnstileWidget } from "./TurnstileWidget";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import { saveDraft, submitApplication, ERROR_MESSAGES, type ErrorCode } from "@/lib/application/api";
 import {
   saveDraftToLocalStorage,
@@ -20,7 +20,7 @@ import {
   enqueueSaveDraft,
   countWords,
 } from "@/lib/application/form-utils";
-import { APPLICATION_DEADLINE, WORD_LIMITS, FIELD_LIMITS } from "@/lib/constants";
+import { WORD_LIMITS, FIELD_LIMITS } from "@/lib/constants";
 
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
@@ -115,100 +115,122 @@ const initialFormData: FormData = {
 
 interface ApplyFormProps {
   userEmail: string;
+  userId: string;
   initialDraft?: Partial<FormData> | null;
+  serverUpdatedAt?: string | null;
+  serverNow: number;
+  deadlinePassed: boolean;
 }
 
-function getInitialDeadlineState(): boolean {
-  if (typeof window === "undefined") return false;
-  return new Date() > APPLICATION_DEADLINE;
+function createInitialFormData(serverDraft?: Partial<FormData> | null): FormData {
+  const merged = {
+    ...initialFormData,
+    ...serverDraft,
+  };
+  
+  return {
+    ...merged,
+    teammate_emails: Array.isArray(merged.teammate_emails) ? merged.teammate_emails as string[] : [],
+    age: merged.age?.toString() || "",
+    hackathons_count: merged.hackathons_count?.toString() || "0",
+  } as FormData;
 }
 
-function createInitialFormData(serverDraft?: Partial<FormData> | null): () => FormData {
-  return () => {
-    if (typeof window === "undefined") return initialFormData;
-    
-    const localStored = loadDraftFromLocalStorage();
-    const localData = localStored?.data || {};
-    
-    const merged = {
-      ...initialFormData,
-      ...serverDraft,
-      ...localData,
-    };
-    
+function computeInitialFormData(
+  initialDraft: Partial<FormData> | null | undefined,
+  serverUpdatedAt: string | null | undefined,
+  userId: string
+): FormData {
+  if (typeof window === "undefined") {
+    return createInitialFormData(initialDraft);
+  }
+
+  const localStored = loadDraftFromLocalStorage(userId);
+  if (!localStored) {
+    return createInitialFormData(initialDraft);
+  }
+
+  const localData = localStored.data || {};
+  const localSavedAt = localStored._savedAt || 0;
+  const serverSavedAt = serverUpdatedAt ? new Date(serverUpdatedAt).getTime() : 0;
+
+  if (localSavedAt > serverSavedAt && Object.keys(localData).length > 0) {
+    const baseData = createInitialFormData(initialDraft);
+    const merged = { ...baseData, ...localData };
     return {
       ...merged,
       teammate_emails: Array.isArray(merged.teammate_emails) ? merged.teammate_emails as string[] : [],
       age: merged.age?.toString() || "",
       hackathons_count: merged.hackathons_count?.toString() || "0",
     } as FormData;
-  };
+  }
+
+  return createInitialFormData(initialDraft);
 }
 
-function getInitialSubmissionId(): string {
-  if (typeof window === "undefined") return "";
-  return getOrCreateSubmissionId();
-}
-
-function getInitialStartTime(): number {
-  if (typeof window === "undefined") return 0;
-  return Date.now();
-}
-
-export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
+export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, serverNow, deadlinePassed }: ApplyFormProps) {
   const router = useRouter();
-  const [formData, setFormData] = useState<FormData>(createInitialFormData(initialDraft));
+  const formStartedAt = useRef<number>(serverNow);
+  const submissionIdRef = useRef<string>("");
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+
+  const [formData, setFormData] = useState<FormData>(
+    () => computeInitialFormData(initialDraft, serverUpdatedAt, userId)
+  );
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [isDeadlinePassed] = useState<boolean>(getInitialDeadlineState);
-  const [needsTurnstileReset, setNeedsTurnstileReset] = useState(0);
-  const formStartedAt = useRef<number>(getInitialStartTime());
-  const submissionIdRef = useRef<string>(getInitialSubmissionId());
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isDeadlinePassed] = useState<boolean>(deadlinePassed);
+
+  useEffect(() => {
+    if (!submissionIdRef.current) {
+      submissionIdRef.current = getOrCreateSubmissionId(userId);
+    }
+  }, [userId]);
 
   const isUnder18 = formData.age && parseInt(formData.age, 10) < 18;
 
-  const performSaveDraft = useCallback(async (data: FormData, includeResumePath: boolean = true) => {
-    const draftFields: Record<string, unknown> = {};
-    
-    if (data.first_name) draftFields.first_name = data.first_name;
-    if (data.last_name) draftFields.last_name = data.last_name;
-    if (data.phone) draftFields.phone = data.phone;
-    if (data.age) draftFields.age = parseInt(data.age, 10);
-    if (data.pronouns) draftFields.pronouns = data.pronouns;
-    if (data.city) draftFields.city = data.city;
-    if (data.country) draftFields.country = data.country;
-    if (data.university) draftFields.university = data.university;
-    if (data.program) draftFields.program = data.program;
-    if (data.year_of_study) draftFields.year_of_study = data.year_of_study;
-    if (data.grad_date) draftFields.grad_date = data.grad_date;
-    if (data.hackathons_count) draftFields.hackathons_count = parseInt(data.hackathons_count, 10);
-    if (data.linkedin_url) draftFields.linkedin_url = data.linkedin_url;
-    if (data.github_url) draftFields.github_url = data.github_url;
-    if (data.portfolio_url) draftFields.portfolio_url = data.portfolio_url;
-    if (includeResumePath && data.resume_path) draftFields.resume_path = data.resume_path;
-    if (data.q_proud) draftFields.q_proud = data.q_proud;
-    if (data.q_hack) draftFields.q_hack = data.q_hack;
-    if (data.q_anything_else) draftFields.q_anything_else = data.q_anything_else;
-    if (data.team_status) draftFields.team_status = data.team_status;
-    const filteredEmails = data.teammate_emails.filter(Boolean);
-    if (filteredEmails.length > 0) draftFields.teammate_emails = filteredEmails;
-    if (data.dietary) draftFields.dietary = data.dietary;
-    if (data.accessibility) draftFields.accessibility = data.accessibility;
-    if (data.tshirt_size) draftFields.tshirt_size = data.tshirt_size;
-    draftFields.needs_travel_help = data.needs_travel_help;
-    if (data.gender) draftFields.gender = data.gender;
-    if (data.ethnicity) draftFields.ethnicity = data.ethnicity;
-    if (data.guardian_name) draftFields.guardian_name = data.guardian_name;
-    if (data.guardian_phone) draftFields.guardian_phone = data.guardian_phone;
-    if (data.guardian_relationship) draftFields.guardian_relationship = data.guardian_relationship;
-    draftFields.consent_coc = data.consent_coc;
-    draftFields.consent_privacy = data.consent_privacy;
-    draftFields.consent_photo = data.consent_photo;
-    draftFields.share_resume_with_sponsors = data.share_resume_with_sponsors;
+  const performSaveDraft = useCallback(async (data: FormData) => {
+    const draftFields: Record<string, unknown> = {
+      first_name: data.first_name || "",
+      last_name: data.last_name || "",
+      phone: data.phone || "",
+      age: data.age ? parseInt(data.age, 10) : null,
+      pronouns: data.pronouns || "",
+      city: data.city || "",
+      country: data.country || "",
+      university: data.university || "",
+      program: data.program || "",
+      year_of_study: data.year_of_study || "",
+      grad_date: data.grad_date || "",
+      hackathons_count: data.hackathons_count ? parseInt(data.hackathons_count, 10) : null,
+      linkedin_url: data.linkedin_url || "",
+      github_url: data.github_url || "",
+      portfolio_url: data.portfolio_url || "",
+      resume_path: data.resume_path,
+      q_proud: data.q_proud || "",
+      q_hack: data.q_hack || "",
+      q_anything_else: data.q_anything_else || "",
+      team_status: data.team_status || "",
+      teammate_emails: data.teammate_emails.filter(Boolean),
+      dietary: data.dietary || "",
+      accessibility: data.accessibility || "",
+      tshirt_size: data.tshirt_size || "",
+      needs_travel_help: data.needs_travel_help,
+      gender: data.gender || "",
+      ethnicity: data.ethnicity || "",
+      guardian_name: data.guardian_name || "",
+      guardian_phone: data.guardian_phone || "",
+      guardian_relationship: data.guardian_relationship || "",
+      consent_coc: data.consent_coc,
+      consent_privacy: data.consent_privacy,
+      consent_photo: data.consent_photo,
+      share_resume_with_sponsors: data.share_resume_with_sponsors,
+    };
 
     const result = await saveDraft(draftFields);
     if (result.ok) {
@@ -221,16 +243,16 @@ export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current);
+    saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current, userId);
 
     saveTimeoutRef.current = setTimeout(() => {
       enqueueSaveDraft(() => performSaveDraft(data));
     }, 2000);
-  }, [performSaveDraft]);
+  }, [performSaveDraft, userId]);
 
-  const saveResumePath = useCallback((path: string, currentData: FormData) => {
+  const saveResumePath = useCallback((path: string | null, currentData: FormData) => {
     const updatedData = { ...currentData, resume_path: path };
-    saveDraftToLocalStorage(updatedData as unknown as Record<string, unknown>, submissionIdRef.current);
+    saveDraftToLocalStorage(updatedData as unknown as Record<string, unknown>, submissionIdRef.current, userId);
     
     enqueueSaveDraft(async () => {
       const result = await saveDraft({ resume_path: path });
@@ -238,14 +260,14 @@ export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
         setLastSaved(new Date(result.savedAt));
       }
     });
-  }, []);
+  }, [userId]);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       
-      if (field === "resume_path" && typeof value === "string") {
-        saveResumePath(value, prev);
+      if (field === "resume_path") {
+        saveResumePath(value as string | null, prev);
       } else {
         debouncedSave(next);
       }
@@ -376,7 +398,7 @@ export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
       });
 
       if (result.ok) {
-        clearDraftFromLocalStorage();
+        clearDraftFromLocalStorage(userId);
         router.push("/apply/confirmation");
       } else {
         const errorCode = result.code as ErrorCode;
@@ -390,18 +412,20 @@ export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
           );
         }
 
-        if (errorCode === "turnstile") {
-          setTurnstileToken(null);
-          setNeedsTurnstileReset((n) => n + 1);
-        } else if (errorCode === "not_verified") {
+        setTurnstileToken(null);
+        turnstileRef.current?.reset();
+
+        if (errorCode === "not_verified") {
           router.push("/verify");
         } else if (errorCode === "already_submitted") {
-          clearDraftFromLocalStorage();
+          clearDraftFromLocalStorage(userId);
           router.push("/apply/status");
         }
       }
     } catch {
       setSubmitError(ERROR_MESSAGES.server);
+      setTurnstileToken(null);
+      turnstileRef.current?.reset();
     } finally {
       setIsSubmitting(false);
     }
@@ -823,7 +847,7 @@ export function ApplyForm({ userEmail, initialDraft }: ApplyFormProps) {
 
       <div className="space-y-4">
         <TurnstileWidget
-          key={needsTurnstileReset}
+          ref={turnstileRef}
           onVerify={(token) => setTurnstileToken(token)}
           onError={() => setTurnstileToken(null)}
           onExpire={() => setTurnstileToken(null)}

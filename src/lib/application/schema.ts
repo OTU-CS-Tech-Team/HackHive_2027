@@ -88,7 +88,7 @@ export const applicationDraftSchema = z.object({
   linkedin_url: linkedinUrlSchema,
   github_url: githubUrlSchema,
   portfolio_url: urlSchema,
-  resume_path: z.string().max(500).optional().or(z.literal('')),
+  resume_path: z.string().max(500).optional().nullable().or(z.literal('')),
   
   q_proud: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
   q_hack: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),

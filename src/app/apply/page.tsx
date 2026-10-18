@@ -1,9 +1,16 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getVerifiedUser } from "@/lib/auth/helpers";
 import { getMyApplication } from "@/lib/application/api";
 import { ApplyForm } from "@/components/apply/ApplyForm";
+import { APPLICATION_DEADLINE } from "@/lib/constants";
+
+async function getServerTime(): Promise<number> {
+  await headers();
+  return Date.now();
+}
 
 function LoadingSpinner() {
   return (
@@ -55,6 +62,9 @@ async function ApplyPageContent() {
     );
   }
 
+  const serverNow = await getServerTime();
+  const deadlinePassed = new Date(serverNow) > APPLICATION_DEADLINE;
+
   const initialDraft = result.ok && result.application ? {
     first_name: result.application.first_name || "",
     last_name: result.application.last_name || "",
@@ -92,6 +102,10 @@ async function ApplyPageContent() {
     share_resume_with_sponsors: result.application.share_resume_with_sponsors || false,
   } : null;
 
+  const serverUpdatedAt = result.ok && result.application?.updated_at 
+    ? result.application.updated_at 
+    : null;
+
   return (
     <main className="min-h-screen pb-16 pt-24">
       <div className="mx-auto max-w-2xl px-4">
@@ -101,7 +115,14 @@ async function ApplyPageContent() {
             Fill out the form below to apply. Your progress is saved automatically.
           </p>
         </div>
-        <ApplyForm userEmail={user.email} initialDraft={initialDraft} />
+        <ApplyForm 
+          userEmail={user.email} 
+          userId={user.id}
+          initialDraft={initialDraft}
+          serverUpdatedAt={serverUpdatedAt}
+          serverNow={serverNow}
+          deadlinePassed={deadlinePassed}
+        />
       </div>
     </main>
   );

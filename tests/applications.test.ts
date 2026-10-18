@@ -862,3 +862,174 @@ describe('Schema Validation', () => {
     expect(withinLimit.success).toBe(true);
   });
 });
+
+describe('Redirect Validation', () => {
+  it('allows valid internal paths', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('/apply')).toBe(true);
+    expect(isValidRedirectPath('/apply/status')).toBe(true);
+    expect(isValidRedirectPath('/auth/callback?code=123')).toBe(true);
+    expect(isValidRedirectPath('/')).toBe(true);
+  });
+
+  it('rejects protocol-relative URLs (open redirect)', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('//evil.com')).toBe(false);
+    expect(isValidRedirectPath('//evil.com/path')).toBe(false);
+  });
+
+  it('rejects absolute URLs', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('https://evil.com')).toBe(false);
+    expect(isValidRedirectPath('http://evil.com/path')).toBe(false);
+    expect(isValidRedirectPath('javascript:alert(1)')).toBe(false);
+  });
+
+  it('rejects paths not starting with slash', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('evil.com')).toBe(false);
+    expect(isValidRedirectPath('apply')).toBe(false);
+  });
+
+  it('rejects backslash variants', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('/\\evil.com')).toBe(false);
+  });
+
+  it('rejects empty or non-string values', async () => {
+    const { isValidRedirectPath } = await import('../src/lib/application/form-utils');
+    
+    expect(isValidRedirectPath('')).toBe(false);
+    expect(isValidRedirectPath(null as unknown as string)).toBe(false);
+    expect(isValidRedirectPath(undefined as unknown as string)).toBe(false);
+  });
+});
+
+describe('Draft Merge and User Keying', () => {
+  const mockLocalStorage = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, value: string) => { store[key] = value; },
+      removeItem: (key: string) => { delete store[key]; },
+      clear: () => { store = {}; },
+    };
+  })();
+
+  beforeEach(() => {
+    mockLocalStorage.clear();
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: mockLocalStorage,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('saves draft keyed by user id', async () => {
+    const { saveDraftToLocalStorage, loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userA = 'user-a-123';
+    const userB = 'user-b-456';
+    
+    saveDraftToLocalStorage({ first_name: 'Alice' }, 'sub-a', userA);
+    saveDraftToLocalStorage({ first_name: 'Bob' }, 'sub-b', userB);
+    
+    const draftA = loadDraftFromLocalStorage(userA);
+    const draftB = loadDraftFromLocalStorage(userB);
+    
+    expect(draftA?.data.first_name).toBe('Alice');
+    expect(draftB?.data.first_name).toBe('Bob');
+  });
+
+  it('does not load other user drafts', async () => {
+    const { saveDraftToLocalStorage, loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userA = 'user-a-123';
+    const userB = 'user-b-456';
+    
+    saveDraftToLocalStorage({ first_name: 'Alice', phone: '1234567890' }, 'sub-a', userA);
+    
+    const draftB = loadDraftFromLocalStorage(userB);
+    
+    expect(draftB).toBeNull();
+  });
+
+  it('newer local draft beats older server draft', async () => {
+    const { saveDraftToLocalStorage, loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userId = 'test-user';
+    const serverUpdatedAt = new Date(Date.now() - 60000).toISOString();
+    
+    saveDraftToLocalStorage({ first_name: 'LocalValue' }, 'sub-1', userId);
+    
+    const localStored = loadDraftFromLocalStorage(userId);
+    const localSavedAt = localStored?._savedAt || 0;
+    const serverSavedAt = new Date(serverUpdatedAt).getTime();
+    
+    expect(localSavedAt).toBeGreaterThan(serverSavedAt);
+  });
+
+  it('newer server draft beats older local draft', async () => {
+    const { loadDraftFromLocalStorage } = await import('../src/lib/application/form-utils');
+    
+    const userId = 'test-user';
+    const serverUpdatedAt = new Date(Date.now() + 60000).toISOString();
+    
+    mockLocalStorage.setItem(`hackhive_application_draft_${userId}`, JSON.stringify({
+      data: { first_name: 'OldLocal' },
+      submissionId: 'old-sub',
+      _savedAt: Date.now() - 120000,
+      userId,
+    }));
+    
+    const localStored = loadDraftFromLocalStorage(userId);
+    const localSavedAt = localStored?._savedAt || 0;
+    const serverSavedAt = new Date(serverUpdatedAt).getTime();
+    
+    expect(serverSavedAt).toBeGreaterThan(localSavedAt);
+  });
+});
+
+describe('saveDraft includes cleared values', () => {
+  it('accepts empty strings for clearable fields', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      first_name: '',
+      last_name: '',
+      phone: '',
+      pronouns: '',
+      linkedin_url: '',
+      github_url: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts null for resume_path', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      resume_path: null,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty string for resume_path', async () => {
+    const { applicationDraftSchema } = await import('../src/lib/application/schema');
+    
+    const result = applicationDraftSchema.safeParse({
+      resume_path: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
+});

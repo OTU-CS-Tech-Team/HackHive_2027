@@ -11,6 +11,17 @@ interface ResumeUploadProps {
   error?: string;
 }
 
+function deriveDisplayName(path: string | null): string | null {
+  if (!path) return null;
+  const parts = path.split("/");
+  const filename = parts[parts.length - 1];
+  const match = filename.match(/^resume-[a-f0-9-]+\.pdf$/i);
+  if (match) {
+    return "resume.pdf";
+  }
+  return filename;
+}
+
 export function ResumeUpload({ value, onChange, disabled = false, error }: ResumeUploadProps) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -18,6 +29,9 @@ export function ResumeUpload({ value, onChange, disabled = false, error }: Resum
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const displayName = fileName || deriveDisplayName(value);
+  const hasUploadedFile = Boolean(value);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,7 +106,7 @@ export function ResumeUpload({ value, onChange, disabled = false, error }: Resum
       </label>
       <p className="text-sm text-neutral-500">PDF only, max 5 MB</p>
 
-      {value && fileName ? (
+      {hasUploadedFile && !isUploading ? (
         <div className="flex items-center gap-3 rounded-lg border border-neutral-300 bg-neutral-50 p-3">
           <svg
             className="h-8 w-8 flex-shrink-0 text-red-500"
@@ -104,7 +118,7 @@ export function ResumeUpload({ value, onChange, disabled = false, error }: Resum
             <path d="M14 2v6h6M9 15v2h6v-2H9zm0-3v2h6v-2H9z" fill="white" />
           </svg>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-neutral-900">{fileName}</p>
+            <p className="truncate text-sm font-medium text-neutral-900">{displayName}</p>
             <p className="text-xs text-neutral-500">Uploaded successfully</p>
           </div>
           <button
