@@ -81,13 +81,15 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
   );
   const newest = years[0] ?? 2026;
   const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
+  const yearNavRef = useRef<HTMLElement | null>(null);
   const [unlockedYear, setUnlockedYear] = useState(newest);
   const [renderedYears, setRenderedYears] = useState<number[]>([newest]);
   const [exitingYear, setExitingYear] = useState<number | null>(null);
 
   useEffect(() => {
     const updateUnlocked = () => {
-      const line = window.innerHeight * UNLOCK_LINE;
+      const menuBottom = yearNavRef.current?.getBoundingClientRect().bottom ?? 0;
+      const line = Math.max(window.innerHeight * UNLOCK_LINE, menuBottom + 16);
       let next = newest;
       for (const year of years) {
         const node = sectionRefs.current[year];
@@ -150,7 +152,7 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
 
   return (
     <div className={styles.museum}>
-      <nav className={styles.yearNav} aria-label="Museum years">
+      <nav ref={yearNavRef} className={styles.yearNav} aria-label="Museum years">
         <span className={styles.yearNavLabel}>Jump to year</span>
         {years.map((year) => (
           <a
