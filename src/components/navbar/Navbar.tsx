@@ -3,10 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
 
 const links = [
-  { href: "#sponsors", label: "Sponsors" },
-  { href: "#hackhive-2025", label: "HackHive 2025" },
-  { href: "#team", label: "Team" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#schedule", label: "Schedule" },
+  { href: "/#speakers", label: "Speakers & Judges" },
+  { href: "/#sponsors", label: "Sponsors" },
+  { href: "/#hackhive-2025", label: "Archive" },
+  { href: "/#faq", label: "FAQ" },
 ] as const;
 
 export async function Navbar() {
@@ -21,18 +22,20 @@ export async function Navbar() {
       </Link>
       <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
         {links.map((link) => (
-          <a
-            key={link.href}
-            href={link.href}
-            className="text-sm font-medium text-neutral-900"
-          >
+          <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
             {link.label}
-          </a>
+          </Link>
         ))}
       </nav>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         {isSignedIn ? (
           <>
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+            >
+              Dashboard
+            </Link>
             <Link
               href="/apply/status"
               className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
