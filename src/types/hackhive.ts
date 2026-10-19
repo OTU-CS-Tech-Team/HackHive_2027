@@ -1,9 +1,3 @@
-export type CorkboardAnnotation = {
-  text: string;
-  placement: 'top' | 'bottom';
-  ink: 'red' | 'navy' | 'ink' | 'green';
-};
-
 export type HackHiveProject = {
   id: string;
   title: string;
@@ -17,8 +11,4 @@ export type HackHiveProject = {
   githubUrl?: string;
   devpostUrl?: string;
   category?: string;
-  rotation?: number;
-  attachment?: 'pin' | 'tape';
-  pinColor?: 'red' | 'green';
-  annotation?: CorkboardAnnotation;
 };

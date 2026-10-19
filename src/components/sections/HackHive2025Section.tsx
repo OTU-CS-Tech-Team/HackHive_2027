@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ARCHIVE_YEARS } from "@/data/hackhive";
 
 export function HackHive2025Section() {
   return (
@@ -9,7 +10,7 @@ export function HackHive2025Section() {
     >
       <div className="mx-auto w-full max-w-5xl">
         <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#7a4961]">
-          2024 · 2025 · 2026
+          {[...ARCHIVE_YEARS].sort((a, b) => a - b).join(" · ")}
         </p>
         <h2
           id="museum-heading"
