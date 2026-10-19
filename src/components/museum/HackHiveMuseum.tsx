@@ -150,6 +150,19 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
 
   return (
     <div className={styles.museum}>
+      <nav className={styles.yearNav} aria-label="Museum years">
+        <span className={styles.yearNavLabel}>Jump to year</span>
+        {years.map((year) => (
+          <a
+            key={year}
+            href={`#year-${year}`}
+            className={styles.yearLink}
+            aria-current={year === unlockedYear ? 'location' : undefined}
+          >
+            {year}
+          </a>
+        ))}
+      </nav>
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
           <Link href="/" className={styles.backLink}>

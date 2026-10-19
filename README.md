@@ -3,7 +3,11 @@ HackHive 2027 website
 
 ## HackHive Museum
 
-Open `/hackhive/archive`. The museum includes
+Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
+open `/hackhive/archive`. The route is defined by
+`src/app/hackhive/archive/page.tsx`, which imports the museum component and archive
+data. A sticky year menu lets visitors jump straight to any collection on mobile
+and desktop. The museum includes
 all 21 projects from 2026, 2025, and 2024, click-to-play videos, project thumbnails,
 and the scroll-driven puzzle navigation.
 
