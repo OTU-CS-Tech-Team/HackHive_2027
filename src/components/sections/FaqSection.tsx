@@ -8,11 +8,35 @@ type Faq = {
   answer: string;
 };
 
-// Placeholders until the real questions are written.
-const faqs: Faq[] = Array.from({ length: 6 }, (_, i) => ({
-  question: `Question ${i + 1}?`,
-  answer: `Answer to question ${i + 1} goes here.`,
-}));
+const faqs: Faq[] = [
+  {
+    question: "Do I need to be experienced to join?",
+    answer: "First-time hackers are welcome, you do not need previous experience to join.",
+  },
+  {
+    question: "Do I need to be an Ontario Tech student?",
+    answer: "Nope, we encourage students from all colleges/universities to apply.",
+  },
+  {
+    question: "If I have graduated university, can I participate?",
+    answer:
+      "Unfortunately no, you can only participate if you have not yet graduated from university but are studying as a student.",
+  },
+  {
+    question: "Do I need to be in-person for the event?",
+    answer:
+      "Yes, every team member needs to have attended at least one of the days in-person. Each team additionally needs to have at least one team member present for the opening ceremony and closing ceremony.",
+  },
+  {
+    question: "I have dietary restrictions or allergies, will there be accommodations?",
+    answer:
+      "We try our best to accommodate everyone's dietary restrictions and allergies, please make sure to include it when you register!",
+  },
+  {
+    question: "How many people can I have on my team?",
+    answer: "The maximum amount of team members for this challenge is 4, so that's 3 other team members including you!",
+  },
+];
 
 // A stretched hexagon that flips over on click to show its answer.
 function FaqCard({ question, answer }: Faq) {

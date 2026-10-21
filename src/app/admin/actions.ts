@@ -192,6 +192,36 @@ export async function saveRow(table: TableName, formData: FormData): Promise<str
   return id ? "Saved." : `Added ${row.name}.`;
 }
 
+// First come, first served: only the oldest pending request can be reviewed.
+export async function reviewItemRequest(id: string, decision: "accepted" | "rejected", note: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (decision !== "accepted" && decision !== "rejected") return { ok: false, message: "Unknown decision." };
+
+  const { data: next } = await supabase
+    .from("item_requests")
+    .select("id")
+    .eq("status", "pending")
+    .order("queue_number")
+    .limit(1)
+    .maybeSingle();
+  if (next?.id !== id) return { ok: false, message: "That's not the next request in line. Refresh the page." };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // The status filter stops two admins reviewing the same request at once.
+  const { data, error } = await supabase
+    .from("item_requests")
+    .update({ status: decision, reviewed_by: user!.id, reviewed_at: new Date().toISOString(), admin_note: note.trim() || null })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
+  if (error) return { ok: false, message: error.message };
+  if (!data.length) return { ok: false, message: "Someone already reviewed this one. Refresh the page." };
+  revalidatePath("/admin/requests");
+  return { ok: true, message: decision === "accepted" ? "Accepted." : "Rejected." };
+}
+
 export async function deleteRow(table: TableName, id: string): Promise<string> {
   if (!Object.hasOwn(TABLES, table)) return "Unknown table.";
   const supabase = await requireAdmin();
