@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { OAuthButtons, OrDivider } from "@/components/auth/OAuthButtons";
 
 export function SignupForm() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -18,15 +22,29 @@ export function SignupForm() {
     try {
       const supabase = createClient();
       
-      const { error: signInError } = await supabase.auth.signInWithOtp({
+      // Password signup: the confirmation email goes out once, here. Later
+      // sign-ins use the password and send nothing.
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
+        password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/apply`,
         },
       });
 
-      if (signInError) {
-        throw signInError;
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      // Supabase answers a signup for an already-confirmed email with a fake
+      // user (no identities) and sends no email.
+      if (data.user?.identities?.length === 0) {
+        throw new Error("An account with this email already exists. Sign in instead.");
+      }
+
+      if (data.session) {
+        router.push("/apply");
+        return;
       }
 
       setEmailSent(true);
@@ -54,8 +72,8 @@ export function SignupForm() {
           </div>
           <h1 className="text-2xl font-bold">Check your email</h1>
           <p className="text-neutral-600">
-            We sent a verification link to <strong>{email}</strong>. Click the link to verify your
-            email and continue your application.
+            We sent a verification link to <strong>{email}</strong>. Click it once to verify your
+            email; after that you can sign in with your password.
           </p>
           <p className="text-sm text-neutral-500">
             Didn&apos;t receive the email? Check your spam folder or{" "}
@@ -101,6 +119,24 @@ export function SignupForm() {
             />
           </div>
 
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-neutral-700">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+              placeholder="At least 8 characters"
+            />
+          </div>
+
           {error && (
             <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700" role="alert">
               {error}
@@ -112,11 +148,14 @@ export function SignupForm() {
             disabled={isLoading}
             className="flex w-full items-center justify-center rounded-lg bg-neutral-900 px-4 py-3 font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? "Sending..." : "Continue with email"}
+            {isLoading ? "Creating account..." : "Create account"}
           </button>
 
           <p className="text-center text-sm text-neutral-600">
-            A magic link will be sent to your email to sign in.
+            We&apos;ll email you once to verify your address. Already have an account?{" "}
+            <Link href="/auth/login" className="text-neutral-900 underline hover:no-underline">
+              Sign in
+            </Link>
           </p>
         </form>
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { OAuthButtons, OrDivider } from "@/components/auth/OAuthButtons";
 
@@ -9,7 +11,9 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ next }: LoginFormProps) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -19,12 +23,34 @@ export function LoginForm({ next }: LoginFormProps) {
     setIsLoading(true);
     setError(null);
 
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
+      setError(signInError.message);
+      setIsLoading(false);
+      return;
+    }
+    router.push(next);
+    router.refresh();
+  };
+
+  // Fallback for forgotten passwords and accounts made back when sign-in was
+  // magic-link only (those have no password). Never creates an account.
+  const handleEmailLink = async () => {
+    if (!email) {
+      setError("Enter your email first.");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+
     try {
       const supabase = createClient();
-      
+
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email,
         options: {
+          shouldCreateUser: false,
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
@@ -104,6 +130,22 @@ export function LoginForm({ next }: LoginFormProps) {
             />
           </div>
 
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-neutral-700">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+            />
+          </div>
+
           {error && (
             <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700" role="alert">
               {error}
@@ -115,11 +157,23 @@ export function LoginForm({ next }: LoginFormProps) {
             disabled={isLoading}
             className="flex w-full items-center justify-center rounded-lg bg-neutral-900 px-4 py-3 font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? "Sending..." : "Continue with email"}
+            {isLoading ? "Signing in..." : "Sign in"}
           </button>
 
           <p className="text-center text-sm text-neutral-600">
-            A magic link will be sent to your email to sign in.
+            Forgot your password or never set one?{" "}
+            <button
+              type="button"
+              onClick={handleEmailLink}
+              disabled={isLoading}
+              className="text-neutral-900 underline hover:no-underline disabled:opacity-50"
+            >
+              Email me a sign-in link
+            </button>
+            . New here?{" "}
+            <Link href="/signup" className="text-neutral-900 underline hover:no-underline">
+              Create an account
+            </Link>
           </p>
         </form>
 

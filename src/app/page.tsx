@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
-import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
 import { createClient } from "@/lib/supabase/server";
@@ -59,7 +58,6 @@ export default function Home() {
           <HeroCTA />
         </Suspense>
       </section>
-      <ScheduleSection />
       <SpeakersSection />
       <SponsorsSection />
       <HackHive2025Section />
