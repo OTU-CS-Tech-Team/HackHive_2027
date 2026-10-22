@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import styles from './museum.module.css';
 
@@ -11,6 +11,11 @@ type YouTubeFacadeProps = {
 
 export default function YouTubeFacade({ videoId, title }: YouTubeFacadeProps) {
   const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    // Cached pages are hidden by Activity, which runs effect cleanup.
+    return () => setPlaying(false);
+  }, []);
 
   if (playing) {
     return (
