@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-
-// Total across every item in one request.
-const MAX_ITEMS = 5;
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { submitItemRequest } from "@/app/actions/itemRequests";
+import { MAX_ITEMS } from "@/lib/itemRequests";
 
 // Placeholders until the real inventory is decided.
 const PRESETS = {
@@ -46,6 +46,10 @@ function Counter({
 export function ItemRequestSection() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [others, setOthers] = useState<OtherItem[]>([]);
+  const [teamMembers, setTeamMembers] = useState("");
+  const [details, setDetails] = useState("");
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [sending, startTransition] = useTransition();
 
   const total =
     Object.values(counts).reduce((sum, n) => sum + n, 0) + others.reduce((sum, item) => sum + item.quantity, 0);
@@ -80,10 +84,18 @@ export function ItemRequestSection() {
         className="flex flex-col gap-8"
         onSubmit={(event) => {
           event.preventDefault();
-          // TODO: send to the server action.
+          startTransition(async () => {
+            const response = await submitItemRequest({ items, teamMembers, details });
+            setResult(response);
+            if (response.ok) {
+              setCounts({});
+              setOthers([]);
+              setTeamMembers("");
+              setDetails("");
+            }
+          });
         }}
       >
-        <input type="hidden" name="items" value={JSON.stringify(items)} />
 
         <div className="grid gap-6 md:grid-cols-2">
           {(Object.keys(PRESETS) as (keyof typeof PRESETS)[]).map((category) => (
@@ -154,7 +166,8 @@ export function ItemRequestSection() {
           <label className="flex flex-col gap-2">
             <span className="font-medium">Team members</span>
             <textarea
-              name="team_members"
+              value={teamMembers}
+              onChange={(event) => setTeamMembers(event.target.value)}
               rows={4}
               placeholder={"One name per line"}
               className={input}
@@ -163,7 +176,8 @@ export function ItemRequestSection() {
           <label className="flex flex-col gap-2">
             <span className="font-medium">Anything else we should know?</span>
             <textarea
-              name="details"
+              value={details}
+              onChange={(event) => setDetails(event.target.value)}
               rows={4}
               placeholder="Special needs, allergies, sizes…"
               className={input}
@@ -173,15 +187,29 @@ export function ItemRequestSection() {
 
         <div className="flex flex-wrap items-center gap-4">
           <button
-            disabled={items.length === 0}
+            disabled={items.length === 0 || sending}
             className="rounded bg-neutral-900 px-5 py-2.5 font-medium text-white disabled:opacity-50"
           >
-            Submit request
+            {sending ? "Sending…" : "Submit request"}
           </button>
           <p className={`text-sm ${canAdd ? "text-neutral-600" : "font-medium"}`}>
-            {total} / {MAX_ITEMS} items{!canAdd && " (limit reached)"}
+            {items.length === 0 ? "Pick at least one item to submit." : `${total} / ${MAX_ITEMS} items`}
+            {!canAdd && " (limit reached)"}
           </p>
         </div>
+        {result && (
+          <p role="status" className={`text-sm font-medium ${result.ok ? "text-green-700" : "text-red-700"}`}>
+            {result.message}
+            {result.message === "Log in to request items." && (
+              <>
+                {" "}
+                <Link href="/auth/login" className="underline">
+                  Log in
+                </Link>
+              </>
+            )}
+          </p>
+        )}
       </form>
     </section>
   );

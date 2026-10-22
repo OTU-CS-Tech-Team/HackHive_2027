@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { formatDateTime } from "@/lib/time";
-import { reviewItemRequest } from "../actions";
+import { deleteItemRequest, reviewItemRequest } from "../actions";
 
 export type ItemRequest = {
   id: string;
@@ -11,8 +11,16 @@ export type ItemRequest = {
   team_members: string[];
   details: string | null;
   created_at: string;
-  requester: { full_name: string | null; email: string | null } | null;
+  status: "pending" | "accepted" | "rejected";
+  reviewed_at: string | null;
+  admin_note: string | null;
+  requester: Person | null;
+  reviewer: Person | null;
 };
+
+type Person = { full_name: string | null; email: string | null };
+
+const nameOf = (person: Person | null, fallback: string) => person?.full_name || person?.email || fallback;
 
 const card = "rounded-lg border border-neutral-200 p-5";
 
@@ -21,7 +29,7 @@ function RequestDetails({ request }: { request: ItemRequest }) {
     <>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">
-          #{request.queue_number} · {request.requester?.full_name || request.requester?.email || "Hacker"}
+          #{request.queue_number} · {nameOf(request.requester, "Hacker")}
         </h2>
         <span className="text-sm text-neutral-500">{formatDateTime(request.created_at)}</span>
       </div>
@@ -99,5 +107,71 @@ export function RequestQueue({ requests }: { requests: ItemRequest[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+function DeleteRequest({ request }: { request: ItemRequest }) {
+  const [message, setMessage] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const remove = () => {
+    if (!confirm(`Delete request #${request.queue_number}? This can't be undone.`)) return;
+    startTransition(async () => {
+      const result = await deleteItemRequest(request.id);
+      if (!result.ok) setMessage(result.message);
+    });
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <button disabled={pending} onClick={remove} className="rounded border border-red-300 px-3 py-1 text-sm text-red-700 disabled:opacity-50">
+        Delete
+      </button>
+      {message && (
+        <p role="status" className="text-sm">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Every accepted and rejected request, most recently reviewed first.
+export function RequestHistory({ requests }: { requests: ItemRequest[] }) {
+  return (
+    <section>
+      <h2 className="mb-4 text-xl font-bold">History</h2>
+      {!requests.length ? (
+        <p className="text-neutral-600">Nothing reviewed yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-4">
+          {requests.map((request) => {
+            const accepted = request.status === "accepted";
+            return (
+              <li key={request.id} className={card}>
+                <span
+                  className={`mb-2 inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase ${
+                    accepted ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {accepted ? "Accepted" : "Rejected"}
+                </span>
+                <RequestDetails request={request} />
+                <p className="mt-3 border-t border-neutral-200 pt-3 text-sm text-neutral-600">
+                  {accepted ? "Accepted" : "Rejected"} by {nameOf(request.reviewer, "an admin")}
+                  {request.reviewed_at && <> · {formatDateTime(request.reviewed_at)}</>}
+                </p>
+                {request.admin_note && (
+                  <p className="text-sm">
+                    <span className="font-medium">Admin note:</span> {request.admin_note}
+                  </p>
+                )}
+                <DeleteRequest request={request} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

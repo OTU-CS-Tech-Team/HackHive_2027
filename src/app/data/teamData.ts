@@ -3,6 +3,7 @@ export type TeamMember = {
     name: string;
     role: string;
     link: string;
+    position?: string; // which part of the photo to keep when it's cropped, e.g. "right" or "70% center"
 }; 
 
 export const presidents: TeamMember[] = [
@@ -136,6 +137,7 @@ export const eventsTeam: TeamMember[] = [
         name: "Bach",
         role: "Events Officer",
         link: "https://www.linkedin.com/in/bach-nguyen-vu/",
+        position: "right",
     },
     {
         Image: "/Images/Zoha.jpeg",

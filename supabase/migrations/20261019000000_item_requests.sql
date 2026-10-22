@@ -38,7 +38,7 @@ create policy "item_requests_insert_own" on public.item_requests
     and admin_note is null
   );
 
--- Accept/reject. No delete policy, so the history can't be erased.
+-- Accept/reject. Deleting reviewed requests is allowed in 20261022000000_item_requests_admin_delete.sql.
 create policy "item_requests_admin_update" on public.item_requests
   for update to authenticated
   using ((select public.is_admin()))

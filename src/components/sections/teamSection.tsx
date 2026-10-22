@@ -8,14 +8,18 @@ type TeamMemberProps = {
   image: string;
   name: string;
   role: string;
-  link: string;
+  position?: string;
 };
 
 // One hexagon of a team's honeycomb. The role is revealed on hover.
 function TeamMemberCard(props: TeamMemberProps) {
   const content = (
     <span className="hex-inner">
-      <img src={props.image} alt={`Photo of ${props.name}`} />
+      <img
+        src={props.image}
+        alt={`Photo of ${props.name}`}
+        style={{ objectPosition: props.position }}
+      />
       <span className="hex-label">
         <span className="hex-name">{props.name}</span>
         <span className="hex-role">{props.role}</span>
@@ -23,13 +27,7 @@ function TeamMemberCard(props: TeamMemberProps) {
     </span>
   );
 
-  return props.link ? (
-    <a className="hex-cell" href={props.link} target="_blank" rel="noopener noreferrer">
-      {content}
-    </a>
-  ) : (
-    <div className="hex-cell">{content}</div>
-  );
+  return <div className="hex-cell">{content}</div>;
 }
 
 // "row" groups are a single line of hexes, like a pair of presidents.
@@ -118,7 +116,7 @@ function MemberHex({ member }: { member: TeamMember }) {
       image={member.Image}
       name={member.name}
       role={member.role}
-      link={member.link}
+      position={member.position}
     />
   );
 }

@@ -222,6 +222,18 @@ export async function reviewItemRequest(id: string, decision: "accepted" | "reje
   return { ok: true, message: decision === "accepted" ? "Accepted." : "Rejected." };
 }
 
+// Only reviewed requests can be deleted; pending ones have to go through the queue.
+export async function deleteItemRequest(id: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Unknown request." };
+
+  const { data, error } = await supabase.from("item_requests").delete().eq("id", id).neq("status", "pending").select("id");
+  if (error) return { ok: false, message: error.message };
+  if (!data.length) return { ok: false, message: "That request is gone or still pending. Refresh the page." };
+  revalidatePath("/admin/requests");
+  return { ok: true, message: "Deleted." };
+}
+
 export async function deleteRow(table: TableName, id: string): Promise<string> {
   if (!Object.hasOwn(TABLES, table)) return "Unknown table.";
   const supabase = await requireAdmin();
