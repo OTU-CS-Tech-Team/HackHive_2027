@@ -26,9 +26,14 @@ export default function AdminPage() {
             ))}
           </nav>
         </div>
-        <Link href="/admin/scan" className="rounded bg-neutral-900 px-4 py-2 text-white">
-          Open scanner
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/requests" className="rounded border border-neutral-300 px-4 py-2">
+            Item requests
+          </Link>
+          <Link href="/admin/scan" className="rounded bg-neutral-900 px-4 py-2 text-white">
+            Open scanner
+          </Link>
+        </div>
       </header>
       <Suspense fallback={<p>Loading…</p>}>
         <AdminContent />
