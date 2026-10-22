@@ -70,6 +70,10 @@ export function FaqSection() {
           <FaqCard key={faq.question} {...faq} />
         ))}
       </div>
+      <p className="faq-contact">
+        Have more questions? Contact us at <strong>otu.csclub.com</strong> with the subject
+        &quot;Hackhive 2027 question&quot;.
+      </p>
     </section>
   );
 }
