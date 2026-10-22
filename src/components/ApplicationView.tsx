@@ -1,16 +1,20 @@
 import type { Application } from "@/lib/application/schema";
 
-function StatusBadge({ status }: { status: string }) {
-  const styles =
-    status === "submitted"
-      ? "bg-green-100 text-green-800"
-      : "bg-yellow-100 text-yellow-800";
+const BADGES = {
+  draft: ["Draft", "bg-neutral-100 text-neutral-800"],
+  applied: ["Applied", "bg-blue-100 text-blue-800"],
+  accepted: ["Accepted", "bg-green-100 text-green-800"],
+  waitlisted: ["Waitlisted", "bg-yellow-100 text-yellow-800"],
+  rejected: ["Rejected", "bg-red-100 text-red-800"],
+} as const;
 
-  return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${styles}`}>
-      {status === "submitted" ? "Submitted" : "Draft"}
-    </span>
-  );
+export function applicantStatus(application: Pick<Application, "status" | "decision">): keyof typeof BADGES {
+  return application.status === "draft" ? "draft" : (application.decision ?? "applied");
+}
+
+function StatusBadge({ application }: { application: Application }) {
+  const [label, styles] = BADGES[applicantStatus(application)];
+  return <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${styles}`}>{label}</span>;
 }
 
 function FieldDisplay({ label, value }: { label: string; value: string | null | undefined }) {
@@ -35,7 +39,7 @@ export function ApplicationView({ application }: { application: Application }) {
               : "Not yet submitted"}
           </p>
         </div>
-        <StatusBadge status={application.status} />
+        <StatusBadge application={application} />
       </div>
 
       <section className="rounded-lg border border-neutral-200 bg-white p-6">

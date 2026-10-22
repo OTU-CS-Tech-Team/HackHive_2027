@@ -44,18 +44,22 @@ export default function DashboardPage({ searchParams }: { searchParams: Promise<
 
 async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   const { tab: requested } = await searchParams;
-  const tab: Tab = typeof requested === "string" && Object.hasOwn(TABS, requested) ? (requested as Tab) : "schedule";
+  const wanted: Tab = typeof requested === "string" && Object.hasOwn(TABS, requested) ? (requested as Tab) : "schedule";
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect(`/auth/login?next=${encodeURIComponent(tab === "schedule" ? "/dashboard" : `/dashboard?tab=${tab}`)}`);
+  if (!user) redirect(`/auth/login?next=${encodeURIComponent(wanted === "schedule" ? "/dashboard" : `/dashboard?tab=${wanted}`)}`);
 
-  const [{ data: profile }, { data: admin }] = await Promise.all([
+  const [{ data: profile }, { data: admin }, { data: application }] = await Promise.all([
     supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
     supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("applications").select("decision").eq("user_id", user.id).maybeSingle(),
   ]);
+  // Accepted hackers and admins get the whole hub; everyone else only sees their application and its status.
+  const allowed = admin || application?.decision === "accepted" ? (Object.keys(TABS) as Tab[]) : (["application"] as Tab[]);
+  const tab = allowed.includes(wanted) ? wanted : allowed[0];
 
   return (
     <main className="mx-auto max-w-6xl px-4 pt-24 pb-16">
@@ -80,14 +84,14 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
 
       <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
         <nav aria-label="Dashboard" className="flex gap-1 overflow-x-auto md:flex-col md:self-start md:border-r md:border-neutral-200 md:pr-4">
-          {(Object.entries(TABS) as [Tab, string][]).map(([key, label]) => (
+          {allowed.map((key) => (
             <Link
               key={key}
               href={key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
               aria-current={tab === key ? "page" : undefined}
               className={`rounded px-3 py-2 whitespace-nowrap ${tab === key ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`}
             >
-              {label}
+              {TABS[key]}
             </Link>
           ))}
         </nav>

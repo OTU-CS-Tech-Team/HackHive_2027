@@ -320,6 +320,7 @@ export type Application = {
   user_id: string;
   email: string;
   status: 'draft' | 'submitted';
+  decision: 'accepted' | 'waitlisted' | 'rejected' | null; // null = applied, no decision yet
   submitted_at: string | null;
   created_at: string;
   updated_at: string;
