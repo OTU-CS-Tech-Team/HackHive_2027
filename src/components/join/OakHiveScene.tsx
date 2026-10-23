@@ -1,9 +1,49 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { Component, useRef, useEffect, useState, useMemo, useCallback } from "react";
+import type { ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float } from "@react-three/drei";
 import * as THREE from "three";
+
+class CanvasErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+function canCreateWebGLContext(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl", {
+      failIfMajorPerformanceCaveat: true,
+    }) || canvas.getContext("experimental-webgl", {
+      failIfMajorPerformanceCaveat: true,
+    });
+    if (!gl) return false;
+    const glContext = gl as WebGLRenderingContext;
+    glContext.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function OakTrunk() {
   const trunkGeometry = useMemo(() => {
@@ -523,13 +563,13 @@ function CameraController({ isPaused, isMobile, isTablet }: { isPaused: boolean;
     const cam = state.camera;
     
     if (isMobile) {
-      cam.position.x = -4;
-      cam.position.z = 13;
-      cam.lookAt(5, 0.5, 0);
+      cam.position.x = -2;
+      cam.position.z = 10;
+      cam.lookAt(2, 0.5, 0);
     } else if (isTablet) {
-      cam.position.x = -5;
-      cam.position.z = 13;
-      cam.lookAt(4, 0.8, 0);
+      cam.position.x = -2.5;
+      cam.position.z = 10;
+      cam.lookAt(2, 0.5, 0);
     } else {
       cam.position.x = -3;
       cam.position.z = 11;
@@ -539,9 +579,9 @@ function CameraController({ isPaused, isMobile, isTablet }: { isPaused: boolean;
     if (!isPaused) {
       const t = state.clock.elapsedTime * 0.08;
       const bobAmount = Math.sin(t) * 0.03;
-      cam.position.y = (isMobile ? 1.0 : isTablet ? 0.8 : 0.8) + bobAmount;
+      cam.position.y = (isMobile ? 0.8 : isTablet ? 0.8 : 0.8) + bobAmount;
     } else {
-      cam.position.y = isMobile ? 1.0 : isTablet ? 0.8 : 0.8;
+      cam.position.y = isMobile ? 0.8 : isTablet ? 0.8 : 0.8;
     }
   });
 
@@ -585,9 +625,6 @@ type SceneState = "loading" | "ready" | "fallback";
 function checkShouldUseFallback(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    if (!gl) return true;
     if ("connection" in navigator) {
       const conn = navigator.connection as { saveData?: boolean; effectiveType?: string };
       if (conn.saveData) return true;
@@ -607,6 +644,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
   const [sceneState, setSceneState] = useState<SceneState>("loading");
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const [webglSupported, setWebglSupported] = useState<boolean | null>(null);
   const frameTimesRef = useRef<number[]>([]);
   const lastCheckRef = useRef(0);
 
@@ -625,7 +663,16 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     const controller = new AbortController();
     queueMicrotask(() => {
       if (controller.signal.aborted) return;
+      
       if (checkShouldUseFallback()) {
+        setWebglSupported(false);
+        setSceneState("fallback");
+        return;
+      }
+      
+      const canCreate = canCreateWebGLContext();
+      setWebglSupported(canCreate);
+      if (!canCreate) {
         setSceneState("fallback");
       }
     });
@@ -693,7 +740,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
 
   const isPaused = !isVisible;
 
-  if (sceneState === "fallback") {
+  if (sceneState === "fallback" || webglSupported === false) {
     return (
       <div ref={containerRef} className={`relative h-full w-full ${className}`}>
         <FallbackImage />
@@ -701,31 +748,47 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     );
   }
 
+  if (webglSupported === null) {
+    return (
+      <div ref={containerRef} className={`relative h-full w-full ${className}`}>
+        <FallbackImage />
+      </div>
+    );
+  }
+
+  const fallbackElement = (
+    <div className={`relative h-full w-full ${className}`}>
+      <FallbackImage />
+    </div>
+  );
+
   return (
     <div ref={containerRef} className={`relative h-full w-full ${className}`}>
       <FallbackImage />
-      <Canvas
-        shadows
-        dpr={[1, 1.5]}
-        gl={{
-          antialias: true,
-          alpha: false,
-          powerPreference: "high-performance",
-          failIfMajorPerformanceCaveat: true,
-        }}
-        camera={{ fov: 50, near: 0.1, far: 50 }}
-        onCreated={handleCreated}
-        onError={handleError}
-        frameloop={isPaused ? "demand" : "always"}
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: sceneState === "ready" ? 1 : 0,
-          transition: "opacity 0.5s ease-in-out",
-        }}
-      >
-        <Scene isPaused={isPaused} isMobile={isMobile} isTablet={isTablet} />
-      </Canvas>
+      <CanvasErrorBoundary fallback={fallbackElement}>
+        <Canvas
+          shadows
+          dpr={[1, 1.5]}
+          gl={{
+            antialias: true,
+            alpha: false,
+            powerPreference: "high-performance",
+            failIfMajorPerformanceCaveat: true,
+          }}
+          camera={{ fov: 50, near: 0.1, far: 50 }}
+          onCreated={handleCreated}
+          onError={handleError}
+          frameloop={isPaused ? "demand" : "always"}
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: sceneState === "ready" ? 1 : 0,
+            transition: "opacity 0.5s ease-in-out",
+          }}
+        >
+          <Scene isPaused={isPaused} isMobile={isMobile} isTablet={isTablet} />
+        </Canvas>
+      </CanvasErrorBoundary>
     </div>
   );
 }
