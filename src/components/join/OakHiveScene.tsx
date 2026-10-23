@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo, useCallback } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Float } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -228,16 +228,19 @@ function FlyingBee({
   initialPosition, 
   speed = 1,
   pathRadius = 0.5,
-  timeOffset = 0
+  timeOffset = 0,
+  showTrail = true
 }: { 
   initialPosition: [number, number, number]; 
   speed?: number;
   pathRadius?: number;
   timeOffset?: number;
+  showTrail?: boolean;
 }) {
   const beeRef = useRef<THREE.Group>(null);
   const trailRef = useRef<THREE.Points>(null);
-  const trailPositions = useRef<number[]>([]);
+  const trailBufferRef = useRef<Float32Array | null>(null);
+  const trailIndexRef = useRef(0);
 
   useFrame((state) => {
     if (!beeRef.current) return;
@@ -253,18 +256,21 @@ function FlyingBee({
       -Math.sin(t * 0.7) * pathRadius
     );
 
-    if (trailRef.current) {
-      trailPositions.current.unshift(x, y, z);
-      if (trailPositions.current.length > 30) {
-        trailPositions.current = trailPositions.current.slice(0, 30);
-      }
+    if (showTrail && trailRef.current) {
       const geo = trailRef.current.geometry;
-      const positions = new Float32Array(30);
-      for (let i = 0; i < 30; i++) {
-        positions[i] = trailPositions.current[i] ?? 0;
+      const posAttr = geo.getAttribute('position');
+      if (posAttr) {
+        if (!trailBufferRef.current) {
+          trailBufferRef.current = posAttr.array as Float32Array;
+        }
+        const buffer = trailBufferRef.current;
+        const idx = (trailIndexRef.current % 10) * 3;
+        buffer[idx] = x;
+        buffer[idx + 1] = y;
+        buffer[idx + 2] = z;
+        trailIndexRef.current++;
+        posAttr.needsUpdate = true;
       }
-      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geo.attributes.position.needsUpdate = true;
     }
   });
 
@@ -295,21 +301,22 @@ function FlyingBee({
           <meshStandardMaterial color={0xffffff} roughness={0.2} transparent opacity={0.5} />
         </mesh>
       </group>
-      {/* Dotted flight trail */}
-      <points ref={trailRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[new Float32Array(30), 3]}
-          />
-        </bufferGeometry>
-        <pointsMaterial size={0.03} color={0x888866} transparent opacity={0.4} sizeAttenuation />
-      </points>
+      {showTrail && (
+        <points ref={trailRef}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              args={[new Float32Array(30), 3]}
+            />
+          </bufferGeometry>
+          <pointsMaterial size={0.03} color={0x888866} transparent opacity={0.4} sizeAttenuation />
+        </points>
+      )}
     </>
   );
 }
 
-function Bees() {
+function Bees({ showTrails = true }: { showTrails?: boolean }) {
   const beeConfigs = useMemo(() => [
     { pos: [1.5, 0.5, 1.5] as [number, number, number], speed: 0.6, radius: 0.8, offset: 0 },
     { pos: [0.5, 0, 1.2] as [number, number, number], speed: 0.5, radius: 0.6, offset: 2.1 },
@@ -326,6 +333,7 @@ function Bees() {
           speed={config.speed}
           pathRadius={config.radius}
           timeOffset={config.offset}
+          showTrail={showTrails}
         />
       ))}
     </>
@@ -510,22 +518,18 @@ function GoldenLighting() {
   );
 }
 
-function CameraController({ isPaused }: { isPaused: boolean }) {
-  const { size } = useThree();
-  const isMobile = size.width < 768;
-  const isTablet = size.width >= 768 && size.width < 1024;
-
+function CameraController({ isPaused, isMobile, isTablet }: { isPaused: boolean; isMobile: boolean; isTablet: boolean }) {
   useFrame((state) => {
     const cam = state.camera;
     
     if (isMobile) {
-      cam.position.x = -1.5;
-      cam.position.z = 11;
-      cam.lookAt(3, 0.5, 0);
+      cam.position.x = -4;
+      cam.position.z = 13;
+      cam.lookAt(5, 0.5, 0);
     } else if (isTablet) {
-      cam.position.x = -2;
-      cam.position.z = 10;
-      cam.lookAt(1.5, 0.8, 0);
+      cam.position.x = -5;
+      cam.position.z = 13;
+      cam.lookAt(4, 0.8, 0);
     } else {
       cam.position.x = -3;
       cam.position.z = 11;
@@ -535,25 +539,25 @@ function CameraController({ isPaused }: { isPaused: boolean }) {
     if (!isPaused) {
       const t = state.clock.elapsedTime * 0.08;
       const bobAmount = Math.sin(t) * 0.03;
-      cam.position.y = (isMobile ? 1.5 : isTablet ? 1 : 0.8) + bobAmount;
+      cam.position.y = (isMobile ? 1.0 : isTablet ? 0.8 : 0.8) + bobAmount;
     } else {
-      cam.position.y = isMobile ? 1.5 : isTablet ? 1 : 0.8;
+      cam.position.y = isMobile ? 1.0 : isTablet ? 0.8 : 0.8;
     }
   });
 
   return null;
 }
 
-function Scene({ isPaused }: { isPaused: boolean }) {
+function Scene({ isPaused, isMobile, isTablet }: { isPaused: boolean; isMobile: boolean; isTablet: boolean }) {
   return (
     <>
-      <CameraController isPaused={isPaused} />
+      <CameraController isPaused={isPaused} isMobile={isMobile} isTablet={isTablet} />
       <GoldenLighting />
       <color attach="background" args={[0xfdf6e9]} />
       <fog attach="fog" args={[0xfff8f0, 6, 20]} />
       <OakTree />
       <BirdhouseHive />
-      <Bees />
+      <Bees showTrails={!isMobile} />
       <Meadow />
     </>
   );
@@ -563,64 +567,14 @@ function FallbackImage() {
   return (
     <div
       className="absolute inset-0 overflow-hidden"
-      style={{
-        background: "linear-gradient(to bottom, #fdf6e9 0%, #fff8f0 50%, #f5e6d3 100%)",
-      }}
       aria-hidden="true"
     >
-      {/* Golden light gradient from left */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: "linear-gradient(to right, rgba(255,216,155,0.3) 0%, transparent 60%)",
-        }}
-      />
-      {/* Oak tree silhouette on right */}
-      <div className="absolute right-0 bottom-0 w-3/5 h-full">
-        {/* Trunk */}
-        <div 
-          className="absolute bottom-0 right-1/4 w-20 md:w-32"
-          style={{
-            height: "60%",
-            background: "linear-gradient(to right, #5c4033 0%, #4a3728 100%)",
-            borderRadius: "8px 8px 20px 20px",
-          }}
-        />
-        {/* Foliage */}
-        <div 
-          className="absolute right-0 top-1/4 w-4/5 h-2/5"
-          style={{
-            background: "radial-gradient(ellipse at center, #4a7a42 0%, #3d6b35 50%, transparent 70%)",
-          }}
-        />
-        <div 
-          className="absolute right-1/4 top-1/3 w-3/5 h-1/3"
-          style={{
-            background: "radial-gradient(ellipse at center, #5a8a4f 0%, #4a7a42 50%, transparent 70%)",
-          }}
-        />
-      </div>
-      {/* Meadow */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 h-1/4"
-        style={{
-          background: "linear-gradient(to top, #8fbc6a 0%, rgba(143,188,106,0.5) 50%, transparent 100%)",
-        }}
-      />
-      {/* Bottom fog on mobile */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 h-1/3 md:h-1/4"
-        style={{
-          background: "linear-gradient(to top, rgba(255,248,240,0.9) 0%, transparent 100%)",
-        }}
-      />
-      {/* Hive hint */}
-      <div 
-        className="absolute right-[15%] top-[20%] w-12 h-14 md:w-16 md:h-20 rounded-md"
-        style={{
-          background: "linear-gradient(to bottom, #8b6914 0%, #c4a35a 100%)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-        }}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/join/fallback.jpg"
+        alt=""
+        className="h-full w-full object-cover"
+        loading="eager"
       />
     </div>
   );
@@ -629,7 +583,7 @@ function FallbackImage() {
 type SceneState = "loading" | "ready" | "fallback";
 
 function checkShouldUseFallback(): boolean {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") return false;
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -647,17 +601,36 @@ function checkShouldUseFallback(): boolean {
   return false;
 }
 
-function getInitialSceneState(): SceneState {
-  if (typeof window === "undefined") return "loading";
-  return checkShouldUseFallback() ? "fallback" : "loading";
-}
-
 export function OakHiveScene({ className = "" }: { className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [sceneState, setSceneState] = useState<SceneState>(getInitialSceneState);
+  const [sceneState, setSceneState] = useState<SceneState>("loading");
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const frameTimesRef = useRef<number[]>([]);
   const lastCheckRef = useRef(0);
+
+  useEffect(() => {
+    const checkSize = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 768);
+      setIsTablet(w >= 768 && w < 1024);
+    };
+    checkSize();
+    window.addEventListener("resize", checkSize);
+    return () => window.removeEventListener("resize", checkSize);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      if (checkShouldUseFallback()) {
+        setSceneState("fallback");
+      }
+    });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -676,6 +649,10 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
 
   const handleCreated = useCallback(() => {
     setSceneState("ready");
+  }, []);
+
+  const handleError = useCallback(() => {
+    setSceneState("fallback");
   }, []);
 
   useEffect(() => {
@@ -726,7 +703,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
 
   return (
     <div ref={containerRef} className={`relative h-full w-full ${className}`}>
-      {sceneState === "loading" && <FallbackImage />}
+      <FallbackImage />
       <Canvas
         shadows
         dpr={[1, 1.5]}
@@ -738,6 +715,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
         }}
         camera={{ fov: 50, near: 0.1, far: 50 }}
         onCreated={handleCreated}
+        onError={handleError}
         frameloop={isPaused ? "demand" : "always"}
         style={{
           position: "absolute",
@@ -746,7 +724,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
           transition: "opacity 0.5s ease-in-out",
         }}
       >
-        <Scene isPaused={isPaused} />
+        <Scene isPaused={isPaused} isMobile={isMobile} isTablet={isTablet} />
       </Canvas>
     </div>
   );
