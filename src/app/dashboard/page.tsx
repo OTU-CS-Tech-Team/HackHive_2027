@@ -87,7 +87,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           {allowed.map((key) => (
             <Link
               key={key}
-              href={key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
+              href={key === "team" ? "/dashboard/team" : key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
               aria-current={tab === key ? "page" : undefined}
               className={`rounded px-3 py-2 whitespace-nowrap ${tab === key ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`}
             >
@@ -331,6 +331,10 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
             <label>
               Instagram
               <input name="instagram_url" type="url" placeholder="https://instagram.com/…" defaultValue={profile?.instagram_url ?? ""} className={input} />
+            </label>
+            <label>
+              Slack profile (optional)
+              <input name="slack_url" type="url" maxLength={500} placeholder="https://your-workspace.slack.com/team/U123ABC" defaultValue={profile?.slack_url ?? ""} className={input} />
             </label>
             <label className="flex items-center gap-2">
               <input name="looking_for_team" type="checkbox" defaultChecked={profile?.looking_for_team ?? false} />
