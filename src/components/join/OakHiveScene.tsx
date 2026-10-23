@@ -559,17 +559,27 @@ function GoldenLighting() {
 }
 
 function CameraController({ isPaused, isMobile, isTablet }: { isPaused: boolean; isMobile: boolean; isTablet: boolean }) {
+  const isMobileRef = useRef(isMobile);
+  const isTabletRef = useRef(isTablet);
+  
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+    isTabletRef.current = isTablet;
+  }, [isMobile, isTablet]);
+  
   useFrame((state) => {
     const cam = state.camera;
+    const mobile = isMobileRef.current;
+    const tablet = isTabletRef.current;
     
-    if (isMobile) {
-      cam.position.x = -2;
-      cam.position.z = 10;
-      cam.lookAt(2, 0.5, 0);
-    } else if (isTablet) {
-      cam.position.x = -2.5;
-      cam.position.z = 10;
-      cam.lookAt(2, 0.5, 0);
+    if (mobile) {
+      cam.position.x = -8;
+      cam.position.z = 11;
+      cam.lookAt(5, 0.5, 0);
+    } else if (tablet) {
+      cam.position.x = -7;
+      cam.position.z = 11;
+      cam.lookAt(4.5, 0.5, 0);
     } else {
       cam.position.x = -3;
       cam.position.z = 11;
@@ -579,9 +589,9 @@ function CameraController({ isPaused, isMobile, isTablet }: { isPaused: boolean;
     if (!isPaused) {
       const t = state.clock.elapsedTime * 0.08;
       const bobAmount = Math.sin(t) * 0.03;
-      cam.position.y = (isMobile ? 0.8 : isTablet ? 0.8 : 0.8) + bobAmount;
+      cam.position.y = 0.8 + bobAmount;
     } else {
-      cam.position.y = isMobile ? 0.8 : isTablet ? 0.8 : 0.8;
+      cam.position.y = 0.8;
     }
   });
 
@@ -644,19 +654,27 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
   const [sceneState, setSceneState] = useState<SceneState>("loading");
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [webglSupported, setWebglSupported] = useState<boolean | null>(null);
   const frameTimesRef = useRef<number[]>([]);
   const lastCheckRef = useRef(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     const checkSize = () => {
       const w = window.innerWidth;
       setIsMobile(w < 768);
       setIsTablet(w >= 768 && w < 1024);
     };
     checkSize();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setMounted(true);
+    });
     window.addEventListener("resize", checkSize);
-    return () => window.removeEventListener("resize", checkSize);
+    return () => {
+      controller.abort();
+      window.removeEventListener("resize", checkSize);
+    };
   }, []);
 
   useEffect(() => {
@@ -748,7 +766,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     );
   }
 
-  if (webglSupported === null) {
+  if (webglSupported === null || !mounted) {
     return (
       <div ref={containerRef} className={`relative h-full w-full ${className}`}>
         <FallbackImage />
