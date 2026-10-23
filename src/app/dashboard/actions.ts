@@ -3,6 +3,7 @@
 import QRCode from "qrcode";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { parseSlackProfileUrl } from "@/lib/team/profiles";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -48,6 +49,7 @@ export async function saveProfile(formData: FormData) {
         linkedin_url: webUrl(formData, "linkedin_url"),
         github_url: webUrl(formData, "github_url"),
         instagram_url: webUrl(formData, "instagram_url"),
+        ...(formData.has("slack_url") ? { slack_url: parseSlackProfileUrl(String(formData.get("slack_url") ?? "")) } : {}),
         looking_for_team: formData.get("looking_for_team") === "on",
       })
       .eq("id", user.id);
@@ -56,6 +58,7 @@ export async function saveProfile(formData: FormData) {
     return error instanceof Error ? error.message : "Could not save";
   }
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/team");
   return "Saved.";
 }
 
@@ -87,4 +90,5 @@ export async function saveAvatarUrl(avatarUrl: string) {
   const { error } = await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/team");
 }

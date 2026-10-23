@@ -1,6 +1,34 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Find a team
+
+Open **Looking for group** in the hacker hub, or visit `/dashboard/team`.
+The page reuses the existing `has_hub_access()` and profile row-level security
+rules: accepted hackers and admins can browse, and profiles appear only when
+their owners opt into `looking_for_team`. Your own card appears separately.
+No service-role key is required. Before deploying, apply
+`supabase/migrations/20261023003437_teammate_slack_profile.sql`, which adds one
+optional `profiles.slack_url` field without changing existing data or access rules.
+
+Hackers can make their listing discoverable or hide it directly on the page,
+search by name/school, filter by school or GitHub presence, and browse paginated
+contact cards. School and search filters apply to the full authorized directory,
+including records beyond the API row limit. Email buttons open the user's mail
+app; **View GitHub**, **Connect on LinkedIn**, and **Connect on Slack** open the
+hacker's provided profile in a new tab. Hackers can add an optional Slack member
+profile link under **Pass & profile**. Slack links require access to that member's
+workspace ([Slack's member-profile link instructions](https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile)). Only available connection links are shown, and invalid or unsafe links
+are suppressed.
+The directory includes loading, empty, no-match, and error states, plus manual
+refresh. Profile and avatar updates refresh the new page too.
+
+These are teammate-discovery profiles, not registered teams or invitations.
+Once hackers form a team, they can hide their listings. Skills/interests, team
+recruitment posts with open roles, and invitation/acceptance workflows would need
+additional data models and are possible follow-ups. The previous
+`/dashboard?tab=team` view remains available.
+
 ## HackHive Museum
 
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
