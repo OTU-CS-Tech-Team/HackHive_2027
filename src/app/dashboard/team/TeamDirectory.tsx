@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- profile avatars come from Storage / OAuth providers */
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { contactHref, filterTeammates, teamSchools, type TeamProfile } from "@/lib/team/profiles";
+import { filterTeammates, teamSchools, type TeamProfile } from "@/lib/team/profiles";
 
 const PAGE_SIZE = 12;
 
@@ -62,8 +62,7 @@ export function TeamDirectory({ profiles }: { profiles: TeamProfile[] }) {
     </p>
     {visible.length ? <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {visible.map(profile => {
-        const email = contactHref(profile);
-        const links = [["Connect on Slack", profile.slackUrl], ["View GitHub", profile.githubUrl], ["Connect on LinkedIn", profile.linkedinUrl], ["View Instagram", profile.instagramUrl]];
+        const links = [["View GitHub", profile.githubUrl], ["Connect on LinkedIn", profile.linkedinUrl], ["View Instagram", profile.instagramUrl]];
         return <li key={profile.id} className="flex min-w-0 flex-col rounded-lg border border-neutral-200 bg-white p-5">
           <div className="flex items-center gap-3">
             {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="size-12 shrink-0 rounded-full object-cover" />
@@ -76,12 +75,12 @@ export function TeamDirectory({ profiles }: { profiles: TeamProfile[] }) {
           <span className="mt-4 self-start rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">Looking for teammates</span>
           <div className="mt-4 flex flex-col gap-2 text-sm">
             {links.filter(([, href]) => href).map(([label, href]) => <a key={label} href={href!} target="_blank" rel="noopener noreferrer"
-              className={`inline-flex items-center justify-between gap-2 rounded border px-3 py-2 font-medium ${label === "Connect on Slack" ? "border-amber-300 bg-amber-50 hover:bg-amber-100" : "border-neutral-300 hover:bg-neutral-50"}`}
+              className="inline-flex items-center justify-between gap-2 rounded border border-neutral-300 px-3 py-2 font-medium hover:bg-neutral-50"
               aria-label={`${label}: ${profile.name} (opens in a new tab)`}>{label}<span aria-hidden="true">↗</span></a>)}
           </div>
           <div className="mt-auto pt-5">
-            {email ? <a href={email} className="inline-flex w-full items-center justify-center rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700" aria-label={`Email ${profile.name} to connect`}>Email to connect</a>
-              : <p className="text-sm text-neutral-500">{links.some(([, href]) => href) ? "Connect through a profile link above." : "No contact links added yet."}</p>}
+            {profile.slackUrl ? <a href={profile.slackUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-full items-center justify-center gap-2 rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700" aria-label={`Connect on Slack: ${profile.name} (opens in a new tab)`}>Connect on Slack<span aria-hidden="true">↗</span></a>
+              : <p className="text-sm text-neutral-500">{links.some(([, href]) => href) ? "Connect through a profile link above. Slack profile not added yet." : "No connection links added yet."}</p>}
           </div>
         </li>;
       })}

@@ -65,7 +65,3 @@ export function filterTeammates(profiles: TeamProfile[], search: string, school:
       && (!githubOnly || !!profile.githubUrl);
   }).sort((a, b) => a.name.localeCompare(b.name, "en") || a.id.localeCompare(b.id));
 }
-
-export function contactHref(profile: TeamProfile) {
-  return profile.email ? `mailto:${encodeURIComponent(profile.email)}?subject=${encodeURIComponent("HackHive 2027: team up?")}` : null;
-}

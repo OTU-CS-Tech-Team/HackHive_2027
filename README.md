@@ -14,9 +14,10 @@ optional `profiles.slack_url` field without changing existing data or access rul
 Hackers can make their listing discoverable or hide it directly on the page,
 search by name/school, filter by school or GitHub presence, and browse paginated
 contact cards. School and search filters apply to the full authorized directory,
-including records beyond the API row limit. Email buttons open the user's mail
-app; **View GitHub**, **Connect on LinkedIn**, and **Connect on Slack** open the
-hacker's provided profile in a new tab. Hackers can add an optional Slack member
+including records beyond the API row limit. **Connect on Slack** is the primary
+CTA when a Slack profile is provided. **View GitHub** and **Connect on LinkedIn**
+offer additional connection options. These links open the hacker's provided
+profile in a new tab. Hackers can add an optional Slack member
 profile link under **Pass & profile**. Slack links require access to that member's
 workspace ([Slack's member-profile link instructions](https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile)). Only available connection links are shown, and invalid or unsafe links
 are suppressed.

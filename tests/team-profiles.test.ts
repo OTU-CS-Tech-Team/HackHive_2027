@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contactHref, filterTeammates, parseSlackProfileUrl, safeSlackProfileUrl, safeWebUrl, teamProfile, teamSchools, type TeamProfileRow } from "../src/lib/team/profiles";
+import { filterTeammates, parseSlackProfileUrl, safeSlackProfileUrl, safeWebUrl, teamProfile, teamSchools, type TeamProfileRow } from "../src/lib/team/profiles";
 
 const row = (overrides: Partial<TeamProfileRow> = {}): TeamProfileRow => ({
   id: "hacker-1", full_name: "Alex Chen", school: "Ontario Tech", email: "alex@example.com",
@@ -26,12 +26,6 @@ describe("teammate profile links and search", () => {
   it("preserves valid web links and handles missing profile fields", () => {
     expect(safeWebUrl(" https://github.com/alex ")).toBe("https://github.com/alex");
     expect(teamProfile(row({ full_name: " ", school: null, email: "bad\r\nemail", github_url: "javascript:alert(1)" }))).toMatchObject({ name: "Hacker", school: "", email: null, githubUrl: null });
-  });
-
-  it("creates an email contact link without placing untrusted text into headers", () => {
-    const href = contactHref(teamProfile(row()));
-    expect(href).toBe("mailto:alex%40example.com?subject=HackHive%202027%3A%20team%20up%3F");
-    expect(contactHref(teamProfile(row({ email: null })))).toBeNull();
   });
 
   it("combines name/school words with school and project-link filters", () => {
