@@ -3,9 +3,14 @@
   --hive-yellow: #fff29c;
   --hive-blue: #6495ed;
   --hive-black: #000000;
-  --hex-w: 8.5rem;
-  --hex-gap: 6px;
+  --hive-purple: #1b003f;
+  /* The hive's size in hexes (set from the layout in teamSection.tsx). */
+  --cols: var(--wide-cols);
+  --rows: var(--wide-rows);
+  --hex-gap: 5px;
   --hex-border: 4px;
+  /* As big as 7rem, but shrunk so the whole hive fits across the screen. */
+  --hex-w: min(7rem, calc((100vw - 3rem) / var(--cols) - var(--hex-gap)));
   /* A regular pointy-top hexagon is 2/sqrt(3) times taller than it is wide. */
   --hex-h: calc(var(--hex-w) * 1.1547);
   /* Rows overlap by a quarter hex, and each row is shifted half a hex sideways. */
@@ -20,16 +25,23 @@
      stubs that join it to the hexagons above and below, so tiles meet seamlessly. */
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='104' height='180'%3E%3Cpath d='M52 30 104 60v60L52 150 0 120V60zM52 0v30M52 150v30' fill='none' stroke='%23fff29c' stroke-opacity='.09' stroke-width='2'/%3E%3C/svg%3E"),
-    var(--hive-black);
+    var(--hive-purple);
   color: var(--hive-yellow);
+}
+
+/* Below this the wide hive's hexes get too small, so switch to the tall, narrow layout. */
+@media (max-width: 1200px) {
+  .team-page {
+    --cols: var(--narrow-cols);
+    --rows: var(--narrow-rows);
+  }
 }
 
 @media (max-width: 640px) {
   .team-page {
-    /* Small enough for a director's four-wide row to fit a 360px phone. */
-    --hex-w: 5rem;
     --hex-gap: 4px;
     --hex-border: 3px;
+    --hex-w: min(5rem, calc((100vw - 2.5rem) / var(--cols) - var(--hex-gap)));
   }
 }
 
@@ -41,108 +53,11 @@
   color: var(--hive-yellow);
 }
 
-/* Filter */
-.team-filter {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.team-filter-button {
-  border: 2px solid var(--hive-yellow);
-  border-radius: 9999px;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--hive-yellow);
-  cursor: pointer;
-  transition: background-color 150ms, color 150ms;
-}
-
-.team-filter-button:hover {
-  background: rgb(255 242 156 / 0.15);
-}
-
-.team-filter-button[aria-pressed="true"] {
-  background: var(--hive-yellow);
-  color: var(--hive-purple);
-}
-
-/* Combs */
-/* Presidents and VPs side by side at the top, advisors alone at the bottom. */
-.team-leads,
-.team-advisors {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2rem 4rem;
-}
-
-/* The departments in between, each comb knocked out of line with its neighbours. */
-.team-hive {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 2rem 3.5rem;
-  max-width: 80rem;
-  width: 100%;
-  margin: 3rem auto;
-}
-
-/* margin-top (unlike a transform) takes up space, so a comb pushed down never
-   overlaps the row below it. The sideways nudge is small enough to stay inside the gaps. */
-.team-hive .comb-group {
-  margin-top: var(--scatter-y, 0);
-  translate: var(--scatter-x, 0) 0;
-}
-
-/* On a phone the hive is one column, so scatter the combs left and right instead. */
 @media (max-width: 640px) {
   .team-page h1 {
     margin-bottom: 1.5rem;
     font-size: 1.875rem;
   }
-
-  .team-leads,
-  .team-advisors {
-    gap: 1.75rem;
-  }
-
-  .team-hive {
-    flex-direction: column;
-    gap: 1.75rem;
-    margin: 2rem auto;
-  }
-
-  .team-hive .comb-group {
-    margin-top: 0;
-    translate: none;
-  }
-
-  .team-hive .comb-group:nth-child(odd) {
-    align-self: flex-start;
-  }
-
-  .team-hive .comb-group:nth-child(even) {
-    align-self: flex-end;
-  }
-}
-
-.comb-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.comb-group h2 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--hive-yellow);
 }
 
 /* Sized to the cells' bounding box; each cell is placed by its --x / --y grid position. */
@@ -150,31 +65,27 @@
   position: relative;
   width: calc(var(--cols) * var(--pitch-x) - var(--hex-gap));
   height: calc(var(--rows) * var(--pitch-y) + var(--hex-h));
-}
-
-.honeycomb .hex-slot {
-  position: absolute;
-  left: calc(var(--x) * var(--pitch-x));
-  top: calc(var(--y) * var(--pitch-y));
-}
-
-/* Presidents, VPs and advisors: one straight line, wrapping only when it can't fit. */
-.hex-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--hex-gap);
-}
-
-.hex-row .hex-slot {
-  position: relative;
+  margin: 0 auto;
 }
 
 .hex-slot {
+  --x: var(--wide-x);
+  --y: var(--wide-y);
+  position: absolute;
+  left: calc(var(--x) * var(--pitch-x));
+  top: calc(var(--y) * var(--pitch-y));
   width: var(--hex-w);
   height: var(--hex-h);
   /* The slot is a rectangle; only the clipped hexagon inside should catch the pointer. */
   pointer-events: none;
+}
+
+/* Has to come after the rule above to override its --x / --y (same specificity). */
+@media (max-width: 1200px) {
+  .hex-slot {
+    --x: var(--narrow-x);
+    --y: var(--narrow-y);
+  }
 }
 
 .hex-slot:hover,
@@ -197,8 +108,13 @@
   transition: transform 200ms ease, background-color 200ms;
 }
 
+/* The rest of the hovered person's team. */
+.hex-slot.is-lit .hex-cell {
+  background: var(--hive-blue);
+}
+
 .hex-cell:hover,
-.hex-cell:focus-visible {
+.hex-cell:focus {
   transform: scale(1.12);
   background: var(--hive-blue);
   outline: none;
@@ -246,19 +162,13 @@
 }
 
 .hex-cell:hover .hex-role,
-.hex-cell:focus-visible .hex-role {
+.hex-cell:focus .hex-role {
   max-height: 2.5rem;
   opacity: 1;
 }
 
-/* Touch screens can't hover, so show roles all the time there. */
-@media (hover: none) {
-  .hex-role {
-    max-height: 2.5rem;
-    opacity: 1;
-  }
-}
-
+/* On a phone the hexes are too small for text, so they show just the photo and
+   a tapped hex pops out over its neighbours to show the name and role. */
 @media (max-width: 640px) {
   .hex-name {
     font-size: 0.75rem;
@@ -270,12 +180,25 @@
 
   .hex-label {
     padding-top: 1.75rem;
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+
+  .hex-cell:hover,
+  .hex-cell:focus {
+    transform: scale(1.7);
+  }
+
+  .hex-cell:hover .hex-label,
+  .hex-cell:focus .hex-label {
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hex-cell,
-  .hex-role {
+  .hex-role,
+  .hex-label {
     transition: none;
   }
 }

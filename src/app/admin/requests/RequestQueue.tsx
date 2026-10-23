@@ -24,9 +24,11 @@ const nameOf = (person: Person | null, fallback: string) => person?.full_name ||
 
 const card = "rounded-lg border border-neutral-200 p-5";
 
+// Long emails and item names have no spaces to break at, so let them wrap anywhere
+// rather than push the page wider than a phone.
 function RequestDetails({ request }: { request: ItemRequest }) {
   return (
-    <>
+    <div className="[overflow-wrap:anywhere]">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">
           #{request.queue_number} · {nameOf(request.requester, "Hacker")}
@@ -50,7 +52,7 @@ function RequestDetails({ request }: { request: ItemRequest }) {
           <span className="font-medium">Notes:</span> {request.details}
         </p>
       )}
-    </>
+    </div>
   );
 }
 
@@ -157,12 +159,12 @@ export function RequestHistory({ requests }: { requests: ItemRequest[] }) {
                   {accepted ? "Accepted" : "Rejected"}
                 </span>
                 <RequestDetails request={request} />
-                <p className="mt-3 border-t border-neutral-200 pt-3 text-sm text-neutral-600">
+                <p className="mt-3 border-t border-neutral-200 pt-3 text-sm text-neutral-600 [overflow-wrap:anywhere]">
                   {accepted ? "Accepted" : "Rejected"} by {nameOf(request.reviewer, "an admin")}
                   {request.reviewed_at && <> · {formatDateTime(request.reviewed_at)}</>}
                 </p>
                 {request.admin_note && (
-                  <p className="text-sm">
+                  <p className="text-sm [overflow-wrap:anywhere]">
                     <span className="font-medium">Admin note:</span> {request.admin_note}
                   </p>
                 )}

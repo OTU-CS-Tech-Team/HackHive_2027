@@ -3,6 +3,10 @@ import { z } from 'zod';
 // Total across every item in one request.
 export const MAX_ITEMS = 5;
 
+// Requests one hacker can have waiting in the queue at once. The database enforces
+// it too, in 20261023000000_item_requests_three_pending.sql.
+export const MAX_PENDING_REQUESTS = 3;
+
 const itemSchema = z.object({
   category: z.enum(['hardware', 'toiletries', 'other']),
   name: z.string().trim().min(1).max(100),

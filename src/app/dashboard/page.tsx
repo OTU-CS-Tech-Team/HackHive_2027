@@ -5,15 +5,24 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import { signOut } from "@/app/actions/auth";
+import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
 import { formatDateTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "./AvatarUpload";
 import { CheckinQr } from "./CheckinQr";
+import { ItemRequestForm } from "./ItemRequestForm";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
 const card = "rounded-lg border border-neutral-200 p-5";
+
+// The badge on each of the hacker's item requests.
+const statusStyles = {
+  pending: { label: "Pending", badge: "bg-amber-100 text-amber-800" },
+  accepted: { label: "Accepted", badge: "bg-green-100 text-green-800" },
+  rejected: { label: "Rejected", badge: "bg-red-100 text-red-800" },
+};
 const input = "w-full rounded border border-neutral-300 px-3 py-2";
 
 export default function DashboardPage() {
@@ -31,7 +40,7 @@ async function Dashboard() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login?next=/dashboard");
 
-  const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }, { data: shop }, { data: teammates }, { data: admin }, qr] =
+  const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }, { data: shop }, { data: teammates }, { data: admin }, { data: itemRequests }, { data: queuePositions }, qr] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("emergency_info").select("*").eq("user_id", user.id).maybeSingle(),
@@ -40,10 +49,20 @@ async function Dashboard() {
       supabase.from("shop_items").select("*").eq("active", true).order("sort_order"),
       supabase.from("profiles").select("id, full_name, school, avatar_url, linkedin_url, github_url, instagram_url, email").eq("looking_for_team", true).neq("id", user.id),
       supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
+      supabase.from("item_requests").select("id, items, created_at, status, reviewed_at, admin_note").eq("user_id", user.id).order("queue_number"),
+      supabase.rpc("my_item_request_positions"),
       mintCheckinToken(),
     ]);
 
   const points = balance?.balance ?? 0;
+  // Pending requests in queue order, then reviewed ones, most recently reviewed first.
+  const pending = (itemRequests ?? []).filter((request) => request.status === "pending");
+  const reviewed = (itemRequests ?? [])
+    .filter((request) => request.status !== "pending")
+    .sort((a, b) => (b.reviewed_at ?? "").localeCompare(a.reviewed_at ?? ""));
+  const positionOf = new Map(
+    ((queuePositions ?? []) as { id: string; queue_position: number }[]).map((row) => [row.id, row.queue_position]),
+  );
 
   return (
     <main className="mx-auto max-w-5xl px-4 pt-24 pb-16">
@@ -126,6 +145,49 @@ async function Dashboard() {
           </ul>
         ) : (
           <p className="text-sm text-neutral-600">The shop opens closer to the event.</p>
+        )}
+      </section>
+
+      <section className={`${card} mb-6`}>
+        <h2 className="mb-1 text-lg font-semibold">Request items</h2>
+        {pending.length + reviewed.length > 0 && (
+          <ul className="mb-6 mt-3 flex flex-col gap-3">
+            {[...pending, ...reviewed].map((request) => {
+              const position = positionOf.get(request.id);
+              const status = statusStyles[request.status as keyof typeof statusStyles];
+              return (
+                <li key={request.id} className="rounded border border-neutral-200 p-4 [overflow-wrap:anywhere]">
+                  <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600">
+                    <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${status.badge}`}>{status.label}</span>
+                    {request.status === "pending" && (
+                      <span className="font-semibold text-neutral-900">{position ? `#${position} in the queue` : "In the queue"}</span>
+                    )}
+                    <span>· sent {formatDateTime(request.created_at)}</span>
+                    {request.reviewed_at && <span>· reviewed {formatDateTime(request.reviewed_at)}</span>}
+                  </p>
+                  <ul className="list-inside list-disc text-sm">
+                    {(request.items as { name: string; quantity: number }[]).map((item, i) => (
+                      <li key={i}>
+                        {item.quantity} × {item.name}
+                      </li>
+                    ))}
+                  </ul>
+                  {request.admin_note && (
+                    <p className="mt-2 text-sm">
+                      <span className="font-medium">Note from the organizers:</span> {request.admin_note}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {pending.length < MAX_PENDING_REQUESTS ? (
+          <ItemRequestForm pendingCount={pending.length} />
+        ) : (
+          <p className="text-sm text-neutral-600">
+            You have {MAX_PENDING_REQUESTS} requests in the queue. You can send another once an organizer has reviewed one of them.
+          </p>
         )}
       </section>
 
