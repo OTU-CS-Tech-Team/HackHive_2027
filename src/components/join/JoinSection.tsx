@@ -1,6 +1,7 @@
 "use client";
 
 import { OakHiveScene } from "./OakHiveScene";
+import { JoinHero, JoinHeroMobile, JoinCTAButtons } from "./JoinCard";
 
 export function JoinSection() {
   return (
@@ -23,28 +24,47 @@ export function JoinSection() {
       </div>
 
       {/* 
-        SLOT FOR TABISH'S FROSTED JOIN CARD (PR #11)
-        =============================================
-        The card will be placed inside this container.
-        - z-10 ensures it sits above the backdrop canvas
-        - pointer-events-auto on the card itself ensures buttons are tappable
-        
-        DESKTOP FRAMING:
-        - The backdrop shows trunk hollow centered at about 50-60% from left
-        - Tabish's card will be centered over the hollow (around 60-66% from left)
-        - This slot is neutral (no forced alignment) so #11 can position as needed
-        
-        MOBILE FRAMING:
-        - Card at top of viewport
-        - Trunk and hive in lower portion of frame
-        - Bottom area available for Join now / Learn more buttons
-        
-        TABLET FRAMING:
-        - Portrait uses mobile art/layout
-        - Landscape uses desktop art/layout
+        Text glow overlay for readability over bright/moving backgrounds.
+        Radial gradient centered on text area at ~0.45-0.55 opacity.
       */}
-      <div className="join-card-slot pointer-events-none absolute inset-0 z-10">
-        {/* Tabish: Insert your frosted Join card component here with its own positioning */}
+      <div 
+        className="pointer-events-none absolute inset-0 z-[1]"
+        style={{
+          background: `radial-gradient(ellipse 70% 50% at 50% 45%, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.25) 40%, transparent 70%)`
+        }}
+      />
+
+      {/* 
+        TEXT HERO OVERLAY (Hack the North style)
+        ========================================
+        - Desktop/Tablet: Centered over the trunk hollow
+        - Mobile: At the top, CTAs at bottom safe zone
+        
+        All CTAs are ≥48px tall for touch targets.
+      */}
+
+      {/* Desktop & Tablet (≥768px): Full hero centered */}
+      <div className="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center md:flex">
+        <div className="pointer-events-auto">
+          <JoinHero />
+        </div>
+      </div>
+
+      {/* Mobile (<768px): Hero content at top */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-20 md:hidden">
+        <div className="pointer-events-auto">
+          <JoinHeroMobile />
+        </div>
+      </div>
+
+      {/* Mobile (<768px): CTA safe zone at bottom */}
+      <div 
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3 bg-gradient-to-t from-black/50 via-black/25 to-transparent px-6 pt-16 md:hidden"
+        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="pointer-events-auto w-full">
+          <JoinCTAButtons />
+        </div>
       </div>
     </section>
   );

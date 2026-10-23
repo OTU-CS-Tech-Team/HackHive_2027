@@ -9,3 +9,49 @@ body {
   color: #171717;
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Join Card - Frosted Glass Effect */
+.join-card-glass {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  max-width: 420px;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .join-card-glass {
+    max-width: 480px;
+  }
+}
+
+/* Primary CTA - Amber/Gold gradient */
+.join-btn-primary {
+  background: linear-gradient(
+    180deg,
+    #f5c97a 0%,
+    #d4a24c 50%,
+    #c49340 100%
+  );
+  color: #5c3d1e;
+  box-shadow:
+    0 4px 12px rgba(196, 147, 64, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.join-btn-primary:hover {
+  box-shadow:
+    0 6px 16px rgba(196, 147, 64, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Secondary CTA */
+.join-btn-secondary {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
