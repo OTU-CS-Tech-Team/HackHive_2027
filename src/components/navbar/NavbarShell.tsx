@@ -8,31 +8,42 @@ export default function NavbarShell({ children }: { children: React.ReactNode })
 
     useEffect(() => {
         let ticking = false;
-        let lastY = window.scrollY;
+        const lastYByTarget = new WeakMap<EventTarget, number>();
+        lastYByTarget.set(document, getPageScrollY());
 
-        pointerType.current = window.matchMedia("(hover: none)").matches ? "touch" : "mouse";
+        pointerType.current = window.matchMedia("(hover: none), (pointer: coarse)").matches
+            ? "touch"
+            : "mouse";
+
+        const getScrollTarget = (target: EventTarget | null) => {
+            if (
+                target instanceof HTMLElement &&
+                target !== document.documentElement &&
+                target !== document.body
+            ) {
+                return target;
+            }
+
+            return document;
+        };
+        const getScrollY = (target: EventTarget) =>
+            target instanceof HTMLElement ? Math.max(target.scrollTop, 0) : getPageScrollY();
 
         const onScroll = (event: Event) => {
-            const target = event.target;
+            const target = getScrollTarget(event.target);
 
             if (ticking) return;
             ticking = true;
 
             requestAnimationFrame(() => {
-                const y =
-                    target instanceof HTMLElement &&
-                    target !== document.documentElement &&
-                    target !== document.body
-                        ? Math.max(target.scrollTop, 0)
-                        : Math.max(window.scrollY || document.documentElement.scrollTop, 0);
-                const delta = y - lastY;
+                const y = getScrollY(target);
+                const delta = y - (lastYByTarget.get(target) ?? 0);
+                lastYByTarget.set(target, y);
 
                 if (y <= 64) {
                     setHidden(false);
-                    lastY = y;
                 } else if (Math.abs(delta) > 8) {
                     setHidden(delta > 0 || pointerType.current === "mouse");
-                    lastY = y;
                 }
 
                 ticking = false;
@@ -45,7 +56,7 @@ export default function NavbarShell({ children }: { children: React.ReactNode })
             if (event.pointerType === "mouse") {
                 if (event.clientY <= 50) {
                     setHidden(false);
-                } else if (window.scrollY > 64) {
+                } else if (getPageScrollY() > 64) {
                     setHidden(true);
                 }
             }
@@ -55,12 +66,12 @@ export default function NavbarShell({ children }: { children: React.ReactNode })
             pointerType.current = event.pointerType;
         };
 
-        window.addEventListener("scroll", onScroll, { passive: true });
+        document.addEventListener("scroll", onScroll, { capture: true, passive: true });
         window.addEventListener("pointermove", onPointerMove, { passive: true });
         window.addEventListener("pointerdown", onPointerDown, { passive: true });
 
         return () => {
-            window.removeEventListener("scroll", onScroll);
+            document.removeEventListener("scroll", onScroll, true);
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerdown", onPointerDown);
         };
@@ -74,5 +85,17 @@ export default function NavbarShell({ children }: { children: React.ReactNode })
         >
             {children}
         </header>
+    );
+}
+
+function getPageScrollY() {
+    return Math.max(
+        window.scrollY ||
+            window.pageYOffset ||
+            document.documentElement.scrollTop ||
+            document.body.scrollTop ||
+            document.scrollingElement?.scrollTop ||
+            0,
+        0,
     );
 }
