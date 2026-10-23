@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
-
+import NavbarShell from "@/components/navbar/NavbarShell";
 const links = [
   { href: "/dashboard", label: "Schedule" },
   { href: "/#speakers", label: "Speakers & Judges" },
@@ -14,9 +14,11 @@ export async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isSignedIn = !!user;
+  
 
+ 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-neutral-200 bg-white px-4 sm:px-6">
+    <NavbarShell>
       <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
         HackHive
       </Link>
@@ -60,6 +62,6 @@ export async function Navbar() {
           </Link>
         )}
       </div>
-    </header>
+    </NavbarShell>
   );
 }
