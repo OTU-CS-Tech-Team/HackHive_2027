@@ -1,6 +1,24 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Detailed admin stats
+
+Open **Detailed stats** from `/admin`, or visit `/admin/stats`. The page uses the
+existing admin membership, application table, and admission decisions. It requires
+no database migration or service-role key.
+
+The overview shows submitted applications, approved applicants, pending reviews,
+waitlists, rejections, drafts, and submissions in the last seven days. **Approved**
+uses the existing `accepted` decision; it does not mean attendance is confirmed.
+Community and logistics breakdowns cover submitted applications only: schools,
+team preferences, first-time hackers, T-shirt sizes, and support responses. These
+include all admission outcomes and are planning estimates, not confirmed orders.
+Dietary/accessibility counts include nonblank responses, which may say “none.”
+
+Use **Refresh stats** for current numbers. **Review applications** returns to the
+existing admin application controls. Application and decision editing continue
+to work as before.
+
 ## HackHive Museum
 
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
