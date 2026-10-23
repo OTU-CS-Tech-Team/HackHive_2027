@@ -8,14 +8,14 @@ const number = (value: number) => value.toLocaleString("en-US");
 const views = ["Admissions", "Community", "Logistics"] as const;
 type View = typeof views[number];
 
-function Distribution({ title, description, rows, total }: { title: string; description: string; rows: Breakdown; total: number }) {
+function Distribution({ title, description, rows, total }: { title: string; description?: string; rows: Breakdown; total: number }) {
   const shown = rows.slice(0, 5);
   const remaining = rows.slice(5).reduce((sum, row) => sum + row.count, 0);
   const display = remaining ? [...shown, { label: "Other responses", count: remaining }] : shown;
   return <section className={card}>
     <h2 className="font-semibold">{title}</h2>
-    <p className="mt-1 mb-3 text-xs text-neutral-600">{description}</p>
-    {display.length ? <ul className="space-y-3">
+    {description && <p className="mt-1 text-sm text-neutral-600">{description}</p>}
+    {display.length ? <ul className="mt-3 space-y-3">
       {display.map(row => <li key={row.label}>
         <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
           <span className="min-w-0 break-words">{row.label}</span>
@@ -35,14 +35,13 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
     {stats.total === 0 && <p className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-600">No applications yet. Counts will appear as hackers apply.</p>}
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {([
-        ["Submitted", stats.submitted, "Completed applications"],
-        ["Approved", stats.approved, "Organizer-approved applications"],
-        ["Pending review", stats.pending, "Awaiting a decision"],
-        ["Last 7 days", stats.lastSevenDays, "New submissions"],
-      ] as const).map(([label, value, detail], index) => <div key={label} className={`rounded-lg border p-3 sm:p-4 ${index === 0 ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"}`}>
+        ["Submitted", stats.submitted],
+        ["Approved", stats.approved],
+        ["Pending review", stats.pending],
+        ["Last 7 days", stats.lastSevenDays],
+      ] as const).map(([label, value], index) => <div key={label} className={`rounded-lg border p-3 sm:p-4 ${index === 0 ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"}`}>
         <dt className="text-sm font-medium text-neutral-600">{label}</dt>
         <dd className="mt-1 text-3xl font-bold tracking-tight tabular-nums">{number(value)}</dd>
-        <p className="mt-1 hidden text-xs text-neutral-500 sm:block">{detail}</p>
       </div>)}
     </dl>
     <nav aria-label="Statistics views" className="flex gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
@@ -59,7 +58,6 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
               <dt className="text-xs text-neutral-600">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{number(stats[key])}</dd>
             </div>)}
           </dl>
-          <p className="mt-3 text-xs text-neutral-500">Approval does not mean confirmed attendance or check-in.</p>
         </section>
         <section className={card}>
           <h2 className="font-semibold">Application progress</h2>
@@ -70,11 +68,11 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
         </section>
       </>}
       {view === "Community" && <>
-        <Distribution title="Team formation" description={`${number(stats.firstTime)} first-time hackers. Preferences are not confirmed teams.`} total={stats.submitted} rows={stats.submitted ? [
+        <Distribution title="Team formation" description={`${number(stats.firstTime)} first-time hackers.`} total={stats.submitted} rows={stats.submitted ? [
           { label: "Looking for teammates", count: stats.lookingForTeam }, { label: "Already has a team", count: stats.hasTeam }, { label: "Participating solo", count: stats.solo },
           { label: "Not provided", count: stats.submitted - stats.lookingForTeam - stats.hasTeam - stats.solo },
         ] : []} />
-        <Distribution title="Schools represented" description="Top five schools; remaining responses grouped together." rows={stats.schools} total={stats.submitted} />
+        <Distribution title="Schools represented" rows={stats.schools} total={stats.submitted} />
       </>}
       {view === "Logistics" && <>
         <section className={card}>
@@ -82,11 +80,9 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
           <dl className="mt-2 divide-y divide-neutral-100">
             {[["Travel help requested", stats.travelHelp], ["Dietary responses", stats.dietaryRequests], ["Accessibility responses", stats.accessibilityRequests], ["Experience not provided", stats.experienceUnknown]].map(([label, count]) => <div key={label} className="flex justify-between gap-3 py-2 text-sm"><dt className="text-neutral-600">{label}</dt><dd className="font-semibold tabular-nums">{number(count as number)}</dd></div>)}
           </dl>
-          <p className="mt-2 text-xs text-neutral-500">Dietary and accessibility responses may say “none”; counts are not confirmed needs.</p>
         </section>
-        <Distribution title="T-shirt sizes" description="Planning estimates, not a confirmed attendee order." rows={stats.shirts} total={stats.submitted} />
+        <Distribution title="T-shirt sizes" rows={stats.shirts} total={stats.submitted} />
       </>}
     </section>
-    <p className="text-xs text-neutral-500">Community and logistics use submitted applications only. Draft responses are excluded.</p>
   </div>;
 }
