@@ -21,7 +21,7 @@ profile in a new tab. Hackers can add an optional Slack member
 profile link under **Pass & profile**. Slack links require access to that member's
 workspace ([Slack's member-profile link instructions](https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile)). Only available connection links are shown, and invalid or unsafe links
 are suppressed.
-Team tips and listing privacy details are collapsible. All action buttons use
+All action buttons use
 consistent touch targets, keyboard focus, hover, and disabled styles.
 The directory includes loading, empty, no-match, and error states, plus manual
 refresh. Profile and avatar updates refresh the new page too.

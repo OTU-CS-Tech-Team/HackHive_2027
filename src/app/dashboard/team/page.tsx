@@ -28,15 +28,11 @@ async function TeamContent() {
   const result = await loadTeamDirectory();
   if (!result.ok) return <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
     <h2 className="font-semibold">The teammate directory couldn&apos;t be loaded</h2>
-    <p className="mt-2 text-sm">Your listing hasn&apos;t changed. Reload the page to try again.</p>
+    <p className="mt-2 text-sm">Reload to try again.</p>
     <a href="/dashboard/team" className={`${secondaryButton} mt-3`}>Reload directory</a>
   </div>;
   return <div className="space-y-4">
     <ListingControl listed={result.listed} name={result.own.name} school={result.own.school} />
     <TeamDirectory profiles={result.profiles} />
-    <details className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-      <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">First hackathon? Quick team tips</summary>
-      <p className="mt-2 text-neutral-600">Start with a shared idea, mix coding and design strengths, and agree on goals and availability before you team up.</p>
-    </details>
   </div>;
 }

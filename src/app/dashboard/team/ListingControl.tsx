@@ -18,11 +18,7 @@ export function ListingControl({ listed, name, school }: { listed: boolean; name
         {listed ? "Discoverable" : "Hidden"}
       </span>
     </div>
-    <details className="mt-2 text-xs text-neutral-600">
-      <summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">Who can see my listing?</summary>
-      <p className="mt-2 max-w-2xl">Opting in shares your name, school, photo, and connection links with eligible hackers. The existing hub also shares your email. Hide your listing once you find a team.</p>
-    </details>
-    <div className="mt-3 flex flex-wrap items-center gap-2 md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0">
+    <div className="mt-3 flex flex-wrap items-center gap-2 md:col-start-2 md:row-start-1 md:mt-0">
       <button type="button" disabled={pending} onClick={() => {
         setResult(null);
         startTransition(async () => {

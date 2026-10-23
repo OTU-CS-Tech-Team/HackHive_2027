@@ -90,7 +90,7 @@ export function TeamDirectory({ profiles }: { profiles: TeamProfile[] }) {
           </div>
           <div className="mt-auto pt-3">
             {profile.slackUrl ? <a href={profile.slackUrl} target="_blank" rel="noopener noreferrer" className={`${primaryButton} w-full`} aria-label={`Connect on Slack: ${profile.name} (opens in a new tab)`}>Connect on Slack<span aria-hidden="true">↗</span></a>
-              : <p className="text-sm text-neutral-500">{links.some(([, href]) => href) ? "Slack not added. Use a profile link above." : "No connection links added yet."}</p>}
+              : !links.some(([, href]) => href) && <p className="text-sm text-neutral-500">No connection links added.</p>}
           </div>
         </li>;
       })}

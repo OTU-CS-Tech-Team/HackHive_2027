@@ -334,8 +334,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
             </label>
             <label>
               Slack profile (optional)
-              <input name="slack_url" type="url" maxLength={500} placeholder="https://your-workspace.slack.com/team/U123ABC" defaultValue={profile?.slack_url ?? ""} className={input} aria-describedby="slack-profile-help" />
-              <span id="slack-profile-help" className="mt-1 block text-xs text-neutral-500">Use your workspace URL followed by /team/ and your Slack member ID. Other hackers need access to that workspace.</span>
+              <input name="slack_url" type="url" maxLength={500} placeholder="https://your-workspace.slack.com/team/U123ABC" defaultValue={profile?.slack_url ?? ""} className={input} />
             </label>
             <label className="flex items-center gap-2">
               <input name="looking_for_team" type="checkbox" defaultChecked={profile?.looking_for_team ?? false} />
