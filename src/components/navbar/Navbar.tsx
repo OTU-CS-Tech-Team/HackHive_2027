@@ -1,31 +1,15 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
-import NavbarShell from "@/components/navbar/NavbarShell";
-import MobileNavMenu from "@/components/navbar/MobileNavMenu";
-const links = [
-  { href: "/dashboard", label: "Schedule" },
-  { href: "/#speakers", label: "Speakers & Judges" },
-  { href: "/#sponsors", label: "Sponsors" },
-  { href: "/#hackhive-2025", label: "Archive" },
-  { href: "/#faq", label: "FAQ" },
-] as const;
+import { links } from "@/components/navbar/links";
 
 export async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isSignedIn = !!user;
-  
 
- 
   return (
-    <NavbarShell>
-      <div className="flex shrink-0 items-center gap-2">
-        <MobileNavMenu links={links} />
-        <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
-          HackHive
-        </Link>
-      </div>
+    <>
       <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
         {links.map((link) => (
           <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
@@ -66,6 +50,6 @@ export async function Navbar() {
           </Link>
         )}
       </div>
-    </NavbarShell>
+    </>
   );
 }
