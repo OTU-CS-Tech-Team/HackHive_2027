@@ -10,16 +10,15 @@ export const metadata: Metadata = { title: "Stats | HackHive 2027" };
 
 export default function StatsPage() {
   return (
-    <main className="mx-auto max-w-5xl px-4 pt-24 pb-16">
-      <Link href="/admin" className="text-sm text-neutral-600 underline">← Admin dashboard</Link>
-      <header className="mt-4 mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="mb-1 text-sm font-medium text-amber-700">HackHive 2027</p>
-          <h1 className="text-3xl font-bold tracking-tight">Hackathon stats</h1>
-          <p className="mt-2 text-neutral-600">Applications, hacker community, and event planning at a glance.</p>
+    <main className="mx-auto max-w-5xl px-4 pt-20 pb-8">
+      <header className="mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Hackathon stats</h1>
+          <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">← Admin</Link>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/admin#applications" className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">Review applications</Link>
+        <p className="mt-1 text-sm text-neutral-600">Applications and event planning at a glance.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/admin#applications" className="inline-flex min-h-11 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">Review applications</Link>
           <RefreshStats />
         </div>
       </header>
@@ -40,6 +39,6 @@ async function StatsContent() {
   );
   return <>
     <StatsOverview stats={result.stats} />
-    <p className="mt-6 text-xs text-neutral-500">Updated {formatDateTime(result.updatedAt)} (Eastern). Refresh to load the latest numbers.</p>
+    <p className="mt-3 text-xs text-neutral-500">Updated {formatDateTime(result.updatedAt)} (Eastern). Refresh to load the latest numbers.</p>
   </>;
 }

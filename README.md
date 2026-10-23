@@ -15,6 +15,10 @@ team preferences, first-time hackers, T-shirt sizes, and support responses. Thes
 include all admission outcomes and are planning estimates, not confirmed orders.
 Dietary/accessibility counts include nonblank responses, which may say “none.”
 
+Use the Admissions, Community, and Logistics views to see one focused report at
+a time. School breakdowns show the top five plus a combined remainder. These
+compact views avoid a long stack of charts, including on phones.
+
 Use **Refresh stats** for current numbers. **Review applications** returns to the
 existing admin application controls. Application and decision editing continue
 to work as before.
