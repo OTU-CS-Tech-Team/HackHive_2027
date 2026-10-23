@@ -4,37 +4,65 @@ import { useEffect, useRef, useState } from "react";
 
 export default function NavbarShell({ children }: { children: React.ReactNode }) {
     const [hidden, setHidden] = useState(false);
-    const lastY = useRef(0);
+    const pointerType = useRef<string>("mouse");
 
     useEffect(() => {
-        lastY.current = window.scrollY;
+        let ticking = false;
+        let lastY = window.scrollY;
 
-        const onScroll = () => {
-            const y = window.scrollY;
+        pointerType.current = window.matchMedia("(hover: none)").matches ? "touch" : "mouse";
 
-            if (y <= 64) {
-                setHidden(false);
-            } else if (y > lastY.current) {
-                setHidden(true);
-            }
-            lastY.current = y;
+        const onScroll = (event: Event) => {
+            const target = event.target;
+
+            if (ticking) return;
+            ticking = true;
+
+            requestAnimationFrame(() => {
+                const y =
+                    target instanceof HTMLElement &&
+                    target !== document.documentElement &&
+                    target !== document.body
+                        ? Math.max(target.scrollTop, 0)
+                        : Math.max(window.scrollY || document.documentElement.scrollTop, 0);
+                const delta = y - lastY;
+
+                if (y <= 64) {
+                    setHidden(false);
+                    lastY = y;
+                } else if (Math.abs(delta) > 8) {
+                    setHidden(delta > 0 || pointerType.current === "mouse");
+                    lastY = y;
+                }
+
+                ticking = false;
+            });
         };
 
         const onPointerMove = (event: PointerEvent) => {
-            if (event.pointerType === "mouse" && event.clientY <= 50) {
-                setHidden(false);
+            pointerType.current = event.pointerType;
+
+            if (event.pointerType === "mouse") {
+                if (event.clientY <= 50) {
+                    setHidden(false);
+                } else if (window.scrollY > 64) {
+                    setHidden(true);
+                }
             }
-            if (event.pointerType === "mouse" && event.clientY > 50 && window.scrollY > 64) {
-                setHidden(true);
-            }
+        };
+
+        const onPointerDown = (event: PointerEvent) => {
+            pointerType.current = event.pointerType;
         };
 
         window.addEventListener("scroll", onScroll, { passive: true });
         window.addEventListener("pointermove", onPointerMove, { passive: true });
+        window.addEventListener("pointerdown", onPointerDown, { passive: true });
 
         return () => {
             window.removeEventListener("scroll", onScroll);
             window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointerdown", onPointerDown);
         };
     }, []);
 
