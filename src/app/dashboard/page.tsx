@@ -60,6 +60,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
   // Accepted hackers and admins get the whole hub; everyone else only sees their application and its status.
   const allowed = admin || application?.decision === "accepted" ? (Object.keys(TABS) as Tab[]) : (["application"] as Tab[]);
   const tab = allowed.includes(wanted) ? wanted : allowed[0];
+  if (tab === "team") redirect("/dashboard/team");
 
   return (
     <main className="mx-auto max-w-6xl px-4 pt-24 pb-16">
@@ -99,7 +100,6 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
         <div>
           {tab === "schedule" && <ScheduleSection />}
           {tab === "application" && <ApplicationTab />}
-          {tab === "team" && <TeamTab supabase={supabase} userId={user.id} />}
           {tab === "checkout" && <CheckoutTab supabase={supabase} />}
           {tab === "hunt" && <HuntTab supabase={supabase} />}
           {tab === "shop" && <ShopTab supabase={supabase} userId={user.id} />}
@@ -124,50 +124,6 @@ async function ApplicationTab() {
             Go to the application
           </Link>
         </p>
-      )}
-    </section>
-  );
-}
-
-async function TeamTab({ supabase, userId }: { supabase: Supabase; userId: string }) {
-  const { data: teammates } = await supabase
-    .from("profiles")
-    .select("id, full_name, school, avatar_url, linkedin_url, github_url, instagram_url")
-    .eq("looking_for_team", true)
-    .neq("id", userId);
-  return (
-    <section>
-      <h2 className="mb-1 text-2xl font-bold">Looking for group</h2>
-      <p className={`mb-4 ${muted}`}>
-        Hackers who ticked &ldquo;looking for teammates&rdquo; on their{" "}
-        <Link href="/dashboard?tab=profile" className="underline">
-          profile
-        </Link>
-        .
-      </p>
-      {teammates?.length ? (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {teammates.map((mate) => (
-            <li key={mate.id} className="flex gap-3 rounded border p-3">
-              {mate.avatar_url ? (
-                <img src={mate.avatar_url} alt="" referrerPolicy="no-referrer" className="size-12 rounded-full object-cover" />
-              ) : (
-                <span className="size-12 shrink-0 rounded-full bg-neutral-200" aria-hidden />
-              )}
-              <div className="text-sm">
-                <p className="font-semibold">{mate.full_name}</p>
-                {mate.school && <p className="text-neutral-600">{mate.school}</p>}
-                <p className="flex flex-wrap gap-x-3">
-                  {mate.linkedin_url && <a href={mate.linkedin_url} target="_blank" rel="noreferrer" className="underline">LinkedIn</a>}
-                  {mate.github_url && <a href={mate.github_url} target="_blank" rel="noreferrer" className="underline">GitHub</a>}
-                  {mate.instagram_url && <a href={mate.instagram_url} target="_blank" rel="noreferrer" className="underline">Instagram</a>}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className={muted}>Nobody yet. Tick the box on your profile to be the first.</p>
       )}
     </section>
   );
@@ -310,6 +266,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
       <div className="grid gap-6 lg:grid-cols-2">
         <section className={card}>
           <h3 className="mb-4 text-lg font-semibold">Profile</h3>
+          <p className={`mb-4 ${muted}`}><Link href="/dashboard/team/profile" className="underline">Edit your teammate profile</Link> to add skills, project ideas, and the roles you&apos;re looking for.</p>
           <ActionForm action={saveProfile} submitLabel="Save profile">
             <label>
               Name

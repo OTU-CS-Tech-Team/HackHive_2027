@@ -4,35 +4,51 @@ HackHive 2027 website
 ## Find a team
 
 Open **Looking for group** in the hacker hub, or visit `/dashboard/team`.
-The page reuses the existing `has_hub_access()` and profile row-level security
-rules: accepted hackers and admins can browse, and profiles appear only when
-their owners opt into `looking_for_team`. Your own card appears separately.
-No service-role key is required. Before deploying, apply
-`supabase/migrations/20261023003437_teammate_slack_profile.sql`, which adds one
-optional `profiles.slack_url` field without changing existing data or access rules.
+The previous `/dashboard?tab=team` link redirects here. Accepted hackers and
+admins can browse; individual profiles appear only while their owners opt in.
+Directory queries and client props exclude email addresses. The app uses the
+signed-in user's access and row-level security, without a service-role key.
 
-Hackers can make their listing discoverable or hide it directly on the page,
-search by name/school, filter by school or GitHub presence, and browse paginated
-contact cards (one per page on mobile, three on desktop). School and search filters apply to the full authorized directory,
-including records beyond the API row limit. **Connect on Slack** is the primary
-CTA when a Slack profile is provided. **View GitHub** and **Connect on LinkedIn**
-offer additional connection options. These links open the hacker's provided
-profile in a new tab. Hackers can add an optional Slack member
-profile link under **Pass & profile**. Slack links require access to that member's
-workspace ([Slack's member-profile link instructions](https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile)). Only available connection links are shown, and invalid or unsafe links
-are suppressed.
-All action buttons use
-consistent touch targets, keyboard focus, hover, and disabled styles.
-The directory includes loading, empty, no-match, and error states, plus manual
-refresh. Profile and avatar updates refresh the new page too.
-Directory queries and client props exclude hacker email addresses, including in
-the previous team tab. Connection actions use the provided social profile links.
+### Discovery and profiles
 
-These are teammate-discovery profiles, not registered teams or invitations.
-Once hackers form a team, they can hide their listings. Skills/interests, team
-recruitment posts with open roles, and invitation/acceptance workflows would need
-additional data models and are possible follow-ups. The previous
-`/dashboard?tab=team` view remains available.
+Hackers can share skills, roles, interests, a project idea, experience, and goals
+at `/dashboard/team/profile`, with a live card preview. Search and shareable URL
+filters cover the full authorized directory, including records beyond the API
+row limit. Suggested results explain actual shared interests or complementary
+roles. Nine cards load initially, with **Meet more hackers** on mobile and desktop.
+
+**Saved** profiles and **I reached out** markers are private to their owner.
+Introductions are editable and copied only on request; the site never sends
+messages automatically. Provided Slack and social links open in another tab.
+Unsafe URLs are suppressed. Slack member links require access to the member's
+workspace. Hackers can hide their listing, confirm they are still looking, or
+mark that they found a team. Joining a recruiting team automatically hides the
+individual listing; leaving never relists someone without their choice.
+
+### Team recruitment
+
+Hackers can publish a team with a project pitch, open roles, interests, goals,
+and capacity of two to four people including the owner. Join requests are private
+to the applicant and owner. Owners can accept or decline requests, edit recruitment,
+or disband the team. Members can leave, and applicants can withdraw requests.
+Database constraints and row locks enforce capacity and one team per hacker.
+These discovery rosters do not change registration applications or submissions.
+
+### Deployment and checks
+
+Apply these migrations to the shared Supabase project before deploying:
+
+- `supabase/migrations/20261023003437_teammate_slack_profile.sql`
+- `supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql`
+
+The second migration adds rich profile fields, private bookmarks, recruiting teams,
+rosters, join requests, scoped policies, and atomic recruitment functions. Existing
+opted-in profiles continue to work. If the new profile columns are absent, the
+page falls back to basic discovery and listing controls until the migration is applied.
+
+Run `npm test`, `npm run lint`, and `npm run build`. Team tests cover safe client
+projections, 1,013-row loading, validation, matching, and real isolated PostgreSQL
+RLS/recruitment flows using PGlite. They do not require a shared database.
 
 ## Detailed admin stats
 
