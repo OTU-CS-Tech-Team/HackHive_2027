@@ -233,9 +233,18 @@ function makeDataTexture(pixels: Uint8Array, width: number, height: number, prem
   const texture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
   texture.colorSpace = THREE.NoColorSpace;
   texture.flipY = true;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  const powerOfTwo = (n: number) => n > 0 && (n & (n - 1)) === 0;
+  if (powerOfTwo(width) && powerOfTwo(height)) {
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+  } else {
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+  }
   texture.premultiplyAlpha = premultiply;
   texture.needsUpdate = true;
   return texture;

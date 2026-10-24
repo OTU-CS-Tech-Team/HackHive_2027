@@ -16,12 +16,6 @@ function smoothstep(edge0: number, edge1: number, value: number) {
   return t * t * (3 - 2 * t);
 }
 
-function sdBox(px: number, py: number, cx: number, cy: number, hx: number, hy: number) {
-  const dx = Math.abs(px - cx) - hx;
-  const dy = Math.abs(py - cy) - hy;
-  return Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0);
-}
-
 function sdSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number, radius: number) {
   const pax = px - ax;
   const pay = py - ay;
@@ -31,224 +25,295 @@ function sdSegment(px: number, py: number, ax: number, ay: number, bx: number, b
   return Math.hypot(pax - bax * h, pay - bay * h) - radius;
 }
 
-function sdTriangle(
-  px: number,
-  py: number,
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-) {
-  const e0x = x1 - x0;
-  const e0y = y1 - y0;
-  const e1x = x2 - x1;
-  const e1y = y2 - y1;
-  const e2x = x0 - x2;
-  const e2y = y0 - y2;
-  const v0x = px - x0;
-  const v0y = py - y0;
-  const v1x = px - x1;
-  const v1y = py - y1;
-  const v2x = px - x2;
-  const v2y = py - y2;
-  const clampEdge = (vx: number, vy: number, ex: number, ey: number) => {
-    const t = Math.min(1, Math.max(0, (vx * ex + vy * ey) / Math.max(ex * ex + ey * ey, 1e-4)));
-    return [vx - ex * t, vy - ey * t] as const;
-  };
-  const [p0x, p0y] = clampEdge(v0x, v0y, e0x, e0y);
-  const [p1x, p1y] = clampEdge(v1x, v1y, e1x, e1y);
-  const [p2x, p2y] = clampEdge(v2x, v2y, e2x, e2y);
-  const s = Math.sign(e0x * e2y - e0y * e2x);
-  const dx = Math.min(p0x * p0x + p0y * p0y, p1x * p1x + p1y * p1y, p2x * p2x + p2y * p2y);
-  const dy = Math.min(
-    s * (v0x * e0y - v0y * e0x),
-    s * (v1x * e1y - v1y * e1x),
-    s * (v2x * e2y - v2y * e2x),
-  );
-  return -Math.sqrt(Math.max(dx, 0)) * Math.sign(dy);
+function hiveWood(r: number, g: number, b: number) {
+  const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+  return r > 78 && g > 30 && b < 170 && r - b > 30 && lum > 50;
 }
 
-// Same hive, rope and strap silhouette the earlier swing used, so those
-// pixels are never put on a moving layer.
-function hiveDistAt(px: number, py: number, mobile: boolean, scx: number, scy: number) {
+// The swinging sprite is the hive body plus the ropes. The body is the
+// wood connected to the seed, with plank gaps and the dark doorway filled
+// in. Boxes around the hive are not used: they were taking the limb and
+// the bark with them.
+function hiveSprite(rgb: Float32Array, width: number, height: number, mobile: boolean, scx: number, scy: number) {
+  const mask = new Uint8Array(width * height);
   const sx = (x: number) => x * scx;
   const sy = (y: number) => y * scy;
+  const clip = mobile
+    ? { x0: sx(496), x1: sx(632), y0: sy(700), y1: sy(798) }
+    : { x0: sx(846), x1: sx(1020), y0: sy(168), y1: sy(292) };
+  const x0 = Math.max(0, Math.floor(clip.x0));
+  const x1 = Math.min(width - 1, Math.ceil(clip.x1));
+  const y0 = Math.max(0, Math.floor(clip.y0));
+  const y1 = Math.min(height - 1, Math.ceil(clip.y1));
+  const seedX = Math.round(sx(mobile ? 560 : 910));
+  const seedY = Math.round(sy(mobile ? 752 : 230));
+
+  const isWood = (x: number, y: number) => {
+    const i = (y * width + x) * 3;
+    return hiveWood(rgb[i], rgb[i + 1], rgb[i + 2]);
+  };
+
+  let startX = seedX;
+  let startY = seedY;
+  if (!isWood(startX, startY)) {
+    let found = false;
+    for (let rad = 1; rad <= 24 && !found; rad++) {
+      for (let dy = -rad; dy <= rad && !found; dy++) {
+        for (let dx = -rad; dx <= rad; dx++) {
+          const xx = seedX + dx;
+          const yy = seedY + dy;
+          if (xx < x0 || yy < y0 || xx > x1 || yy > y1) continue;
+          if (!isWood(xx, yy)) continue;
+          startX = xx;
+          startY = yy;
+          found = true;
+          break;
+        }
+      }
+    }
+  }
+
+  const seen = new Uint8Array(width * height);
+  const qx = new Int32Array(width * height);
+  const qy = new Int32Array(width * height);
+  let qs = 0;
+  let qe = 0;
+  const push = (x: number, y: number) => {
+    const i = y * width + x;
+    if (seen[i] || !isWood(x, y)) return;
+    seen[i] = 1;
+    qx[qe] = x;
+    qy[qe] = y;
+    qe++;
+  };
+  push(startX, startY);
+  while (qs < qe) {
+    const x = qx[qs];
+    const y = qy[qs];
+    qs++;
+    for (let dy = -3; dy <= 3; dy++) {
+      const yy = y + dy;
+      if (yy < y0 || yy > y1) continue;
+      for (let dx = -3; dx <= 3; dx++) {
+        const xx = x + dx;
+        if (xx < x0 || xx > x1) continue;
+        push(xx, yy);
+      }
+    }
+  }
+
+  const rowL = new Int32Array(height);
+  const rowR = new Int32Array(height);
+  rowL.fill(width);
+  rowR.fill(-1);
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!seen[y * width + x]) continue;
+      mask[y * width + x] = 1;
+      if (x < rowL[y]) rowL[y] = x;
+      if (x > rowR[y]) rowR[y] = x;
+    }
+  }
+  const maxSpan = mobile ? 130 * scx : 168 * scx;
+  for (let y = y0; y <= y1; y++) {
+    const span = rowR[y] - rowL[y];
+    if (span < 26 * scx || span > maxSpan) continue;
+    for (let x = rowL[y]; x <= rowR[y]; x++) mask[y * width + x] = 1;
+  }
+
+  // Dark shingles sit just outside the bright face. Grow into that warm
+  // wood only, so the roof eave is on the sprite and the bark is not.
+  const warm = (x: number, y: number) => {
+    const i = (y * width + x) * 3;
+    const r = rgb[i];
+    const g = rgb[i + 1];
+    const b = rgb[i + 2];
+    const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+    return r > 68 && g > 32 && b < 150 && r - b > 24 && lum > 48;
+  };
+  for (let pass = 0; pass < 6; pass++) {
+    const add: number[] = [];
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const i = y * width + x;
+        if (mask[i] || !warm(x, y)) continue;
+        if (mask[i - 1] || mask[i + 1] || mask[i - width] || mask[i + width]) add.push(i);
+      }
+    }
+    for (const i of add) mask[i] = 1;
+  }
+
+  // The cap is darker than the face, so the wood flood stops at the eave.
+  // A tight triangle covers those shingles without the old bark boxes.
+  const paintTri = (x0: number, y0: number, x1: number, y1: number, x2: number, y2: number) => {
+    const minX = Math.max(0, Math.floor(Math.min(x0, x1, x2)));
+    const maxX = Math.min(width - 1, Math.ceil(Math.max(x0, x1, x2)));
+    const minY = Math.max(0, Math.floor(Math.min(y0, y1, y2)));
+    const maxY = Math.min(height - 1, Math.ceil(Math.max(y0, y1, y2)));
+    const edge = (ax: number, ay: number, bx: number, by: number, px: number, py: number) =>
+      (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const px = x + 0.5;
+        const py = y + 0.5;
+        const e0 = edge(x0, y0, x1, y1, px, py);
+        const e1 = edge(x1, y1, x2, y2, px, py);
+        const e2 = edge(x2, y2, x0, y0, px, py);
+        if ((e0 < 0 || e1 < 0 || e2 < 0) && (e0 > 0 || e1 > 0 || e2 > 0)) continue;
+        mask[y * width + x] = 1;
+      }
+    }
+  };
+  if (!mobile) paintTri(sx(906), sy(158), sx(838), sy(210), sx(1014), sy(214));
+  else paintTri(sx(546), sy(680), sx(492), sy(736), sx(634), sy(740));
+
+  // Ropes stay thin. A wide capsule was rotating the bark between them.
+  const ropeR = sx(5);
+  const paintSeg = (ax: number, ay: number, bx: number, by: number, radius: number) => {
+    const minX = Math.max(0, Math.floor(Math.min(ax, bx) - radius - 2));
+    const maxX = Math.min(width - 1, Math.ceil(Math.max(ax, bx) + radius + 2));
+    const minY = Math.max(0, Math.floor(Math.min(ay, by) - radius - 2));
+    const maxY = Math.min(height - 1, Math.ceil(Math.max(ay, by) + radius + 2));
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (sdSegment(x + 0.5, y + 0.5, ax, ay, bx, by, radius) <= 0.6 * scx) mask[y * width + x] = 1;
+      }
+    }
+  };
+  const paintDisc = (cx: number, cy: number, radius: number) => {
+    const minX = Math.max(0, Math.floor(cx - radius - 2));
+    const maxX = Math.min(width - 1, Math.ceil(cx + radius + 2));
+    const minY = Math.max(0, Math.floor(cy - radius - 2));
+    const maxY = Math.min(height - 1, Math.ceil(cy + radius + 2));
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) - radius <= 0.6 * scx) mask[y * width + x] = 1;
+      }
+    }
+  };
+
   if (!mobile) {
     const ax = sx(924);
     const ay = sy(48);
-    let d = sdBox(px, py, sx(908), sy(246), sx(74), sy(50));
-    d = Math.min(d, sdTriangle(px, py, sx(900), sy(148), sx(818), sy(204), sx(998), sy(212)));
-    d = Math.min(d, Math.hypot(px - sx(862), py - sy(176)) - sx(18));
-    // The strands hang inside the old capsules, which sat on the bark
-    // beside them. These endpoints follow the ropes in the plate.
-    d = Math.min(d, sdSegment(px, py, ax, ay, sx(896), sy(168), sx(7)));
-    d = Math.min(d, sdSegment(px, py, ax, ay, sx(933), sy(166), sx(7)));
-    d = Math.min(d, sdSegment(px, py, ax, ay, sx(980), sy(198), sx(7)));
-    d = Math.min(d, Math.hypot(px - ax, py - ay) - sx(13));
-    d = Math.min(d, sdBox(px, py, sx(996), sy(248), sx(26), sy(56)));
-    d = Math.min(d, sdSegment(px, py, sx(998), sy(186), sx(1008), sy(304), sx(11)));
-    return d;
+    paintSeg(ax, ay, sx(896), sy(168), ropeR);
+    paintSeg(ax, ay, sx(933), sy(166), ropeR);
+    paintSeg(ax, ay, sx(980), sy(198), ropeR);
+    paintDisc(ax, ay, sx(7));
+  } else {
+    const tx = sx(566);
+    const ty = sy(628);
+    paintSeg(tx, ty, sx(500), sy(728), ropeR);
+    paintSeg(tx, ty, sx(576), sy(714), ropeR);
+    paintSeg(tx, ty, sx(598), sy(718), ropeR);
+    paintDisc(tx, ty, sx(6));
+    paintDisc(sx(552), sy(648), sx(5));
   }
-  const ax = sx(552);
-  const ay = sy(648);
-  let d = sdBox(px, py, sx(548), sy(758), sx(52), sy(46));
-  d = Math.min(d, sdBox(px, py, sx(500), sy(754), sx(28), sy(18)));
-  d = Math.min(d, sdTriangle(px, py, sx(548), sy(678), sx(494), sy(730), sx(628), sy(732)));
-  d = Math.min(d, Math.hypot(px - sx(520), py - sy(705)) - sx(16));
-  // The strands meet a little above the swing pivot. Cover that tie
-  // without moving the pivot the hive rotates around.
-  const tx = sx(566);
-  const ty = sy(628);
-  d = Math.min(d, sdSegment(px, py, tx, ty, sx(500), sy(728), sx(7)));
-  d = Math.min(d, sdSegment(px, py, tx, ty, sx(576), sy(714), sx(7)));
-  d = Math.min(d, sdSegment(px, py, tx, ty, sx(598), sy(718), sx(7)));
-  d = Math.min(d, Math.hypot(px - tx, py - ty) - sx(8));
-  d = Math.min(d, Math.hypot(px - ax, py - ay) - sx(12));
-  d = Math.min(d, sdBox(px, py, sx(618), sy(764), sx(22), sy(48)));
-  d = Math.min(d, sdSegment(px, py, sx(622), sy(708), sx(628), sy(808), sx(12)));
-  return d;
-}
 
-function hiveMask(width: number, height: number, mobile: boolean, scx: number, scy: number, pad: number) {
-  const mask = new Uint8Array(width * height);
-  const x0 = Math.max(0, Math.floor((mobile ? 420 : 740) * scx));
-  const x1 = Math.min(width, Math.ceil((mobile ? 710 : 1080) * scx));
-  const y0 = Math.max(0, Math.floor((mobile ? 590 : 0) * scy));
-  const y1 = Math.min(height, Math.ceil((mobile ? 870 : 360) * scy));
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      if (hiveDistAt(x + 0.5, y + 0.5, mobile, scx, scy) < pad) mask[y * width + x] = 1;
+  // Pull in the bright rim the flood stopped short of: rope highlights and
+  // the lit edge of the roof. Dark bark fails this test, so it stays put.
+  const hiveish = (x: number, y: number) => {
+    const i = (y * width + x) * 3;
+    const r = rgb[i];
+    const g = rgb[i + 1];
+    const b = rgb[i + 2];
+    const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+    return r > 85 && g > 35 && b < 150 && r - b > 28 && lum > 60;
+  };
+  const bx0 = Math.max(1, Math.floor(sx(mobile ? 450 : 800)));
+  const bx1 = Math.min(width - 2, Math.ceil(sx(mobile ? 690 : 1060)));
+  const by0 = Math.max(1, Math.floor(sy(mobile ? 590 : 20)));
+  const by1 = Math.min(height - 2, Math.ceil(sy(mobile ? 840 : 330)));
+  for (let pass = 0; pass < 5; pass++) {
+    const add: number[] = [];
+    for (let y = by0; y <= by1; y++) {
+      for (let x = bx0; x <= bx1; x++) {
+        const i = y * width + x;
+        if (mask[i] || !hiveish(x, y)) continue;
+        if (mask[i - 1] || mask[i + 1] || mask[i - width] || mask[i + width]) add.push(i);
+      }
     }
+    for (const i of add) mask[i] = 1;
   }
   return mask;
 }
 
 // Lift the hive and the ropes off the plate. The hole matches the sprite,
 // so at rest the composite is the original, and the swing uncovers bark.
-function paintHive(
-  rgb: Float32Array,
-  width: number,
-  height: number,
-  mobile: boolean,
-  scx: number,
-  scy: number,
-) {
-  const alpha = new Float32Array(width * height);
-  const x0 = Math.max(0, Math.floor((mobile ? 360 : 720) * scx));
-  const x1 = Math.min(width, Math.ceil((mobile ? 700 : 1100) * scx));
-  const y0 = Math.max(0, Math.floor((mobile ? 580 : 0) * scy));
-  const y1 = Math.min(height, Math.ceil((mobile ? 880 : 380) * scy));
-  const hole = new Uint8Array(width * height);
-  // A couple of pixels past the silhouette catch the rope's own edge
-  // without taking a sleeve of bark along for the swing.
-  const opaque = 3 * scx;
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      const d = hiveDistAt(x + 0.5, y + 0.5, mobile, scx, scy);
-      if (d > opaque) continue;
-      const i = y * width + x;
-      alpha[i] = 1;
-      hole[i] = 1;
-    }
+function paintHive(rgb: Float32Array, width: number, height: number, sprite: Uint8Array, scx: number) {
+  const count = sprite.length;
+  const alpha = new Float32Array(count);
+  const hole = new Uint8Array(count);
+  for (let i = 0; i < count; i++) {
+    if (!sprite[i]) continue;
+    alpha[i] = 1;
+    hole[i] = 1;
   }
-
-  // The highlight of a strand sometimes sits a pixel outside the capsule.
-  // Grow only through that rope colour, and only above the roof, so the
-  // hive does not pick up a bark sleeve.
-  const ropeTop = Math.floor((mobile ? 610 : 40) * scy);
-  const ropeBot = Math.ceil((mobile ? 750 : 220) * scy);
-  const ropeTone = (i: number) => {
-    const r = rgb[i * 3];
-    const g = rgb[i * 3 + 1];
-    const b = rgb[i * 3 + 2];
-    const lum = 0.3 * r + 0.59 * g + 0.11 * b;
-    return lum > 62 && r > 88 && r - b > 32 && b < 110;
-  };
-  for (let pass = 0; pass < 4; pass++) {
-    const grow: number[] = [];
-    for (let y = Math.max(y0, ropeTop); y < Math.min(y1, ropeBot); y++) {
-      for (let x = x0 + 1; x < x1 - 1; x++) {
-        const i = y * width + x;
-        if (hole[i] || !ropeTone(i)) continue;
-        if (
-          hole[i - 1] ||
-          hole[i + 1] ||
-          hole[i - width] ||
-          hole[i + width]
-        ) {
-          grow.push(i);
-        }
-      }
-    }
-    for (const i of grow) {
-      hole[i] = 1;
-      alpha[i] = 1;
-    }
-  }
-
-  const filled = inpaintCover(rgb, hole, width, height, Math.max(5, Math.round(7 * scx)), 8);
+  const filled = inpaintCover(rgb, hole, width, height, Math.max(6, Math.round(8 * scx)), 16);
   return { alpha, filled };
 }
 
-// The photo's leaf edges are mixed with sky. Swap that rim for the colour
-// just inside the cluster so the moving edge is not a pale fringe.
-function decontaminateLeaf(rgb: Float32Array, coverage: Float32Array, width: number, height: number) {
+// Copy leaf colour out into the transparent texels. Alpha is left as the
+// soft coverage, then the GPU premultiplies on upload.
+function bleedLeaf(rgb: Float32Array, coverage: Float32Array, width: number, height: number) {
   const count = width * height;
-  const solid = new Uint8Array(count);
-  for (let i = 0; i < count; i++) solid[i] = coverage[i] > 0.5 ? 1 : 0;
-  const interior = erode(solid, width, height, 2);
-  const out = new Uint8Array(count * 4);
-  const radius = 6;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = y * width + x;
-      if (!solid[i]) continue;
-      let r = rgb[i * 3];
-      let g = rgb[i * 3 + 1];
-      let b = rgb[i * 3 + 2];
-      if (!interior[i]) {
-        let sr = 0;
-        let sg = 0;
-        let sb = 0;
-        let n = 0;
-        const y0 = Math.max(0, y - radius);
-        const y1 = Math.min(height - 1, y + radius);
-        const x0 = Math.max(0, x - radius);
-        const x1 = Math.min(width - 1, x + radius);
-        for (let yy = y0; yy <= y1; yy++) {
-          const row = yy * width;
-          for (let xx = x0; xx <= x1; xx++) {
-            const j = row + xx;
-            if (!interior[j]) continue;
-            sr += rgb[j * 3];
-            sg += rgb[j * 3 + 1];
-            sb += rgb[j * 3 + 2];
-            n++;
+  const srcR = new Float32Array(count);
+  const srcG = new Float32Array(count);
+  const srcB = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    srcR[i] = rgb[i * 3];
+    srcG[i] = rgb[i * 3 + 1];
+    srcB[i] = rgb[i * 3 + 2];
+  }
+  let curR = srcR;
+  let curG = srcG;
+  let curB = srcB;
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+  for (let pass = 0; pass < 4; pass++) {
+    const nextR = curR.slice();
+    const nextG = curG.slice();
+    const nextB = curB.slice();
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (coverage[i] >= 0.85) continue;
+        let bestA = coverage[i];
+        let best = -1;
+        for (const [dx, dy] of dirs) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
+          const j = yy * width + xx;
+          if (coverage[j] > bestA) {
+            bestA = coverage[j];
+            best = j;
           }
         }
-        if (n > 0) {
-          const ir = sr / n;
-          const ig = sg / n;
-          const ib = sb / n;
-          const lum = 0.3 * r + 0.59 * g + 0.11 * b;
-          const ilum = 0.3 * ir + 0.59 * ig + 0.11 * ib;
-          // Only the pale sky fringe. A healthy leaf edge keeps its colour,
-          // so the resting frame stays the photograph.
-          if (lum > ilum + 26 || (b > 130 && lum > ilum + 12)) {
-            r = ir;
-            g = ig;
-            b = ib;
-          }
-        }
+        if (best < 0) continue;
+        nextR[i] = curR[best];
+        nextG[i] = curG[best];
+        nextB[i] = curB[best];
       }
-      const o = i * 4;
-      out[o] = Math.max(0, Math.min(255, Math.round(r)));
-      out[o + 1] = Math.max(0, Math.min(255, Math.round(g)));
-      out[o + 2] = Math.max(0, Math.min(255, Math.round(b)));
-      out[o + 3] = 255;
     }
+    curR = nextR;
+    curG = nextG;
+    curB = nextB;
+  }
+  const out = new Uint8Array(count * 4);
+  for (let i = 0; i < count; i++) {
+    const o = i * 4;
+    out[o] = Math.max(0, Math.min(255, Math.round(curR[i])));
+    out[o + 1] = Math.max(0, Math.min(255, Math.round(curG[i])));
+    out[o + 2] = Math.max(0, Math.min(255, Math.round(curB[i])));
+    out[o + 3] = Math.max(0, Math.min(255, Math.round(coverage[i] * 255)));
   }
   return out;
 }
@@ -481,7 +546,10 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     lum[i] = 0.3 * r + 0.59 * g + 0.11 * b;
   }
 
-  const hive = hiveMask(width, height, mobile, scx, scy, 10 * scx);
+  // Sprite first, so the leaf layer can be cleared around it. The pad is
+  // only an exclusion: those pixels stay in the base and do not swing.
+  const sprite = hiveSprite(rgb, width, height, mobile, scx, scy);
+  const hive = dilate(sprite, width, height, Math.max(6, Math.round(12 * scx)));
   const thick = new Uint8Array(count);
   for (let i = 0; i < count; i++) thick[i] = lum[i] < 62 ? 1 : 0;
   const thickMean = boxMean(thick, width, height, Math.max(2, Math.round(14 * scx)));
@@ -551,8 +619,9 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       if (trunk[i] || hive[i]) continue;
-      // Opaque clusters only. A translucent fringe is what doubled the
-      // top-left leaves. The texture filter feathers the hard edge.
+      // Clusters start solid. A one-pixel mean below turns the edge into a
+      // continuous ramp. The fringe that doubled the top-left stays out:
+      // pale sky never qualifies as a core.
       if (canopyCore[i] > 0 && canopyFade > 0.5) canopyAlpha[i] = 1;
       const trunkKeep = 1 - Math.min(1, trunkNear[i] * 1.3);
       let grass = smoothstep(0.04, 0.22, grassSpread[i]);
@@ -571,9 +640,19 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     else if (grassAlpha[i] > 0.82) grassHole[i] = 1;
   }
 
+  // Soften the leaf edge after the holes are cut, then strip that ramp
+  // back off the limb so a feather cannot creep onto the bark.
+  const canopyBinary = new Uint8Array(count);
+  for (let i = 0; i < count; i++) canopyBinary[i] = canopyAlpha[i] >= 1 ? 1 : 0;
+  const feather = boxMean(canopyBinary, width, height, 1);
+  for (let i = 0; i < count; i++) {
+    if (trunk[i] || hive[i]) canopyAlpha[i] = 0;
+    else canopyAlpha[i] = feather[i];
+  }
+
   const skyField = inpaintCover(rgb, canopyHole, width, height);
   const grassBlur = blurRgb(rgb, width, height, Math.max(8, Math.round(18 * scx)));
-  const hiveLayer = paintHive(rgb, width, height, mobile, scx, scy);
+  const hiveLayer = paintHive(rgb, width, height, sprite, scx);
   const baseRgb = rgb.slice();
   for (let i = 0; i < count; i++) {
     if (hiveLayer.alpha[i] >= 1) {
@@ -591,7 +670,7 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     }
   }
 
-  const leafTex = decontaminateLeaf(rgb, canopyAlpha, width, height);
+  const leafTex = bleedLeaf(rgb, canopyAlpha, width, height);
   const base = new Uint8Array(count * 4);
   const mask = new Uint8Array(count * 4);
   for (let i = 0; i < count; i++) {
