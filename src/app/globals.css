@@ -10,48 +10,71 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Join Card - Frosted Glass Effect */
+/* Join Card - Frosted Glass Effect (matches mockup) */
 .join-card-glass {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 1.25rem;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  max-width: 420px;
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    0 1px 4px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  max-width: 400px;
   width: 100%;
 }
 
 @media (min-width: 768px) {
   .join-card-glass {
-    max-width: 480px;
+    max-width: 420px;
+    border-radius: 1.5rem;
   }
 }
 
-/* Primary CTA - Amber/Gold gradient */
+@media (min-width: 1024px) {
+  .join-card-glass {
+    max-width: 440px;
+  }
+}
+
+/* Primary CTA - Amber/Gold gradient with glow */
 .join-btn-primary {
   background: linear-gradient(
     180deg,
-    #f5c97a 0%,
-    #d4a24c 50%,
-    #c49340 100%
+    #f7d689 0%,
+    #e6b84d 40%,
+    #d4a03a 100%
   );
   color: #5c3d1e;
   box-shadow:
-    0 4px 12px rgba(196, 147, 64, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 4px 16px rgba(212, 160, 58, 0.4),
+    0 2px 8px rgba(212, 160, 58, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .join-btn-primary:hover {
+  background: linear-gradient(
+    180deg,
+    #f9dc96 0%,
+    #e9c05a 40%,
+    #d9a845 100%
+  );
   box-shadow:
-    0 6px 16px rgba(196, 147, 64, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 6px 20px rgba(212, 160, 58, 0.5),
+    0 3px 10px rgba(212, 160, 58, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
 }
 
-/* Secondary CTA */
+/* Secondary CTA - Subtle outline */
 .join-btn-secondary {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.join-btn-secondary:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }

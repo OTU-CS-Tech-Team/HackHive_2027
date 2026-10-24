@@ -25,12 +25,12 @@ export function JoinSection() {
 
       {/* 
         Text glow overlay for readability over bright/moving backgrounds.
-        Radial gradient centered on text area at ~0.45-0.55 opacity.
+        Softer, wider, warmer (dark amber/brown tint) with gentle falloff.
       */}
       <div 
         className="pointer-events-none absolute inset-0 z-[1]"
         style={{
-          background: `radial-gradient(ellipse 70% 50% at 50% 45%, rgba(0,0,0,0.50) 0%, rgba(0,0,0,0.25) 40%, transparent 70%)`
+          background: `radial-gradient(ellipse 120% 90% at 50% 45%, rgba(60,40,20,0.35) 0%, rgba(40,25,10,0.18) 35%, rgba(30,20,10,0.08) 55%, transparent 75%)`
         }}
       />
 
