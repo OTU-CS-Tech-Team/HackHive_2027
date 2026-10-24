@@ -134,9 +134,10 @@ void main() {
 
   float t = uTime;
   float settle = smoothstep(0.35, 1.45, t);
-  float gust = smoothstep(0.62, 1.0, 0.5 + 0.5 * sin(t * 0.23));
-  float breeze = sin(t * 0.55);
-  float wind = (breeze * 0.75 + sin(t * 0.17) * 0.25) * (0.75 + 0.55 * gust);
+  // Layered sines only, so the motion never rewinds.
+  float gust = smoothstep(0.55, 1.0, 0.5 + 0.5 * sin(t * 0.17));
+  float breeze = sin(t * 0.42);
+  float wind = (breeze * 0.78 + sin(t * 0.16 + 0.6) * 0.22) * (0.9 + 0.65 * gust);
 
   vec3 base = texture2D(uMap, vec2(p.x, 1.0 - p.y)).rgb;
   float r = base.r;
@@ -173,38 +174,47 @@ void main() {
   float bark = trunk * clamp(dark * (0.65 + 0.35 * brown), 0.0, 1.0);
   float moss = trunk * smoothstep(0.015, 0.09, g - r) * (1.0 - smoothstep(0.48, 0.72, luma));
   float still = clamp(max(bark, moss), 0.0, 1.0);
+  // Hard stop on bark so a large sway cannot rubber the trunk.
+  float rigid = smoothstep(0.12, 0.45, still);
 
   float canopy = 1.0 - smoothstep(canopyLo, canopyHi, p.y);
   float leaf = smoothstep(0.02, 0.11, g - b) * (1.0 - sky) * smoothstep(0.08, 0.24, g);
-  float leafW = leaf * canopy * (1.0 - still);
+  float leafW = smoothstep(0.08, 0.42, leaf) * canopy * (1.0 - rigid);
   float branch = smoothstep(0.04, 0.16, r - b) * (1.0 - leaf) * (1.0 - sky) * canopy;
   branch *= 1.0 - smoothstep(0.2, 0.75, still);
-  float branchW = branch * 0.4;
+  float branchW = branch * (1.0 - rigid) * 0.55;
 
-  float tip = mix(0.28, 1.0, smoothstep(0.0, 0.4, abs(p.x - axis)));
-  tip *= mix(1.0, 0.42, smoothstep(0.0, 0.55, p.y));
+  float tip = mix(0.52, 1.0, smoothstep(0.0, 0.42, abs(p.x - axis)));
+  tip *= mix(1.0, 0.58, smoothstep(0.05, 0.62, p.y));
 
-  float grassZone = smoothstep(grassLo, min(grassLo + 0.14, 0.98), p.y);
-  float grassW = grassZone * (1.0 - still) * smoothstep(0.16, 0.34, luma) * (1.0 - sky);
+  float grassZone = smoothstep(grassLo, min(grassLo + 0.12, 0.98), p.y);
+  float grassCol = smoothstep(0.12, 0.34, luma) * (1.0 - sky);
+  float grassW = smoothstep(0.2, 0.65, grassZone * grassCol) * (1.0 - rigid);
 
-  float flutter = sin(p.x * 13.0 + p.y * 8.0 + t * 1.2);
-  float blades = sin(p.x * 24.0 - t * 1.3) * 0.65 + sin(p.x * 10.0 + t * 0.65) * 0.35;
+  float flutter = sin(p.x * 11.0 + p.y * 7.0 + t * 1.15);
+  float clump = 0.62 + 0.38 * sin(p.x * 5.0 + p.y * 2.2);
+  // Travelling waves run along the meadow in the same direction as the canopy lean.
+  float wave = sin(p.x * 17.0 - t * 1.35);
+  float wave2 = sin(p.x * 7.5 - t * 0.62 + p.y * 4.0);
+  float blades = wave * 0.72 + wave2 * 0.28;
 
-  float leafAmp = (wind * 5.2 + flutter * 1.5) * leafW * tip;
-  float branchAmp = wind * 2.2 * branchW * tip;
-  float grassAmp = (wind * 4.6 + blades * 1.5) * grassW * smoothstep(grassLo, 1.0, p.y);
+  float leafAmp = (wind * 22.0 * clump + flutter * 5.0) * leafW * tip;
+  float branchAmp = wind * 12.0 * branchW * tip;
+  float grassAmp = (wind * 12.0 + blades * 18.0) * grassW;
   vec2 offsetPx = vec2(
     leafAmp + branchAmp + grassAmp,
-    flutter * leafW * tip * 1.4 + blades * grassW * 0.35
+    flutter * leafW * tip * 3.2 + sin(p.x * 13.0 - t * 1.15) * grassW * 4.5
   );
 
-  float branchScreen = breeze * (2.5 + 2.0 * gust);
+  float branchScreen = breeze * (18.0 + 10.0 * gust);
   vec2 dAnchor = (p - uAnchor) * uImageSize;
-  float pinRadius = 0.055 * uImageSize.x;
+  float pinRadius = 0.07 * uImageSize.x;
   float pin = exp(-dot(dAnchor, dAnchor) / max(pinRadius * pinRadius, 1.0));
-  offsetPx += vec2(branchScreen, breeze * 0.35) * pin * (1.0 - still);
+  float restHive = smoothstep(10.0, -2.0, hiveDist(p));
+  offsetPx += vec2(branchScreen, breeze * 2.2) * pin * (1.0 - rigid) * (1.0 - restHive);
+  offsetPx *= 1.0 - restHive;
 
-  float limit = 9.0;
+  float limit = 36.0;
   float olen = length(offsetPx);
   if (olen > limit) offsetPx *= limit / olen;
   offsetPx *= settle;
@@ -212,8 +222,9 @@ void main() {
   vec2 pxToUV = scale / resolution;
   vec2 bgP = clamp(p + offsetPx * pxToUV, 0.0, 1.0);
 
-  float hiveAngle = sin(t * 0.55 - 0.9) * (0.028 + 0.02 * gust) * settle;
-  vec2 shiftUV = vec2(branchScreen, breeze * 0.35) * settle * pxToUV;
+  // A few degrees, lagging the branch it hangs from.
+  float hiveAngle = sin(t * 0.42 - 1.15) * (0.10 + 0.045 * gust) * settle;
+  vec2 shiftUV = vec2(branchScreen, breeze * 2.2) * settle * pxToUV;
   vec2 pivot = (uAnchor + shiftUV) * uImageSize;
   vec2 src = uAnchor * uImageSize + rot(p * uImageSize - pivot, -hiveAngle);
   vec2 srcUV = src / uImageSize;
@@ -225,14 +236,15 @@ void main() {
 
   vec2 bgSample = bgP;
   float dBg = hiveDist(bgSample);
-  if (dBg < 2.2) {
+  if (dBg < 2.5) {
     vec2 eps = 1.5 / uImageSize;
     float dx = hiveDist(bgSample + vec2(eps.x, 0.0)) - hiveDist(bgSample - vec2(eps.x, 0.0));
     float dy = hiveDist(bgSample + vec2(0.0, eps.y)) - hiveDist(bgSample - vec2(0.0, eps.y));
-    vec2 grad = vec2(dx, dy);
+    // Bias the step upward so the vacated sliver samples bark, not the hollow.
+    vec2 grad = vec2(dx, dy - 0.7);
     float glen = length(grad);
-    grad = glen > 0.0001 ? grad / glen : vec2(1.0, 0.0);
-    bgSample = clamp((bgSample * uImageSize + grad * (2.6 - dBg)) / uImageSize, 0.0, 1.0);
+    grad = glen > 0.0001 ? grad / glen : vec2(0.35, -0.94);
+    bgSample = clamp((bgSample * uImageSize + grad * (10.0 - dBg)) / uImageSize, 0.0, 1.0);
   }
 
   if (uDebug > 0.5) {
@@ -244,6 +256,12 @@ void main() {
 
   vec3 bgCol = texture2D(uMap, vec2(bgSample.x, 1.0 - bgSample.y)).rgb;
   vec3 hiveCol = texture2D(uMap, vec2(srcUV.x, 1.0 - srcUV.y)).rgb;
+  // Slow dappled light on leaves and grass. The hive and trunk stay even.
+  float dapple = sin(p.x * 7.2 + t * 0.28) * sin(p.y * 5.2 - t * 0.19);
+  float dapple2 = sin(p.x * 15.0 - p.y * 6.0 - t * 0.63);
+  float flick = dapple * 0.68 + dapple2 * 0.32;
+  float shade = clamp(leafW * 1.2 + grassW * 0.45, 0.0, 1.0) * (1.0 - hiveAlpha);
+  bgCol *= 1.0 + flick * 0.07 * shade * settle;
   gl_FragColor = vec4(mix(bgCol, hiveCol, hiveAlpha), 1.0);
 }
 `;
