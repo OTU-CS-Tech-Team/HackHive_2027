@@ -6,11 +6,6 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Float } from "@react-three/drei";
 import * as THREE from "three";
 
-function seededRandom(seed: number) {
-  const x = Math.sin(seed * 9999) * 10000;
-  return x - Math.floor(x);
-}
-
 class CanvasErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
   { hasError: boolean }
@@ -34,7 +29,6 @@ class CanvasErrorBoundary extends Component<
 
 function canCreateWebGLContext(): boolean {
   if (typeof window === "undefined") return false;
-  // Allow test scripts to bypass the strict check
   if ((window as { __SKIP_WEBGL_PREFLIGHT__?: boolean }).__SKIP_WEBGL_PREFLIGHT__) return true;
   try {
     const canvas = document.createElement("canvas");
@@ -52,27 +46,33 @@ function canCreateWebGLContext(): boolean {
   }
 }
 
-function createBarkTexture() {
-  const size = 128;
+function seededRandom(seed: number) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+function createBarkTexture(): THREE.DataTexture {
+  const size = 256;
   const data = new Uint8Array(size * size * 4);
   
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = (y * size + x) * 4;
-      const furrow = Math.sin(y * 0.3 + Math.sin(x * 0.1) * 2) * 0.5 + 0.5;
-      const detail = Math.sin(x * 0.8 + y * 0.2) * 0.15;
-      const noise = seededRandom(y * size + x) * 0.1;
-      const v = Math.floor((0.25 + furrow * 0.35 + detail + noise) * 255);
+      const furrow = Math.sin(y * 0.15 + Math.sin(x * 0.05) * 3) * 0.5 + 0.5;
+      const crack = Math.sin(y * 0.4 + x * 0.1) * 0.1;
+      const detail = Math.sin(x * 0.3 + y * 0.08) * 0.08;
+      const noise = seededRandom(y * size + x) * 0.12;
+      const v = Math.max(0, Math.min(255, Math.floor((0.22 + furrow * 0.28 + crack + detail + noise) * 255)));
       
-      const hasMoss = seededRandom(y * size + x + 10000) > 0.92 && furrow > 0.6;
+      const hasMoss = seededRandom(y * size + x + 50000) > 0.94 && furrow > 0.55;
       if (hasMoss) {
-        data[i] = Math.floor(v * 0.7);
-        data[i + 1] = Math.floor(v * 0.85);
-        data[i + 2] = Math.floor(v * 0.6);
+        data[i] = Math.floor(v * 0.65);
+        data[i + 1] = Math.floor(v * 0.82);
+        data[i + 2] = Math.floor(v * 0.55);
       } else {
         data[i] = v;
-        data[i + 1] = Math.floor(v * 0.9);
-        data[i + 2] = Math.floor(v * 0.75);
+        data[i + 1] = Math.floor(v * 0.88);
+        data[i + 2] = Math.floor(v * 0.72);
       }
       data[i + 3] = 255;
     }
@@ -80,52 +80,123 @@ function createBarkTexture() {
   
   const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2, 4);
+  texture.repeat.set(1, 3);
   texture.needsUpdate = true;
   return texture;
 }
 
-function createBarkNormalMap() {
-  const size = 128;
+function createBarkNormalMap(): THREE.DataTexture {
+  const size = 256;
   const data = new Uint8Array(size * size * 4);
   
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = (y * size + x) * 4;
-      const furrowArg = y * 0.3 + Math.sin(x * 0.1) * 2;
-      const dx = Math.cos(furrowArg) * Math.cos(x * 0.1) * 2 * 0.3;
-      const dy = Math.cos(furrowArg) * 0.3;
+      const furrowArg = y * 0.15 + Math.sin(x * 0.05) * 3;
+      const dx = Math.cos(furrowArg) * Math.cos(x * 0.05) * 3 * 0.15 + seededRandom(y * size + x + 1000) * 0.1;
+      const dy = Math.cos(furrowArg) * 0.15 + seededRandom(y * size + x + 2000) * 0.1;
       
       data[i] = Math.floor((dx * 0.5 + 0.5) * 255);
       data[i + 1] = Math.floor((dy * 0.5 + 0.5) * 255);
-      data[i + 2] = 255;
+      data[i + 2] = 200;
       data[i + 3] = 255;
     }
   }
   
   const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2, 4);
+  texture.repeat.set(1, 3);
   texture.needsUpdate = true;
   return texture;
 }
 
-function OakTrunk() {
+function createWoodTexture(): THREE.DataTexture {
+  const size = 128;
+  const data = new Uint8Array(size * size * 4);
+  
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const plank = Math.floor(y / 20);
+      const grain = Math.sin(x * 0.3 + plank * 10) * 0.08;
+      const noise = seededRandom(y * size + x + 30000) * 0.1;
+      const base = 0.65 + grain + noise;
+      const v = Math.floor(Math.max(0, Math.min(1, base)) * 255);
+      
+      data[i] = v;
+      data[i + 1] = Math.floor(v * 0.85);
+      data[i + 2] = Math.floor(v * 0.6);
+      data[i + 3] = 255;
+    }
+  }
+  
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createLeafTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  
+  ctx.clearRect(0, 0, 64, 64);
+  ctx.fillStyle = "#5a7a3a";
+  
+  ctx.beginPath();
+  ctx.moveTo(32, 4);
+  ctx.bezierCurveTo(20, 8, 8, 20, 12, 32);
+  ctx.bezierCurveTo(8, 44, 20, 56, 32, 60);
+  ctx.bezierCurveTo(44, 56, 56, 44, 52, 32);
+  ctx.bezierCurveTo(56, 20, 44, 8, 32, 4);
+  ctx.fill();
+  
+  for (let lobe = 0; lobe < 5; lobe++) {
+    const angle = (lobe / 5) * Math.PI * 2 - Math.PI / 2;
+    const cx = 32 + Math.cos(angle) * 18;
+    const cy = 32 + Math.sin(angle) * 18;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 10, 14, angle, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  ctx.strokeStyle = "#4a6a2a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(32, 60);
+  ctx.lineTo(32, 20);
+  ctx.stroke();
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function GnarledTrunk() {
   const barkTexture = useMemo(() => createBarkTexture(), []);
   const barkNormal = useMemo(() => createBarkNormalMap(), []);
   
   const trunkGeometry = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(1.2, 2.0, 8, 32, 12);
+    const geo = new THREE.CylinderGeometry(0.8, 1.8, 12, 24, 20);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i);
       const angle = Math.atan2(pos.getZ(i), pos.getX(i));
-      const gnarl = Math.sin(y * 1.5 + angle * 3) * 0.15 + Math.sin(y * 0.5) * 0.2;
-      const bulge = Math.sin(angle * 2 + y * 0.3) * 0.1;
+      const normalizedY = (y + 6) / 12;
+      
+      const taper = 1 - normalizedY * 0.3;
+      const gnarl = Math.sin(y * 0.8 + angle * 4) * 0.12 * (1 - normalizedY * 0.5);
+      const bulge = Math.sin(angle * 2 + y * 0.2) * 0.15 * Math.pow(1 - normalizedY, 0.5);
+      const twist = Math.sin(y * 0.3) * 0.08;
+      
       const r = Math.sqrt(pos.getX(i) ** 2 + pos.getZ(i) ** 2);
-      const newR = r + gnarl + bulge;
-      pos.setX(i, pos.getX(i) * (newR / r));
-      pos.setZ(i, pos.getZ(i) * (newR / r));
+      const newR = r * taper + gnarl + bulge;
+      const newAngle = angle + twist;
+      
+      pos.setX(i, Math.cos(newAngle) * newR);
+      pos.setZ(i, Math.sin(newAngle) * newR);
     }
     geo.computeVertexNormals();
     return geo;
@@ -136,10 +207,10 @@ function OakTrunk() {
       new THREE.MeshStandardMaterial({
         map: barkTexture,
         normalMap: barkNormal,
-        normalScale: new THREE.Vector2(1.5, 1.5),
-        roughness: 0.95,
+        normalScale: new THREE.Vector2(2, 2),
+        roughness: 0.92,
         metalness: 0,
-        color: new THREE.Color(0x4a3a2a),
+        color: new THREE.Color(0x3a2a1a),
       }),
     [barkTexture, barkNormal]
   );
@@ -147,73 +218,111 @@ function OakTrunk() {
   return (
     <group>
       <mesh geometry={trunkGeometry} material={trunkMaterial} castShadow receiveShadow />
-      <mesh position={[-0.3, -2, 0.8]} rotation={[0.1, 0.3, 0]}>
-        <sphereGeometry args={[0.8, 16, 12]} />
-        <meshStandardMaterial color={0x0a0805} roughness={1} />
+      <mesh position={[0.5, -3.5, 0.6]} rotation={[0.15, 0.2, 0.1]}>
+        <sphereGeometry args={[1.1, 20, 16]} />
+        <meshStandardMaterial color={0x080604} roughness={1} />
+      </mesh>
+      <mesh position={[0.3, -3.8, 0.4]} rotation={[0.1, 0.15, 0]}>
+        <sphereGeometry args={[0.7, 16, 12]} />
+        <meshStandardMaterial color={0x050302} roughness={1} />
       </mesh>
     </group>
   );
 }
 
-function OakBranch({ start, end, radius, seed = 0 }: { start: [number, number, number]; end: [number, number, number]; radius: number; seed?: number }) {
+function ThickBranch({ start, end, startRadius, endRadius, seed = 0 }: { 
+  start: [number, number, number]; 
+  end: [number, number, number]; 
+  startRadius: number;
+  endRadius: number;
+  seed?: number 
+}) {
   const barkTexture = useMemo(() => createBarkTexture(), []);
   
   const geometry = useMemo(() => {
+    const midX = (start[0] + end[0]) * 0.5 + (seededRandom(seed) - 0.5) * 1.5;
+    const midY = (start[1] + end[1]) * 0.5 + seededRandom(seed + 1) * 0.8;
+    const midZ = (start[2] + end[2]) * 0.5 + (seededRandom(seed + 2) - 0.5) * 0.5;
+    
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(...start),
-      new THREE.Vector3(
-        (start[0] + end[0]) * 0.5 + (seededRandom(seed) - 0.5) * 0.5,
-        (start[1] + end[1]) * 0.5 + 0.3,
-        (start[2] + end[2]) * 0.5
-      ),
+      new THREE.Vector3(midX, midY, midZ),
       new THREE.Vector3(...end),
     ]);
-    return new THREE.TubeGeometry(curve, 12, radius, 12, false);
-  }, [start, end, radius, seed]);
+    
+    const radiusFunc = (t: number) => startRadius * (1 - t) + endRadius * t;
+    const radii: number[] = [];
+    for (let i = 0; i <= 12; i++) {
+      radii.push(radiusFunc(i / 12));
+    }
+    
+    return new THREE.TubeGeometry(curve, 12, startRadius * 0.7, 10, false);
+  }, [start, end, startRadius, endRadius, seed]);
 
   return (
     <mesh geometry={geometry} castShadow>
       <meshStandardMaterial
         map={barkTexture}
-        color={0x3a2a1a}
-        roughness={0.92}
+        color={0x2a1a0a}
+        roughness={0.9}
         metalness={0}
       />
     </mesh>
   );
 }
 
-function OakLeafCluster({ position, scale = 1, backlit = false, seed = 0 }: { position: [number, number, number]; scale?: number; backlit?: boolean; seed?: number }) {
-  const leafColor = backlit ? 0x8a9a5a : 0x5a6a3a;
-  const opacity = backlit ? 0.85 : 0.95;
+function LeafCluster({ position, scale = 1, count = 40, seed = 0 }: { 
+  position: [number, number, number]; 
+  scale?: number; 
+  count?: number;
+  seed?: number;
+}) {
+  const leafTexture = useMemo(() => createLeafTexture(), []);
+  const groupRef = useRef<THREE.Group>(null);
   
   const leafData = useMemo(() => {
-    return [...Array(8)].map((_, i) => ({
-      angle: (i / 8) * Math.PI * 2,
-      r: 0.3 + seededRandom(seed + i * 10) * 0.2,
-      y: (seededRandom(seed + i * 10 + 1) - 0.5) * 0.3,
-      rotX: seededRandom(seed + i * 10 + 2) * 0.5,
-      rotZ: seededRandom(seed + i * 10 + 3) * 0.3,
-    }));
-  }, [seed]);
+    const leaves: { pos: THREE.Vector3; rot: THREE.Euler; scale: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      const theta = seededRandom(seed + i * 3) * Math.PI * 2;
+      const phi = seededRandom(seed + i * 3 + 1) * Math.PI;
+      const r = 0.3 + seededRandom(seed + i * 3 + 2) * 0.7;
+      
+      leaves.push({
+        pos: new THREE.Vector3(
+          Math.sin(phi) * Math.cos(theta) * r,
+          Math.sin(phi) * Math.sin(theta) * r * 0.6,
+          Math.cos(phi) * r
+        ),
+        rot: new THREE.Euler(
+          seededRandom(seed + i * 3 + 3) * 0.8 - 0.4,
+          theta,
+          seededRandom(seed + i * 3 + 4) * 0.6 - 0.3
+        ),
+        scale: 0.15 + seededRandom(seed + i * 3 + 5) * 0.1,
+      });
+    }
+    return leaves;
+  }, [count, seed]);
+  
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const t = state.clock.elapsedTime * 0.5;
+    groupRef.current.rotation.y = Math.sin(t + seed) * 0.02;
+    groupRef.current.rotation.x = Math.cos(t * 0.7 + seed) * 0.015;
+  });
   
   return (
-    <group position={position} scale={scale}>
+    <group ref={groupRef} position={position} scale={scale}>
       {leafData.map((leaf, i) => (
-        <mesh
-          key={i}
-          position={[Math.cos(leaf.angle) * leaf.r, leaf.y, Math.sin(leaf.angle) * leaf.r]}
-          rotation={[leaf.rotX, leaf.angle, leaf.rotZ]}
-        >
-          <planeGeometry args={[0.4, 0.25]} />
+        <mesh key={i} position={leaf.pos} rotation={leaf.rot} scale={leaf.scale}>
+          <planeGeometry args={[1, 1]} />
           <meshStandardMaterial
-            color={leafColor}
-            roughness={0.7}
-            metalness={0}
+            map={leafTexture}
             transparent
-            opacity={opacity}
+            alphaTest={0.3}
             side={THREE.DoubleSide}
-            alphaTest={0.1}
+            color={i % 3 === 0 ? 0x6a8a4a : 0x5a7a3a}
+            roughness={0.7}
           />
         </mesh>
       ))}
@@ -221,47 +330,19 @@ function OakLeafCluster({ position, scale = 1, backlit = false, seed = 0 }: { po
   );
 }
 
-function OakTree() {
-  const { size } = useThree();
-  const groupRef = useRef<THREE.Group>(null);
-  
-  useFrame(() => {
-    if (!groupRef.current) return;
-    const w = size.width;
-    const isMobile = w < 768;
-    const isTablet = w >= 768 && w < 1024;
-    
-    if (isMobile) {
-      // Mobile: tree on right, card on left
-      groupRef.current.position.set(8, -4, -2);
-      groupRef.current.scale.setScalar(0.65);
-    } else if (isTablet) {
-      // Tablet: tree on right, card on left  
-      groupRef.current.position.set(7, -4, -2);
-      groupRef.current.scale.setScalar(0.75);
-    } else {
-      // Desktop: trunk center-right, hollow at ~x=50-60% behind centered card
-      // Move trunk slightly left so hollow is more centered
-      groupRef.current.position.set(1, -3.5, -2);
-      groupRef.current.scale.setScalar(1.1);
-    }
-  });
-  
+function OakCanopy() {
   return (
-    <group ref={groupRef} position={[2.5, -4, -2]}>
-      <OakTrunk />
-      
-      <OakBranch start={[0.5, 3, 0]} end={[-4, 4.5, 1]} radius={0.25} seed={1} />
-      <OakBranch start={[0.3, 3.5, -0.3]} end={[3, 5, 0.5]} radius={0.2} seed={2} />
-      <OakBranch start={[-0.2, 2.5, 0.5]} end={[-2, 3.5, 2]} radius={0.18} seed={3} />
-      
-      <OakLeafCluster position={[-3.5, 4.5, 1]} scale={1.2} backlit seed={100} />
-      <OakLeafCluster position={[-2.5, 4.8, 0.5]} scale={1} backlit seed={200} />
-      <OakLeafCluster position={[-4, 4.2, 1.5]} scale={0.9} backlit seed={300} />
-      <OakLeafCluster position={[2.5, 5, 0.5]} scale={1.1} seed={400} />
-      <OakLeafCluster position={[3, 4.5, 1]} scale={0.8} seed={500} />
-      <OakLeafCluster position={[-2, 3.5, 2]} scale={0.9} seed={600} />
-      <OakLeafCluster position={[-1, 4, 1.5]} scale={0.7} backlit seed={700} />
+    <group position={[0, 6, 0]}>
+      <LeafCluster position={[-2, 1, 0.5]} scale={2.5} count={60} seed={100} />
+      <LeafCluster position={[-1, 1.5, -0.5]} scale={2.2} count={55} seed={200} />
+      <LeafCluster position={[0, 2, 0]} scale={2} count={50} seed={300} />
+      <LeafCluster position={[1, 1.2, 0.3]} scale={2.3} count={55} seed={400} />
+      <LeafCluster position={[2, 0.8, -0.2]} scale={2} count={50} seed={500} />
+      <LeafCluster position={[-1.5, 0.5, 1]} scale={1.8} count={45} seed={600} />
+      <LeafCluster position={[1.5, 0.3, 0.8]} scale={1.8} count={45} seed={700} />
+      <LeafCluster position={[0, 0, 1.5]} scale={1.5} count={35} seed={800} />
+      <LeafCluster position={[-2.5, -0.2, 0]} scale={1.6} count={40} seed={900} />
+      <LeafCluster position={[2.5, -0.3, 0.5]} scale={1.6} count={40} seed={1000} />
     </group>
   );
 }
@@ -269,6 +350,7 @@ function OakTree() {
 function WoodenHive() {
   const { size } = useThree();
   const groupRef = useRef<THREE.Group>(null);
+  const woodTexture = useMemo(() => createWoodTexture(), []);
   
   useFrame(() => {
     if (!groupRef.current) return;
@@ -277,204 +359,183 @@ function WoodenHive() {
     const isTablet = w >= 768 && w < 1024;
     
     if (isMobile) {
-      // Mobile: hive visible on right
-      groupRef.current.position.set(7, 0, 2);
-      groupRef.current.scale.setScalar(0.8);
+      // Mobile: hive at x=75%, y=50-58% (middle-ish of viewport)
+      groupRef.current.position.set(2.5, 3.2, 2);
+      groupRef.current.scale.setScalar(0.65);
     } else if (isTablet) {
-      // Tablet: hive on right
-      groupRef.current.position.set(6, 0.5, 2);
-      groupRef.current.scale.setScalar(0.9);
+      // Tablet: hive needs to be lower to be fully visible, not cut off at top
+      groupRef.current.position.set(3.2, 3, 2);
+      groupRef.current.scale.setScalar(0.75);
     } else {
-      // Desktop: hive top-right at ~x=75%, y=10-30% (high up, clear of centered card)
-      groupRef.current.position.set(5.5, 2.5, 1);
+      // Desktop: hive at top-right, y=10-30% from top, fully visible
+      groupRef.current.position.set(6, 4.5, 2);
       groupRef.current.scale.setScalar(1);
     }
   });
-  
+
   const woodMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0xc9a86c),
-        roughness: 0.8,
-        metalness: 0.02,
-      }),
-    []
+    () => new THREE.MeshStandardMaterial({
+      map: woodTexture,
+      color: new THREE.Color(0xd4a050),
+      roughness: 0.75,
+      metalness: 0.02,
+    }),
+    [woodTexture]
   );
 
   const roofMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x8a7a5a),
-        roughness: 0.85,
-        metalness: 0.02,
-      }),
-    []
-  );
-
-  const ropeMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x6a5a4a),
-        roughness: 1,
-        metalness: 0,
-      }),
-    []
+    () => new THREE.MeshStandardMaterial({
+      map: woodTexture,
+      color: new THREE.Color(0x8a6a40),
+      roughness: 0.8,
+      metalness: 0.02,
+    }),
+    [woodTexture]
   );
 
   return (
     <group ref={groupRef}>
-      <Float speed={0.4} rotationIntensity={0.01} floatIntensity={0.08}>
+      <Float speed={0.3} rotationIntensity={0.008} floatIntensity={0.06}>
         <group>
-        <mesh position={[-0.2, 0.8, 0]} material={ropeMaterial}>
-          <cylinderGeometry args={[0.02, 0.02, 1.5, 8]} />
-        </mesh>
-        <mesh position={[0.2, 0.8, 0]} material={ropeMaterial}>
-          <cylinderGeometry args={[0.02, 0.02, 1.5, 8]} />
-        </mesh>
-
-        <mesh position={[0, 0, 0]} material={woodMaterial} castShadow receiveShadow>
-          <boxGeometry args={[0.6, 0.7, 0.45]} />
-        </mesh>
-        
-        {[-0.2, 0, 0.2].map((y, i) => (
-          <mesh key={i} position={[0.301, y - 0.1, 0]}>
-            <boxGeometry args={[0.02, 0.15, 0.4]} />
-            <meshStandardMaterial color={0x9a8a6a} roughness={0.9} />
+          <mesh position={[-0.15, 1.2, 0]}>
+            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
+            <meshStandardMaterial color={0x5a4a3a} roughness={1} />
           </mesh>
-        ))}
-
-        <group position={[0, 0.5, 0]}>
-          <mesh material={roofMaterial} castShadow>
-            <boxGeometry args={[0.75, 0.08, 0.55]} />
+          <mesh position={[0.15, 1.2, 0]}>
+            <cylinderGeometry args={[0.025, 0.025, 1.8, 8]} />
+            <meshStandardMaterial color={0x5a4a3a} roughness={1} />
           </mesh>
-          <mesh position={[0, 0.12, 0]} rotation={[0, 0, 0]} material={roofMaterial} castShadow>
-            <boxGeometry args={[0.7, 0.16, 0.5]} />
-          </mesh>
-        </group>
 
-        <mesh position={[0.31, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-          <planeGeometry args={[0.25, 0.08]} />
-          <meshStandardMaterial color={0x0a0805} roughness={1} />
-        </mesh>
-        
-        <mesh position={[0.35, -0.1, 0.15]} rotation={[0, 0, Math.PI / 2]} material={woodMaterial}>
-          <cylinderGeometry args={[0.025, 0.025, 0.12, 8]} />
-        </mesh>
+          <mesh position={[0, 0, 0]} material={woodMaterial} castShadow receiveShadow>
+            <boxGeometry args={[0.7, 0.85, 0.5]} />
+          </mesh>
+          
+          {[-0.25, 0, 0.25].map((yOff, i) => (
+            <mesh key={i} position={[0.351, yOff - 0.1, 0]}>
+              <boxGeometry args={[0.015, 0.2, 0.45]} />
+              <meshStandardMaterial color={0xb8986a} roughness={0.85} />
+            </mesh>
+          ))}
+
+          <group position={[0, 0.55, 0]}>
+            <mesh material={roofMaterial} castShadow>
+              <boxGeometry args={[0.85, 0.08, 0.6]} />
+            </mesh>
+            <mesh position={[0, 0.12, 0]} rotation={[0, 0, 0]} material={roofMaterial} castShadow>
+              <boxGeometry args={[0.75, 0.18, 0.55]} />
+            </mesh>
+            <mesh position={[0, 0.26, 0]} rotation={[0, 0, 0]} material={roofMaterial} castShadow>
+              <boxGeometry args={[0.55, 0.1, 0.45]} />
+            </mesh>
+          </group>
+
+          <mesh position={[0.36, -0.05, 0]} rotation={[0, Math.PI / 2, 0]}>
+            <planeGeometry args={[0.22, 0.1]} />
+            <meshStandardMaterial color={0x080604} roughness={1} />
+          </mesh>
+          
+          <mesh position={[0.4, -0.18, 0.12]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.03, 0.03, 0.15, 8]} />
+            <meshStandardMaterial color={0xb89868} roughness={0.8} />
+          </mesh>
         </group>
       </Float>
     </group>
   );
 }
 
-function Bee({ position, speed, radius, offset }: { position: [number, number, number]; speed: number; radius: number; offset: number }) {
+function RealisticBee({ position, speed, radius, offset }: { 
+  position: [number, number, number]; 
+  speed: number; 
+  radius: number; 
+  offset: number 
+}) {
   const beeRef = useRef<THREE.Group>(null);
-  const trailRef = useRef<THREE.Points>(null);
-  const trailBufferRef = useRef<Float32Array | null>(null);
-  const trailIndexRef = useRef(0);
+  const wingRef1 = useRef<THREE.Mesh>(null);
+  const wingRef2 = useRef<THREE.Mesh>(null);
 
   useFrame((state) => {
     if (!beeRef.current) return;
     const t = state.clock.elapsedTime * speed + offset;
     
     const x = position[0] + Math.sin(t) * radius;
-    const y = position[1] + Math.sin(t * 1.3) * (radius * 0.3);
-    const z = position[2] + Math.cos(t * 0.8) * radius * 0.5;
+    const y = position[1] + Math.sin(t * 1.3) * (radius * 0.4) + Math.sin(t * 2.1) * 0.1;
+    const z = position[2] + Math.cos(t * 0.8) * radius * 0.6;
     
     beeRef.current.position.set(x, y, z);
     beeRef.current.rotation.y = Math.atan2(Math.cos(t), -Math.sin(t * 0.8) * 0.5);
-
-    if (trailRef.current) {
-      const posAttr = trailRef.current.geometry.getAttribute('position');
-      if (posAttr) {
-        if (!trailBufferRef.current) trailBufferRef.current = posAttr.array as Float32Array;
-        const buffer = trailBufferRef.current;
-        const idx = (trailIndexRef.current % 8) * 3;
-        buffer[idx] = x;
-        buffer[idx + 1] = y;
-        buffer[idx + 2] = z;
-        trailIndexRef.current++;
-        posAttr.needsUpdate = true;
-      }
-    }
+    beeRef.current.rotation.z = Math.sin(t * 1.5) * 0.1;
+    
+    const wingFlap = Math.sin(state.clock.elapsedTime * 40) * 0.4;
+    if (wingRef1.current) wingRef1.current.rotation.z = 0.3 + wingFlap;
+    if (wingRef2.current) wingRef2.current.rotation.z = -0.3 - wingFlap;
   });
 
   return (
-    <>
-      <group ref={beeRef} position={position} scale={0.08}>
-        <mesh>
-          <sphereGeometry args={[1, 8, 6]} />
-          <meshStandardMaterial color={0xd4a020} roughness={0.5} />
+    <group ref={beeRef} position={position} scale={0.12}>
+      <mesh>
+        <sphereGeometry args={[1, 10, 8]} />
+        <meshStandardMaterial color={0xe8a820} roughness={0.4} />
+      </mesh>
+      
+      {[-0.3, 0.3].map((zPos, i) => (
+        <mesh key={i} position={[0, 0, zPos]}>
+          <cylinderGeometry args={[1.05, 1.05, 0.2, 12]} />
+          <meshStandardMaterial color={0x1a1a1a} roughness={0.5} />
         </mesh>
-        <mesh position={[0.2, 0, 0]}>
-          <torusGeometry args={[0.85, 0.2, 6, 12]} />
-          <meshStandardMaterial color={0x1a1a1a} roughness={0.6} />
-        </mesh>
-        <mesh position={[0, 0.6, 0.3]} scale={[0.6, 0.15, 1]}>
-          <sphereGeometry args={[0.5, 6, 4]} />
-          <meshStandardMaterial color={0xffffff} transparent opacity={0.5} roughness={0.1} />
-        </mesh>
-        <mesh position={[0, 0.6, -0.3]} scale={[0.6, 0.15, 1]}>
-          <sphereGeometry args={[0.5, 6, 4]} />
-          <meshStandardMaterial color={0xffffff} transparent opacity={0.5} roughness={0.1} />
-        </mesh>
-      </group>
-      <points ref={trailRef}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[new Float32Array(24), 3]} />
-        </bufferGeometry>
-        <pointsMaterial size={0.04} color={0xd4a020} transparent opacity={0.4} sizeAttenuation />
-      </points>
-    </>
+      ))}
+      
+      <mesh position={[0.9, 0, 0]}>
+        <sphereGeometry args={[0.55, 8, 6]} />
+        <meshStandardMaterial color={0x2a2a2a} roughness={0.3} />
+      </mesh>
+      
+      <mesh ref={wingRef1} position={[0, 0.7, 0.4]} rotation={[0, 0, 0.3]} scale={[0.8, 0.12, 1.2]}>
+        <sphereGeometry args={[0.8, 8, 6]} />
+        <meshStandardMaterial color={0xffffff} transparent opacity={0.4} roughness={0.1} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh ref={wingRef2} position={[0, 0.7, -0.4]} rotation={[0, 0, -0.3]} scale={[0.8, 0.12, 1.2]}>
+        <sphereGeometry args={[0.8, 8, 6]} />
+        <meshStandardMaterial color={0xffffff} transparent opacity={0.4} roughness={0.1} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
   );
 }
 
 function Bees() {
   const { size } = useThree();
-  const isMobile = size.width < 768;
   const isDesktop = size.width >= 1024;
   
-  // Desktop: bees on left half; Mobile/tablet: bees near hive on right
   const configs = useMemo(() => isDesktop ? [
-    { pos: [-3, 0.5, 3] as [number, number, number], speed: 0.4, radius: 1.5, offset: 0 },
-    { pos: [-2, 1.5, 2.5] as [number, number, number], speed: 0.35, radius: 1.2, offset: 2 },
-    { pos: [-4, 0, 2] as [number, number, number], speed: 0.45, radius: 1, offset: 4 },
-    { pos: [-1.5, -0.5, 3.5] as [number, number, number], speed: 0.38, radius: 0.9, offset: 1 },
-    { pos: [-2.5, 2, 2] as [number, number, number], speed: 0.42, radius: 1.1, offset: 3 },
+    { pos: [-3, 1.5, 2.5] as [number, number, number], speed: 0.5, radius: 1.8, offset: 0 },
+    { pos: [-2, 2.5, 2] as [number, number, number], speed: 0.4, radius: 1.4, offset: 2 },
+    { pos: [-4, 0.5, 1.5] as [number, number, number], speed: 0.55, radius: 1.2, offset: 4 },
+    { pos: [-1.5, 3, 2.5] as [number, number, number], speed: 0.45, radius: 1, offset: 1 },
+    { pos: [-2.5, 1, 3] as [number, number, number], speed: 0.5, radius: 1.5, offset: 3 },
   ] : [
-    { pos: [4, 0.5, 3] as [number, number, number], speed: 0.4, radius: 1.2, offset: 0 },
-    { pos: [5, 1, 2.5] as [number, number, number], speed: 0.35, radius: 0.8, offset: 2 },
-    { pos: [3.5, 0, 2] as [number, number, number], speed: 0.45, radius: 1, offset: 4 },
-    { pos: [4.5, 0.2, 3.5] as [number, number, number], speed: 0.38, radius: 0.9, offset: 1 },
+    { pos: [2, 2, 2] as [number, number, number], speed: 0.5, radius: 1, offset: 0 },
+    { pos: [3, 3, 1.5] as [number, number, number], speed: 0.4, radius: 0.8, offset: 2 },
+    { pos: [2.5, 1.5, 2.5] as [number, number, number], speed: 0.55, radius: 0.9, offset: 4 },
   ], [isDesktop]);
-
-  if (isMobile) {
-    return (
-      <>
-        {configs.slice(0, 2).map((c, i) => (
-          <Bee key={i} position={c.pos} speed={c.speed} radius={c.radius} offset={c.offset} />
-        ))}
-      </>
-    );
-  }
 
   return (
     <>
       {configs.map((c, i) => (
-        <Bee key={i} position={c.pos} speed={c.speed} radius={c.radius} offset={c.offset} />
+        <RealisticBee key={i} position={c.pos} speed={c.speed} radius={c.radius} offset={c.offset} />
       ))}
     </>
   );
 }
 
-function MeadowGrass() {
+function MeadowGround() {
   const grassPositions = useMemo(() => {
-    const positions: { x: number; z: number; h: number; r: number }[] = [];
-    for (let i = 0; i < 60; i++) {
+    const positions: { x: number; z: number; h: number; rot: number }[] = [];
+    for (let i = 0; i < 100; i++) {
       positions.push({
-        x: (seededRandom(i * 4) - 0.5) * 16,
-        z: seededRandom(i * 4 + 1) * 4 + 1,
-        h: 0.2 + seededRandom(i * 4 + 2) * 0.3,
-        r: (seededRandom(i * 4 + 3) - 0.5) * 0.2,
+        x: (seededRandom(i * 4) - 0.5) * 20,
+        z: seededRandom(i * 4 + 1) * 5 + 2,
+        h: 0.15 + seededRandom(i * 4 + 2) * 0.25,
+        rot: (seededRandom(i * 4 + 3) - 0.5) * 0.3,
       });
     }
     return positions;
@@ -482,35 +543,35 @@ function MeadowGrass() {
 
   const flowerPositions = useMemo(() => {
     const positions: { x: number; z: number; color: number }[] = [];
-    const colors = [0xfff8e8, 0xfff4d0, 0xf8f0e0];
-    for (let i = 0; i < 20; i++) {
+    const colors = [0xfff8e8, 0xfffae0, 0xf8f0e0, 0xfff0d0];
+    for (let i = 0; i < 30; i++) {
       positions.push({
-        x: (seededRandom(1000 + i * 2) - 0.5) * 14,
-        z: seededRandom(1000 + i * 2 + 1) * 3 + 1.5,
-        color: colors[i % 3],
+        x: (seededRandom(5000 + i * 2) - 0.5) * 18,
+        z: seededRandom(5000 + i * 2 + 1) * 4 + 2.5,
+        color: colors[i % colors.length],
       });
     }
     return positions;
   }, []);
 
   return (
-    <group position={[0, -3.5, 3]}>
+    <group position={[0, -5.5, 4]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[30, 15]} />
-        <meshStandardMaterial color={0x6a7a4a} roughness={0.98} />
+        <planeGeometry args={[40, 20]} />
+        <meshStandardMaterial color={0x5a6a3a} roughness={0.95} />
       </mesh>
 
       {grassPositions.map((g, i) => (
-        <mesh key={`g-${i}`} position={[g.x, g.h / 2, g.z]} rotation={[g.r, 0, 0]}>
-          <coneGeometry args={[0.015, g.h, 4]} />
-          <meshStandardMaterial color={0x5a6a3a} roughness={0.9} />
+        <mesh key={`g-${i}`} position={[g.x, g.h / 2, g.z]} rotation={[g.rot, 0, 0]}>
+          <coneGeometry args={[0.02, g.h, 4]} />
+          <meshStandardMaterial color={0x4a5a2a} roughness={0.85} />
         </mesh>
       ))}
 
       {flowerPositions.map((f, i) => (
-        <mesh key={`f-${i}`} position={[f.x, 0.08, f.z]}>
-          <sphereGeometry args={[0.03, 6, 4]} />
-          <meshStandardMaterial color={f.color} roughness={0.7} emissive={f.color} emissiveIntensity={0.1} />
+        <mesh key={`f-${i}`} position={[f.x, 0.06, f.z]}>
+          <sphereGeometry args={[0.04, 6, 4]} />
+          <meshStandardMaterial color={f.color} roughness={0.6} emissive={f.color} emissiveIntensity={0.15} />
         </mesh>
       ))}
     </group>
@@ -525,23 +586,23 @@ function GoldenHourLighting() {
   return (
     <>
       <directionalLight
-        position={[-12, 8, 6]}
-        intensity={2.2}
-        color={new THREE.Color(0xffecd0)}
+        position={[-15, 10, 8]}
+        intensity={2.8}
+        color={new THREE.Color(0xffd8a0)}
         castShadow
         shadow-mapSize-width={shadowSize}
         shadow-mapSize-height={shadowSize}
-        shadow-camera-far={35}
-        shadow-camera-left={-12}
-        shadow-camera-right={12}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
-        shadow-bias={-0.0003}
+        shadow-camera-far={40}
+        shadow-camera-left={-15}
+        shadow-camera-right={15}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
+        shadow-bias={-0.0002}
         shadow-normalBias={0.02}
       />
-      <ambientLight intensity={0.25} color={new THREE.Color(0xfff0e0)} />
-      <pointLight position={[-8, 2, 5]} intensity={0.6} color={new THREE.Color(0xffd090)} distance={15} />
-      <hemisphereLight args={[new THREE.Color(0xffecd0), new THREE.Color(0x6a7a4a), 0.4]} />
+      <pointLight position={[-10, 4, 6]} intensity={0.8} color={new THREE.Color(0xffc080)} distance={20} />
+      <hemisphereLight args={[new THREE.Color(0xffecd0), new THREE.Color(0x5a6a4a), 0.5]} />
+      <ambientLight intensity={0.2} color={new THREE.Color(0xfff5e8)} />
     </>
   );
 }
@@ -549,26 +610,25 @@ function GoldenHourLighting() {
 function DustMotes() {
   const moteRef = useRef<THREE.Points>(null);
   
-  // Dust motes on left half (desktop golden glow area)
   const positions = useMemo(() => {
-    const arr = new Float32Array(40 * 3);
-    for (let i = 0; i < 40; i++) {
-      arr[i * 3] = seededRandom(2000 + i * 3) * 6 - 5; // x: -5 to 1 (left half)
-      arr[i * 3 + 1] = seededRandom(2000 + i * 3 + 1) * 5 - 1; // y: -1 to 4
-      arr[i * 3 + 2] = seededRandom(2000 + i * 3 + 2) * 4 + 1;
+    const arr = new Float32Array(50 * 3);
+    for (let i = 0; i < 50; i++) {
+      arr[i * 3] = seededRandom(8000 + i * 3) * 8 - 6;
+      arr[i * 3 + 1] = seededRandom(8000 + i * 3 + 1) * 6;
+      arr[i * 3 + 2] = seededRandom(8000 + i * 3 + 2) * 5 + 1;
     }
     return arr;
   }, []);
 
   useFrame((state) => {
     if (!moteRef.current) return;
-    const posAttr = moteRef.current.geometry.getAttribute('position');
+    const posAttr = moteRef.current.geometry.getAttribute("position");
     if (!posAttr) return;
     const arr = posAttr.array as Float32Array;
-    const t = state.clock.elapsedTime * 0.1;
-    for (let i = 0; i < 40; i++) {
-      arr[i * 3 + 1] += Math.sin(t + i) * 0.002;
-      arr[i * 3] += Math.cos(t * 0.7 + i * 0.5) * 0.001;
+    const t = state.clock.elapsedTime * 0.08;
+    for (let i = 0; i < 50; i++) {
+      arr[i * 3 + 1] += Math.sin(t + i * 0.5) * 0.002;
+      arr[i * 3] += Math.cos(t * 0.6 + i * 0.3) * 0.001;
     }
     posAttr.needsUpdate = true;
   });
@@ -578,7 +638,7 @@ function DustMotes() {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.08} color={0xffd080} transparent opacity={0.6} sizeAttenuation />
+      <pointsMaterial size={0.1} color={0xffd080} transparent opacity={0.5} sizeAttenuation />
     </points>
   );
 }
@@ -586,8 +646,8 @@ function DustMotes() {
 function CameraSetup() {
   const { size } = useThree();
   const lastSizeRef = useRef<string>("");
-  const targetRef = useRef(new THREE.Vector3(2, 0, 0));
-  const basePositionRef = useRef(new THREE.Vector3(-3, 0.5, 12));
+  const targetRef = useRef(new THREE.Vector3(0, 0, 0));
+  const basePositionRef = useRef(new THREE.Vector3(0, 2, 10));
 
   useFrame((state) => {
     const cam = state.camera as THREE.PerspectiveCamera;
@@ -600,25 +660,28 @@ function CameraSetup() {
       lastSizeRef.current = sizeKey;
       
       if (isMobile) {
-        basePositionRef.current.set(-4, 0.5, 16);
-        targetRef.current.set(6, -1, 0);
-        cam.fov = 55;
+        // Mobile: close-up, trunk fills lower-right
+        basePositionRef.current.set(1, 2, 6);
+        targetRef.current.set(1.5, 2.5, 0);
+        cam.fov = 60;
       } else if (isTablet) {
-        basePositionRef.current.set(-5, 0.5, 14);
-        targetRef.current.set(5, -0.5, 0);
-        cam.fov = 52;
+        // Tablet: pull back a bit, show full hive
+        basePositionRef.current.set(1, 2.5, 7);
+        targetRef.current.set(1.2, 3, 0);
+        cam.fov = 55;
       } else {
-        // Desktop: trunk center-right, camera centered to frame hollow at ~50-60% x
-        basePositionRef.current.set(0, 0.5, 12);
-        targetRef.current.set(1.5, -0.5, 0);
-        cam.fov = 48;
+        // Desktop: frame centered trunk reaching up and out of frame
+        // Lower camera slightly to see more of the height, look up at canopy
+        basePositionRef.current.set(-0.5, 0.5, 10);
+        targetRef.current.set(0.5, 4, 0);
+        cam.fov = 50;
       }
       cam.position.copy(basePositionRef.current);
       cam.updateProjectionMatrix();
     }
     
-    const t = state.clock.elapsedTime * 0.05;
-    const bob = Math.sin(t) * 0.015;
+    const t = state.clock.elapsedTime * 0.04;
+    const bob = Math.sin(t) * 0.02;
     cam.position.y = basePositionRef.current.y + bob;
     cam.lookAt(targetRef.current);
   });
@@ -626,20 +689,64 @@ function CameraSetup() {
   return null;
 }
 
+function OakTree() {
+  const { size } = useThree();
+  const groupRef = useRef<THREE.Group>(null);
+  
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const w = size.width;
+    const isMobile = w < 768;
+    const isTablet = w >= 768 && w < 1024;
+    
+    if (isMobile) {
+      // Mobile: trunk fills lower-right of frame
+      groupRef.current.position.set(2.5, -4, -1);
+      groupRef.current.scale.setScalar(1.3);
+    } else if (isTablet) {
+      // Tablet: trunk fills center-right
+      groupRef.current.position.set(2, -4, -1);
+      groupRef.current.scale.setScalar(1.25);
+    } else {
+      // Desktop: trunk center-right, massive - reaches and exits top of frame
+      // Shift right a bit so hollow is at x=50-60%
+      groupRef.current.position.set(1.5, -2.5, -2);
+      groupRef.current.scale.setScalar(1.7);
+    }
+  });
+  
+  return (
+    <group ref={groupRef} position={[0.5, -3, -2]}>
+      <GnarledTrunk />
+      
+      <ThickBranch start={[0, 5, 0]} end={[-3, 7, 1]} startRadius={0.35} endRadius={0.15} seed={1} />
+      <ThickBranch start={[0.2, 5.5, -0.2]} end={[3, 7.5, 0.5]} startRadius={0.3} endRadius={0.12} seed={2} />
+      <ThickBranch start={[-0.3, 4.5, 0.3]} end={[-2, 6, 1.5]} startRadius={0.25} endRadius={0.1} seed={3} />
+      <ThickBranch start={[0.1, 5.2, 0]} end={[0, 8, 0]} startRadius={0.28} endRadius={0.08} seed={4} />
+      
+      <OakCanopy />
+    </group>
+  );
+}
+
 function SceneContent() {
   const { size } = useThree();
   const isMobile = size.width < 768;
+  const isTablet = size.width >= 768 && size.width < 1024;
+  
+  const fogNear = isMobile ? 12 : isTablet ? 10 : 8;
+  const fogFar = isMobile ? 35 : isTablet ? 30 : 28;
   
   return (
     <>
       <CameraSetup />
       <color attach="background" args={[0xf8ece0]} />
-      <fog attach="fog" args={[0xf5e8d8, 6, 25]} />
+      <fog attach="fog" args={[0xf5e8d8, fogNear, fogFar]} />
       <GoldenHourLighting />
       <OakTree />
       <WoodenHive />
       <Bees />
-      <MeadowGrass />
+      <MeadowGround />
       {!isMobile && <DustMotes />}
     </>
   );
@@ -652,7 +759,7 @@ function FallbackImage() {
       <img
         src="/join/fallback.jpg"
         alt=""
-        className="h-full w-full object-cover"
+        className="h-full w-full object-cover object-center"
         loading="eager"
       />
     </div>
@@ -676,7 +783,6 @@ function checkShouldUseFallback(): boolean {
   }
   return false;
 }
-
 
 export function OakHiveScene({ className = "" }: { className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -724,7 +830,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
 
   const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.1;
+    gl.toneMappingExposure = 1.15;
     setSceneState("ready");
   }, []);
 
@@ -801,7 +907,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
             powerPreference: "high-performance",
             failIfMajorPerformanceCaveat: true,
           }}
-          camera={{ fov: 50, near: 0.1, far: 50 }}
+          camera={{ fov: 50, near: 0.1, far: 60 }}
           onCreated={handleCreated}
           onError={handleError}
           frameloop={isPaused ? "demand" : "always"}
