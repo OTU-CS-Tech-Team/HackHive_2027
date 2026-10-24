@@ -14,39 +14,36 @@ body {
    JOIN HERO - Hack the North style
    ======================================== */
 
-/* Title - Bold gold-to-amber gradient */
+/* Title - Bright crisp gold gradient (no text-shadow, light drop-shadow only) */
 .join-title {
   background: linear-gradient(
     180deg,
-    #ffd700 0%,
-    #ffb347 30%,
-    #e07b00 70%,
-    #c45c00 100%
+    #ffe066 0%,
+    #ffc830 25%,
+    #ffaa00 55%,
+    #e69500 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  text-shadow: 
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 4px 12px rgba(0, 0, 0, 0.2);
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
-/* Text lines - warm white/cream with shadow for readability */
+/* Text lines - warm white/cream with stronger shadow for readability */
 .join-text {
   color: #fff8e7;
   text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.4),
-    0 4px 16px rgba(0, 0, 0, 0.3);
+    0 1px 3px rgba(0, 0, 0, 0.6),
+    0 2px 10px rgba(0, 0, 0, 0.5),
+    0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 /* Text link - same color with underline */
 .join-text-link {
   color: #fff8e7;
   text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.4);
+    0 1px 3px rgba(0, 0, 0, 0.6),
+    0 2px 10px rgba(0, 0, 0, 0.5);
   text-decoration-color: rgba(255, 248, 231, 0.6);
 }
 
@@ -83,23 +80,4 @@ body {
     0 3px 12px rgba(224, 123, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     inset 0 -1px 0 rgba(0, 0, 0, 0.1);
-}
-
-/* Secondary CTA (kept for compatibility) */
-.join-btn-secondary {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Frosted glass (kept for potential future use) */
-.join-card-glass {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 1.25rem;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.06),
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 1px 4px rgba(0, 0, 0, 0.02),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }

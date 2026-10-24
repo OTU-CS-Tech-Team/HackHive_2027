@@ -3,11 +3,21 @@ import Link from "next/link";
 /** Event date — confirmed by Umad */
 export const EVENT_DATE_TEXT = "January 29–31, 2027 • In-person event";
 
+function MLHWordmark() {
+  return (
+    <span className="font-bold tracking-wide">
+      <span className="text-[#e73427]">M</span>
+      <span className="text-[#1d539f]">L</span>
+      <span className="text-[#f0b93a]">H</span>
+    </span>
+  );
+}
+
 export function JoinHero() {
   return (
-    <div className="join-hero flex flex-col items-center px-4 py-8 text-center md:px-8 md:py-12">
-      {/* Big bold title with gold-to-amber gradient */}
-      <h1 className="join-title text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl">
+    <div className="flex max-w-2xl flex-col items-center px-4 py-8 text-center md:px-8 md:py-12">
+      {/* Big bold title with gold gradient - capped at lg:text-7xl to not overlap hive */}
+      <h1 className="join-title text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-7xl">
         HackHive 2027
       </h1>
 
@@ -16,13 +26,13 @@ export function JoinHero() {
         {EVENT_DATE_TEXT}
       </p>
 
-      {/* MLH line */}
+      {/* MLH line with wordmark */}
       <p className="join-text mt-2 text-base font-semibold uppercase tracking-wider sm:text-lg md:text-xl">
-        MLH Official Member
+        <MLHWordmark /> Official Member
       </p>
 
-      {/* Applications line */}
-      <p className="join-text mt-4 text-base sm:text-lg md:mt-6 md:text-xl">
+      {/* Applications line - font-medium for readability */}
+      <p className="join-text mt-4 text-base font-medium sm:text-lg md:mt-6 md:text-xl">
         Applications are open, join us as a hacker!
       </p>
 
@@ -47,9 +57,9 @@ export function JoinHero() {
 
 export function JoinHeroMobile() {
   return (
-    <div className="join-hero flex flex-col items-center px-4 py-6 text-center">
-      {/* Big bold title with gold-to-amber gradient */}
-      <h1 className="join-title text-4xl font-extrabold tracking-tight xs:text-5xl">
+    <div className="flex flex-col items-center px-4 py-6 text-center">
+      {/* Big bold title with gold gradient */}
+      <h1 className="join-title text-4xl font-extrabold tracking-tight">
         HackHive 2027
       </h1>
 
@@ -58,13 +68,13 @@ export function JoinHeroMobile() {
         {EVENT_DATE_TEXT}
       </p>
 
-      {/* MLH line */}
+      {/* MLH line with wordmark */}
       <p className="join-text mt-1.5 text-sm font-semibold uppercase tracking-wider">
-        MLH Official Member
+        <MLHWordmark /> Official Member
       </p>
 
-      {/* Applications line */}
-      <p className="join-text mt-3 text-sm">
+      {/* Applications line - font-medium for readability */}
+      <p className="join-text mt-3 text-sm font-medium">
         Applications are open, join us as a hacker!
       </p>
     </div>
