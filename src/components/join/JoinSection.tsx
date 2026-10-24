@@ -8,10 +8,17 @@ export function JoinSection() {
       id="join"
       aria-label="Join HackHive 2027"
       className="relative w-full overflow-hidden"
-      style={{ minHeight: "100svh" }}
+      style={{ 
+        minHeight: "calc(100svh + env(safe-area-inset-bottom, 0px))",
+      }}
     >
-      {/* Three.js Canvas Background */}
-      <div className="absolute inset-0 z-0">
+      {/* Backdrop + Animated Canvas Background */}
+      <div 
+        className="absolute inset-0 z-0"
+        style={{
+          minHeight: "calc(100svh + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         <OakHiveScene />
       </div>
 
