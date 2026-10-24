@@ -12,7 +12,7 @@ export function JoinSection() {
         minHeight: "calc(100svh + env(safe-area-inset-bottom, 0px))",
       }}
     >
-      {/* Backdrop + Animated Canvas Background */}
+      {/* Still oak plate, with a wind shader over it when WebGL is available. */}
       <div 
         className="absolute inset-0 z-0"
         style={{
