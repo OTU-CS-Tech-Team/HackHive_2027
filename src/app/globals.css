@@ -10,7 +10,87 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Join Card - Frosted Glass Effect (matches mockup) */
+/* ========================================
+   JOIN HERO - Hack the North style
+   ======================================== */
+
+/* Title - Bold gold-to-amber gradient */
+.join-title {
+  background: linear-gradient(
+    180deg,
+    #ffd700 0%,
+    #ffb347 30%,
+    #e07b00 70%,
+    #c45c00 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* Text lines - warm white/cream with shadow for readability */
+.join-text {
+  color: #fff8e7;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Text link - same color with underline */
+.join-text-link {
+  color: #fff8e7;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  text-decoration-color: rgba(255, 248, 231, 0.6);
+}
+
+.join-text-link:hover {
+  text-decoration-color: rgba(255, 248, 231, 0.9);
+}
+
+/* Primary CTA - Strong gold/amber button */
+.join-btn-primary {
+  background: linear-gradient(
+    180deg,
+    #ffb347 0%,
+    #e07b00 50%,
+    #c45c00 100%
+  );
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 4px 16px rgba(196, 92, 0, 0.5),
+    0 2px 8px rgba(224, 123, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.join-btn-primary:hover {
+  background: linear-gradient(
+    180deg,
+    #ffc266 0%,
+    #e88a1a 50%,
+    #d06a10 100%
+  );
+  box-shadow:
+    0 6px 24px rgba(196, 92, 0, 0.6),
+    0 3px 12px rgba(224, 123, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Secondary CTA (kept for compatibility) */
+.join-btn-secondary {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Frosted glass (kept for potential future use) */
 .join-card-glass {
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(24px) saturate(1.2);
@@ -22,59 +102,4 @@ body {
     0 4px 16px rgba(0, 0, 0, 0.04),
     0 1px 4px rgba(0, 0, 0, 0.02),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  max-width: 400px;
-  width: 100%;
-}
-
-@media (min-width: 768px) {
-  .join-card-glass {
-    max-width: 420px;
-    border-radius: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .join-card-glass {
-    max-width: 440px;
-  }
-}
-
-/* Primary CTA - Amber/Gold gradient with glow */
-.join-btn-primary {
-  background: linear-gradient(
-    180deg,
-    #f7d689 0%,
-    #e6b84d 40%,
-    #d4a03a 100%
-  );
-  color: #5c3d1e;
-  box-shadow:
-    0 4px 16px rgba(212, 160, 58, 0.4),
-    0 2px 8px rgba(212, 160, 58, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.join-btn-primary:hover {
-  background: linear-gradient(
-    180deg,
-    #f9dc96 0%,
-    #e9c05a 40%,
-    #d9a845 100%
-  );
-  box-shadow:
-    0 6px 20px rgba(212, 160, 58, 0.5),
-    0 3px 10px rgba(212, 160, 58, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-}
-
-/* Secondary CTA - Subtle outline */
-.join-btn-secondary {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-}
-
-.join-btn-secondary:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }

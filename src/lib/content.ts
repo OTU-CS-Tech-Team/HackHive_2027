@@ -34,13 +34,18 @@ export type Person = {
   linkedin_url: string | null;
 };
 
-// Content edited in the Supabase dashboard shows up within a few minutes;
-// edits made from /admin show up right away (updateTag with these tags).
-// The schedule also refreshes live in the browser.
 async function selectAll<T>(table: string, order: string): Promise<T[]> {
-  const { data, error } = await supabasePublic.from(table).select("*").order(order);
-  if (error) throw error; // don't cache an empty page
-  return data as T[];
+  try {
+    const { data, error } = await supabasePublic.from(table).select("*").order(order);
+    if (error) {
+      console.error(`Error fetching from ${table}:`, error);
+      return [];
+    }
+    return data as T[];
+  } catch (err) {
+    console.error(`Failed to fetch from ${table}:`, err);
+    return [];
+  }
 }
 
 export async function getEvents() {
