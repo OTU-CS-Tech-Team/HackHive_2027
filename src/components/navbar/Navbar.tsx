@@ -2,33 +2,46 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
 import { links } from "@/components/navbar/links";
+import MobileNavMenu from "@/components/navbar/MobileNavMenu";
 
 export async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isSignedIn = !!user;
+  const accountLinks = isSignedIn
+    ? [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/apply/status", label: "My Application" },
+      ]
+    : [];
 
   return (
     <>
-      <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
-        {links.map((link) => (
-          <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
-            {link.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex shrink-0 items-center gap-2">
+        <MobileNavMenu links={links} accountLinks={accountLinks} />
+        <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
+          HackHive
+        </Link>
+      </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+        <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
         {isSignedIn ? (
           <>
             <Link
               href="/dashboard"
-              className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              className="hidden text-sm font-medium text-neutral-600 hover:text-neutral-900 lg:inline"
             >
               Dashboard
             </Link>
             <Link
               href="/apply/status"
-              className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              className="hidden text-sm font-medium text-neutral-600 hover:text-neutral-900 lg:inline"
             >
               My Application
             </Link>

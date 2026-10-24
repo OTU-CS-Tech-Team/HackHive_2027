@@ -16,19 +16,21 @@ export const metadata: Metadata = {
 function NavbarFallback() {
   return (
     <>
-      <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
-        {links.map((link) => (
-          <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-      <Link
-        href="/auth/login"
-        className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 sm:px-4"
-      >
-        Log in
-      </Link>
+      <div className="flex shrink-0 items-center gap-2">
+        <MobileNavMenu links={links} />
+        <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
+          HackHive
+        </Link>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+        <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
     </>
   );
 }
@@ -38,17 +40,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <NavbarShell>
-          <div className="flex shrink-0 items-center gap-2">
-            <MobileNavMenu links={links} />
-            <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
-              HackHive
-            </Link>
-          </div>
           <Suspense fallback={<NavbarFallback />}>
             <Navbar />
           </Suspense>
         </NavbarShell>
-        <Script src="/navbar-interactions.js?v=4" strategy="beforeInteractive" />
+        <Script src="/navbar-interactions.js?v=6" strategy="beforeInteractive" />
         {children}
       </body>
     </html>

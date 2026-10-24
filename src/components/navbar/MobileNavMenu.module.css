@@ -45,6 +45,7 @@
 
 .menu[open] .bar:nth-child(2) {
   opacity: 0;
+  visibility: hidden;
 }
 
 .menu[open] .bar:last-child {
@@ -53,14 +54,15 @@
 
 .backdrop,
 .drawer {
-  position: absolute;
-  top: calc(100% + 0.625rem);
-  height: calc(100vh - 4rem);
+  position: fixed;
+  top: 4rem;
+  bottom: 0;
 }
 
 .backdrop {
   z-index: 40;
-  left: -1rem;
+  left: 0;
+  right: 0;
   width: 100vw;
   border: 0;
   background: rgb(0 0 0 / 30%);
@@ -71,14 +73,17 @@
 
 .drawer {
   z-index: 50;
-  left: -1rem;
+  left: 0;
   display: flex;
   width: min(18rem, 85vw);
+  max-width: 100vw;
+  box-sizing: border-box;
   flex-direction: column;
   gap: 0.25rem;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   border-right: 1px solid #e5e5e5;
   background: white;
@@ -88,6 +93,12 @@
   transform: translateX(-100%);
   visibility: hidden;
   transition: transform 300ms ease-in-out, visibility 300ms linear;
+}
+
+.sectionLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .menu[open] .backdrop {
@@ -120,14 +131,28 @@
   outline-offset: -2px;
 }
 
-@supports (height: 100dvh) {
-  .backdrop,
-  .drawer {
-    height: calc(100dvh - 4rem);
+.accountLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #e5e5e5;
+  padding-top: 0.5rem;
+}
+
+@media (min-width: 48rem) and (max-width: 63.999rem) {
+  .sectionLinks {
+    display: none;
+  }
+
+  .accountLinks {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
   }
 }
 
-@media (min-width: 48rem) {
+@media (min-width: 64rem) {
   .menu {
     display: none;
   }
