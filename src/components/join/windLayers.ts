@@ -6,6 +6,9 @@
 export type WindLayers = {
   base: Uint8Array;
   mask: Uint8Array;
+  // Straight RGBA. The GPU premultiplies it on upload so the leaf filter
+  // cannot pull pale sky in from a transparent neighbour.
+  leaf: Uint8Array;
 };
 
 function smoothstep(edge0: number, edge1: number, value: number) {
@@ -78,9 +81,11 @@ function hiveDistAt(px: number, py: number, mobile: boolean, scx: number, scy: n
     let d = sdBox(px, py, sx(908), sy(246), sx(74), sy(50));
     d = Math.min(d, sdTriangle(px, py, sx(900), sy(148), sx(818), sy(204), sx(998), sy(212)));
     d = Math.min(d, Math.hypot(px - sx(862), py - sy(176)) - sx(18));
-    d = Math.min(d, sdSegment(px, py, ax, ay, sx(800), sy(206), sx(12)));
-    d = Math.min(d, sdSegment(px, py, ax, ay, sx(862), sy(172), sx(12)));
-    d = Math.min(d, sdSegment(px, py, ax, ay, sx(1012), sy(208), sx(12)));
+    // The strands hang inside the old capsules, which sat on the bark
+    // beside them. These endpoints follow the ropes in the plate.
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(896), sy(168), sx(7)));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(933), sy(166), sx(7)));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(980), sy(198), sx(7)));
     d = Math.min(d, Math.hypot(px - ax, py - ay) - sx(13));
     d = Math.min(d, sdBox(px, py, sx(996), sy(248), sx(26), sy(56)));
     d = Math.min(d, sdSegment(px, py, sx(998), sy(186), sx(1008), sy(304), sx(11)));
@@ -92,9 +97,14 @@ function hiveDistAt(px: number, py: number, mobile: boolean, scx: number, scy: n
   d = Math.min(d, sdBox(px, py, sx(500), sy(754), sx(28), sy(18)));
   d = Math.min(d, sdTriangle(px, py, sx(548), sy(678), sx(494), sy(730), sx(628), sy(732)));
   d = Math.min(d, Math.hypot(px - sx(520), py - sy(705)) - sx(16));
-  d = Math.min(d, sdSegment(px, py, ax, ay, sx(482), sy(746), sx(11)));
-  d = Math.min(d, sdSegment(px, py, ax, ay, sx(576), sy(714), sx(11)));
-  d = Math.min(d, sdSegment(px, py, ax, ay, sx(654), sy(750), sx(11)));
+  // The strands meet a little above the swing pivot. Cover that tie
+  // without moving the pivot the hive rotates around.
+  const tx = sx(566);
+  const ty = sy(628);
+  d = Math.min(d, sdSegment(px, py, tx, ty, sx(500), sy(728), sx(7)));
+  d = Math.min(d, sdSegment(px, py, tx, ty, sx(576), sy(714), sx(7)));
+  d = Math.min(d, sdSegment(px, py, tx, ty, sx(598), sy(718), sx(7)));
+  d = Math.min(d, Math.hypot(px - tx, py - ty) - sx(8));
   d = Math.min(d, Math.hypot(px - ax, py - ay) - sx(12));
   d = Math.min(d, sdBox(px, py, sx(618), sy(764), sx(22), sy(48)));
   d = Math.min(d, sdSegment(px, py, sx(622), sy(708), sx(628), sy(808), sx(12)));
@@ -115,8 +125,8 @@ function hiveMask(width: number, height: number, mobile: boolean, scx: number, s
   return mask;
 }
 
-// The swing only uncovers a few pixels, so the fill copies the bark or sky
-// just outside the silhouette. The deep middle stays covered by the sprite.
+// Lift the hive and the ropes off the plate. The hole matches the sprite,
+// so at rest the composite is the original, and the swing uncovers bark.
 function paintHive(
   rgb: Float32Array,
   width: number,
@@ -130,106 +140,117 @@ function paintHive(
   const x1 = Math.min(width, Math.ceil((mobile ? 700 : 1100) * scx));
   const y0 = Math.max(0, Math.floor((mobile ? 580 : 0) * scy));
   const y1 = Math.min(height, Math.ceil((mobile ? 880 : 380) * scy));
-  const dist = new Float32Array(width * height);
-  dist.fill(1e6);
+  const hole = new Uint8Array(width * height);
+  // A couple of pixels past the silhouette catch the rope's own edge
+  // without taking a sleeve of bark along for the swing.
+  const opaque = 3 * scx;
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
-      dist[y * width + x] = hiveDistAt(x + 0.5, y + 0.5, mobile, scx, scy);
-    }
-  }
-
-  // The silhouette is covered solidly, a little past the edge, so the few
-  // pixels the sway uncovers are fill rather than a second copy of the wood.
-  const opaque = 4.5;
-  const feather = 6.5;
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      const d = dist[y * width + x];
-      if (d >= feather) continue;
-      alpha[y * width + x] = d <= opaque ? 1 : 1 - smoothstep(opaque, feather, d);
-    }
-  }
-
-  const inside = new Uint8Array(width * height);
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      if (dist[y * width + x] <= opaque) inside[y * width + x] = 1;
-    }
-  }
-
-  const best = new Float32Array(width * height);
-  best.fill(1e9);
-  const sx = new Int16Array(width * height);
-  const sy = new Int16Array(width * height);
-  const cap = 12;
-  const consider = (x: number, y: number, depth: number, ox: number, oy: number) => {
-    const i = y * width + x;
-    if (depth < best[i]) {
-      best[i] = depth;
-      sx[i] = ox;
-      sy[i] = oy;
-    }
-  };
-  const clearOfHive = (x: number, y: number) =>
-    x >= 0 && y >= 0 && x < width && y < height && dist[y * width + x] > feather;
-
-  for (let y = y0; y < y1; y++) {
-    let x = x0;
-    while (x < x1) {
-      while (x < x1 && !inside[y * width + x]) x++;
-      if (x >= x1) break;
-      const start = x;
-      while (x < x1 && inside[y * width + x]) x++;
-      const end = x - 1;
-      for (let px = start; px <= end; px++) {
-        const left = px - start;
-        const right = end - px;
-        const depth = Math.min(left, right) + 1;
-        const reach = Math.min(depth, cap);
-        const towardLeft = left <= right;
-        let ox = towardLeft ? start - (reach + 4) : end + (reach + 4);
-        ox = Math.max(0, Math.min(width - 1, ox));
-        if (!clearOfHive(ox, y)) ox = Math.max(0, Math.min(width - 1, towardLeft ? start - 8 : end + 8));
-        consider(px, y, depth, ox, y);
-      }
-    }
-  }
-
-  for (let x = x0; x < x1; x++) {
-    let y = y0;
-    while (y < y1) {
-      while (y < y1 && !inside[y * width + x]) y++;
-      if (y >= y1) break;
-      const start = y;
-      while (y < y1 && inside[y * width + x]) y++;
-      const end = y - 1;
-      for (let py = start; py <= end; py++) {
-        const top = py - start;
-        const bottom = end - py;
-        const depth = Math.min(top, bottom) + 1;
-        const reach = Math.min(depth, cap);
-        const towardTop = top <= bottom;
-        let oy = towardTop ? start - (reach + 4) : end + (reach + 4);
-        oy = Math.max(0, Math.min(height - 1, oy));
-        if (!clearOfHive(x, oy)) oy = Math.max(0, Math.min(height - 1, towardTop ? start - 8 : end + 8));
-        consider(x, py, depth, x, oy);
-      }
-    }
-  }
-
-  const filled = rgb.slice();
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
+      const d = hiveDistAt(x + 0.5, y + 0.5, mobile, scx, scy);
+      if (d > opaque) continue;
       const i = y * width + x;
-      if (!inside[i] || best[i] > 1e8) continue;
-      const source = sy[i] * width + sx[i];
-      filled[i * 3] = rgb[source * 3];
-      filled[i * 3 + 1] = rgb[source * 3 + 1];
-      filled[i * 3 + 2] = rgb[source * 3 + 2];
+      alpha[i] = 1;
+      hole[i] = 1;
     }
   }
 
+  // The highlight of a strand sometimes sits a pixel outside the capsule.
+  // Grow only through that rope colour, and only above the roof, so the
+  // hive does not pick up a bark sleeve.
+  const ropeTop = Math.floor((mobile ? 610 : 40) * scy);
+  const ropeBot = Math.ceil((mobile ? 750 : 220) * scy);
+  const ropeTone = (i: number) => {
+    const r = rgb[i * 3];
+    const g = rgb[i * 3 + 1];
+    const b = rgb[i * 3 + 2];
+    const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+    return lum > 62 && r > 88 && r - b > 32 && b < 110;
+  };
+  for (let pass = 0; pass < 4; pass++) {
+    const grow: number[] = [];
+    for (let y = Math.max(y0, ropeTop); y < Math.min(y1, ropeBot); y++) {
+      for (let x = x0 + 1; x < x1 - 1; x++) {
+        const i = y * width + x;
+        if (hole[i] || !ropeTone(i)) continue;
+        if (
+          hole[i - 1] ||
+          hole[i + 1] ||
+          hole[i - width] ||
+          hole[i + width]
+        ) {
+          grow.push(i);
+        }
+      }
+    }
+    for (const i of grow) {
+      hole[i] = 1;
+      alpha[i] = 1;
+    }
+  }
+
+  const filled = inpaintCover(rgb, hole, width, height, Math.max(5, Math.round(7 * scx)), 8);
   return { alpha, filled };
+}
+
+// The photo's leaf edges are mixed with sky. Swap that rim for the colour
+// just inside the cluster so the moving edge is not a pale fringe.
+function decontaminateLeaf(rgb: Float32Array, coverage: Float32Array, width: number, height: number) {
+  const count = width * height;
+  const solid = new Uint8Array(count);
+  for (let i = 0; i < count; i++) solid[i] = coverage[i] > 0.5 ? 1 : 0;
+  const interior = erode(solid, width, height, 2);
+  const out = new Uint8Array(count * 4);
+  const radius = 6;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      if (!solid[i]) continue;
+      let r = rgb[i * 3];
+      let g = rgb[i * 3 + 1];
+      let b = rgb[i * 3 + 2];
+      if (!interior[i]) {
+        let sr = 0;
+        let sg = 0;
+        let sb = 0;
+        let n = 0;
+        const y0 = Math.max(0, y - radius);
+        const y1 = Math.min(height - 1, y + radius);
+        const x0 = Math.max(0, x - radius);
+        const x1 = Math.min(width - 1, x + radius);
+        for (let yy = y0; yy <= y1; yy++) {
+          const row = yy * width;
+          for (let xx = x0; xx <= x1; xx++) {
+            const j = row + xx;
+            if (!interior[j]) continue;
+            sr += rgb[j * 3];
+            sg += rgb[j * 3 + 1];
+            sb += rgb[j * 3 + 2];
+            n++;
+          }
+        }
+        if (n > 0) {
+          const ir = sr / n;
+          const ig = sg / n;
+          const ib = sb / n;
+          const lum = 0.3 * r + 0.59 * g + 0.11 * b;
+          const ilum = 0.3 * ir + 0.59 * ig + 0.11 * ib;
+          // Only the pale sky fringe. A healthy leaf edge keeps its colour,
+          // so the resting frame stays the photograph.
+          if (lum > ilum + 26 || (b > 130 && lum > ilum + 12)) {
+            r = ir;
+            g = ig;
+            b = ib;
+          }
+        }
+      }
+      const o = i * 4;
+      out[o] = Math.max(0, Math.min(255, Math.round(r)));
+      out[o + 1] = Math.max(0, Math.min(255, Math.round(g)));
+      out[o + 2] = Math.max(0, Math.min(255, Math.round(b)));
+      out[o + 3] = 255;
+    }
+  }
+  return out;
 }
 
 function erode(src: Uint8Array, width: number, height: number, radius: number) {
@@ -383,7 +404,14 @@ function blurRgb(rgb: Float32Array, width: number, height: number, radius: numbe
 
 // Spread the surrounding sky into the leaf holes. A plain flood leaves
 // rectangular blocks; averaging only the known pixels stays soft.
-function inpaintCover(rgb: Float32Array, hole: Uint8Array, width: number, height: number) {
+function inpaintCover(
+  rgb: Float32Array,
+  hole: Uint8Array,
+  width: number,
+  height: number,
+  radiusOverride?: number,
+  passes = 5,
+) {
   const count = width * height;
   let red = new Float32Array(count);
   let green = new Float32Array(count);
@@ -396,8 +424,8 @@ function inpaintCover(rgb: Float32Array, hole: Uint8Array, width: number, height
     green[i] = rgb[i * 3 + 1];
     blue[i] = rgb[i * 3 + 2];
   }
-  const radius = Math.max(4, Math.round(Math.min(width, height) / 180));
-  for (let pass = 0; pass < 5; pass++) {
+  const radius = radiusOverride ?? Math.max(4, Math.round(Math.min(width, height) / 180));
+  for (let pass = 0; pass < passes; pass++) {
     weight = boxBlur(weight, width, height, radius);
     red = boxBlur(red, width, height, radius);
     green = boxBlur(green, width, height, radius);
@@ -563,6 +591,7 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     }
   }
 
+  const leafTex = decontaminateLeaf(rgb, canopyAlpha, width, height);
   const base = new Uint8Array(count * 4);
   const mask = new Uint8Array(count * 4);
   for (let i = 0; i < count; i++) {
@@ -575,5 +604,5 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     mask[i * 4 + 2] = Math.max(0, Math.min(255, Math.round(hiveLayer.alpha[i] * 255)));
     mask[i * 4 + 3] = 255;
   }
-  return { base, mask };
+  return { base, mask, leaf: leafTex };
 }

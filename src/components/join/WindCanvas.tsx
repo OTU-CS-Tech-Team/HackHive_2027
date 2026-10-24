@@ -20,6 +20,7 @@ varying vec2 vUv;
 uniform sampler2D uMap;
 uniform sampler2D uBase;
 uniform sampler2D uMask;
+uniform sampler2D uLeaf;
 uniform vec2 uResolution;
 uniform vec2 uImageSize;
 uniform vec2 uObjectPos;
@@ -66,11 +67,13 @@ void main() {
   float wind = sin(t * 0.62) * settle;
 
   // Leaves: a small slide. No rotation, so the limbs underneath do not warp.
+  // uLeaf is premultiplied, so the bilinear edge is leaf colour over
+  // nothing, not leaf colour mixed with the pale sky beside it.
   float leafAmp = (uLayout < 0.5 ? 5.0 : 6.0) * sc.x;
   vec2 lsrc = pix - vec2(wind * leafAmp, wind * 1.1 * sc.x);
   vec2 lUv = lsrc / uImageSize;
   float lIn = inside(lUv);
-  vec3 leafCol = texture2D(uMap, vec2(lUv.x, 1.0 - lUv.y)).rgb;
+  vec4 leaf = texture2D(uLeaf, vec2(lUv.x, 1.0 - lUv.y));
   float leafA = texture2D(uMask, vec2(lUv.x, 1.0 - lUv.y)).r * lIn;
 
   // Grass drifts with the same breeze, a little further.
@@ -97,7 +100,7 @@ void main() {
 
   vec2 baseUv = vec2(p.x, 1.0 - p.y);
   vec3 col = texture2D(uBase, baseUv).rgb;
-  col = mix(col, leafCol, leafA);
+  col = leaf.rgb * lIn + col * (1.0 - leaf.a * lIn);
   col = mix(col, grassCol, grassA);
   col = mix(col, hiveCol, hiveA);
   gl_FragColor = vec4(col, 1.0);
@@ -113,6 +116,7 @@ type Plate = {
   map: THREE.Texture;
   base: THREE.Texture;
   mask: THREE.Texture;
+  leaf: THREE.Texture;
   mobile: boolean;
 };
 
@@ -124,12 +128,19 @@ function framing(): [number, number] {
   return [0.5, 0.5];
 }
 
-function makeUniforms(map: THREE.Texture, base: THREE.Texture, mask: THREE.Texture, mobile: boolean) {
+function makeUniforms(
+  map: THREE.Texture,
+  base: THREE.Texture,
+  mask: THREE.Texture,
+  leaf: THREE.Texture,
+  mobile: boolean,
+) {
   const image = map.image as { width: number; height: number; naturalWidth?: number; naturalHeight?: number };
   return {
     uMap: { value: map },
     uBase: { value: base },
     uMask: { value: mask },
+    uLeaf: { value: leaf },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uImageSize: {
       value: new THREE.Vector2(image.naturalWidth || image.width, image.naturalHeight || image.height),
@@ -145,17 +156,22 @@ function WindPlate({
   map,
   base,
   mask,
+  leaf,
   mobile,
   onReady,
 }: {
   map: THREE.Texture;
   base: THREE.Texture;
   mask: THREE.Texture;
+  leaf: THREE.Texture;
   mobile: boolean;
   onReady: () => void;
 }) {
   const matRef = useRef<THREE.ShaderMaterial>(null);
-  const uniforms = useMemo(() => makeUniforms(map, base, mask, mobile), [map, base, mask, mobile]);
+  const uniforms = useMemo(
+    () => makeUniforms(map, base, mask, leaf, mobile),
+    [map, base, mask, leaf, mobile],
+  );
   const timeRef = useRef(0);
   const lastRef = useRef<number | null>(null);
   const readyRef = useRef(false);
@@ -201,18 +217,26 @@ function WindPlate({
         depthTest={false}
         depthWrite={false}
         toneMapped={false}
+        transparent
+        premultipliedAlpha
+        blending={THREE.CustomBlending}
+        blendSrc={THREE.OneFactor}
+        blendDst={THREE.OneMinusSrcAlphaFactor}
+        blendSrcAlpha={THREE.OneFactor}
+        blendDstAlpha={THREE.OneMinusSrcAlphaFactor}
       />
     </mesh>
   );
 }
 
-function makeDataTexture(pixels: Uint8Array, width: number, height: number) {
+function makeDataTexture(pixels: Uint8Array, width: number, height: number, premultiply = false) {
   const texture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
   texture.colorSpace = THREE.NoColorSpace;
   texture.flipY = true;
   texture.generateMipmaps = false;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.premultiplyAlpha = premultiply;
   texture.needsUpdate = true;
   return texture;
 }
@@ -235,6 +259,7 @@ function textureFromImage(img: HTMLImageElement) {
     map: makeDataTexture(pixels, width, height),
     base: makeDataTexture(layers.base, width, height),
     mask: makeDataTexture(layers.mask, width, height),
+    leaf: makeDataTexture(layers.leaf, width, height, true),
     mobile,
   };
 }
@@ -256,6 +281,7 @@ export function WindCanvas({
   const mapRef = useRef<THREE.Texture | null>(null);
   const baseRef = useRef<THREE.Texture | null>(null);
   const maskRef = useRef<THREE.Texture | null>(null);
+  const leafRef = useRef<THREE.Texture | null>(null);
 
   useEffect(() => {
     const img = imgRef.current;
@@ -269,9 +295,11 @@ export function WindCanvas({
         mapRef.current?.dispose();
         baseRef.current?.dispose();
         maskRef.current?.dispose();
+        leafRef.current?.dispose();
         mapRef.current = next.map;
         baseRef.current = next.base;
         maskRef.current = next.mask;
+        leafRef.current = next.leaf;
         setPlate(next);
       } catch {
         onError();
@@ -285,9 +313,11 @@ export function WindCanvas({
       mapRef.current?.dispose();
       baseRef.current?.dispose();
       maskRef.current?.dispose();
+      leafRef.current?.dispose();
       mapRef.current = null;
       baseRef.current = null;
       maskRef.current = null;
+      leafRef.current = null;
     };
   }, [imgRef, onError]);
 
@@ -318,7 +348,14 @@ export function WindCanvas({
       }}
     >
       {plate ? (
-        <WindPlate map={plate.map} base={plate.base} mask={plate.mask} mobile={plate.mobile} onReady={onReady} />
+        <WindPlate
+          map={plate.map}
+          base={plate.base}
+          mask={plate.mask}
+          leaf={plate.leaf}
+          mobile={plate.mobile}
+          onReady={onReady}
+        />
       ) : null}
     </Canvas>
   );
