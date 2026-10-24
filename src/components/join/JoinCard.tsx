@@ -5,7 +5,7 @@ export const EVENT_DATE_TEXT = "January 29–31, 2027 • In-person event";
 
 function MLHWordmark() {
   return (
-    <span className="font-bold tracking-wide">
+    <span className="inline-flex items-center rounded-full bg-white/90 px-2 py-0.5 text-sm font-bold tracking-wide shadow-sm">
       <span className="text-[#e73427]">M</span>
       <span className="text-[#1d539f]">L</span>
       <span className="text-[#f0b93a]">H</span>
@@ -15,9 +15,9 @@ function MLHWordmark() {
 
 export function JoinHero() {
   return (
-    <div className="flex max-w-2xl flex-col items-center px-4 py-8 text-center md:px-8 md:py-12">
-      {/* Big bold title with gold gradient - capped at lg:text-7xl to not overlap hive */}
-      <h1 className="join-title text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-7xl">
+    <div className="flex max-w-xl flex-col items-center px-4 py-8 text-center md:px-8 md:py-12 lg:-translate-x-8 lg:-translate-y-4">
+      {/* Big bold title with gold gradient - capped at lg:text-6xl to clear hive */}
+      <h1 className="join-title text-5xl font-extrabold tracking-tight sm:text-6xl md:text-6xl lg:text-6xl">
         HackHive 2027
       </h1>
 
