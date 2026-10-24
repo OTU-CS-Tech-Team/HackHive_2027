@@ -5,36 +5,6 @@ import type { RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-type HivePreset = {
-  anchor: [number, number];
-  body: [number, number, number, number];
-  roofA: [number, number];
-  roofB: [number, number];
-  roofC: [number, number];
-  rope: number;
-};
-
-// Image UV, origin top-left. Body is center xy plus half extents zw.
-// The hive (body, roof, ropes) is sampled as a rigid sprite so its planks never warp.
-const HIVE: { desktop: HivePreset; mobile: HivePreset } = {
-  desktop: {
-    anchor: [0.722, 0.148],
-    body: [0.712, 0.328, 0.05, 0.078],
-    roofA: [0.712, 0.198],
-    roofB: [0.648, 0.275],
-    roofC: [0.778, 0.275],
-    rope: 0.0048,
-  },
-  mobile: {
-    anchor: [0.748, 0.448],
-    body: [0.752, 0.588, 0.052, 0.042],
-    roofA: [0.75, 0.512],
-    roofB: [0.692, 0.555],
-    roofC: [0.812, 0.555],
-    rope: 0.006,
-  },
-};
-
 const VERT = /* glsl */ `
 varying vec2 vUv;
 void main() {
@@ -52,12 +22,6 @@ uniform vec2 uImageSize;
 uniform vec2 uObjectPos;
 uniform float uTime;
 uniform float uLayout;
-uniform vec2 uAnchor;
-uniform vec4 uBody;
-uniform vec2 uRoofA;
-uniform vec2 uRoofB;
-uniform vec2 uRoofC;
-uniform float uRope;
 uniform float uDebug;
 
 vec2 coverScale(vec2 resolution, vec2 imageSize) {
@@ -72,13 +36,6 @@ vec2 coverScale(vec2 resolution, vec2 imageSize) {
 float sdBox(vec2 p, vec2 b) {
   vec2 d = abs(p) - b;
   return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
-}
-
-float sdSegment(vec2 p, vec2 a, vec2 b) {
-  vec2 pa = p - a;
-  vec2 ba = b - a;
-  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
-  return length(pa - ba * h);
 }
 
 float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
@@ -102,17 +59,101 @@ float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
   return -sqrt(max(d.x, 0.0)) * sign(d.y);
 }
 
+// Hive, roof, knot, and the hanger triangle (ropes plus the gaps between them)
+// move as one rigid piece. Coordinates are source-plate pixels.
+float hiveDistPx(vec2 p) {
+  vec2 sc = uImageSize / (uLayout < 0.5 ? vec2(1280.0, 720.0) : vec2(720.0, 1280.0));
+  vec2 anchor;
+  vec2 bodyC;
+  vec2 bodyH;
+  vec2 roofA;
+  vec2 roofB;
+  vec2 roofC;
+  vec2 fin;
+  float finR;
+  vec2 hangA;
+  vec2 hangB;
+  vec2 hangC;
+  float knotR;
+  if (uLayout < 0.5) {
+    anchor = vec2(924.0, 48.0);
+    bodyC = vec2(916.0, 242.0);
+    bodyH = vec2(100.0, 50.0);
+    roofA = vec2(906.0, 148.0);
+    roofB = vec2(798.0, 212.0);
+    roofC = vec2(1022.0, 218.0);
+    fin = vec2(876.0, 176.0);
+    finR = 24.0;
+    hangA = vec2(924.0, 40.0);
+    hangB = vec2(840.0, 200.0);
+    hangC = vec2(1005.0, 215.0);
+    knotR = 16.0;
+  } else {
+    anchor = vec2(545.0, 622.0);
+    bodyC = vec2(557.0, 756.0);
+    bodyH = vec2(62.0, 46.0);
+    roofA = vec2(548.0, 688.0);
+    roofB = vec2(478.0, 718.0);
+    roofC = vec2(632.0, 732.0);
+    fin = vec2(520.0, 705.0);
+    finR = 18.0;
+    hangA = vec2(545.0, 608.0);
+    hangB = vec2(470.0, 725.0);
+    hangC = vec2(635.0, 735.0);
+    knotR = 14.0;
+  }
+  anchor *= sc;
+  bodyC *= sc;
+  bodyH *= sc;
+  roofA *= sc;
+  roofB *= sc;
+  roofC *= sc;
+  fin *= sc;
+  hangA *= sc;
+  hangB *= sc;
+  hangC *= sc;
+  finR *= sc.x;
+  knotR *= sc.x;
+  float d = sdBox(p - bodyC, bodyH);
+  d = min(d, sdTriangle(p, roofA, roofB, roofC));
+  d = min(d, length(p - fin) - finR);
+  d = min(d, sdTriangle(p, hangA, hangB, hangC));
+  d = min(d, length(p - anchor) - knotR);
+  return d;
+}
+
 float hiveDist(vec2 pUV) {
+  return hiveDistPx(pUV * uImageSize);
+}
+
+vec2 anchorPx() {
+  vec2 sc = uImageSize / (uLayout < 0.5 ? vec2(1280.0, 720.0) : vec2(720.0, 1280.0));
+  vec2 anchor = uLayout < 0.5 ? vec2(924.0, 48.0) : vec2(545.0, 622.0);
+  return anchor * sc;
+}
+
+// Reflect a pixel inside the resting hive onto real bark just outside it,
+// so the swing never uncovers the hive, a flat dark slab, or a second copy.
+vec2 mirrorOutside(vec2 pUV) {
   vec2 p = pUV * uImageSize;
-  vec2 anchor = uAnchor * uImageSize;
-  float rope = uRope * uImageSize.x;
-  float dBody = sdBox(p - uBody.xy * uImageSize, uBody.zw * uImageSize);
-  float dRoof = sdTriangle(p, uRoofA * uImageSize, uRoofB * uImageSize, uRoofC * uImageSize);
-  float dRope = min(
-    sdSegment(p, anchor, uRoofB * uImageSize),
-    sdSegment(p, anchor, uRoofC * uImageSize)
-  ) - rope;
-  return min(dBody, min(dRoof, dRope));
+  vec2 left = p;
+  vec2 right = p;
+  for (int i = 0; i < 28; i++) {
+    if (hiveDistPx(left) > 2.5) break;
+    left.x -= 6.0;
+  }
+  for (int i = 0; i < 28; i++) {
+    if (hiveDistPx(right) > 2.5) break;
+    right.x += 6.0;
+  }
+  float dl = p.x - left.x;
+  float dr = right.x - p.x;
+  vec2 edge = dl <= dr ? left : right;
+  float depth = min(dl, dr);
+  float side = dl <= dr ? -1.0 : 1.0;
+  vec2 outp = edge + vec2(side * (depth + 5.0), 0.0);
+  if (hiveDistPx(outp) < 2.0) outp.x += side * 16.0;
+  return clamp(outp / uImageSize, vec2(0.0), vec2(1.0));
 }
 
 vec2 rot(vec2 v, float a) {
@@ -139,80 +180,48 @@ void main() {
   float breeze = sin(t * 0.42);
   float wind = (breeze * 0.78 + sin(t * 0.16 + 0.6) * 0.22) * (0.9 + 0.65 * gust);
 
-  vec3 base = texture2D(uMap, vec2(p.x, 1.0 - p.y)).rgb;
-  float r = base.r;
-  float g = base.g;
-  float b = base.b;
-  float luma = dot(base, vec3(0.299, 0.587, 0.114));
-  float sky = smoothstep(0.72, 0.90, luma) * smoothstep(0.42, 0.70, b);
-
+  // Wide geometric falloff. The trunk stays put. Sky gaps in the canopy
+  // move with the leaves, so a leaf edge is never peeled off the plate.
   float axis = 0.68;
-  float trunk = 0.0;
-  float canopyLo = 0.5;
-  float canopyHi = 0.72;
-  float grassLo = 0.72;
+  float halfW = 0.2;
   if (uLayout < 0.5) {
     axis = mix(0.70, 0.63, smoothstep(0.18, 0.95, p.y));
-    float halfW = mix(0.11, 0.42, smoothstep(0.22, 1.0, p.y));
-    trunk = 1.0 - smoothstep(halfW * 0.5, halfW, abs(p.x - axis));
-    trunk *= smoothstep(0.06, 0.22, p.y);
-    canopyLo = 0.46;
-    canopyHi = 0.70;
-    grassLo = 0.70;
+    halfW = mix(0.11, 0.42, smoothstep(0.22, 1.0, p.y));
   } else {
     axis = mix(0.76, 0.60, smoothstep(0.34, 0.96, p.y));
-    float halfW = mix(0.16, 0.48, smoothstep(0.40, 1.0, p.y));
-    trunk = 1.0 - smoothstep(halfW * 0.4, halfW, abs(p.x - axis));
-    trunk *= smoothstep(0.30, 0.48, p.y);
-    canopyLo = 0.56;
-    canopyHi = 0.76;
-    grassLo = 0.62;
+    halfW = mix(0.16, 0.48, smoothstep(0.40, 1.0, p.y));
   }
+  float trunkCore = 1.0 - smoothstep(halfW * 0.32, halfW * 1.15, abs(p.x - axis));
+  if (uLayout < 0.5) trunkCore *= smoothstep(0.02, 0.16, p.y);
+  else trunkCore *= smoothstep(0.22, 0.42, p.y);
+  float moveW = 1.0 - trunkCore;
 
-  float dark = 1.0 - smoothstep(0.15, 0.42, luma);
-  float brown = smoothstep(0.02, 0.14, r - b);
-  float bark = trunk * clamp(dark * (0.65 + 0.35 * brown), 0.0, 1.0);
-  float moss = trunk * smoothstep(0.015, 0.09, g - r) * (1.0 - smoothstep(0.48, 0.72, luma));
-  float still = clamp(max(bark, moss), 0.0, 1.0);
-  // Hard stop on bark so a large sway cannot rubber the trunk.
-  float rigid = smoothstep(0.12, 0.45, still);
+  float canopyBand = 1.0 - smoothstep(0.36, 0.78, p.y);
+  float grassBand = smoothstep(0.60, 0.90, p.y);
+  canopyBand *= moveW;
+  grassBand *= moveW;
 
-  float canopy = 1.0 - smoothstep(canopyLo, canopyHi, p.y);
-  float leaf = smoothstep(0.02, 0.11, g - b) * (1.0 - sky) * smoothstep(0.08, 0.24, g);
-  float leafW = smoothstep(0.08, 0.42, leaf) * canopy * (1.0 - rigid);
-  float branch = smoothstep(0.04, 0.16, r - b) * (1.0 - leaf) * (1.0 - sky) * canopy;
-  branch *= 1.0 - smoothstep(0.2, 0.75, still);
-  float branchW = branch * (1.0 - rigid) * 0.55;
-
-  float tip = mix(0.52, 1.0, smoothstep(0.0, 0.42, abs(p.x - axis)));
-  tip *= mix(1.0, 0.58, smoothstep(0.05, 0.62, p.y));
-
-  float grassZone = smoothstep(grassLo, min(grassLo + 0.12, 0.98), p.y);
-  float grassCol = smoothstep(0.12, 0.34, luma) * (1.0 - sky);
-  float grassW = smoothstep(0.2, 0.65, grassZone * grassCol) * (1.0 - rigid);
-
-  float flutter = sin(p.x * 11.0 + p.y * 7.0 + t * 1.15);
-  float clump = 0.62 + 0.38 * sin(p.x * 5.0 + p.y * 2.2);
-  // Travelling waves run along the meadow in the same direction as the canopy lean.
-  float wave = sin(p.x * 17.0 - t * 1.35);
-  float wave2 = sin(p.x * 7.5 - t * 0.62 + p.y * 4.0);
+  // Low spatial frequencies only, so neighboring pixels stay neighbors.
+  float clump = 0.70 + 0.30 * sin(p.x * 3.1 + p.y * 1.3);
+  float flutter = sin(p.x * 5.5 + p.y * 2.4 + t * 0.95);
+  float wave = sin(p.x * 14.0 - t * 1.35);
+  float wave2 = sin(p.x * 6.5 - t * 0.62 + p.y * 3.0);
   float blades = wave * 0.72 + wave2 * 0.28;
+  float tip = mix(0.62, 1.0, smoothstep(0.0, 0.45, abs(p.x - axis)));
 
-  float leafAmp = (wind * 22.0 * clump + flutter * 5.0) * leafW * tip;
-  float branchAmp = wind * 12.0 * branchW * tip;
-  float grassAmp = (wind * 12.0 + blades * 18.0) * grassW;
-  vec2 offsetPx = vec2(
-    leafAmp + branchAmp + grassAmp,
-    flutter * leafW * tip * 3.2 + sin(p.x * 13.0 - t * 1.15) * grassW * 4.5
-  );
+  vec2 canopyOff = vec2(
+    (wind * 22.0 * clump + flutter * 4.0) * tip,
+    sin(p.x * 4.2 + t * 0.7) * 2.6 * tip
+  ) * canopyBand;
+  vec2 grassOff = vec2(
+    wind * 12.0 + blades * 18.0,
+    sin(p.x * 8.0 - t * 1.15) * 3.6
+  ) * grassBand;
+  vec2 offsetPx = canopyOff + grassOff;
 
-  float branchScreen = breeze * (18.0 + 10.0 * gust);
-  vec2 dAnchor = (p - uAnchor) * uImageSize;
-  float pinRadius = 0.07 * uImageSize.x;
-  float pin = exp(-dot(dAnchor, dAnchor) / max(pinRadius * pinRadius, 1.0));
-  float restHive = smoothstep(10.0, -2.0, hiveDist(p));
-  offsetPx += vec2(branchScreen, breeze * 2.2) * pin * (1.0 - rigid) * (1.0 - restHive);
-  offsetPx *= 1.0 - restHive;
+  // The hanger is rigid, so the plate warp falls off before it reaches the hive.
+  float hiveGate = smoothstep(-2.0, 22.0, hiveDist(p));
+  offsetPx *= hiveGate;
 
   float limit = 36.0;
   float olen = length(offsetPx);
@@ -220,35 +229,20 @@ void main() {
   offsetPx *= settle;
 
   vec2 pxToUV = scale / resolution;
-  vec2 bgP = clamp(p + offsetPx * pxToUV, 0.0, 1.0);
+  vec2 bgSample = clamp(p + offsetPx * pxToUV, 0.0, 1.0);
+  if (hiveDist(bgSample) < 0.5) bgSample = mirrorOutside(bgSample);
 
-  // A few degrees, lagging the branch it hangs from.
+  // Same swing as before: a few degrees, lagging the gust, pivoted at the knot.
   float hiveAngle = sin(t * 0.42 - 1.15) * (0.10 + 0.045 * gust) * settle;
-  vec2 shiftUV = vec2(branchScreen, breeze * 2.2) * settle * pxToUV;
-  vec2 pivot = (uAnchor + shiftUV) * uImageSize;
-  vec2 src = uAnchor * uImageSize + rot(p * uImageSize - pivot, -hiveAngle);
+  vec2 pivot = anchorPx();
+  vec2 src = pivot + rot(p * uImageSize - pivot, -hiveAngle);
   vec2 srcUV = src / uImageSize;
-
   float dSrc = hiveDist(srcUV);
-  float hiveAlpha = smoothstep(1.6, -1.2, dSrc);
   float inside = step(0.0, srcUV.x) * step(srcUV.x, 1.0) * step(0.0, srcUV.y) * step(srcUV.y, 1.0);
-  hiveAlpha *= inside;
-
-  vec2 bgSample = bgP;
-  float dBg = hiveDist(bgSample);
-  if (dBg < 2.5) {
-    vec2 eps = 1.5 / uImageSize;
-    float dx = hiveDist(bgSample + vec2(eps.x, 0.0)) - hiveDist(bgSample - vec2(eps.x, 0.0));
-    float dy = hiveDist(bgSample + vec2(0.0, eps.y)) - hiveDist(bgSample - vec2(0.0, eps.y));
-    // Bias the step upward so the vacated sliver samples bark, not the hollow.
-    vec2 grad = vec2(dx, dy - 0.7);
-    float glen = length(grad);
-    grad = glen > 0.0001 ? grad / glen : vec2(0.35, -0.94);
-    bgSample = clamp((bgSample * uImageSize + grad * (10.0 - dBg)) / uImageSize, 0.0, 1.0);
-  }
+  float hiveAlpha = smoothstep(1.5, -0.4, dSrc) * inside;
 
   if (uDebug > 0.5) {
-    vec3 dbg = vec3(still, clamp(leafW + branchW, 0.0, 1.0), grassW);
+    vec3 dbg = vec3(trunkCore, canopyBand, grassBand);
     dbg = mix(dbg, vec3(1.0, 0.85, 0.1), hiveAlpha);
     gl_FragColor = vec4(dbg, 1.0);
     return;
@@ -256,11 +250,10 @@ void main() {
 
   vec3 bgCol = texture2D(uMap, vec2(bgSample.x, 1.0 - bgSample.y)).rgb;
   vec3 hiveCol = texture2D(uMap, vec2(srcUV.x, 1.0 - srcUV.y)).rgb;
-  // Slow dappled light on leaves and grass. The hive and trunk stay even.
   float dapple = sin(p.x * 7.2 + t * 0.28) * sin(p.y * 5.2 - t * 0.19);
   float dapple2 = sin(p.x * 15.0 - p.y * 6.0 - t * 0.63);
   float flick = dapple * 0.68 + dapple2 * 0.32;
-  float shade = clamp(leafW * 1.2 + grassW * 0.45, 0.0, 1.0) * (1.0 - hiveAlpha);
+  float shade = clamp(canopyBand * 1.15 + grassBand * 0.4, 0.0, 1.0) * (1.0 - hiveAlpha);
   bgCol *= 1.0 + flick * 0.07 * shade * settle;
   gl_FragColor = vec4(mix(bgCol, hiveCol, hiveAlpha), 1.0);
 }
@@ -282,8 +275,7 @@ function framing(): [number, number] {
 }
 
 function makeUniforms(texture: THREE.Texture, mobile: boolean) {
-  const hive = mobile ? HIVE.mobile : HIVE.desktop;
-  const image = texture.image as HTMLImageElement;
+  const image = texture.image as { width: number; height: number; naturalWidth?: number; naturalHeight?: number };
   return {
     uMap: { value: texture },
     uResolution: { value: new THREE.Vector2(1, 1) },
@@ -293,12 +285,6 @@ function makeUniforms(texture: THREE.Texture, mobile: boolean) {
     uObjectPos: { value: new THREE.Vector2(0.5, 0.5) },
     uTime: { value: 0 },
     uLayout: { value: mobile ? 1 : 0 },
-    uAnchor: { value: new THREE.Vector2(...hive.anchor) },
-    uBody: { value: new THREE.Vector4(...hive.body) },
-    uRoofA: { value: new THREE.Vector2(...hive.roofA) },
-    uRoofB: { value: new THREE.Vector2(...hive.roofB) },
-    uRoofC: { value: new THREE.Vector2(...hive.roofC) },
-    uRope: { value: hive.rope },
     uDebug: { value: 0 },
   };
 }
