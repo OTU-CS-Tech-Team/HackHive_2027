@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { Component, useRef, useEffect, useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -45,138 +45,122 @@ function canCreateWebGLContext(): boolean {
   }
 }
 
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed * 9999) * 10000;
-  return x - Math.floor(x);
-}
+const BEE_CONFIGS_DESKTOP = [
+  { x: -2.8, y: 0.6, z: 0.5, speed: 0.32, radius: 0.4, phase: 0 },
+  { x: -2.2, y: -0.4, z: 0.3, speed: 0.28, radius: 0.35, phase: 1.5 },
+  { x: -1.8, y: 0.3, z: 0.4, speed: 0.35, radius: 0.3, phase: 3.0 },
+  { x: -2.5, y: 0.9, z: 0.4, speed: 0.3, radius: 0.35, phase: 4.5 },
+];
 
-function createSoftParticleTexture(): THREE.CanvasTexture {
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  
-  const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-  gradient.addColorStop(0, "rgba(255, 220, 140, 1)");
-  gradient.addColorStop(0.3, "rgba(255, 200, 100, 0.6)");
-  gradient.addColorStop(0.6, "rgba(255, 180, 80, 0.2)");
-  gradient.addColorStop(1, "rgba(255, 160, 60, 0)");
-  
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-  
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  return texture;
-}
+const BEE_CONFIGS_MOBILE = [
+  { x: -1.8, y: 0.5, z: 0.4, speed: 0.3, radius: 0.3, phase: 0 },
+  { x: -1.2, y: -0.2, z: 0.3, speed: 0.28, radius: 0.25, phase: 2 },
+];
+
+const POLLEN_SEEDS_DESKTOP = Array.from({ length: 50 }, (_, i) => ({
+  x: ((Math.sin(i * 127.1) * 10000) % 1 - 0.5) * 4,
+  y: ((Math.sin(i * 311.7) * 10000) % 1) * 2 - 0.5,
+  z: ((Math.sin(i * 74.3) * 10000) % 1) * 1.2,
+}));
+
+const POLLEN_SEEDS_MOBILE = POLLEN_SEEDS_DESKTOP.slice(0, 25);
 
 function RealisticBee({ 
-  initialPosition, 
-  speed, 
-  radius, 
-  offset,
-  depth = 1,
+  config,
+  scaleFactor,
 }: { 
-  initialPosition: [number, number, number]; 
-  speed: number; 
-  radius: number; 
-  offset: number;
-  depth?: number;
+  config: { x: number; y: number; z: number; speed: number; radius: number; phase: number };
+  scaleFactor: number;
 }) {
   const beeRef = useRef<THREE.Group>(null);
   const wingRef1 = useRef<THREE.Mesh>(null);
   const wingRef2 = useRef<THREE.Mesh>(null);
   const trailRef = useRef<THREE.Mesh>(null);
 
-  const depthScale = 0.6 + depth * 0.4;
-  const depthOpacity = 0.5 + depth * 0.5;
-
   useFrame((state) => {
     if (!beeRef.current) return;
-    const t = state.clock.elapsedTime * speed + offset;
+    const t = state.clock.elapsedTime * config.speed + config.phase;
     
-    const x = initialPosition[0] + Math.sin(t) * radius;
-    const y = initialPosition[1] + Math.sin(t * 1.3) * (radius * 0.25) + Math.sin(t * 2.1) * 0.03;
-    const z = initialPosition[2] + Math.cos(t * 0.8) * radius * 0.3;
+    const x = config.x + Math.sin(t) * config.radius;
+    const y = config.y + Math.sin(t * 1.3) * (config.radius * 0.3) + Math.sin(t * 2.1) * 0.02;
+    const z = config.z + Math.cos(t * 0.8) * config.radius * 0.25;
     
     beeRef.current.position.set(x, y, z);
     beeRef.current.rotation.y = Math.atan2(Math.cos(t), -Math.sin(t * 0.8) * 0.5);
-    beeRef.current.rotation.z = Math.sin(t * 1.5) * 0.06;
+    beeRef.current.rotation.z = Math.sin(t * 1.5) * 0.05;
     
-    const wingFlap = Math.sin(state.clock.elapsedTime * 60) * 0.5;
-    if (wingRef1.current) wingRef1.current.rotation.x = 0.2 + wingFlap;
-    if (wingRef2.current) wingRef2.current.rotation.x = -0.2 - wingFlap;
+    const wingFlap = Math.sin(state.clock.elapsedTime * 55) * 0.6;
+    if (wingRef1.current) wingRef1.current.rotation.x = 0.15 + wingFlap;
+    if (wingRef2.current) wingRef2.current.rotation.x = -0.15 - wingFlap;
     
     if (trailRef.current) {
-      const pulse = 0.7 + Math.sin(state.clock.elapsedTime * 4 + offset) * 0.3;
+      const pulse = 0.6 + Math.sin(state.clock.elapsedTime * 3 + config.phase) * 0.4;
       trailRef.current.scale.setScalar(pulse);
-      (trailRef.current.material as THREE.MeshBasicMaterial).opacity = 0.12 * pulse * depthOpacity;
     }
   });
 
   return (
-    <group ref={beeRef} position={initialPosition} scale={0.025 * depthScale}>
-      {/* Soft glow trail behind bee */}
-      <mesh ref={trailRef} position={[-1.5, 0, 0]}>
-        <sphereGeometry args={[2, 8, 6]} />
+    <group ref={beeRef} position={[config.x, config.y, config.z]} scale={scaleFactor}>
+      {/* Soft glow trail */}
+      <mesh ref={trailRef} position={[-0.08, 0, 0]}>
+        <sphereGeometry args={[0.12, 8, 6]} />
         <meshBasicMaterial 
           color={0xffcc66} 
           transparent 
-          opacity={0.1}
+          opacity={0.15}
           depthWrite={false}
         />
       </mesh>
       
-      {/* Thorax (front body segment) - fuzzy amber */}
-      <mesh position={[0.4, 0, 0]} scale={[0.7, 0.5, 0.5]}>
-        <sphereGeometry args={[1, 12, 8]} />
-        <meshBasicMaterial color={new THREE.Color(0xc4873a).multiplyScalar(depthOpacity)} />
+      {/* Thorax - amber */}
+      <mesh position={[0.02, 0, 0]} scale={[0.035, 0.025, 0.025]}>
+        <sphereGeometry args={[1, 10, 8]} />
+        <meshBasicMaterial color={0xc4873a} />
       </mesh>
       
-      {/* Abdomen (rear body) - elongated with stripes */}
-      <mesh position={[-0.5, 0, 0]} scale={[1.2, 0.55, 0.55]}>
-        <sphereGeometry args={[1, 12, 8]} />
-        <meshBasicMaterial color={new THREE.Color(0xd4973a).multiplyScalar(depthOpacity)} />
+      {/* Abdomen - elongated with stripes */}
+      <mesh position={[-0.03, 0, 0]} scale={[0.055, 0.028, 0.028]}>
+        <sphereGeometry args={[1, 10, 8]} />
+        <meshBasicMaterial color={0xd49040} />
       </mesh>
       
-      {/* Stripes on abdomen */}
-      <mesh position={[-0.2, 0, 0]} scale={[0.15, 0.58, 0.58]}>
-        <sphereGeometry args={[1, 8, 6]} />
-        <meshBasicMaterial color={new THREE.Color(0x2a1a0a).multiplyScalar(depthOpacity)} />
+      {/* Stripes */}
+      <mesh position={[-0.015, 0, 0]} scale={[0.008, 0.03, 0.03]}>
+        <sphereGeometry args={[1, 6, 4]} />
+        <meshBasicMaterial color={0x2a1a0a} />
       </mesh>
-      <mesh position={[-0.6, 0, 0]} scale={[0.15, 0.52, 0.52]}>
-        <sphereGeometry args={[1, 8, 6]} />
-        <meshBasicMaterial color={new THREE.Color(0x2a1a0a).multiplyScalar(depthOpacity)} />
+      <mesh position={[-0.04, 0, 0]} scale={[0.008, 0.026, 0.026]}>
+        <sphereGeometry args={[1, 6, 4]} />
+        <meshBasicMaterial color={0x2a1a0a} />
       </mesh>
-      <mesh position={[-1.0, 0, 0]} scale={[0.12, 0.45, 0.45]}>
-        <sphereGeometry args={[1, 8, 6]} />
-        <meshBasicMaterial color={new THREE.Color(0x2a1a0a).multiplyScalar(depthOpacity)} />
+      <mesh position={[-0.06, 0, 0]} scale={[0.006, 0.022, 0.022]}>
+        <sphereGeometry args={[1, 6, 4]} />
+        <meshBasicMaterial color={0x2a1a0a} />
       </mesh>
       
       {/* Head */}
-      <mesh position={[0.9, 0.05, 0]} scale={[0.35, 0.32, 0.32]}>
+      <mesh position={[0.045, 0.003, 0]} scale={[0.018, 0.016, 0.016]}>
         <sphereGeometry args={[1, 8, 6]} />
-        <meshBasicMaterial color={new THREE.Color(0x3a2a1a).multiplyScalar(depthOpacity)} />
+        <meshBasicMaterial color={0x3a2a1a} />
       </mesh>
       
-      {/* Wings - translucent planes with fast flap */}
-      <mesh ref={wingRef1} position={[0.2, 0.35, 0.25]} rotation={[0.2, 0.1, 0.3]}>
-        <planeGeometry args={[1.4, 0.5]} />
+      {/* Wings - larger, more visible */}
+      <mesh ref={wingRef1} position={[0.01, 0.02, 0.015]} rotation={[0.15, 0.05, 0.2]}>
+        <planeGeometry args={[0.08, 0.03]} />
         <meshBasicMaterial 
           color={0xffffff}
           transparent 
-          opacity={0.25 * depthOpacity}
+          opacity={0.35}
           side={THREE.DoubleSide}
           depthWrite={false}
         />
       </mesh>
-      <mesh ref={wingRef2} position={[0.2, 0.35, -0.25]} rotation={[-0.2, -0.1, 0.3]}>
-        <planeGeometry args={[1.4, 0.5]} />
+      <mesh ref={wingRef2} position={[0.01, 0.02, -0.015]} rotation={[-0.15, -0.05, 0.2]}>
+        <planeGeometry args={[0.08, 0.03]} />
         <meshBasicMaterial 
           color={0xffffff}
           transparent 
-          opacity={0.25 * depthOpacity}
+          opacity={0.35}
           side={THREE.DoubleSide}
           depthWrite={false}
         />
@@ -185,125 +169,40 @@ function RealisticBee({
   );
 }
 
-function Bees({ reducedMotion }: { reducedMotion: boolean }) {
-  const { size } = useThree();
-  const isMobile = size.width < 768;
-  
-  const configs = useMemo(() => {
-    if (reducedMotion) return [];
-    
-    if (isMobile) {
-      return [
-        { pos: [-1.2, 0.4, 0.3] as [number, number, number], speed: 0.35, radius: 0.5, offset: 0, depth: 0.9 },
-        { pos: [-0.3, 0.8, 0.15] as [number, number, number], speed: 0.3, radius: 0.35, offset: 2.5, depth: 0.7 },
-      ];
-    }
-    
-    return [
-      { pos: [-2.2, 0.2, 0.4] as [number, number, number], speed: 0.4, radius: 0.7, offset: 0, depth: 1.0 },
-      { pos: [-1.3, 0.7, 0.25] as [number, number, number], speed: 0.35, radius: 0.5, offset: 1.8, depth: 0.85 },
-      { pos: [-0.5, 0.15, 0.35] as [number, number, number], speed: 0.45, radius: 0.4, offset: 3.5, depth: 0.7 },
-      { pos: [-1.8, -0.2, 0.15] as [number, number, number], speed: 0.38, radius: 0.55, offset: 5, depth: 0.6 },
-    ];
-  }, [isMobile, reducedMotion]);
+function Bees({ isMobile }: { isMobile: boolean }) {
+  const configs = isMobile ? BEE_CONFIGS_MOBILE : BEE_CONFIGS_DESKTOP;
+  const scaleFactor = isMobile ? 2.5 : 4;
 
   return (
     <>
-      {configs.map((c, i) => (
-        <RealisticBee 
-          key={i} 
-          initialPosition={c.pos} 
-          speed={c.speed} 
-          radius={c.radius} 
-          offset={c.offset}
-          depth={c.depth}
-        />
+      {configs.map((config, i) => (
+        <RealisticBee key={i} config={config} scaleFactor={scaleFactor} />
       ))}
     </>
   );
 }
 
-function GoldenPollen({ reducedMotion }: { reducedMotion: boolean }) {
+function GoldenPollen({ isMobile }: { isMobile: boolean }) {
   const pointsRef = useRef<THREE.Points>(null);
-  const { size } = useThree();
-  const isMobile = size.width < 768;
-  const count = isMobile ? 30 : 60;
+  const seeds = isMobile ? POLLEN_SEEDS_MOBILE : POLLEN_SEEDS_DESKTOP;
+  const count = seeds.length;
   
-  const texture = useMemo(() => createSoftParticleTexture(), []);
-  
-  const { positions, sizes } = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const sz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (seededRandom(8000 + i * 3) - 0.5) * 5;
-      pos[i * 3 + 1] = seededRandom(8000 + i * 3 + 1) * 2.5 - 0.3;
-      pos[i * 3 + 2] = seededRandom(8000 + i * 3 + 2) * 1.5;
-      sz[i] = 0.015 + seededRandom(8000 + i * 3 + 3) * 0.02;
-    }
-    return { positions: pos, sizes: sz };
-  }, [count]);
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = seeds[i].x;
+    positions[i * 3 + 1] = seeds[i].y;
+    positions[i * 3 + 2] = seeds[i].z;
+  }
 
   useFrame((state) => {
-    if (!pointsRef.current || reducedMotion) return;
+    if (!pointsRef.current) return;
     const posAttr = pointsRef.current.geometry.getAttribute("position");
     if (!posAttr) return;
     const arr = posAttr.array as Float32Array;
-    const t = state.clock.elapsedTime * 0.05;
+    const t = state.clock.elapsedTime * 0.04;
     for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += Math.sin(t + i * 0.35) * 0.001;
-      arr[i * 3] += Math.cos(t * 0.4 + i * 0.2) * 0.0006;
-      arr[i * 3 + 2] += Math.sin(t * 0.3 + i * 0.25) * 0.0004;
-    }
-    posAttr.needsUpdate = true;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
-      </bufferGeometry>
-      <pointsMaterial 
-        size={0.03}
-        map={texture}
-        color={0xffd070}
-        transparent
-        opacity={0.6}
-        sizeAttenuation
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  );
-}
-
-function DustMotes({ reducedMotion }: { reducedMotion: boolean }) {
-  const pointsRef = useRef<THREE.Points>(null);
-  const { size } = useThree();
-  const isMobile = size.width < 768;
-  const count = isMobile ? 20 : 40;
-  
-  const texture = useMemo(() => createSoftParticleTexture(), []);
-  
-  const positions = useMemo(() => {
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      arr[i * 3] = (seededRandom(9000 + i * 3) - 0.5) * 4;
-      arr[i * 3 + 1] = seededRandom(9000 + i * 3 + 1) * 2 - 0.2;
-      arr[i * 3 + 2] = seededRandom(9000 + i * 3 + 2) * 1.2;
-    }
-    return arr;
-  }, [count]);
-
-  useFrame((state) => {
-    if (!pointsRef.current || reducedMotion) return;
-    const posAttr = pointsRef.current.geometry.getAttribute("position");
-    if (!posAttr) return;
-    const arr = posAttr.array as Float32Array;
-    const t = state.clock.elapsedTime * 0.03;
-    for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += Math.sin(t + i * 0.5) * 0.0008;
-      arr[i * 3] += Math.cos(t * 0.6 + i * 0.3) * 0.0005;
+      arr[i * 3 + 1] = seeds[i].y + Math.sin(t + i * 0.3) * 0.05;
+      arr[i * 3] = seeds[i].x + Math.cos(t * 0.5 + i * 0.2) * 0.03;
     }
     posAttr.needsUpdate = true;
   });
@@ -314,11 +213,10 @@ function DustMotes({ reducedMotion }: { reducedMotion: boolean }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial 
-        size={0.02}
-        map={texture}
-        color={0xffe8c0}
+        size={isMobile ? 0.015 : 0.02}
+        color={0xffd080}
         transparent
-        opacity={0.4}
+        opacity={0.5}
         sizeAttenuation
         depthWrite={false}
         blending={THREE.AdditiveBlending}
@@ -340,13 +238,12 @@ function CameraSetup() {
   return null;
 }
 
-function SceneContent({ reducedMotion }: { reducedMotion: boolean }) {
+function SceneContent({ isMobile }: { isMobile: boolean }) {
   return (
     <>
       <CameraSetup />
-      <Bees reducedMotion={reducedMotion} />
-      <GoldenPollen reducedMotion={reducedMotion} />
-      <DustMotes reducedMotion={reducedMotion} />
+      <Bees isMobile={isMobile} />
+      <GoldenPollen isMobile={isMobile} />
     </>
   );
 }
@@ -382,15 +279,47 @@ function BackdropImage() {
         sizes="100vw"
       />
       
-      {/* Fallback - use mobile for narrow, desktop for wide */}
+      {/* Fallback */}
       <img
         src="/join/backdrop-desktop.jpg"
         alt=""
-        className="h-full w-full object-cover"
-        style={{ objectPosition: "center 60%" }}
+        className="backdrop-img h-full w-full"
         loading="eager"
         decoding="async"
       />
+      <style jsx>{`
+        .backdrop-img {
+          object-fit: cover;
+        }
+        /* Desktop: show full composition, hollow at ~55-75% */
+        @media (min-width: 768px) {
+          .backdrop-img {
+            object-position: 42% center;
+          }
+        }
+        /* Wide screens: ensure rope tops visible */
+        @media (min-width: 1440px) {
+          .backdrop-img {
+            object-position: 38% center;
+          }
+        }
+        /* Phone portrait: scale up and shift to show meadow at bottom */
+        @media (max-width: 767px) {
+          .backdrop-img {
+            object-fit: cover;
+            object-position: center 0%;
+            transform: scale(1.12);
+            transform-origin: center top;
+          }
+        }
+        /* Tablet portrait: uses mobile art but taller viewport, less aggressive scaling */
+        @media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+          .backdrop-img {
+            object-fit: cover;
+            object-position: center 25%;
+          }
+        }
+      `}</style>
     </picture>
   );
 }
@@ -420,6 +349,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
   const [mounted, setMounted] = useState(false);
   const [webglSupported, setWebglSupported] = useState<boolean | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
@@ -428,12 +358,23 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
   useEffect(() => {
     if (!mounted) return;
     
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    queueMicrotask(() => setReducedMotion(mq.matches));
+    const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mqMobile = window.matchMedia("(max-width: 767px)");
     
-    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    queueMicrotask(() => {
+      setReducedMotion(mqMotion.matches);
+      setIsMobile(mqMobile.matches);
+    });
+    
+    const handleMotion = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    const handleMobile = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    
+    mqMotion.addEventListener("change", handleMotion);
+    mqMobile.addEventListener("change", handleMobile);
+    return () => {
+      mqMotion.removeEventListener("change", handleMotion);
+      mqMobile.removeEventListener("change", handleMobile);
+    };
   }, [mounted]);
 
   useEffect(() => {
@@ -500,7 +441,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     );
   }
 
-  if (sceneState === "fallback" || webglSupported === false) {
+  if (sceneState === "fallback" || webglSupported === false || reducedMotion) {
     return (
       <div ref={containerRef} className={`relative h-full w-full ${className}`}>
         {backdropElement}
@@ -532,7 +473,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
             pointerEvents: "none",
           }}
         >
-          <SceneContent reducedMotion={reducedMotion} />
+          <SceneContent isMobile={isMobile} />
         </Canvas>
       </CanvasErrorBoundary>
     </div>
