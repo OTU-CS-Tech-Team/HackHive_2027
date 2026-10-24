@@ -2,9 +2,14 @@
 
 import { Component, useRef, useEffect, useState, useMemo, useCallback } from "react";
 import type { ReactNode } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Float } from "@react-three/drei";
 import * as THREE from "three";
+
+function seededRandom(seed: number) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
 
 class CanvasErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -29,6 +34,8 @@ class CanvasErrorBoundary extends Component<
 
 function canCreateWebGLContext(): boolean {
   if (typeof window === "undefined") return false;
+  // Allow test scripts to bypass the strict check
+  if ((window as { __SKIP_WEBGL_PREFLIGHT__?: boolean }).__SKIP_WEBGL_PREFLIGHT__) return true;
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl", {
@@ -45,15 +52,80 @@ function canCreateWebGLContext(): boolean {
   }
 }
 
+function createBarkTexture() {
+  const size = 128;
+  const data = new Uint8Array(size * size * 4);
+  
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const furrow = Math.sin(y * 0.3 + Math.sin(x * 0.1) * 2) * 0.5 + 0.5;
+      const detail = Math.sin(x * 0.8 + y * 0.2) * 0.15;
+      const noise = seededRandom(y * size + x) * 0.1;
+      const v = Math.floor((0.25 + furrow * 0.35 + detail + noise) * 255);
+      
+      const hasMoss = seededRandom(y * size + x + 10000) > 0.92 && furrow > 0.6;
+      if (hasMoss) {
+        data[i] = Math.floor(v * 0.7);
+        data[i + 1] = Math.floor(v * 0.85);
+        data[i + 2] = Math.floor(v * 0.6);
+      } else {
+        data[i] = v;
+        data[i + 1] = Math.floor(v * 0.9);
+        data[i + 2] = Math.floor(v * 0.75);
+      }
+      data[i + 3] = 255;
+    }
+  }
+  
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 4);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createBarkNormalMap() {
+  const size = 128;
+  const data = new Uint8Array(size * size * 4);
+  
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const furrowArg = y * 0.3 + Math.sin(x * 0.1) * 2;
+      const dx = Math.cos(furrowArg) * Math.cos(x * 0.1) * 2 * 0.3;
+      const dy = Math.cos(furrowArg) * 0.3;
+      
+      data[i] = Math.floor((dx * 0.5 + 0.5) * 255);
+      data[i + 1] = Math.floor((dy * 0.5 + 0.5) * 255);
+      data[i + 2] = 255;
+      data[i + 3] = 255;
+    }
+  }
+  
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 4);
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function OakTrunk() {
+  const barkTexture = useMemo(() => createBarkTexture(), []);
+  const barkNormal = useMemo(() => createBarkNormalMap(), []);
+  
   const trunkGeometry = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(0.8, 1.4, 6, 16, 4);
+    const geo = new THREE.CylinderGeometry(1.2, 2.0, 8, 32, 12);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i);
-      const wiggle = Math.sin(y * 2) * 0.1 + Math.sin(y * 5) * 0.05;
-      pos.setX(i, pos.getX(i) + wiggle);
-      pos.setZ(i, pos.getZ(i) + Math.cos(y * 3) * 0.05);
+      const angle = Math.atan2(pos.getZ(i), pos.getX(i));
+      const gnarl = Math.sin(y * 1.5 + angle * 3) * 0.15 + Math.sin(y * 0.5) * 0.2;
+      const bulge = Math.sin(angle * 2 + y * 0.3) * 0.1;
+      const r = Math.sqrt(pos.getX(i) ** 2 + pos.getZ(i) ** 2);
+      const newR = r + gnarl + bulge;
+      pos.setX(i, pos.getX(i) * (newR / r));
+      pos.setZ(i, pos.getZ(i) * (newR / r));
     }
     geo.computeVertexNormals();
     return geo;
@@ -62,99 +134,87 @@ function OakTrunk() {
   const trunkMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x5c4033),
+        map: barkTexture,
+        normalMap: barkNormal,
+        normalScale: new THREE.Vector2(1.5, 1.5),
         roughness: 0.95,
         metalness: 0,
+        color: new THREE.Color(0x4a3a2a),
       }),
-    []
+    [barkTexture, barkNormal]
   );
-
-  return (
-    <mesh geometry={trunkGeometry} material={trunkMaterial} castShadow receiveShadow />
-  );
-}
-
-function OakBranches() {
-  const branchMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x4a3728),
-        roughness: 0.9,
-        metalness: 0,
-      }),
-    []
-  );
-
-  const branches = useMemo(() => {
-    return [
-      { pos: [0.6, 1.8, 0.3] as const, rot: [0.3, 0.5, 0.8] as const, length: 2.5, radius: 0.15 },
-      { pos: [-0.3, 2.2, -0.2] as const, rot: [-0.2, -0.3, -0.6] as const, length: 2, radius: 0.12 },
-      { pos: [0.4, 2.5, -0.4] as const, rot: [-0.4, 0.2, 0.5] as const, length: 1.8, radius: 0.1 },
-      { pos: [-0.5, 1.5, 0.5] as const, rot: [0.5, -0.4, -0.7] as const, length: 2.2, radius: 0.13 },
-      { pos: [0.2, 2.8, 0.1] as const, rot: [0.1, 0.6, 0.3] as const, length: 1.5, radius: 0.08 },
-    ];
-  }, []);
 
   return (
     <group>
-      {branches.map((b, i) => (
-        <mesh
-          key={i}
-          position={[b.pos[0], b.pos[1], b.pos[2]]}
-          rotation={[b.rot[0], b.rot[1], b.rot[2]]}
-          material={branchMaterial}
-          castShadow
-        >
-          <cylinderGeometry args={[b.radius * 0.6, b.radius, b.length, 8]} />
-        </mesh>
-      ))}
+      <mesh geometry={trunkGeometry} material={trunkMaterial} castShadow receiveShadow />
+      <mesh position={[-0.3, -2, 0.8]} rotation={[0.1, 0.3, 0]}>
+        <sphereGeometry args={[0.8, 16, 12]} />
+        <meshStandardMaterial color={0x0a0805} roughness={1} />
+      </mesh>
     </group>
   );
 }
 
-function OakFoliage() {
-  const foliageMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x3d6b35),
-        roughness: 0.85,
-        metalness: 0,
-      }),
-    []
-  );
-
-  const foliageLightMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x5a8a4f),
-        roughness: 0.8,
-        metalness: 0,
-      }),
-    []
-  );
-
-  const clusters = useMemo(() => [
-    { pos: [0, 4, 0] as const, scale: 2.5, mat: foliageMaterial },
-    { pos: [1.5, 3.5, 0.5] as const, scale: 1.8, mat: foliageLightMaterial },
-    { pos: [-1.2, 3.8, -0.3] as const, scale: 1.6, mat: foliageMaterial },
-    { pos: [0.8, 4.5, -0.5] as const, scale: 1.4, mat: foliageLightMaterial },
-    { pos: [-0.5, 4.2, 0.8] as const, scale: 1.5, mat: foliageMaterial },
-    { pos: [2, 3, 0] as const, scale: 1.2, mat: foliageLightMaterial },
-    { pos: [-1.8, 3.2, 0.5] as const, scale: 1.3, mat: foliageMaterial },
-    { pos: [0.3, 5, 0.2] as const, scale: 1.1, mat: foliageLightMaterial },
-  ], [foliageMaterial, foliageLightMaterial]);
+function OakBranch({ start, end, radius, seed = 0 }: { start: [number, number, number]; end: [number, number, number]; radius: number; seed?: number }) {
+  const barkTexture = useMemo(() => createBarkTexture(), []);
+  
+  const geometry = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(...start),
+      new THREE.Vector3(
+        (start[0] + end[0]) * 0.5 + (seededRandom(seed) - 0.5) * 0.5,
+        (start[1] + end[1]) * 0.5 + 0.3,
+        (start[2] + end[2]) * 0.5
+      ),
+      new THREE.Vector3(...end),
+    ]);
+    return new THREE.TubeGeometry(curve, 12, radius, 12, false);
+  }, [start, end, radius, seed]);
 
   return (
-    <group>
-      {clusters.map((c, i) => (
+    <mesh geometry={geometry} castShadow>
+      <meshStandardMaterial
+        map={barkTexture}
+        color={0x3a2a1a}
+        roughness={0.92}
+        metalness={0}
+      />
+    </mesh>
+  );
+}
+
+function OakLeafCluster({ position, scale = 1, backlit = false, seed = 0 }: { position: [number, number, number]; scale?: number; backlit?: boolean; seed?: number }) {
+  const leafColor = backlit ? 0x8a9a5a : 0x5a6a3a;
+  const opacity = backlit ? 0.85 : 0.95;
+  
+  const leafData = useMemo(() => {
+    return [...Array(8)].map((_, i) => ({
+      angle: (i / 8) * Math.PI * 2,
+      r: 0.3 + seededRandom(seed + i * 10) * 0.2,
+      y: (seededRandom(seed + i * 10 + 1) - 0.5) * 0.3,
+      rotX: seededRandom(seed + i * 10 + 2) * 0.5,
+      rotZ: seededRandom(seed + i * 10 + 3) * 0.3,
+    }));
+  }, [seed]);
+  
+  return (
+    <group position={position} scale={scale}>
+      {leafData.map((leaf, i) => (
         <mesh
           key={i}
-          position={[c.pos[0], c.pos[1], c.pos[2]]}
-          scale={c.scale}
-          material={c.mat}
-          castShadow
+          position={[Math.cos(leaf.angle) * leaf.r, leaf.y, Math.sin(leaf.angle) * leaf.r]}
+          rotation={[leaf.rotX, leaf.angle, leaf.rotZ]}
         >
-          <icosahedronGeometry args={[1, 1]} />
+          <planeGeometry args={[0.4, 0.25]} />
+          <meshStandardMaterial
+            color={leafColor}
+            roughness={0.7}
+            metalness={0}
+            transparent
+            opacity={opacity}
+            side={THREE.DoubleSide}
+            alphaTest={0.1}
+          />
         </mesh>
       ))}
     </group>
@@ -162,22 +222,81 @@ function OakFoliage() {
 }
 
 function OakTree() {
+  const { size } = useThree();
+  const groupRef = useRef<THREE.Group>(null);
+  
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const w = size.width;
+    const isMobile = w < 768;
+    const isTablet = w >= 768 && w < 1024;
+    
+    if (isMobile) {
+      // Mobile: tree on right, card on left
+      groupRef.current.position.set(8, -4, -2);
+      groupRef.current.scale.setScalar(0.65);
+    } else if (isTablet) {
+      // Tablet: tree on right, card on left  
+      groupRef.current.position.set(7, -4, -2);
+      groupRef.current.scale.setScalar(0.75);
+    } else {
+      // Desktop: trunk center-right, hollow at ~x=50-60% behind centered card
+      // Move trunk slightly left so hollow is more centered
+      groupRef.current.position.set(1, -3.5, -2);
+      groupRef.current.scale.setScalar(1.1);
+    }
+  });
+  
   return (
-    <group position={[3.5, -2, -1]}>
+    <group ref={groupRef} position={[2.5, -4, -2]}>
       <OakTrunk />
-      <OakBranches />
-      <OakFoliage />
+      
+      <OakBranch start={[0.5, 3, 0]} end={[-4, 4.5, 1]} radius={0.25} seed={1} />
+      <OakBranch start={[0.3, 3.5, -0.3]} end={[3, 5, 0.5]} radius={0.2} seed={2} />
+      <OakBranch start={[-0.2, 2.5, 0.5]} end={[-2, 3.5, 2]} radius={0.18} seed={3} />
+      
+      <OakLeafCluster position={[-3.5, 4.5, 1]} scale={1.2} backlit seed={100} />
+      <OakLeafCluster position={[-2.5, 4.8, 0.5]} scale={1} backlit seed={200} />
+      <OakLeafCluster position={[-4, 4.2, 1.5]} scale={0.9} backlit seed={300} />
+      <OakLeafCluster position={[2.5, 5, 0.5]} scale={1.1} seed={400} />
+      <OakLeafCluster position={[3, 4.5, 1]} scale={0.8} seed={500} />
+      <OakLeafCluster position={[-2, 3.5, 2]} scale={0.9} seed={600} />
+      <OakLeafCluster position={[-1, 4, 1.5]} scale={0.7} backlit seed={700} />
     </group>
   );
 }
 
-function BirdhouseHive() {
+function WoodenHive() {
+  const { size } = useThree();
+  const groupRef = useRef<THREE.Group>(null);
+  
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const w = size.width;
+    const isMobile = w < 768;
+    const isTablet = w >= 768 && w < 1024;
+    
+    if (isMobile) {
+      // Mobile: hive visible on right
+      groupRef.current.position.set(7, 0, 2);
+      groupRef.current.scale.setScalar(0.8);
+    } else if (isTablet) {
+      // Tablet: hive on right
+      groupRef.current.position.set(6, 0.5, 2);
+      groupRef.current.scale.setScalar(0.9);
+    } else {
+      // Desktop: hive top-right at ~x=75%, y=10-30% (high up, clear of centered card)
+      groupRef.current.position.set(5.5, 2.5, 1);
+      groupRef.current.scale.setScalar(1);
+    }
+  });
+  
   const woodMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0xc4a35a),
-        roughness: 0.85,
-        metalness: 0.05,
+        color: new THREE.Color(0xc9a86c),
+        roughness: 0.8,
+        metalness: 0.02,
       }),
     []
   );
@@ -185,9 +304,9 @@ function BirdhouseHive() {
   const roofMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x8b6914),
-        roughness: 0.9,
-        metalness: 0.05,
+        color: new THREE.Color(0x8a7a5a),
+        roughness: 0.85,
+        metalness: 0.02,
       }),
     []
   );
@@ -195,17 +314,7 @@ function BirdhouseHive() {
   const ropeMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x8b7355),
-        roughness: 1,
-        metalness: 0,
-      }),
-    []
-  );
-
-  const entranceMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x1a1408),
+        color: new THREE.Color(0x6a5a4a),
         roughness: 1,
         metalness: 0,
       }),
@@ -213,70 +322,51 @@ function BirdhouseHive() {
   );
 
   return (
-    <Float speed={0.8} rotationIntensity={0.02} floatIntensity={0.15}>
-      <group position={[4.5, 1.5, 1.5]}>
-        {/* Ropes */}
-        <mesh position={[-0.2, 0.9, 0]} material={ropeMaterial}>
-          <cylinderGeometry args={[0.02, 0.02, 1, 6]} />
+    <group ref={groupRef}>
+      <Float speed={0.4} rotationIntensity={0.01} floatIntensity={0.08}>
+        <group>
+        <mesh position={[-0.2, 0.8, 0]} material={ropeMaterial}>
+          <cylinderGeometry args={[0.02, 0.02, 1.5, 8]} />
         </mesh>
-        <mesh position={[0.2, 0.9, 0]} material={ropeMaterial}>
-          <cylinderGeometry args={[0.02, 0.02, 1, 6]} />
+        <mesh position={[0.2, 0.8, 0]} material={ropeMaterial}>
+          <cylinderGeometry args={[0.02, 0.02, 1.5, 8]} />
         </mesh>
 
-        {/* Main body */}
         <mesh position={[0, 0, 0]} material={woodMaterial} castShadow receiveShadow>
-          <boxGeometry args={[0.7, 0.8, 0.5]} />
+          <boxGeometry args={[0.6, 0.7, 0.45]} />
         </mesh>
+        
+        {[-0.2, 0, 0.2].map((y, i) => (
+          <mesh key={i} position={[0.301, y - 0.1, 0]}>
+            <boxGeometry args={[0.02, 0.15, 0.4]} />
+            <meshStandardMaterial color={0x9a8a6a} roughness={0.9} />
+          </mesh>
+        ))}
 
-        {/* Roof */}
-        <group position={[0, 0.55, 0]}>
+        <group position={[0, 0.5, 0]}>
           <mesh material={roofMaterial} castShadow>
-            <boxGeometry args={[0.85, 0.08, 0.6]} />
+            <boxGeometry args={[0.75, 0.08, 0.55]} />
           </mesh>
-          <mesh position={[0, 0.15, 0]} rotation={[0, 0, 0]} material={roofMaterial} castShadow>
-            <coneGeometry args={[0.55, 0.35, 4]} />
-          </mesh>
-        </group>
-
-        {/* Landing perch */}
-        <mesh position={[0.35, -0.15, 0.25]} rotation={[0, 0, Math.PI / 2]} material={woodMaterial}>
-          <cylinderGeometry args={[0.03, 0.03, 0.15, 6]} />
-        </mesh>
-
-        {/* Entrance hole */}
-        <mesh position={[0.351, 0.05, 0]} rotation={[0, Math.PI / 2, 0]} material={entranceMaterial}>
-          <circleGeometry args={[0.1, 16]} />
-        </mesh>
-
-        {/* Sitting bee on perch */}
-        <group position={[0.42, -0.1, 0.25]} scale={0.4}>
-          <mesh>
-            <sphereGeometry args={[0.1, 8, 6]} />
-            <meshStandardMaterial color={0xf4c430} roughness={0.6} />
-          </mesh>
-          <mesh position={[0.02, 0, 0]}>
-            <torusGeometry args={[0.09, 0.02, 6, 12]} />
-            <meshStandardMaterial color={0x1a1a1a} roughness={0.7} />
+          <mesh position={[0, 0.12, 0]} rotation={[0, 0, 0]} material={roofMaterial} castShadow>
+            <boxGeometry args={[0.7, 0.16, 0.5]} />
           </mesh>
         </group>
-      </group>
-    </Float>
+
+        <mesh position={[0.31, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[0.25, 0.08]} />
+          <meshStandardMaterial color={0x0a0805} roughness={1} />
+        </mesh>
+        
+        <mesh position={[0.35, -0.1, 0.15]} rotation={[0, 0, Math.PI / 2]} material={woodMaterial}>
+          <cylinderGeometry args={[0.025, 0.025, 0.12, 8]} />
+        </mesh>
+        </group>
+      </Float>
+    </group>
   );
 }
 
-function FlyingBee({ 
-  initialPosition, 
-  speed = 1,
-  pathRadius = 0.5,
-  timeOffset = 0,
-  showTrail = true
-}: { 
-  initialPosition: [number, number, number]; 
-  speed?: number;
-  pathRadius?: number;
-  timeOffset?: number;
-  showTrail?: boolean;
-}) {
+function Bee({ position, speed, radius, offset }: { position: [number, number, number]; speed: number; radius: number; offset: number }) {
   const beeRef = useRef<THREE.Group>(null);
   const trailRef = useRef<THREE.Points>(null);
   const trailBufferRef = useRef<Float32Array | null>(null);
@@ -284,27 +374,21 @@ function FlyingBee({
 
   useFrame((state) => {
     if (!beeRef.current) return;
-    const t = state.clock.elapsedTime * speed + timeOffset;
+    const t = state.clock.elapsedTime * speed + offset;
     
-    const x = initialPosition[0] + Math.sin(t) * pathRadius;
-    const y = initialPosition[1] + Math.sin(t * 1.5) * (pathRadius * 0.4);
-    const z = initialPosition[2] + Math.cos(t * 0.7) * pathRadius;
+    const x = position[0] + Math.sin(t) * radius;
+    const y = position[1] + Math.sin(t * 1.3) * (radius * 0.3);
+    const z = position[2] + Math.cos(t * 0.8) * radius * 0.5;
     
     beeRef.current.position.set(x, y, z);
-    beeRef.current.rotation.y = Math.atan2(
-      Math.cos(t) * pathRadius,
-      -Math.sin(t * 0.7) * pathRadius
-    );
+    beeRef.current.rotation.y = Math.atan2(Math.cos(t), -Math.sin(t * 0.8) * 0.5);
 
-    if (showTrail && trailRef.current) {
-      const geo = trailRef.current.geometry;
-      const posAttr = geo.getAttribute('position');
+    if (trailRef.current) {
+      const posAttr = trailRef.current.geometry.getAttribute('position');
       if (posAttr) {
-        if (!trailBufferRef.current) {
-          trailBufferRef.current = posAttr.array as Float32Array;
-        }
+        if (!trailBufferRef.current) trailBufferRef.current = posAttr.array as Float32Array;
         const buffer = trailBufferRef.current;
-        const idx = (trailIndexRef.current % 10) * 3;
+        const idx = (trailIndexRef.current % 8) * 3;
         buffer[idx] = x;
         buffer[idx + 1] = y;
         buffer[idx + 2] = z;
@@ -316,309 +400,254 @@ function FlyingBee({
 
   return (
     <>
-      <group ref={beeRef} position={initialPosition} scale={0.6}>
-        {/* Body */}
-        <mesh scale={[1.2, 1, 1]}>
-          <sphereGeometry args={[0.08, 8, 6]} />
-          <meshStandardMaterial color={0xf4c430} roughness={0.6} metalness={0.1} />
+      <group ref={beeRef} position={position} scale={0.08}>
+        <mesh>
+          <sphereGeometry args={[1, 8, 6]} />
+          <meshStandardMaterial color={0xd4a020} roughness={0.5} />
         </mesh>
-        {/* Stripes */}
-        <mesh position={[0.02, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <torusGeometry args={[0.075, 0.018, 6, 12]} />
-          <meshStandardMaterial color={0x1a1a1a} roughness={0.7} />
+        <mesh position={[0.2, 0, 0]}>
+          <torusGeometry args={[0.85, 0.2, 6, 12]} />
+          <meshStandardMaterial color={0x1a1a1a} roughness={0.6} />
         </mesh>
-        <mesh position={[-0.03, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <torusGeometry args={[0.07, 0.015, 6, 12]} />
-          <meshStandardMaterial color={0x1a1a1a} roughness={0.7} />
+        <mesh position={[0, 0.6, 0.3]} scale={[0.6, 0.15, 1]}>
+          <sphereGeometry args={[0.5, 6, 4]} />
+          <meshStandardMaterial color={0xffffff} transparent opacity={0.5} roughness={0.1} />
         </mesh>
-        {/* Wings */}
-        <mesh position={[0, 0.05, 0.03]} scale={[0.5, 0.2, 0.8]}>
-          <sphereGeometry args={[0.06, 6, 4]} />
-          <meshStandardMaterial color={0xffffff} roughness={0.2} transparent opacity={0.5} />
-        </mesh>
-        <mesh position={[0, 0.05, -0.03]} scale={[0.5, 0.2, 0.8]}>
-          <sphereGeometry args={[0.06, 6, 4]} />
-          <meshStandardMaterial color={0xffffff} roughness={0.2} transparent opacity={0.5} />
+        <mesh position={[0, 0.6, -0.3]} scale={[0.6, 0.15, 1]}>
+          <sphereGeometry args={[0.5, 6, 4]} />
+          <meshStandardMaterial color={0xffffff} transparent opacity={0.5} roughness={0.1} />
         </mesh>
       </group>
-      {showTrail && (
-        <points ref={trailRef}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[new Float32Array(30), 3]}
-            />
-          </bufferGeometry>
-          <pointsMaterial size={0.03} color={0x888866} transparent opacity={0.4} sizeAttenuation />
-        </points>
-      )}
+      <points ref={trailRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[new Float32Array(24), 3]} />
+        </bufferGeometry>
+        <pointsMaterial size={0.04} color={0xd4a020} transparent opacity={0.4} sizeAttenuation />
+      </points>
     </>
   );
 }
 
-function Bees({ showTrails = true }: { showTrails?: boolean }) {
-  const beeConfigs = useMemo(() => [
-    { pos: [1.5, 0.5, 1.5] as [number, number, number], speed: 0.6, radius: 0.8, offset: 0 },
-    { pos: [0.5, 0, 1.2] as [number, number, number], speed: 0.5, radius: 0.6, offset: 2.1 },
-    { pos: [2, 1, 0.5] as [number, number, number], speed: 0.7, radius: 0.5, offset: 4.2 },
-    { pos: [-0.5, -0.5, 1] as [number, number, number], speed: 0.55, radius: 0.7, offset: 1.5 },
-  ], []);
+function Bees() {
+  const { size } = useThree();
+  const isMobile = size.width < 768;
+  const isDesktop = size.width >= 1024;
+  
+  // Desktop: bees on left half; Mobile/tablet: bees near hive on right
+  const configs = useMemo(() => isDesktop ? [
+    { pos: [-3, 0.5, 3] as [number, number, number], speed: 0.4, radius: 1.5, offset: 0 },
+    { pos: [-2, 1.5, 2.5] as [number, number, number], speed: 0.35, radius: 1.2, offset: 2 },
+    { pos: [-4, 0, 2] as [number, number, number], speed: 0.45, radius: 1, offset: 4 },
+    { pos: [-1.5, -0.5, 3.5] as [number, number, number], speed: 0.38, radius: 0.9, offset: 1 },
+    { pos: [-2.5, 2, 2] as [number, number, number], speed: 0.42, radius: 1.1, offset: 3 },
+  ] : [
+    { pos: [4, 0.5, 3] as [number, number, number], speed: 0.4, radius: 1.2, offset: 0 },
+    { pos: [5, 1, 2.5] as [number, number, number], speed: 0.35, radius: 0.8, offset: 2 },
+    { pos: [3.5, 0, 2] as [number, number, number], speed: 0.45, radius: 1, offset: 4 },
+    { pos: [4.5, 0.2, 3.5] as [number, number, number], speed: 0.38, radius: 0.9, offset: 1 },
+  ], [isDesktop]);
+
+  if (isMobile) {
+    return (
+      <>
+        {configs.slice(0, 2).map((c, i) => (
+          <Bee key={i} position={c.pos} speed={c.speed} radius={c.radius} offset={c.offset} />
+        ))}
+      </>
+    );
+  }
 
   return (
     <>
-      {beeConfigs.map((config, i) => (
-        <FlyingBee 
-          key={i} 
-          initialPosition={config.pos} 
-          speed={config.speed}
-          pathRadius={config.radius}
-          timeOffset={config.offset}
-          showTrail={showTrails}
-        />
+      {configs.map((c, i) => (
+        <Bee key={i} position={c.pos} speed={c.speed} radius={c.radius} offset={c.offset} />
       ))}
     </>
   );
 }
 
-const FLOWERS = [
-  { x: -5.2, z: 1.3, color: 0xffffff, scale: 0.045 },
-  { x: -3.8, z: 2.1, color: 0xffeb99, scale: 0.038 },
-  { x: -2.1, z: 1.7, color: 0xffb6c1, scale: 0.052 },
-  { x: -0.5, z: 2.8, color: 0xe6e6fa, scale: 0.041 },
-  { x: 0.8, z: 1.4, color: 0xffffff, scale: 0.048 },
-  { x: 2.3, z: 2.5, color: 0xffeb99, scale: 0.035 },
-  { x: 3.6, z: 1.9, color: 0xffb6c1, scale: 0.055 },
-  { x: 4.8, z: 2.2, color: 0xe6e6fa, scale: 0.042 },
-  { x: -4.5, z: 3.2, color: 0xffffff, scale: 0.039 },
-  { x: -2.8, z: 3.8, color: 0xffeb99, scale: 0.047 },
-  { x: -1.2, z: 3.4, color: 0xffb6c1, scale: 0.036 },
-  { x: 0.2, z: 4.1, color: 0xe6e6fa, scale: 0.051 },
-  { x: 1.5, z: 3.6, color: 0xffffff, scale: 0.044 },
-  { x: 3.1, z: 4.3, color: 0xffeb99, scale: 0.038 },
-  { x: 4.2, z: 3.1, color: 0xffb6c1, scale: 0.053 },
-  { x: 5.5, z: 3.7, color: 0xe6e6fa, scale: 0.040 },
-  { x: -5.8, z: 2.6, color: 0xffffff, scale: 0.046 },
-  { x: -4.1, z: 4.5, color: 0xffeb99, scale: 0.037 },
-  { x: -2.5, z: 2.9, color: 0xffb6c1, scale: 0.049 },
-  { x: -0.9, z: 4.8, color: 0xe6e6fa, scale: 0.043 },
-  { x: 0.6, z: 3.2, color: 0xffffff, scale: 0.054 },
-  { x: 2.0, z: 4.6, color: 0xffeb99, scale: 0.041 },
-  { x: 3.4, z: 2.4, color: 0xffb6c1, scale: 0.048 },
-  { x: 5.1, z: 4.9, color: 0xe6e6fa, scale: 0.035 },
-  { x: -3.2, z: 1.1, color: 0xffffff, scale: 0.050 },
-  { x: -1.6, z: 4.2, color: 0xffeb99, scale: 0.039 },
-  { x: 1.1, z: 2.0, color: 0xffb6c1, scale: 0.045 },
-  { x: 2.7, z: 3.9, color: 0xe6e6fa, scale: 0.052 },
-  { x: 4.5, z: 1.6, color: 0xffffff, scale: 0.038 },
-  { x: -5.5, z: 3.9, color: 0xffeb99, scale: 0.047 },
-  { x: -0.2, z: 1.8, color: 0xffb6c1, scale: 0.042 },
-  { x: 1.8, z: 4.4, color: 0xe6e6fa, scale: 0.036 },
-  { x: 3.9, z: 2.8, color: 0xffffff, scale: 0.051 },
-  { x: 5.8, z: 4.2, color: 0xffeb99, scale: 0.044 },
-  { x: -4.8, z: 4.8, color: 0xffb6c1, scale: 0.040 },
-  { x: -2.2, z: 1.5, color: 0xe6e6fa, scale: 0.055 },
-  { x: 0.4, z: 3.8, color: 0xffffff, scale: 0.037 },
-  { x: 2.5, z: 1.2, color: 0xffeb99, scale: 0.049 },
-  { x: 4.0, z: 4.6, color: 0xffb6c1, scale: 0.043 },
-  { x: -3.5, z: 2.4, color: 0xe6e6fa, scale: 0.046 },
-];
+function MeadowGrass() {
+  const grassPositions = useMemo(() => {
+    const positions: { x: number; z: number; h: number; r: number }[] = [];
+    for (let i = 0; i < 60; i++) {
+      positions.push({
+        x: (seededRandom(i * 4) - 0.5) * 16,
+        z: seededRandom(i * 4 + 1) * 4 + 1,
+        h: 0.2 + seededRandom(i * 4 + 2) * 0.3,
+        r: (seededRandom(i * 4 + 3) - 0.5) * 0.2,
+      });
+    }
+    return positions;
+  }, []);
 
-const GRASS_BLADES = [
-  { x: -6.2, z: 1.1, height: 0.22, rotation: 0.08 },
-  { x: -5.1, z: 0.8, height: 0.18, rotation: -0.12 },
-  { x: -4.3, z: 1.4, height: 0.25, rotation: 0.05 },
-  { x: -3.5, z: 0.9, height: 0.20, rotation: -0.08 },
-  { x: -2.8, z: 1.6, height: 0.17, rotation: 0.11 },
-  { x: -2.0, z: 1.0, height: 0.23, rotation: -0.06 },
-  { x: -1.2, z: 1.3, height: 0.19, rotation: 0.09 },
-  { x: -0.4, z: 0.7, height: 0.21, rotation: -0.10 },
-  { x: 0.3, z: 1.5, height: 0.16, rotation: 0.07 },
-  { x: 1.1, z: 0.9, height: 0.24, rotation: -0.04 },
-  { x: 1.9, z: 1.2, height: 0.18, rotation: 0.12 },
-  { x: 2.7, z: 0.8, height: 0.22, rotation: -0.09 },
-  { x: 3.4, z: 1.4, height: 0.20, rotation: 0.06 },
-  { x: 4.2, z: 1.0, height: 0.17, rotation: -0.11 },
-  { x: 5.0, z: 1.3, height: 0.25, rotation: 0.08 },
-  { x: 5.8, z: 0.7, height: 0.19, rotation: -0.05 },
-  { x: 6.5, z: 1.5, height: 0.21, rotation: 0.10 },
-  { x: -5.7, z: 2.2, height: 0.23, rotation: -0.07 },
-  { x: -4.8, z: 2.8, height: 0.16, rotation: 0.04 },
-  { x: -3.9, z: 2.1, height: 0.20, rotation: -0.12 },
-  { x: -3.1, z: 2.6, height: 0.24, rotation: 0.09 },
-  { x: -2.3, z: 2.3, height: 0.18, rotation: -0.06 },
-  { x: -1.5, z: 2.9, height: 0.22, rotation: 0.11 },
-  { x: -0.7, z: 2.0, height: 0.17, rotation: -0.08 },
-  { x: 0.1, z: 2.7, height: 0.25, rotation: 0.05 },
-  { x: 0.9, z: 2.4, height: 0.19, rotation: -0.10 },
-  { x: 1.6, z: 2.1, height: 0.21, rotation: 0.07 },
-  { x: 2.4, z: 2.8, height: 0.16, rotation: -0.04 },
-  { x: 3.2, z: 2.3, height: 0.23, rotation: 0.12 },
-  { x: 4.0, z: 2.6, height: 0.20, rotation: -0.09 },
-  { x: 4.7, z: 2.0, height: 0.18, rotation: 0.06 },
-  { x: 5.5, z: 2.9, height: 0.24, rotation: -0.11 },
-  { x: 6.2, z: 2.2, height: 0.17, rotation: 0.08 },
-  { x: -6.0, z: 3.5, height: 0.22, rotation: -0.05 },
-  { x: -5.2, z: 3.1, height: 0.19, rotation: 0.10 },
-  { x: -4.4, z: 3.8, height: 0.25, rotation: -0.07 },
-  { x: -3.6, z: 3.3, height: 0.16, rotation: 0.04 },
-  { x: -2.8, z: 3.9, height: 0.21, rotation: -0.12 },
-  { x: -2.0, z: 3.4, height: 0.23, rotation: 0.09 },
-  { x: -1.2, z: 3.7, height: 0.18, rotation: -0.06 },
-  { x: -0.4, z: 3.2, height: 0.20, rotation: 0.11 },
-  { x: 0.4, z: 3.6, height: 0.24, rotation: -0.08 },
-  { x: 1.2, z: 3.0, height: 0.17, rotation: 0.05 },
-  { x: 2.0, z: 3.8, height: 0.22, rotation: -0.10 },
-  { x: 2.8, z: 3.4, height: 0.19, rotation: 0.07 },
-  { x: 3.5, z: 3.1, height: 0.25, rotation: -0.04 },
-  { x: 4.3, z: 3.7, height: 0.16, rotation: 0.12 },
-  { x: 5.1, z: 3.3, height: 0.21, rotation: -0.09 },
-  { x: 5.9, z: 3.9, height: 0.23, rotation: 0.06 },
-  { x: 6.6, z: 3.5, height: 0.18, rotation: -0.11 },
-  { x: -5.5, z: 4.2, height: 0.20, rotation: 0.08 },
-  { x: -4.6, z: 4.7, height: 0.24, rotation: -0.05 },
-  { x: -3.8, z: 4.4, height: 0.17, rotation: 0.10 },
-  { x: -3.0, z: 4.9, height: 0.22, rotation: -0.07 },
-  { x: -2.2, z: 4.1, height: 0.19, rotation: 0.04 },
-  { x: -1.4, z: 4.6, height: 0.25, rotation: -0.12 },
-  { x: -0.6, z: 4.3, height: 0.16, rotation: 0.09 },
-  { x: 0.2, z: 4.8, height: 0.21, rotation: -0.06 },
-  { x: 1.0, z: 4.5, height: 0.23, rotation: 0.11 },
-  { x: 1.8, z: 4.0, height: 0.18, rotation: -0.08 },
-];
-
-function Meadow() {
-  const grassMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0x7a9a5a),
-        roughness: 0.9,
-        metalness: 0,
-      }),
-    []
-  );
+  const flowerPositions = useMemo(() => {
+    const positions: { x: number; z: number; color: number }[] = [];
+    const colors = [0xfff8e8, 0xfff4d0, 0xf8f0e0];
+    for (let i = 0; i < 20; i++) {
+      positions.push({
+        x: (seededRandom(1000 + i * 2) - 0.5) * 14,
+        z: seededRandom(1000 + i * 2 + 1) * 3 + 1.5,
+        color: colors[i % 3],
+      });
+    }
+    return positions;
+  }, []);
 
   return (
-    <group position={[0, -3.5, 2]}>
-      {/* Ground */}
+    <group position={[0, -3.5, 3]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[20, 10]} />
-        <meshStandardMaterial color={0x8fbc6a} roughness={0.95} />
+        <planeGeometry args={[30, 15]} />
+        <meshStandardMaterial color={0x6a7a4a} roughness={0.98} />
       </mesh>
 
-      {/* Grass blades */}
-      {GRASS_BLADES.map((blade, i) => (
-        <mesh
-          key={`grass-${i}`}
-          position={[blade.x, blade.height / 2, blade.z]}
-          rotation={[blade.rotation, 0, 0]}
-          material={grassMaterial}
-        >
-          <coneGeometry args={[0.02, blade.height, 4]} />
+      {grassPositions.map((g, i) => (
+        <mesh key={`g-${i}`} position={[g.x, g.h / 2, g.z]} rotation={[g.r, 0, 0]}>
+          <coneGeometry args={[0.015, g.h, 4]} />
+          <meshStandardMaterial color={0x5a6a3a} roughness={0.9} />
         </mesh>
       ))}
 
-      {/* Wildflowers */}
-      {FLOWERS.map((flower, i) => (
-        <mesh key={`flower-${i}`} position={[flower.x, 0.05, flower.z]}>
-          <sphereGeometry args={[flower.scale, 6, 4]} />
-          <meshStandardMaterial color={flower.color} roughness={0.8} />
+      {flowerPositions.map((f, i) => (
+        <mesh key={`f-${i}`} position={[f.x, 0.08, f.z]}>
+          <sphereGeometry args={[0.03, 6, 4]} />
+          <meshStandardMaterial color={f.color} roughness={0.7} emissive={f.color} emissiveIntensity={0.1} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function GoldenLighting() {
+function GoldenHourLighting() {
+  const { size } = useThree();
+  const isMobile = size.width < 768;
+  const shadowSize = isMobile ? 512 : 1024;
+  
   return (
     <>
-      {/* Main warm sunlight from left */}
       <directionalLight
-        position={[-8, 10, 5]}
-        intensity={2}
-        color={new THREE.Color(0xffd89b)}
+        position={[-12, 8, 6]}
+        intensity={2.2}
+        color={new THREE.Color(0xffecd0)}
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-far={25}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
-        shadow-bias={-0.001}
+        shadow-mapSize-width={shadowSize}
+        shadow-mapSize-height={shadowSize}
+        shadow-camera-far={35}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.02}
       />
-      {/* Soft ambient */}
-      <ambientLight intensity={0.5} color={new THREE.Color(0xfff5e6)} />
-      {/* Back rim */}
-      <pointLight position={[5, 5, -5]} intensity={0.4} color={new THREE.Color(0xffe4b5)} />
-      {/* Sky/ground colors */}
-      <hemisphereLight
-        args={[new THREE.Color(0xffecd2), new THREE.Color(0x8fbc6a), 0.4]}
-      />
+      <ambientLight intensity={0.25} color={new THREE.Color(0xfff0e0)} />
+      <pointLight position={[-8, 2, 5]} intensity={0.6} color={new THREE.Color(0xffd090)} distance={15} />
+      <hemisphereLight args={[new THREE.Color(0xffecd0), new THREE.Color(0x6a7a4a), 0.4]} />
     </>
   );
 }
 
-function CameraController({ isPaused, isMobile, isTablet }: { isPaused: boolean; isMobile: boolean; isTablet: boolean }) {
-  const isMobileRef = useRef(isMobile);
-  const isTabletRef = useRef(isTablet);
+function DustMotes() {
+  const moteRef = useRef<THREE.Points>(null);
   
-  useEffect(() => {
-    isMobileRef.current = isMobile;
-    isTabletRef.current = isTablet;
-  }, [isMobile, isTablet]);
-  
-  useFrame((state) => {
-    const cam = state.camera;
-    const mobile = isMobileRef.current;
-    const tablet = isTabletRef.current;
-    
-    if (mobile) {
-      cam.position.x = -8;
-      cam.position.z = 11;
-      cam.lookAt(5, 0.5, 0);
-    } else if (tablet) {
-      cam.position.x = -7;
-      cam.position.z = 11;
-      cam.lookAt(4.5, 0.5, 0);
-    } else {
-      cam.position.x = -3;
-      cam.position.z = 11;
-      cam.lookAt(1.5, 0.5, 0);
+  // Dust motes on left half (desktop golden glow area)
+  const positions = useMemo(() => {
+    const arr = new Float32Array(40 * 3);
+    for (let i = 0; i < 40; i++) {
+      arr[i * 3] = seededRandom(2000 + i * 3) * 6 - 5; // x: -5 to 1 (left half)
+      arr[i * 3 + 1] = seededRandom(2000 + i * 3 + 1) * 5 - 1; // y: -1 to 4
+      arr[i * 3 + 2] = seededRandom(2000 + i * 3 + 2) * 4 + 1;
     }
+    return arr;
+  }, []);
 
-    if (!isPaused) {
-      const t = state.clock.elapsedTime * 0.08;
-      const bobAmount = Math.sin(t) * 0.03;
-      cam.position.y = 0.8 + bobAmount;
-    } else {
-      cam.position.y = 0.8;
+  useFrame((state) => {
+    if (!moteRef.current) return;
+    const posAttr = moteRef.current.geometry.getAttribute('position');
+    if (!posAttr) return;
+    const arr = posAttr.array as Float32Array;
+    const t = state.clock.elapsedTime * 0.1;
+    for (let i = 0; i < 40; i++) {
+      arr[i * 3 + 1] += Math.sin(t + i) * 0.002;
+      arr[i * 3] += Math.cos(t * 0.7 + i * 0.5) * 0.001;
     }
+    posAttr.needsUpdate = true;
+  });
+
+  return (
+    <points ref={moteRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial size={0.08} color={0xffd080} transparent opacity={0.6} sizeAttenuation />
+    </points>
+  );
+}
+
+function CameraSetup() {
+  const { size } = useThree();
+  const lastSizeRef = useRef<string>("");
+  const targetRef = useRef(new THREE.Vector3(2, 0, 0));
+  const basePositionRef = useRef(new THREE.Vector3(-3, 0.5, 12));
+
+  useFrame((state) => {
+    const cam = state.camera as THREE.PerspectiveCamera;
+    const w = size.width;
+    const isMobile = w < 768;
+    const isTablet = w >= 768 && w < 1024;
+    const sizeKey = `${w}`;
+    
+    if (lastSizeRef.current !== sizeKey) {
+      lastSizeRef.current = sizeKey;
+      
+      if (isMobile) {
+        basePositionRef.current.set(-4, 0.5, 16);
+        targetRef.current.set(6, -1, 0);
+        cam.fov = 55;
+      } else if (isTablet) {
+        basePositionRef.current.set(-5, 0.5, 14);
+        targetRef.current.set(5, -0.5, 0);
+        cam.fov = 52;
+      } else {
+        // Desktop: trunk center-right, camera centered to frame hollow at ~50-60% x
+        basePositionRef.current.set(0, 0.5, 12);
+        targetRef.current.set(1.5, -0.5, 0);
+        cam.fov = 48;
+      }
+      cam.position.copy(basePositionRef.current);
+      cam.updateProjectionMatrix();
+    }
+    
+    const t = state.clock.elapsedTime * 0.05;
+    const bob = Math.sin(t) * 0.015;
+    cam.position.y = basePositionRef.current.y + bob;
+    cam.lookAt(targetRef.current);
   });
 
   return null;
 }
 
-function Scene({ isPaused, isMobile, isTablet }: { isPaused: boolean; isMobile: boolean; isTablet: boolean }) {
+function SceneContent() {
+  const { size } = useThree();
+  const isMobile = size.width < 768;
+  
   return (
     <>
-      <CameraController isPaused={isPaused} isMobile={isMobile} isTablet={isTablet} />
-      <GoldenLighting />
-      <color attach="background" args={[0xfdf6e9]} />
-      <fog attach="fog" args={[0xfff8f0, 6, 20]} />
+      <CameraSetup />
+      <color attach="background" args={[0xf8ece0]} />
+      <fog attach="fog" args={[0xf5e8d8, 6, 25]} />
+      <GoldenHourLighting />
       <OakTree />
-      <BirdhouseHive />
-      <Bees showTrails={!isMobile} />
-      <Meadow />
+      <WoodenHive />
+      <Bees />
+      <MeadowGrass />
+      {!isMobile && <DustMotes />}
     </>
   );
 }
 
 function FallbackImage() {
   return (
-    <div
-      className="absolute inset-0 overflow-hidden"
-      aria-hidden="true"
-    >
+    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/join/fallback.jpg"
@@ -648,40 +677,26 @@ function checkShouldUseFallback(): boolean {
   return false;
 }
 
+
 export function OakHiveScene({ className = "" }: { className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [sceneState, setSceneState] = useState<SceneState>("loading");
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [webglSupported, setWebglSupported] = useState<boolean | null>(null);
   const frameTimesRef = useRef<number[]>([]);
   const lastCheckRef = useRef(0);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const checkSize = () => {
-      const w = window.innerWidth;
-      setIsMobile(w < 768);
-      setIsTablet(w >= 768 && w < 1024);
-    };
-    checkSize();
     queueMicrotask(() => {
-      if (!controller.signal.aborted) setMounted(true);
+      setMounted(true);
     });
-    window.addEventListener("resize", checkSize);
-    return () => {
-      controller.abort();
-      window.removeEventListener("resize", checkSize);
-    };
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (!mounted) return;
+    
     queueMicrotask(() => {
-      if (controller.signal.aborted) return;
-      
       if (checkShouldUseFallback()) {
         setWebglSupported(false);
         setSceneState("fallback");
@@ -690,21 +705,16 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
       
       const canCreate = canCreateWebGLContext();
       setWebglSupported(canCreate);
-      if (!canCreate) {
-        setSceneState("fallback");
-      }
+      if (!canCreate) setSceneState("fallback");
     });
-    return () => controller.abort();
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-      },
+      ([entry]) => setIsVisible(entry.isIntersecting),
       { threshold: 0.05 }
     );
 
@@ -712,13 +722,13 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     return () => observer.disconnect();
   }, []);
 
-  const handleCreated = useCallback(() => {
+  const handleCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.1;
     setSceneState("ready");
   }, []);
 
-  const handleError = useCallback(() => {
-    setSceneState("fallback");
-  }, []);
+  const handleError = useCallback(() => setSceneState("fallback"), []);
 
   useEffect(() => {
     if (sceneState !== "ready" || !isVisible) return;
@@ -728,9 +738,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
 
     const checkPerformance = (time: number) => {
       frameTimesRef.current.push(time);
-      if (frameTimesRef.current.length > 30) {
-        frameTimesRef.current.shift();
-      }
+      if (frameTimesRef.current.length > 30) frameTimesRef.current.shift();
 
       if (time - lastCheckRef.current > 2000 && frameTimesRef.current.length >= 10) {
         lastCheckRef.current = time;
@@ -766,7 +774,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     );
   }
 
-  if (webglSupported === null || !mounted) {
+  if (!mounted || webglSupported === null) {
     return (
       <div ref={containerRef} className={`relative h-full w-full ${className}`}>
         <FallbackImage />
@@ -804,7 +812,7 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
             transition: "opacity 0.5s ease-in-out",
           }}
         >
-          <Scene isPaused={isPaused} isMobile={isMobile} isTablet={isTablet} />
+          <SceneContent />
         </Canvas>
       </CanvasErrorBoundary>
     </div>
