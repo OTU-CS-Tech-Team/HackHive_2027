@@ -60,6 +60,8 @@ function checkShouldUseFallback(): boolean {
     }
     const memory = (navigator as { deviceMemory?: number }).deviceMemory;
     if (memory !== undefined && memory < 2) return true;
+    const cores = navigator.hardwareConcurrency;
+    if (typeof cores === "number" && cores > 0 && cores <= 2) return true;
   } catch {
     return true;
   }
