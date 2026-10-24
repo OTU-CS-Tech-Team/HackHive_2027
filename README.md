@@ -25,12 +25,36 @@ All action buttons use
 consistent touch targets, keyboard focus, hover, and disabled styles.
 The directory includes loading, empty, no-match, and error states, plus manual
 refresh. Profile and avatar updates refresh the new page too.
+Directory queries and client props exclude hacker email addresses, including in
+the previous team tab. Connection actions use the provided social profile links.
 
 These are teammate-discovery profiles, not registered teams or invitations.
 Once hackers form a team, they can hide their listings. Skills/interests, team
 recruitment posts with open roles, and invitation/acceptance workflows would need
 additional data models and are possible follow-ups. The previous
 `/dashboard?tab=team` view remains available.
+
+## Detailed admin stats
+
+Open **Detailed stats** from `/admin`, or visit `/admin/stats`. The page uses the
+existing admin membership, application table, and admission decisions. It requires
+no database migration or service-role key.
+
+The overview shows submitted applications, approved applicants, pending reviews,
+waitlists, rejections, drafts, and submissions in the last seven days. **Approved**
+uses the existing `accepted` decision; it does not mean attendance is confirmed.
+Community and logistics breakdowns cover submitted applications only: schools,
+team preferences, first-time hackers, T-shirt sizes, and support responses. These
+include all admission outcomes and are planning estimates, not confirmed orders.
+Dietary/accessibility counts include nonblank responses, which may say “none.”
+
+Use the Admissions, Community, and Logistics views to see one focused report at
+a time. School breakdowns show the top five plus a combined remainder. These
+compact views avoid a long stack of charts, including on phones.
+
+Use **Refresh stats** for current numbers. **Review applications** returns to the
+existing admin application controls. Application and decision editing continue
+to work as before.
 
 ## HackHive Museum
 
