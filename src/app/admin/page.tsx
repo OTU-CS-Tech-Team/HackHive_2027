@@ -26,6 +26,7 @@ export default function AdminPage() {
           <nav className="mt-2 flex flex-wrap gap-x-4 text-sm underline">
             <a href="#applicants">Applicants</a>
             <a href="#stats">Stats</a>
+            <Link href="/admin/stats">Detailed stats</Link>
             <a href="#applications">Applications</a>
             <a href="#events">Schedule</a>
             {Object.entries(TABLES).map(([table, { heading }]) => (
