@@ -132,7 +132,7 @@ async function ApplicationTab() {
 async function TeamTab({ supabase, userId }: { supabase: Supabase; userId: string }) {
   const { data: teammates } = await supabase
     .from("profiles")
-    .select("id, full_name, school, avatar_url, linkedin_url, github_url, instagram_url, email")
+    .select("id, full_name, school, avatar_url, linkedin_url, github_url, instagram_url")
     .eq("looking_for_team", true)
     .neq("id", userId);
   return (
@@ -158,7 +158,6 @@ async function TeamTab({ supabase, userId }: { supabase: Supabase; userId: strin
                 <p className="font-semibold">{mate.full_name}</p>
                 {mate.school && <p className="text-neutral-600">{mate.school}</p>}
                 <p className="flex flex-wrap gap-x-3">
-                  <a href={`mailto:${mate.email}`} className="underline">Email</a>
                   {mate.linkedin_url && <a href={mate.linkedin_url} target="_blank" rel="noreferrer" className="underline">LinkedIn</a>}
                   {mate.github_url && <a href={mate.github_url} target="_blank" rel="noreferrer" className="underline">GitHub</a>}
                   {mate.instagram_url && <a href={mate.instagram_url} target="_blank" rel="noreferrer" className="underline">Instagram</a>}
@@ -338,7 +337,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
             </label>
             <label className="flex items-center gap-2">
               <input name="looking_for_team" type="checkbox" defaultChecked={profile?.looking_for_team ?? false} />
-              I&apos;m looking for teammates (shows your profile and email to other hackers)
+              I&apos;m looking for teammates (shows your profile and provided social links to other hackers)
             </label>
           </ActionForm>
         </section>

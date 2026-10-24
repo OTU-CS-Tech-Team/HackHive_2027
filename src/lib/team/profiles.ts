@@ -1,12 +1,12 @@
 export type TeamProfileRow = {
   id: string; full_name: string | null; school: string | null; avatar_url: string | null;
-  email: string | null; github_url: string | null; linkedin_url: string | null; instagram_url: string | null;
+  github_url: string | null; linkedin_url: string | null; instagram_url: string | null;
   looking_for_team?: boolean;
   slack_url?: string | null;
 };
 
 export type TeamProfile = {
-  id: string; name: string; school: string; avatarUrl: string | null; email: string | null;
+  id: string; name: string; school: string; avatarUrl: string | null;
   githubUrl: string | null; linkedinUrl: string | null; instagramUrl: string | null;
   slackUrl: string | null;
 };
@@ -20,10 +20,9 @@ export function safeWebUrl(value: string | null): string | null {
 }
 
 export function teamProfile(row: TeamProfileRow): TeamProfile {
-  const email = row.email?.trim() ?? "";
   return {
     id: row.id, name: row.full_name?.trim() || "Hacker", school: row.school?.trim() || "",
-    avatarUrl: safeWebUrl(row.avatar_url), email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    avatarUrl: safeWebUrl(row.avatar_url),
     githubUrl: safeWebUrl(row.github_url), linkedinUrl: safeWebUrl(row.linkedin_url), instagramUrl: safeWebUrl(row.instagram_url),
     slackUrl: safeSlackProfileUrl(row.slack_url ?? null),
   };

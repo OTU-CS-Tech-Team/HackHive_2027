@@ -3,7 +3,7 @@ import "server-only";
 import { requireTeamAccess } from "./access";
 import { teamProfile, type TeamProfileRow } from "./profiles";
 
-const COLUMNS = "id,full_name,school,avatar_url,email,github_url,linkedin_url,instagram_url,slack_url";
+const COLUMNS = "id,full_name,school,avatar_url,github_url,linkedin_url,instagram_url,slack_url";
 const PAGE_SIZE = 500;
 
 export async function loadTeamDirectory() {
