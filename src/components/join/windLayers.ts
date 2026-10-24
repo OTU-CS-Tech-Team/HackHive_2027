@@ -320,7 +320,11 @@ function boxMean(src: Uint8Array, width: number, height: number, radius: number)
 }
 
 function boxBlur(src: Float32Array, width: number, height: number, radius: number) {
-  if (radius <= 0) return src;
+  if (radius <= 0) {
+    const copy = new Float32Array(src.length);
+    copy.set(src);
+    return copy;
+  }
   const tmp = new Float32Array(width * height);
   const out = new Float32Array(width * height);
   for (let y = 0; y < height; y++) {
