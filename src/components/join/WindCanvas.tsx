@@ -38,6 +38,13 @@ float sdBox(vec2 p, vec2 b) {
   return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
 }
 
+float sdSegment(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
 float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
   vec2 e0 = p1 - p0;
   vec2 e1 = p2 - p1;
@@ -59,65 +66,82 @@ float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
   return -sqrt(max(d.x, 0.0)) * sign(d.y);
 }
 
-// Hive, roof, knot, and the hanger triangle (ropes plus the gaps between them)
-// move as one rigid piece. Coordinates are source-plate pixels.
+// Hive, roof, knot, and three straight ropes from the knot move as one
+// rigid piece. The silhouette stays on the wood and the ropes, so the swing
+// does not uncover a rectangle of bark. Coordinates are source-plate pixels.
 float hiveDistPx(vec2 p) {
   vec2 sc = uImageSize / (uLayout < 0.5 ? vec2(1280.0, 720.0) : vec2(720.0, 1280.0));
   vec2 anchor;
   vec2 bodyC;
   vec2 bodyH;
+  vec2 porchC;
+  vec2 porchH;
   vec2 roofA;
   vec2 roofB;
   vec2 roofC;
   vec2 fin;
   float finR;
-  vec2 hangA;
-  vec2 hangB;
-  vec2 hangC;
+  vec2 ropeL;
+  vec2 ropeM;
+  vec2 ropeR;
   float knotR;
+  float ropeW;
   if (uLayout < 0.5) {
     anchor = vec2(924.0, 48.0);
-    bodyC = vec2(916.0, 242.0);
-    bodyH = vec2(100.0, 50.0);
-    roofA = vec2(906.0, 148.0);
-    roofB = vec2(798.0, 212.0);
-    roofC = vec2(1022.0, 218.0);
-    fin = vec2(876.0, 176.0);
-    finR = 24.0;
-    hangA = vec2(924.0, 40.0);
-    hangB = vec2(840.0, 200.0);
-    hangC = vec2(1005.0, 215.0);
-    knotR = 16.0;
-  } else {
-    anchor = vec2(545.0, 622.0);
-    bodyC = vec2(557.0, 756.0);
-    bodyH = vec2(62.0, 46.0);
-    roofA = vec2(548.0, 688.0);
-    roofB = vec2(478.0, 718.0);
-    roofC = vec2(632.0, 732.0);
-    fin = vec2(520.0, 705.0);
+    bodyC = vec2(908.0, 246.0);
+    bodyH = vec2(74.0, 50.0);
+    porchC = vec2(916.0, 246.0);
+    porchH = vec2(1.0, 1.0);
+    roofA = vec2(900.0, 148.0);
+    roofB = vec2(818.0, 204.0);
+    roofC = vec2(998.0, 212.0);
+    fin = vec2(862.0, 176.0);
     finR = 18.0;
-    hangA = vec2(545.0, 608.0);
-    hangB = vec2(470.0, 725.0);
-    hangC = vec2(635.0, 735.0);
-    knotR = 14.0;
+    ropeL = vec2(800.0, 206.0);
+    ropeM = vec2(862.0, 172.0);
+    ropeR = vec2(1012.0, 208.0);
+    knotR = 13.0;
+    ropeW = 12.0;
+  } else {
+    anchor = vec2(552.0, 648.0);
+    bodyC = vec2(548.0, 758.0);
+    bodyH = vec2(52.0, 46.0);
+    porchC = vec2(478.0, 752.0);
+    porchH = vec2(34.0, 22.0);
+    roofA = vec2(548.0, 678.0);
+    roofB = vec2(440.0, 724.0);
+    roofC = vec2(628.0, 732.0);
+    fin = vec2(520.0, 705.0);
+    finR = 16.0;
+    ropeL = vec2(482.0, 746.0);
+    ropeM = vec2(576.0, 714.0);
+    ropeR = vec2(654.0, 750.0);
+    knotR = 12.0;
+    ropeW = 11.0;
   }
   anchor *= sc;
   bodyC *= sc;
   bodyH *= sc;
+  porchC *= sc;
+  porchH *= sc;
   roofA *= sc;
   roofB *= sc;
   roofC *= sc;
   fin *= sc;
-  hangA *= sc;
-  hangB *= sc;
-  hangC *= sc;
+  ropeL *= sc;
+  ropeM *= sc;
+  ropeR *= sc;
   finR *= sc.x;
   knotR *= sc.x;
+  ropeW *= sc.x;
+  // Each rope is one straight capsule from the knot, so the swing cannot kink it.
   float d = sdBox(p - bodyC, bodyH);
+  d = min(d, sdBox(p - porchC, porchH));
   d = min(d, sdTriangle(p, roofA, roofB, roofC));
   d = min(d, length(p - fin) - finR);
-  d = min(d, sdTriangle(p, hangA, hangB, hangC));
+  d = min(d, sdSegment(p, anchor, ropeL) - ropeW);
+  d = min(d, sdSegment(p, anchor, ropeM) - ropeW);
+  d = min(d, sdSegment(p, anchor, ropeR) - ropeW);
   d = min(d, length(p - anchor) - knotR);
   return d;
 }
@@ -128,32 +152,8 @@ float hiveDist(vec2 pUV) {
 
 vec2 anchorPx() {
   vec2 sc = uImageSize / (uLayout < 0.5 ? vec2(1280.0, 720.0) : vec2(720.0, 1280.0));
-  vec2 anchor = uLayout < 0.5 ? vec2(924.0, 48.0) : vec2(545.0, 622.0);
+  vec2 anchor = uLayout < 0.5 ? vec2(924.0, 48.0) : vec2(552.0, 648.0);
   return anchor * sc;
-}
-
-// Reflect a pixel inside the resting hive onto real bark just outside it,
-// so the swing never uncovers the hive, a flat dark slab, or a second copy.
-vec2 mirrorOutside(vec2 pUV) {
-  vec2 p = pUV * uImageSize;
-  vec2 left = p;
-  vec2 right = p;
-  for (int i = 0; i < 28; i++) {
-    if (hiveDistPx(left) > 2.5) break;
-    left.x -= 6.0;
-  }
-  for (int i = 0; i < 28; i++) {
-    if (hiveDistPx(right) > 2.5) break;
-    right.x += 6.0;
-  }
-  float dl = p.x - left.x;
-  float dr = right.x - p.x;
-  vec2 edge = dl <= dr ? left : right;
-  float depth = min(dl, dr);
-  float side = dl <= dr ? -1.0 : 1.0;
-  vec2 outp = edge + vec2(side * (depth + 5.0), 0.0);
-  if (hiveDistPx(outp) < 2.0) outp.x += side * 16.0;
-  return clamp(outp / uImageSize, vec2(0.0), vec2(1.0));
 }
 
 vec2 rot(vec2 v, float a) {
@@ -171,7 +171,11 @@ void main() {
 
   vec2 screen = vec2(vUv.x, 1.0 - vUv.y);
   vec2 scale = coverScale(resolution, uImageSize);
-  vec2 p = clamp(uObjectPos + (screen - uObjectPos) * scale, 0.0, 1.0);
+  // A few dozen pixels of plate stay outside the viewport, so a gust
+  // samples real texels instead of the clamped border column.
+  float gutter = 32.0;
+  vec2 screenIn = mix(gutter / resolution, 1.0 - gutter / resolution, screen);
+  vec2 p = clamp(uObjectPos + (screenIn - uObjectPos) * scale, vec2(0.0), vec2(1.0));
 
   float t = uTime;
   float settle = smoothstep(0.35, 1.45, t);
@@ -222,6 +226,10 @@ void main() {
   // The hanger is rigid, so the plate warp falls off before it reaches the hive.
   float hiveGate = smoothstep(-2.0, 22.0, hiveDist(p));
   offsetPx *= hiveGate;
+  // And it falls off at the viewport edges, on every width.
+  vec2 edgePx = min(screen, 1.0 - screen) * resolution;
+  float edgeFade = smoothstep(16.0, 72.0, min(edgePx.x, edgePx.y));
+  offsetPx *= edgeFade;
 
   float limit = 36.0;
   float olen = length(offsetPx);
@@ -229,17 +237,17 @@ void main() {
   offsetPx *= settle;
 
   vec2 pxToUV = scale / resolution;
-  vec2 bgSample = clamp(p + offsetPx * pxToUV, 0.0, 1.0);
-  if (hiveDist(bgSample) < 0.5) bgSample = mirrorOutside(bgSample);
+  vec2 plateUV = clamp(p + offsetPx * pxToUV, vec2(0.001), vec2(0.999));
 
   // Same swing as before: a few degrees, lagging the gust, pivoted at the knot.
   float hiveAngle = sin(t * 0.42 - 1.15) * (0.10 + 0.045 * gust) * settle;
   vec2 pivot = anchorPx();
-  vec2 src = pivot + rot(p * uImageSize - pivot, -hiveAngle);
+  vec2 pix = p * uImageSize;
+  vec2 src = pivot + rot(pix - pivot, -hiveAngle);
   vec2 srcUV = src / uImageSize;
-  float dSrc = hiveDist(srcUV);
+  float dSrc = hiveDistPx(src);
   float inside = step(0.0, srcUV.x) * step(srcUV.x, 1.0) * step(0.0, srcUV.y) * step(srcUV.y, 1.0);
-  float hiveAlpha = smoothstep(1.5, -0.4, dSrc) * inside;
+  float hiveAlpha = smoothstep(2.2, -1.0, dSrc) * inside;
 
   if (uDebug > 0.5) {
     vec3 dbg = vec3(trunkCore, canopyBand, grassBand);
@@ -248,7 +256,8 @@ void main() {
     return;
   }
 
-  vec3 bgCol = texture2D(uMap, vec2(bgSample.x, 1.0 - bgSample.y)).rgb;
+  vec3 plateCol = texture2D(uMap, vec2(plateUV.x, 1.0 - plateUV.y)).rgb;
+  vec3 bgCol = plateCol;
   vec3 hiveCol = texture2D(uMap, vec2(srcUV.x, 1.0 - srcUV.y)).rgb;
   float dapple = sin(p.x * 7.2 + t * 0.28) * sin(p.y * 5.2 - t * 0.19);
   float dapple2 = sin(p.x * 15.0 - p.y * 6.0 - t * 0.63);
