@@ -17,6 +17,7 @@ const FRAG = /* glsl */ `
 varying vec2 vUv;
 
 uniform sampler2D uMap;
+uniform sampler2D uPlate;
 uniform vec2 uResolution;
 uniform vec2 uImageSize;
 uniform vec2 uObjectPos;
@@ -106,10 +107,10 @@ float hiveDistPx(vec2 p) {
     anchor = vec2(552.0, 648.0);
     bodyC = vec2(548.0, 758.0);
     bodyH = vec2(52.0, 46.0);
-    porchC = vec2(478.0, 752.0);
-    porchH = vec2(34.0, 22.0);
+    porchC = vec2(500.0, 754.0);
+    porchH = vec2(28.0, 18.0);
     roofA = vec2(548.0, 678.0);
-    roofB = vec2(440.0, 724.0);
+    roofB = vec2(494.0, 730.0);
     roofC = vec2(628.0, 732.0);
     fin = vec2(520.0, 705.0);
     finR = 16.0;
@@ -143,6 +144,15 @@ float hiveDistPx(vec2 p) {
   d = min(d, sdSegment(p, anchor, ropeM) - ropeW);
   d = min(d, sdSegment(p, anchor, ropeR) - ropeW);
   d = min(d, length(p - anchor) - knotR);
+  // The side wall and the black strap/hook sit past the front face.
+  // They have to be inside this silhouette or they stay behind.
+  if (uLayout < 0.5) {
+    d = min(d, sdBox(p - vec2(996.0, 248.0) * sc, vec2(26.0, 56.0) * sc));
+    d = min(d, sdSegment(p, vec2(998.0, 186.0) * sc, vec2(1008.0, 304.0) * sc) - 11.0 * sc.x);
+  } else {
+    d = min(d, sdBox(p - vec2(618.0, 764.0) * sc, vec2(22.0, 48.0) * sc));
+    d = min(d, sdSegment(p, vec2(622.0, 708.0) * sc, vec2(628.0, 808.0) * sc) - 12.0 * sc.x);
+  }
   return d;
 }
 
@@ -256,7 +266,7 @@ void main() {
     return;
   }
 
-  vec3 plateCol = texture2D(uMap, vec2(plateUV.x, 1.0 - plateUV.y)).rgb;
+  vec3 plateCol = texture2D(uPlate, vec2(plateUV.x, 1.0 - plateUV.y)).rgb;
   vec3 bgCol = plateCol;
   vec3 hiveCol = texture2D(uMap, vec2(srcUV.x, 1.0 - srcUV.y)).rgb;
   float dapple = sin(p.x * 7.2 + t * 0.28) * sin(p.y * 5.2 - t * 0.19);
@@ -273,7 +283,7 @@ type WindWindow = Window & {
   __WIND_HOLD__?: number | null;
 };
 
-type Plate = { texture: THREE.Texture; mobile: boolean };
+type Plate = { map: THREE.Texture; plate: THREE.Texture; mobile: boolean };
 
 function framing(): [number, number] {
   const width = window.innerWidth;
@@ -283,10 +293,11 @@ function framing(): [number, number] {
   return [0.5, 0.5];
 }
 
-function makeUniforms(texture: THREE.Texture, mobile: boolean) {
-  const image = texture.image as { width: number; height: number; naturalWidth?: number; naturalHeight?: number };
+function makeUniforms(map: THREE.Texture, plate: THREE.Texture, mobile: boolean) {
+  const image = map.image as { width: number; height: number; naturalWidth?: number; naturalHeight?: number };
   return {
-    uMap: { value: texture },
+    uMap: { value: map },
+    uPlate: { value: plate },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uImageSize: {
       value: new THREE.Vector2(image.naturalWidth || image.width, image.naturalHeight || image.height),
@@ -299,16 +310,18 @@ function makeUniforms(texture: THREE.Texture, mobile: boolean) {
 }
 
 function WindPlate({
-  texture,
+  map,
+  plate,
   mobile,
   onReady,
 }: {
-  texture: THREE.Texture;
+  map: THREE.Texture;
+  plate: THREE.Texture;
   mobile: boolean;
   onReady: () => void;
 }) {
   const matRef = useRef<THREE.ShaderMaterial>(null);
-  const uniforms = useMemo(() => makeUniforms(texture, mobile), [texture, mobile]);
+  const uniforms = useMemo(() => makeUniforms(map, plate, mobile), [map, plate, mobile]);
   const timeRef = useRef(0);
   const lastRef = useRef<number | null>(null);
   const readyRef = useRef(false);
@@ -359,6 +372,209 @@ function WindPlate({
   );
 }
 
+function sdBox(px: number, py: number, cx: number, cy: number, hx: number, hy: number) {
+  const dx = Math.abs(px - cx) - hx;
+  const dy = Math.abs(py - cy) - hy;
+  return Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0);
+}
+
+function sdSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number, radius: number) {
+  const pax = px - ax;
+  const pay = py - ay;
+  const bax = bx - ax;
+  const bay = by - ay;
+  const h = Math.min(1, Math.max(0, (pax * bax + pay * bay) / Math.max(bax * bax + bay * bay, 1e-4)));
+  return Math.hypot(pax - bax * h, pay - bay * h) - radius;
+}
+
+function sdTriangle(
+  px: number,
+  py: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+) {
+  const e0x = x1 - x0;
+  const e0y = y1 - y0;
+  const e1x = x2 - x1;
+  const e1y = y2 - y1;
+  const e2x = x0 - x2;
+  const e2y = y0 - y2;
+  const v0x = px - x0;
+  const v0y = py - y0;
+  const v1x = px - x1;
+  const v1y = py - y1;
+  const v2x = px - x2;
+  const v2y = py - y2;
+  const clampEdge = (vx: number, vy: number, ex: number, ey: number) => {
+    const t = Math.min(1, Math.max(0, (vx * ex + vy * ey) / Math.max(ex * ex + ey * ey, 1e-4)));
+    return [vx - ex * t, vy - ey * t] as const;
+  };
+  const [p0x, p0y] = clampEdge(v0x, v0y, e0x, e0y);
+  const [p1x, p1y] = clampEdge(v1x, v1y, e1x, e1y);
+  const [p2x, p2y] = clampEdge(v2x, v2y, e2x, e2y);
+  const s = Math.sign(e0x * e2y - e0y * e2x);
+  const d0x = p0x * p0x + p0y * p0y;
+  const d1x = p1x * p1x + p1y * p1y;
+  const d2x = p2x * p2x + p2y * p2y;
+  const d0y = s * (v0x * e0y - v0y * e0x);
+  const d1y = s * (v1x * e1y - v1y * e1x);
+  const d2y = s * (v2x * e2y - v2y * e2x);
+  const dx = Math.min(d0x, d1x, d2x);
+  const dy = Math.min(d0y, d1y, d2y);
+  return -Math.sqrt(Math.max(dx, 0)) * Math.sign(dy);
+}
+
+// Same silhouette as the shader, in source pixels. Kept in lockstep with hiveDistPx.
+function hiveDistAt(px: number, py: number, mobile: boolean, scx: number, scy: number) {
+  const sx = (x: number) => x * scx;
+  const sy = (y: number) => y * scy;
+  let d: number;
+  if (!mobile) {
+    const ax = sx(924);
+    const ay = sy(48);
+    d = sdBox(px, py, sx(908), sy(246), sx(74), sy(50));
+    d = Math.min(d, sdTriangle(px, py, sx(900), sy(148), sx(818), sy(204), sx(998), sy(212)));
+    d = Math.min(d, Math.hypot(px - sx(862), py - sy(176)) - sx(18));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(800), sy(206), sx(12)));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(862), sy(172), sx(12)));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(1012), sy(208), sx(12)));
+    d = Math.min(d, Math.hypot(px - ax, py - ay) - sx(13));
+    d = Math.min(d, sdBox(px, py, sx(996), sy(248), sx(26), sy(56)));
+    d = Math.min(d, sdSegment(px, py, sx(998), sy(186), sx(1008), sy(304), sx(11)));
+  } else {
+    const ax = sx(552);
+    const ay = sy(648);
+    d = sdBox(px, py, sx(548), sy(758), sx(52), sy(46));
+    d = Math.min(d, sdBox(px, py, sx(500), sy(754), sx(28), sy(18)));
+    d = Math.min(d, sdTriangle(px, py, sx(548), sy(678), sx(494), sy(730), sx(628), sy(732)));
+    d = Math.min(d, Math.hypot(px - sx(520), py - sy(705)) - sx(16));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(482), sy(746), sx(11)));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(576), sy(714), sx(11)));
+    d = Math.min(d, sdSegment(px, py, ax, ay, sx(654), sy(750), sx(11)));
+    d = Math.min(d, Math.hypot(px - ax, py - ay) - sx(12));
+    d = Math.min(d, sdBox(px, py, sx(618), sy(764), sx(22), sy(48)));
+    d = Math.min(d, sdSegment(px, py, sx(622), sy(708), sx(628), sy(808), sx(12)));
+  }
+  return d;
+}
+
+function smoothstep(edge0: number, edge1: number, value: number) {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+// Replace the resting hive with the bark, leaves, and sky beside it. The swing
+// only uncovers a thin crescent, so each filled pixel copies the background
+// just outside the nearest edge, capped so the middle cannot mirror the scene.
+function inpaintHive(pixels: Uint8Array, width: number, height: number, mobile: boolean) {
+  const scx = width / (mobile ? 720 : 1280);
+  const scy = height / (mobile ? 1280 : 720);
+  const x0 = Math.max(0, Math.floor((mobile ? 360 : 720) * scx));
+  const x1 = Math.min(width, Math.ceil((mobile ? 700 : 1100) * scx));
+  const y0 = Math.max(0, Math.floor((mobile ? 580 : 0) * scy));
+  const y1 = Math.min(height, Math.ceil((mobile ? 880 : 380) * scy));
+  const span = width * height;
+  const dist = new Float32Array(span);
+  const inside = new Uint8Array(span);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const d = hiveDistAt(x + 0.5, y + 0.5, mobile, scx, scy);
+      const i = y * width + x;
+      dist[i] = d;
+      inside[i] = d < 11 ? 1 : 0;
+    }
+  }
+
+  const best = new Float32Array(span);
+  best.fill(1e9);
+  const sx = new Int16Array(span);
+  const sy = new Int16Array(span);
+  const cap = 36;
+
+  const consider = (x: number, y: number, depth: number, ox: number, oy: number) => {
+    const i = y * width + x;
+    if (depth < best[i]) {
+      best[i] = depth;
+      sx[i] = ox;
+      sy[i] = oy;
+    }
+  };
+
+  for (let y = y0; y < y1; y++) {
+    let x = x0;
+    while (x < x1) {
+      while (x < x1 && !inside[y * width + x]) x++;
+      if (x >= x1) break;
+      const start = x;
+      while (x < x1 && inside[y * width + x]) x++;
+      const end = x - 1;
+      for (let px = start; px <= end; px++) {
+        const left = px - start;
+        const right = end - px;
+        const depth = Math.min(left, right) + 1;
+        const reach = Math.min(depth, cap);
+        let ox = left <= right ? start - (reach + 3) : end + (reach + 3);
+        ox = Math.max(0, Math.min(width - 1, ox));
+        if (inside[y * width + ox]) ox = Math.max(0, Math.min(width - 1, left <= right ? start - 3 : end + 3));
+        consider(px, y, depth, ox, y);
+      }
+    }
+  }
+
+  for (let x = x0; x < x1; x++) {
+    let y = y0;
+    while (y < y1) {
+      while (y < y1 && !inside[y * width + x]) y++;
+      if (y >= y1) break;
+      const start = y;
+      while (y < y1 && inside[y * width + x]) y++;
+      const end = y - 1;
+      for (let py = start; py <= end; py++) {
+        const top = py - start;
+        const bottom = end - py;
+        const depth = Math.min(top, bottom) + 1;
+        const reach = Math.min(depth, cap);
+        let oy = top <= bottom ? start - (reach + 3) : end + (reach + 3);
+        oy = Math.max(0, Math.min(height - 1, oy));
+        if (inside[oy * width + x]) oy = Math.max(0, Math.min(height - 1, top <= bottom ? start - 3 : end + 3));
+        consider(x, py, depth, x, oy);
+      }
+    }
+  }
+
+  const out = new Uint8Array(pixels);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = y * width + x;
+      const weight = smoothstep(11, 1.2, dist[i]);
+      if (weight <= 0 || best[i] > 1e8) continue;
+      const si = (sy[i] * width + sx[i]) * 4;
+      const di = i * 4;
+      const keep = 1 - weight;
+      out[di] = Math.round(pixels[di] * keep + pixels[si] * weight);
+      out[di + 1] = Math.round(pixels[di + 1] * keep + pixels[si + 1] * weight);
+      out[di + 2] = Math.round(pixels[di + 2] * keep + pixels[si + 2] * weight);
+      out[di + 3] = 255;
+    }
+  }
+  return out;
+}
+
+function makeDataTexture(pixels: Uint8Array, width: number, height: number) {
+  const texture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.flipY = true;
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function textureFromImage(img: HTMLImageElement) {
   const maxEdge = 1600;
   const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
@@ -371,14 +587,9 @@ function textureFromImage(img: HTMLImageElement) {
   if (!ctx) return null;
   ctx.drawImage(img, 0, 0, width, height);
   const pixels = new Uint8Array(ctx.getImageData(0, 0, width, height).data);
-  const texture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.flipY = true;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  return texture;
+  const mobile = img.currentSrc.includes("backdrop-mobile");
+  const clean = inpaintHive(pixels, width, height, mobile);
+  return { map: makeDataTexture(pixels, width, height), plate: makeDataTexture(clean, width, height), mobile };
 }
 
 export function WindCanvas({
@@ -395,7 +606,8 @@ export function WindCanvas({
   onError: () => void;
 }) {
   const [plate, setPlate] = useState<Plate | null>(null);
-  const textureRef = useRef<THREE.Texture | null>(null);
+  const mapRef = useRef<THREE.Texture | null>(null);
+  const plateRef = useRef<THREE.Texture | null>(null);
 
   useEffect(() => {
     const img = imgRef.current;
@@ -405,17 +617,21 @@ export function WindCanvas({
       if (!img.naturalWidth) return;
       const next = textureFromImage(img);
       if (!next) return;
-      textureRef.current?.dispose();
-      textureRef.current = next;
-      setPlate({ texture: next, mobile: img.currentSrc.includes("backdrop-mobile") });
+      mapRef.current?.dispose();
+      plateRef.current?.dispose();
+      mapRef.current = next.map;
+      plateRef.current = next.plate;
+      setPlate(next);
     };
 
     if (img.complete) queueMicrotask(bind);
     img.addEventListener("load", bind);
     return () => {
       img.removeEventListener("load", bind);
-      textureRef.current?.dispose();
-      textureRef.current = null;
+      mapRef.current?.dispose();
+      plateRef.current?.dispose();
+      mapRef.current = null;
+      plateRef.current = null;
     };
   }, [imgRef]);
 
@@ -445,7 +661,7 @@ export function WindCanvas({
         pointerEvents: "none",
       }}
     >
-      {plate ? <WindPlate texture={plate.texture} mobile={plate.mobile} onReady={onReady} /> : null}
+      {plate ? <WindPlate map={plate.map} plate={plate.plate} mobile={plate.mobile} onReady={onReady} /> : null}
       {/* Bees and pollen used to render in this canvas. Add the next overlay
           after WindPlate with depthTest disabled so it sits above the plate. */}
     </Canvas>
