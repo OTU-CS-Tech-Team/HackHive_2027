@@ -65,36 +65,41 @@ void main() {
   float settle = smoothstep(0.35, 2.1, t);
   float wind = sin(t * 0.62) * settle;
 
-  // Canopy: one rigid move, pivoted where the limbs meet the trunk.
-  vec2 pivot = (uLayout < 0.5 ? vec2(1000.0, 160.0) : vec2(580.0, 640.0)) * sc;
-  float ampX = (uLayout < 0.5 ? 9.0 : 11.0) * sc.x;
-  float ampY = (uLayout < 0.5 ? 2.0 : 2.4) * sc.x;
-  vec2 coff = vec2(wind * ampX, wind * ampY);
-  float ang = wind * 0.005;
-  vec2 crel = pix - coff - pivot;
-  vec2 csrc = pivot + rot(crel, -ang);
-  vec2 cUv = csrc / uImageSize;
-  float cIn = inside(cUv);
-  vec3 canopyCol = texture2D(uMap, vec2(cUv.x, 1.0 - cUv.y)).rgb;
-  float canopyA = texture2D(uMask, vec2(cUv.x, 1.0 - cUv.y)).r * cIn;
+  // Leaves: a small slide. No rotation, so the limbs underneath do not warp.
+  float leafAmp = (uLayout < 0.5 ? 5.0 : 6.0) * sc.x;
+  vec2 lsrc = pix - vec2(wind * leafAmp, wind * 1.1 * sc.x);
+  vec2 lUv = lsrc / uImageSize;
+  float lIn = inside(lUv);
+  vec3 leafCol = texture2D(uMap, vec2(lUv.x, 1.0 - lUv.y)).rgb;
+  float leafA = texture2D(uMask, vec2(lUv.x, 1.0 - lUv.y)).r * lIn;
 
-  // Grass: the same breeze, one rigid slide. A little more travel than the leaves.
-  float gAmp = (uLayout < 0.5 ? 11.0 : 13.0) * sc.x;
-  vec2 gsrc = pix - vec2(wind * gAmp, wind * 1.6 * sc.x);
+  // Grass drifts with the same breeze, a little further.
+  float gAmp = (uLayout < 0.5 ? 7.0 : 8.0) * sc.x;
+  vec2 gsrc = pix - vec2(wind * gAmp, wind * 0.5 * sc.x);
   vec2 gUv = gsrc / uImageSize;
   float gIn = inside(gUv);
   vec3 grassCol = texture2D(uMap, vec2(gUv.x, 1.0 - gUv.y)).rgb;
   float grassA = texture2D(uMask, vec2(gUv.x, 1.0 - gUv.y)).g * gIn;
 
+  // Hive and ropes: one tiny rigid swing from the knot.
+  vec2 knot = (uLayout < 0.5 ? vec2(924.0, 48.0) : vec2(552.0, 648.0)) * sc;
+  float hang = wind * 0.026;
+  vec2 hsrc = knot + rot(pix - knot, -hang);
+  vec2 hUv = hsrc / uImageSize;
+  float hIn = inside(hUv);
+  vec3 hiveCol = texture2D(uMap, vec2(hUv.x, 1.0 - hUv.y)).rgb;
+  float hiveA = texture2D(uMask, vec2(hUv.x, 1.0 - hUv.y)).b * hIn;
+
   if (uDebug > 0.5) {
-    gl_FragColor = vec4(canopyA, grassA, 0.0, 1.0);
+    gl_FragColor = vec4(leafA, grassA, hiveA, 1.0);
     return;
   }
 
   vec2 baseUv = vec2(p.x, 1.0 - p.y);
   vec3 col = texture2D(uBase, baseUv).rgb;
-  col = mix(col, canopyCol, canopyA);
+  col = mix(col, leafCol, leafA);
   col = mix(col, grassCol, grassA);
+  col = mix(col, hiveCol, hiveA);
   gl_FragColor = vec4(col, 1.0);
 }
 `;

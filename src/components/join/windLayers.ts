@@ -1,7 +1,7 @@
-// Cut the canopy and the meadow off the oak plate so they can move as two
-// layers. The trunk, the thick limbs, the hive and the ropes stay in the
-// base. At rest the composite matches the still: every inpainted pixel is
-// covered by an opaque part of a layer.
+// Cut the canopy, the meadow, and the hive off the oak plate so each can
+// move a little. The trunk and the limbs stay in the base. At rest the
+// composite matches the still: every inpainted pixel is covered by an
+// opaque part of a layer.
 
 export type WindLayers = {
   base: Uint8Array;
@@ -113,6 +113,149 @@ function hiveMask(width: number, height: number, mobile: boolean, scx: number, s
     }
   }
   return mask;
+}
+
+// The swing only uncovers a few pixels, so the fill copies the bark or sky
+// just outside the silhouette. The deep middle stays covered by the sprite.
+function paintHive(
+  rgb: Float32Array,
+  width: number,
+  height: number,
+  mobile: boolean,
+  scx: number,
+  scy: number,
+) {
+  const alpha = new Float32Array(width * height);
+  const x0 = Math.max(0, Math.floor((mobile ? 360 : 720) * scx));
+  const x1 = Math.min(width, Math.ceil((mobile ? 700 : 1100) * scx));
+  const y0 = Math.max(0, Math.floor((mobile ? 580 : 0) * scy));
+  const y1 = Math.min(height, Math.ceil((mobile ? 880 : 380) * scy));
+  const dist = new Float32Array(width * height);
+  dist.fill(1e6);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      dist[y * width + x] = hiveDistAt(x + 0.5, y + 0.5, mobile, scx, scy);
+    }
+  }
+
+  // The silhouette is covered solidly, a little past the edge, so the few
+  // pixels the sway uncovers are fill rather than a second copy of the wood.
+  const opaque = 4.5;
+  const feather = 6.5;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const d = dist[y * width + x];
+      if (d >= feather) continue;
+      alpha[y * width + x] = d <= opaque ? 1 : 1 - smoothstep(opaque, feather, d);
+    }
+  }
+
+  const inside = new Uint8Array(width * height);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (dist[y * width + x] <= opaque) inside[y * width + x] = 1;
+    }
+  }
+
+  const best = new Float32Array(width * height);
+  best.fill(1e9);
+  const sx = new Int16Array(width * height);
+  const sy = new Int16Array(width * height);
+  const cap = 12;
+  const consider = (x: number, y: number, depth: number, ox: number, oy: number) => {
+    const i = y * width + x;
+    if (depth < best[i]) {
+      best[i] = depth;
+      sx[i] = ox;
+      sy[i] = oy;
+    }
+  };
+  const clearOfHive = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < width && y < height && dist[y * width + x] > feather;
+
+  for (let y = y0; y < y1; y++) {
+    let x = x0;
+    while (x < x1) {
+      while (x < x1 && !inside[y * width + x]) x++;
+      if (x >= x1) break;
+      const start = x;
+      while (x < x1 && inside[y * width + x]) x++;
+      const end = x - 1;
+      for (let px = start; px <= end; px++) {
+        const left = px - start;
+        const right = end - px;
+        const depth = Math.min(left, right) + 1;
+        const reach = Math.min(depth, cap);
+        const towardLeft = left <= right;
+        let ox = towardLeft ? start - (reach + 4) : end + (reach + 4);
+        ox = Math.max(0, Math.min(width - 1, ox));
+        if (!clearOfHive(ox, y)) ox = Math.max(0, Math.min(width - 1, towardLeft ? start - 8 : end + 8));
+        consider(px, y, depth, ox, y);
+      }
+    }
+  }
+
+  for (let x = x0; x < x1; x++) {
+    let y = y0;
+    while (y < y1) {
+      while (y < y1 && !inside[y * width + x]) y++;
+      if (y >= y1) break;
+      const start = y;
+      while (y < y1 && inside[y * width + x]) y++;
+      const end = y - 1;
+      for (let py = start; py <= end; py++) {
+        const top = py - start;
+        const bottom = end - py;
+        const depth = Math.min(top, bottom) + 1;
+        const reach = Math.min(depth, cap);
+        const towardTop = top <= bottom;
+        let oy = towardTop ? start - (reach + 4) : end + (reach + 4);
+        oy = Math.max(0, Math.min(height - 1, oy));
+        if (!clearOfHive(x, oy)) oy = Math.max(0, Math.min(height - 1, towardTop ? start - 8 : end + 8));
+        consider(x, py, depth, x, oy);
+      }
+    }
+  }
+
+  const filled = rgb.slice();
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = y * width + x;
+      if (!inside[i] || best[i] > 1e8) continue;
+      const source = sy[i] * width + sx[i];
+      filled[i * 3] = rgb[source * 3];
+      filled[i * 3 + 1] = rgb[source * 3 + 1];
+      filled[i * 3 + 2] = rgb[source * 3 + 2];
+    }
+  }
+
+  return { alpha, filled };
+}
+
+function erode(src: Uint8Array, width: number, height: number, radius: number) {
+  if (radius <= 0) return src;
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let keep = true;
+      for (let dy = -radius; dy <= radius && keep; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= height) {
+          keep = false;
+          break;
+        }
+        for (let dx = -radius; dx <= radius; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= width || !src[yy * width + xx]) {
+            keep = false;
+            break;
+          }
+        }
+      }
+      if (keep) out[y * width + x] = 1;
+    }
+  }
+  return out;
 }
 
 function dilate(src: Uint8Array, width: number, height: number, radius: number) {
@@ -234,49 +377,56 @@ function blurRgb(rgb: Float32Array, width: number, height: number, radius: numbe
   return out;
 }
 
-function fillFromSky(
-  rgb: Float32Array,
-  hole: Uint8Array,
-  sky: Uint8Array,
-  width: number,
-  height: number,
-  rounds: number,
-) {
-  const out = rgb.slice();
-  let known = new Uint8Array(width * height);
-  for (let i = 0; i < known.length; i++) known[i] = sky[i] && !hole[i] ? 1 : 0;
-  for (let n = 0; n < rounds; n++) {
-    const nextKnown = known.slice();
-    let grew = false;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const i = y * width + x;
-        if (!hole[i] || known[i]) continue;
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        let c = 0;
-        const take = (j: number) => {
-          if (!known[j]) return;
-          r += out[j * 3];
-          g += out[j * 3 + 1];
-          b += out[j * 3 + 2];
-          c++;
-        };
-        if (x > 0) take(i - 1);
-        if (x + 1 < width) take(i + 1);
-        if (y > 0) take(i - width);
-        if (y + 1 < height) take(i + width);
-        if (!c) continue;
-        out[i * 3] = r / c;
-        out[i * 3 + 1] = g / c;
-        out[i * 3 + 2] = b / c;
-        nextKnown[i] = 1;
-        grew = true;
+// Spread the surrounding sky into the leaf holes. A plain flood leaves
+// rectangular blocks; averaging only the known pixels stays soft.
+function inpaintCover(rgb: Float32Array, hole: Uint8Array, width: number, height: number) {
+  const count = width * height;
+  let red = new Float32Array(count);
+  let green = new Float32Array(count);
+  let blue = new Float32Array(count);
+  let weight = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    if (hole[i]) continue;
+    weight[i] = 1;
+    red[i] = rgb[i * 3];
+    green[i] = rgb[i * 3 + 1];
+    blue[i] = rgb[i * 3 + 2];
+  }
+  const radius = Math.max(4, Math.round(Math.min(width, height) / 180));
+  for (let pass = 0; pass < 5; pass++) {
+    weight = boxBlur(weight, width, height, radius);
+    red = boxBlur(red, width, height, radius);
+    green = boxBlur(green, width, height, radius);
+    blue = boxBlur(blue, width, height, radius);
+    const nextW = new Float32Array(count);
+    const nextR = new Float32Array(count);
+    const nextG = new Float32Array(count);
+    const nextB = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      if (!hole[i]) {
+        nextW[i] = 1;
+        nextR[i] = rgb[i * 3];
+        nextG[i] = rgb[i * 3 + 1];
+        nextB[i] = rgb[i * 3 + 2];
+        continue;
       }
+      if (weight[i] < 0.02) continue;
+      nextW[i] = 1;
+      nextR[i] = red[i] / weight[i];
+      nextG[i] = green[i] / weight[i];
+      nextB[i] = blue[i] / weight[i];
     }
-    known = nextKnown;
-    if (!grew) break;
+    weight = nextW;
+    red = nextR;
+    green = nextG;
+    blue = nextB;
+  }
+  const out = rgb.slice();
+  for (let i = 0; i < count; i++) {
+    if (!hole[i] || weight[i] < 0.5) continue;
+    out[i * 3] = red[i];
+    out[i * 3 + 1] = green[i];
+    out[i * 3 + 2] = blue[i];
   }
   return out;
 }
@@ -318,42 +468,44 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
       const r = rgb[i * 3];
       const g = rgb[i * 3 + 1];
       const b = rgb[i * 3 + 2];
-      const foliage = r > 85 && g > 48 && b < 155 && r - b > 38 && lum[i] > 78 && lum[i] < 214;
-      if (foliage && canopyBand) leaf[i] = 1;
-      const flower = grassBand && lum[i] > 150 && lum[i] < 245 && b < 200 && r - b > 15;
-      if (grassBand && ((foliage && lum[i] > 72) || flower)) grassCore[i] = 1;
+      // Bright backlit leaves in the top-left are almost white-gold. They still
+      // have to travel with the cluster, or the plate keeps a second copy.
+      // Pale gold at the top-left is sky glow, not a leaf. Real backlit
+      // leaves are warmer and not this bright.
+      const leafTone =
+        lum[i] > 78 &&
+        lum[i] < 236 &&
+        g > 64 &&
+        r > 90 &&
+        b < 186 &&
+        r - b > 58 &&
+        !(lum[i] > 198 && b > 150);
+      if (leafTone && canopyBand) leaf[i] = 1;
+      const grassTone = r > 85 && g > 48 && b < 155 && r - b > 38 && lum[i] > 78 && lum[i] < 214;
+      const flower = lum[i] > 150 && lum[i] < 245 && b < 200 && r - b > 15;
+      if (grassBand && (grassTone || flower)) grassCore[i] = 1;
     }
   }
 
-  const reach = Math.max(1, Math.round(3 * scx));
-  const nearLeaf = dilate(leaf, width, height, reach);
-  const tips = new Uint8Array(count);
-  for (let i = 0; i < count; i++) {
-    if (!nearLeaf[i] || leaf[i] || trunk[i] || hive[i]) continue;
-    const r = rgb[i * 3];
-    const b = rgb[i * 3 + 2];
-    if (lum[i] > 28 && lum[i] < 96 && r - b > 8) tips[i] = 1;
-  }
-
+  // Branches and limbs stay off this layer. Only real leaf clusters move.
+  // Closing fills pinholes inside a cluster. Specks on the bark stay put,
+  // because inpainting them leaves a bright bubble.
+  const leafMean = boxMean(leaf, width, height, Math.max(3, Math.round(5 * scx)));
+  const dense = new Uint8Array(count);
+  for (let i = 0; i < count; i++) dense[i] = leaf[i] && leafMean[i] > 0.16 ? 1 : 0;
+  const opened = dilate(dense, width, height, 2);
+  const closed = erode(opened, width, height, 2);
   const canopyCore = new Float32Array(count);
-  for (let i = 0; i < count; i++) canopyCore[i] = leaf[i] || tips[i] ? 1 : 0;
-  const blurR = Math.max(1, Math.round(2 * scx));
-  let spread = boxBlur(canopyCore, width, height, blurR);
-  spread = boxBlur(spread, width, height, blurR);
-  spread = boxBlur(spread, width, height, blurR);
-
+  for (let i = 0; i < count; i++) {
+    if (hive[i] || trunk[i] || lum[i] < 72 || !closed[i]) continue;
+    canopyCore[i] = 1;
+  }
   const grassCoreF = new Float32Array(count);
   for (let i = 0; i < count; i++) grassCoreF[i] = grassCore[i];
   const grassR = Math.max(2, Math.round(5 * scx));
   let grassSpread = boxBlur(grassCoreF, width, height, grassR);
   grassSpread = boxBlur(grassSpread, width, height, grassR);
 
-  const hiveNear = boxBlur(
-    Float32Array.from(dilate(hive, width, height, Math.max(2, Math.round(6 * scx)))),
-    width,
-    height,
-    Math.max(2, Math.round(8 * scx)),
-  );
   const trunkNear = boxBlur(Float32Array.from(trunk), width, height, Math.max(2, Math.round(10 * scx)));
 
   const canopyAlpha = new Float32Array(count);
@@ -367,11 +519,9 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       if (trunk[i] || hive[i]) continue;
-      const hiveKeep = 1 - Math.min(1, hiveNear[i] * 1.4);
-      let canopy = smoothstep(0.18, 0.42, spread[i]);
-      if (canopyCore[i] > 0) canopy = 1;
-      else canopy *= canopyFade * hiveKeep;
-      canopyAlpha[i] = Math.min(1, Math.max(0, canopy));
+      // Opaque clusters only. A translucent fringe is what doubled the
+      // top-left leaves. The texture filter feathers the hard edge.
+      if (canopyCore[i] > 0 && canopyFade > 0.5) canopyAlpha[i] = 1;
       const trunkKeep = 1 - Math.min(1, trunkNear[i] * 1.3);
       let grass = smoothstep(0.04, 0.22, grassSpread[i]);
       if (grassCore[i]) grass = 1;
@@ -381,20 +531,24 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
 
   const canopyHole = new Uint8Array(count);
   const grassHole = new Uint8Array(count);
-  const sky = new Uint8Array(count);
   for (let i = 0; i < count; i++) {
-    const b = rgb[i * 3 + 2];
-    sky[i] = lum[i] > 168 && b > 145 && !trunk[i] && !hive[i] ? 1 : 0;
     if (trunk[i] || hive[i]) continue;
+    // Only the opaque leaves are replaced. The soft fringe stays on the
+    // original sky so the resting frame does not pick up a dark halo.
     if (canopyAlpha[i] > 0.82) canopyHole[i] = 1;
     else if (grassAlpha[i] > 0.82) grassHole[i] = 1;
   }
 
-  const skyField = fillFromSky(rgb, canopyHole, sky, width, height, 18);
+  const skyField = inpaintCover(rgb, canopyHole, width, height);
   const grassBlur = blurRgb(rgb, width, height, Math.max(8, Math.round(18 * scx)));
+  const hiveLayer = paintHive(rgb, width, height, mobile, scx, scy);
   const baseRgb = rgb.slice();
   for (let i = 0; i < count; i++) {
-    if (canopyHole[i]) {
+    if (hiveLayer.alpha[i] >= 1) {
+      baseRgb[i * 3] = hiveLayer.filled[i * 3];
+      baseRgb[i * 3 + 1] = hiveLayer.filled[i * 3 + 1];
+      baseRgb[i * 3 + 2] = hiveLayer.filled[i * 3 + 2];
+    } else if (canopyHole[i]) {
       baseRgb[i * 3] = skyField[i * 3];
       baseRgb[i * 3 + 1] = skyField[i * 3 + 1];
       baseRgb[i * 3 + 2] = skyField[i * 3 + 2];
@@ -414,7 +568,7 @@ export function buildWindLayers(pixels: Uint8Array, width: number, height: numbe
     base[i * 4 + 3] = 255;
     mask[i * 4] = Math.max(0, Math.min(255, Math.round(canopyAlpha[i] * 255)));
     mask[i * 4 + 1] = Math.max(0, Math.min(255, Math.round(grassAlpha[i] * 255)));
-    mask[i * 4 + 2] = 0;
+    mask[i * 4 + 2] = Math.max(0, Math.min(255, Math.round(hiveLayer.alpha[i] * 255)));
     mask[i * 4 + 3] = 255;
   }
   return { base, mask };
