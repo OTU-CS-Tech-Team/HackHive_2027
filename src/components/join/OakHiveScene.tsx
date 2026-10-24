@@ -45,9 +45,30 @@ function canCreateWebGLContext(): boolean {
   }
 }
 
-function seededRandom(seed: number) {
+function seededRandom(seed: number): number {
   const x = Math.sin(seed * 9999) * 10000;
   return x - Math.floor(x);
+}
+
+function createSoftParticleTexture(): THREE.CanvasTexture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  
+  const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  gradient.addColorStop(0, "rgba(255, 220, 140, 1)");
+  gradient.addColorStop(0.3, "rgba(255, 200, 100, 0.6)");
+  gradient.addColorStop(0.6, "rgba(255, 180, 80, 0.2)");
+  gradient.addColorStop(1, "rgba(255, 160, 60, 0)");
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function RealisticBee({ 
@@ -55,82 +76,110 @@ function RealisticBee({
   speed, 
   radius, 
   offset,
-  glowIntensity = 0.3 
+  depth = 1,
 }: { 
   initialPosition: [number, number, number]; 
   speed: number; 
   radius: number; 
   offset: number;
-  glowIntensity?: number;
+  depth?: number;
 }) {
   const beeRef = useRef<THREE.Group>(null);
   const wingRef1 = useRef<THREE.Mesh>(null);
   const wingRef2 = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+  const trailRef = useRef<THREE.Mesh>(null);
+
+  const depthScale = 0.6 + depth * 0.4;
+  const depthOpacity = 0.5 + depth * 0.5;
 
   useFrame((state) => {
     if (!beeRef.current) return;
     const t = state.clock.elapsedTime * speed + offset;
     
     const x = initialPosition[0] + Math.sin(t) * radius;
-    const y = initialPosition[1] + Math.sin(t * 1.3) * (radius * 0.3) + Math.sin(t * 2.1) * 0.05;
-    const z = initialPosition[2] + Math.cos(t * 0.8) * radius * 0.4;
+    const y = initialPosition[1] + Math.sin(t * 1.3) * (radius * 0.25) + Math.sin(t * 2.1) * 0.03;
+    const z = initialPosition[2] + Math.cos(t * 0.8) * radius * 0.3;
     
     beeRef.current.position.set(x, y, z);
     beeRef.current.rotation.y = Math.atan2(Math.cos(t), -Math.sin(t * 0.8) * 0.5);
-    beeRef.current.rotation.z = Math.sin(t * 1.5) * 0.08;
+    beeRef.current.rotation.z = Math.sin(t * 1.5) * 0.06;
     
-    const wingFlap = Math.sin(state.clock.elapsedTime * 45) * 0.35;
-    if (wingRef1.current) wingRef1.current.rotation.z = 0.25 + wingFlap;
-    if (wingRef2.current) wingRef2.current.rotation.z = -0.25 - wingFlap;
+    const wingFlap = Math.sin(state.clock.elapsedTime * 60) * 0.5;
+    if (wingRef1.current) wingRef1.current.rotation.x = 0.2 + wingFlap;
+    if (wingRef2.current) wingRef2.current.rotation.x = -0.2 - wingFlap;
     
-    if (glowRef.current) {
-      const pulse = 0.8 + Math.sin(state.clock.elapsedTime * 3 + offset) * 0.2;
-      glowRef.current.scale.setScalar(pulse);
+    if (trailRef.current) {
+      const pulse = 0.7 + Math.sin(state.clock.elapsedTime * 4 + offset) * 0.3;
+      trailRef.current.scale.setScalar(pulse);
+      (trailRef.current.material as THREE.MeshBasicMaterial).opacity = 0.12 * pulse * depthOpacity;
     }
   });
 
   return (
-    <group ref={beeRef} position={initialPosition} scale={0.05}>
-      {/* Glow trail */}
-      <mesh ref={glowRef} position={[-0.8, 0, 0]}>
-        <sphereGeometry args={[1.5, 8, 6]} />
+    <group ref={beeRef} position={initialPosition} scale={0.025 * depthScale}>
+      {/* Soft glow trail behind bee */}
+      <mesh ref={trailRef} position={[-1.5, 0, 0]}>
+        <sphereGeometry args={[2, 8, 6]} />
         <meshBasicMaterial 
-          color={0xffdd88} 
+          color={0xffcc66} 
           transparent 
-          opacity={glowIntensity} 
+          opacity={0.1}
           depthWrite={false}
         />
       </mesh>
       
-      {/* Body */}
-      <mesh>
-        <sphereGeometry args={[1, 10, 8]} />
-        <meshBasicMaterial color={0xe8a820} />
+      {/* Thorax (front body segment) - fuzzy amber */}
+      <mesh position={[0.4, 0, 0]} scale={[0.7, 0.5, 0.5]}>
+        <sphereGeometry args={[1, 12, 8]} />
+        <meshBasicMaterial color={new THREE.Color(0xc4873a).multiplyScalar(depthOpacity)} />
       </mesh>
       
-      {/* Stripes */}
-      {[-0.3, 0.3].map((zPos, i) => (
-        <mesh key={i} position={[0, 0, zPos]}>
-          <cylinderGeometry args={[1.05, 1.05, 0.18, 10]} />
-          <meshBasicMaterial color={0x1a1a1a} />
-        </mesh>
-      ))}
+      {/* Abdomen (rear body) - elongated with stripes */}
+      <mesh position={[-0.5, 0, 0]} scale={[1.2, 0.55, 0.55]}>
+        <sphereGeometry args={[1, 12, 8]} />
+        <meshBasicMaterial color={new THREE.Color(0xd4973a).multiplyScalar(depthOpacity)} />
+      </mesh>
+      
+      {/* Stripes on abdomen */}
+      <mesh position={[-0.2, 0, 0]} scale={[0.15, 0.58, 0.58]}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshBasicMaterial color={new THREE.Color(0x2a1a0a).multiplyScalar(depthOpacity)} />
+      </mesh>
+      <mesh position={[-0.6, 0, 0]} scale={[0.15, 0.52, 0.52]}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshBasicMaterial color={new THREE.Color(0x2a1a0a).multiplyScalar(depthOpacity)} />
+      </mesh>
+      <mesh position={[-1.0, 0, 0]} scale={[0.12, 0.45, 0.45]}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshBasicMaterial color={new THREE.Color(0x2a1a0a).multiplyScalar(depthOpacity)} />
+      </mesh>
       
       {/* Head */}
-      <mesh position={[0.9, 0, 0]}>
-        <sphereGeometry args={[0.5, 8, 6]} />
-        <meshBasicMaterial color={0x2a2a2a} />
+      <mesh position={[0.9, 0.05, 0]} scale={[0.35, 0.32, 0.32]}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshBasicMaterial color={new THREE.Color(0x3a2a1a).multiplyScalar(depthOpacity)} />
       </mesh>
       
-      {/* Wings */}
-      <mesh ref={wingRef1} position={[0, 0.6, 0.35]} rotation={[0, 0, 0.25]} scale={[0.7, 0.1, 1]}>
-        <sphereGeometry args={[0.7, 6, 4]} />
-        <meshBasicMaterial color={0xffffff} transparent opacity={0.5} side={THREE.DoubleSide} />
+      {/* Wings - translucent planes with fast flap */}
+      <mesh ref={wingRef1} position={[0.2, 0.35, 0.25]} rotation={[0.2, 0.1, 0.3]}>
+        <planeGeometry args={[1.4, 0.5]} />
+        <meshBasicMaterial 
+          color={0xffffff}
+          transparent 
+          opacity={0.25 * depthOpacity}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
       </mesh>
-      <mesh ref={wingRef2} position={[0, 0.6, -0.35]} rotation={[0, 0, -0.25]} scale={[0.7, 0.1, 1]}>
-        <sphereGeometry args={[0.7, 6, 4]} />
-        <meshBasicMaterial color={0xffffff} transparent opacity={0.5} side={THREE.DoubleSide} />
+      <mesh ref={wingRef2} position={[0.2, 0.35, -0.25]} rotation={[-0.2, -0.1, 0.3]}>
+        <planeGeometry args={[1.4, 0.5]} />
+        <meshBasicMaterial 
+          color={0xffffff}
+          transparent 
+          opacity={0.25 * depthOpacity}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
       </mesh>
     </group>
   );
@@ -145,16 +194,16 @@ function Bees({ reducedMotion }: { reducedMotion: boolean }) {
     
     if (isMobile) {
       return [
-        { pos: [-1.5, 0.5, 0.5] as [number, number, number], speed: 0.4, radius: 0.6, offset: 0, glow: 0.25 },
-        { pos: [-0.5, 1, 0.3] as [number, number, number], speed: 0.35, radius: 0.4, offset: 2, glow: 0.2 },
+        { pos: [-1.2, 0.4, 0.3] as [number, number, number], speed: 0.35, radius: 0.5, offset: 0, depth: 0.9 },
+        { pos: [-0.3, 0.8, 0.15] as [number, number, number], speed: 0.3, radius: 0.35, offset: 2.5, depth: 0.7 },
       ];
     }
     
     return [
-      { pos: [-2.5, 0.3, 0.5] as [number, number, number], speed: 0.45, radius: 0.8, offset: 0, glow: 0.3 },
-      { pos: [-1.5, 0.8, 0.3] as [number, number, number], speed: 0.38, radius: 0.6, offset: 1.5, glow: 0.25 },
-      { pos: [-0.8, 0.2, 0.4] as [number, number, number], speed: 0.5, radius: 0.5, offset: 3, glow: 0.2 },
-      { pos: [-2, -0.3, 0.2] as [number, number, number], speed: 0.42, radius: 0.7, offset: 4.5, glow: 0.25 },
+      { pos: [-2.2, 0.2, 0.4] as [number, number, number], speed: 0.4, radius: 0.7, offset: 0, depth: 1.0 },
+      { pos: [-1.3, 0.7, 0.25] as [number, number, number], speed: 0.35, radius: 0.5, offset: 1.8, depth: 0.85 },
+      { pos: [-0.5, 0.15, 0.35] as [number, number, number], speed: 0.45, radius: 0.4, offset: 3.5, depth: 0.7 },
+      { pos: [-1.8, -0.2, 0.15] as [number, number, number], speed: 0.38, radius: 0.55, offset: 5, depth: 0.6 },
     ];
   }, [isMobile, reducedMotion]);
 
@@ -167,10 +216,64 @@ function Bees({ reducedMotion }: { reducedMotion: boolean }) {
           speed={c.speed} 
           radius={c.radius} 
           offset={c.offset}
-          glowIntensity={c.glow}
+          depth={c.depth}
         />
       ))}
     </>
+  );
+}
+
+function GoldenPollen({ reducedMotion }: { reducedMotion: boolean }) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const { size } = useThree();
+  const isMobile = size.width < 768;
+  const count = isMobile ? 30 : 60;
+  
+  const texture = useMemo(() => createSoftParticleTexture(), []);
+  
+  const { positions, sizes } = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const sz = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (seededRandom(8000 + i * 3) - 0.5) * 5;
+      pos[i * 3 + 1] = seededRandom(8000 + i * 3 + 1) * 2.5 - 0.3;
+      pos[i * 3 + 2] = seededRandom(8000 + i * 3 + 2) * 1.5;
+      sz[i] = 0.015 + seededRandom(8000 + i * 3 + 3) * 0.02;
+    }
+    return { positions: pos, sizes: sz };
+  }, [count]);
+
+  useFrame((state) => {
+    if (!pointsRef.current || reducedMotion) return;
+    const posAttr = pointsRef.current.geometry.getAttribute("position");
+    if (!posAttr) return;
+    const arr = posAttr.array as Float32Array;
+    const t = state.clock.elapsedTime * 0.05;
+    for (let i = 0; i < count; i++) {
+      arr[i * 3 + 1] += Math.sin(t + i * 0.35) * 0.001;
+      arr[i * 3] += Math.cos(t * 0.4 + i * 0.2) * 0.0006;
+      arr[i * 3 + 2] += Math.sin(t * 0.3 + i * 0.25) * 0.0004;
+    }
+    posAttr.needsUpdate = true;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
+      </bufferGeometry>
+      <pointsMaterial 
+        size={0.03}
+        map={texture}
+        color={0xffd070}
+        transparent
+        opacity={0.6}
+        sizeAttenuation
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   );
 }
 
@@ -178,14 +281,16 @@ function DustMotes({ reducedMotion }: { reducedMotion: boolean }) {
   const pointsRef = useRef<THREE.Points>(null);
   const { size } = useThree();
   const isMobile = size.width < 768;
-  const count = isMobile ? 25 : 50;
+  const count = isMobile ? 20 : 40;
+  
+  const texture = useMemo(() => createSoftParticleTexture(), []);
   
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      arr[i * 3] = (seededRandom(8000 + i * 3) - 0.5) * 6;
-      arr[i * 3 + 1] = seededRandom(8000 + i * 3 + 1) * 3 - 0.5;
-      arr[i * 3 + 2] = seededRandom(8000 + i * 3 + 2) * 2 - 0.5;
+      arr[i * 3] = (seededRandom(9000 + i * 3) - 0.5) * 4;
+      arr[i * 3 + 1] = seededRandom(9000 + i * 3 + 1) * 2 - 0.2;
+      arr[i * 3 + 2] = seededRandom(9000 + i * 3 + 2) * 1.2;
     }
     return arr;
   }, [count]);
@@ -195,10 +300,10 @@ function DustMotes({ reducedMotion }: { reducedMotion: boolean }) {
     const posAttr = pointsRef.current.geometry.getAttribute("position");
     if (!posAttr) return;
     const arr = posAttr.array as Float32Array;
-    const t = state.clock.elapsedTime * 0.06;
+    const t = state.clock.elapsedTime * 0.03;
     for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += Math.sin(t + i * 0.4) * 0.0015;
-      arr[i * 3] += Math.cos(t * 0.5 + i * 0.25) * 0.0008;
+      arr[i * 3 + 1] += Math.sin(t + i * 0.5) * 0.0008;
+      arr[i * 3] += Math.cos(t * 0.6 + i * 0.3) * 0.0005;
     }
     posAttr.needsUpdate = true;
   });
@@ -209,59 +314,14 @@ function DustMotes({ reducedMotion }: { reducedMotion: boolean }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial 
-        size={0.06} 
-        color={0xffd880} 
-        transparent 
-        opacity={0.6} 
-        sizeAttenuation 
+        size={0.02}
+        map={texture}
+        color={0xffe8c0}
+        transparent
+        opacity={0.4}
+        sizeAttenuation
         depthWrite={false}
-      />
-    </points>
-  );
-}
-
-function PollenParticles({ reducedMotion }: { reducedMotion: boolean }) {
-  const pointsRef = useRef<THREE.Points>(null);
-  const { size } = useThree();
-  const isMobile = size.width < 768;
-  const count = isMobile ? 15 : 35;
-  
-  const positions = useMemo(() => {
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      arr[i * 3] = (seededRandom(9000 + i * 3) - 0.5) * 5;
-      arr[i * 3 + 1] = seededRandom(9000 + i * 3 + 1) * 2;
-      arr[i * 3 + 2] = seededRandom(9000 + i * 3 + 2) * 1.5;
-    }
-    return arr;
-  }, [count]);
-
-  useFrame((state) => {
-    if (!pointsRef.current || reducedMotion) return;
-    const posAttr = pointsRef.current.geometry.getAttribute("position");
-    if (!posAttr) return;
-    const arr = posAttr.array as Float32Array;
-    const t = state.clock.elapsedTime * 0.04;
-    for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += Math.sin(t * 1.2 + i * 0.5) * 0.002;
-      arr[i * 3] += Math.cos(t * 0.8 + i * 0.3) * 0.001;
-      arr[i * 3 + 2] += Math.sin(t * 0.6 + i * 0.4) * 0.0008;
-    }
-    posAttr.needsUpdate = true;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial 
-        size={0.04} 
-        color={0xffffee} 
-        transparent 
-        opacity={0.4} 
-        sizeAttenuation 
-        depthWrite={false}
+        blending={THREE.AdditiveBlending}
       />
     </points>
   );
@@ -285,74 +345,49 @@ function SceneContent({ reducedMotion }: { reducedMotion: boolean }) {
     <>
       <CameraSetup />
       <Bees reducedMotion={reducedMotion} />
+      <GoldenPollen reducedMotion={reducedMotion} />
       <DustMotes reducedMotion={reducedMotion} />
-      <PollenParticles reducedMotion={reducedMotion} />
     </>
   );
 }
 
-function BackdropImage({ className = "" }: { className?: string }) {
+function BackdropImage() {
   return (
-    <picture className={className}>
+    <picture className="absolute inset-0 h-full w-full">
       {/* Mobile art for portrait/narrow viewports */}
       <source
         media="(max-width: 767px), (max-width: 1024px) and (orientation: portrait)"
         type="image/avif"
-        srcSet="
-          /join/backdrop-mobile-640w.avif 640w,
-          /join/backdrop-mobile-1024w.avif 1024w,
-          /join/backdrop-mobile-1600w.avif 1600w
-        "
+        srcSet="/join/backdrop-mobile-640w.avif 640w, /join/backdrop-mobile-1024w.avif 1024w, /join/backdrop-mobile-1600w.avif 1600w"
         sizes="100vw"
       />
       <source
         media="(max-width: 767px), (max-width: 1024px) and (orientation: portrait)"
         type="image/webp"
-        srcSet="
-          /join/backdrop-mobile-640w.webp 640w,
-          /join/backdrop-mobile-1024w.webp 1024w,
-          /join/backdrop-mobile-1600w.webp 1600w
-        "
+        srcSet="/join/backdrop-mobile-640w.webp 640w, /join/backdrop-mobile-1024w.webp 1024w, /join/backdrop-mobile-1600w.webp 1600w"
         sizes="100vw"
-      />
-      <source
-        media="(max-width: 767px), (max-width: 1024px) and (orientation: portrait)"
-        type="image/jpeg"
-        srcSet="/join/backdrop-mobile.jpg"
       />
       
       {/* Desktop art for wide/landscape viewports */}
       <source
         media="(min-width: 768px)"
         type="image/avif"
-        srcSet="
-          /join/backdrop-desktop-640w.avif 640w,
-          /join/backdrop-desktop-1024w.avif 1024w,
-          /join/backdrop-desktop-1600w.avif 1600w,
-          /join/backdrop-desktop-2400w.avif 2400w
-        "
+        srcSet="/join/backdrop-desktop-640w.avif 640w, /join/backdrop-desktop-1024w.avif 1024w, /join/backdrop-desktop-1600w.avif 1600w, /join/backdrop-desktop-2400w.avif 2400w"
         sizes="100vw"
       />
       <source
         media="(min-width: 768px)"
         type="image/webp"
-        srcSet="
-          /join/backdrop-desktop-640w.webp 640w,
-          /join/backdrop-desktop-1024w.webp 1024w,
-          /join/backdrop-desktop-1600w.webp 1600w,
-          /join/backdrop-desktop-2400w.webp 2400w
-        "
+        srcSet="/join/backdrop-desktop-640w.webp 640w, /join/backdrop-desktop-1024w.webp 1024w, /join/backdrop-desktop-1600w.webp 1600w, /join/backdrop-desktop-2400w.webp 2400w"
         sizes="100vw"
       />
       
-      {/* Fallback */}
+      {/* Fallback - use mobile for narrow, desktop for wide */}
       <img
         src="/join/backdrop-desktop.jpg"
         alt=""
         className="h-full w-full object-cover"
-        style={{
-          objectPosition: "center 60%",
-        }}
+        style={{ objectPosition: "center 60%" }}
         loading="eager"
         decoding="async"
       />
@@ -387,15 +422,19 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setMounted(true);
-      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-      setReducedMotion(mq.matches);
-      const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    });
+    queueMicrotask(() => setMounted(true));
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    queueMicrotask(() => setReducedMotion(mq.matches));
+    
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [mounted]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -438,15 +477,22 @@ export function OakHiveScene({ className = "" }: { className?: string }) {
     <div 
       className="absolute inset-0"
       style={{
-        minHeight: "100svh",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        minHeight: "calc(100svh + env(safe-area-inset-bottom, 0px))",
       }}
     >
-      <BackdropImage className="absolute inset-0 h-full w-full" />
+      <BackdropImage />
     </div>
   );
 
-  if (!mounted || webglSupported === null) {
+  if (!mounted) {
+    return (
+      <div ref={containerRef} className={`relative h-full w-full ${className}`}>
+        {backdropElement}
+      </div>
+    );
+  }
+
+  if (webglSupported === null) {
     return (
       <div ref={containerRef} className={`relative h-full w-full ${className}`}>
         {backdropElement}

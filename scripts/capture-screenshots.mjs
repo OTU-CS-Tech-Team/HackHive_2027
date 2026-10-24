@@ -12,7 +12,7 @@ const viewports = [
 ];
 
 async function captureScreenshots() {
-  const outputDir = path.join(__dirname, '../public/join/screenshots');
+  const outputDir = path.join(__dirname, 'test-artifacts');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
@@ -48,12 +48,20 @@ async function captureScreenshots() {
     
     page.on('console', msg => {
       const text = msg.text();
-      if (text.includes('NaN') || text.includes('error') || text.includes('Error')) {
-        console.log(`  Console: ${text.substring(0, 150)}`);
+      if (text.includes('NaN') || text.includes('error') || text.includes('Error') || text.includes('418') || text.includes('hydrat') || text.includes('Hydrat')) {
+        console.log(`  Console [${msg.type()}]: ${text.substring(0, 200)}`);
       }
     });
     
-    await page.goto('http://localhost:3000/test-scene', {
+    page.on('pageerror', err => {
+      console.log(`  PageError: ${err.message.substring(0, 200)}`);
+    });
+    
+    page.on('requestfailed', req => {
+      console.log(`  Failed request: ${req.url()}`);
+    });
+    
+    await page.goto('http://localhost:3000/scene-test', {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
