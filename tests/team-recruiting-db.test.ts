@@ -83,7 +83,11 @@ describe('teammate recruiting database authorization and invariants', () => {
       await recovery.exec(setup);
       await recovery.exec(await readFile('supabase/migrations/20261023003437_teammate_slack_profile.sql', 'utf8'));
       await recovery.exec('create schema team_internal; revoke all on schema team_internal from public,anon,authenticated;');
-      await recovery.query(await readFile('supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql', 'utf8'));
+      const migration = await readFile('supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql', 'utf8');
+      await expect(recovery.query(migration.replace('$team_ddl$;', 'select 1/0;\n$team_ddl$;'))).rejects.toThrow(/division by zero/);
+      const rolledBack = await recovery.query<{ relation: string | null }>("select to_regclass('public.team_memberships')::text as relation;");
+      expect(rolledBack.rows[0].relation).toBeNull();
+      await recovery.query(migration);
       const result = await recovery.query<{ count: number }>(`select count(*)::int from pg_tables where schemaname='public'
         and tablename in ('teammate_bookmarks','recruiting_teams','team_memberships','team_join_requests');`);
       expect(result.rows[0].count).toBe(4);

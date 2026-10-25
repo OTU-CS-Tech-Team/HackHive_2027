@@ -5,7 +5,7 @@ import { TeamHub } from './TeamHub';
 import { TeamHero } from './TeamHero';
 import styles from './team.module.css';
 
-export const metadata: Metadata = { title: 'Find your people | HackHive 2027', description: 'Meet hackers, discover complementary skills, and build your HackHive team.' };
+export const metadata: Metadata = { title: 'Find your hive | HackHive 2027', description: 'Meet hackers, discover complementary skills, and build your HackHive team.' };
 export default function TeamPage() {
   return <main className={styles.page}><div className={styles.container}>
     <TeamHero />

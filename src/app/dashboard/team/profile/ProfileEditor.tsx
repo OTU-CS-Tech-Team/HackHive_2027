@@ -21,7 +21,7 @@ export function ProfileEditor({ own, listed, hasTeam, returnTo }: { own: TeamPro
     githubUrl: safeWebUrl(draft.githubUrl), linkedinUrl: safeWebUrl(draft.linkedinUrl), instagramUrl: safeWebUrl(draft.instagramUrl), slackUrl: safeSlackProfileUrl(draft.slackUrl) };
   return <>
     <Link href={returnTo} className={styles.back}>← Back to teammate finder</Link>
-    <header className={styles.hero}><div><div className={styles.eyebrow}><span />YOUR TEAMMATE PROFILE</div><h1>Show them<br /><em>what you bring.</em></h1><p>A few thoughtful details can be the start of a great team. Your email stays out of the directory.</p></div></header>
+    <header className={styles.hero}><div><div className={styles.eyebrow}><span />YOUR TEAMMATE PROFILE</div><h1>Your place in the hive</h1><p>Add your skills and what you want to build. Your email stays out of the directory.</p></div></header>
     <div className={styles.editorGrid}>
       <div className={styles.editorPanel}>
         <div className={styles.sectionHead}><h2>Your next collaboration starts here</h2><button type="button" className={`${styles.secondary} ${styles.mobileOnly}`} onClick={() => setPreviewOpen(true)}>Preview my card</button></div>

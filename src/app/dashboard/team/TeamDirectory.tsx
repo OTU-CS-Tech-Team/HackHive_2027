@@ -56,7 +56,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
 
   return <section aria-labelledby="directory-heading" aria-busy={pending}>
     <div className={styles.sectionHead}>
-      <div><h2 id="directory-heading">{savedOnly ? 'Your shortlist' : 'Meet your next teammate.'}</h2><p className={`${styles.small} ${styles.desktopOnly}`}>{savedOnly ? 'Saved just for you. Other hackers cannot see this list.' : 'Different skills. Shared curiosity. Find someone you’d love to build with.'}</p></div>
+      <div><h2 id="directory-heading">{savedOnly ? 'Saved hackers' : 'Explore the hive'}</h2><p className={`${styles.small} ${styles.desktopOnly}`}>{savedOnly ? 'Saved just for you. Other hackers cannot see this list.' : 'Browse hackers who are looking for teammates.'}</p></div>
       <button type="button" className={styles.quiet} disabled={pending} onClick={() => startTransition(() => router.refresh())} aria-label="Refresh teammate directory">↻ Refresh</button>
     </div>
     <div className={styles.searchRow}>
@@ -71,7 +71,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
       <div className={styles.inlineActions}><label className={styles.sort}><span className={styles.desktopOnly}>Sort by</span><select aria-label="Sort hackers" value={sort} onChange={event => change('sort', event.target.value)}><option value="recommended">Suggested for you</option><option value="recent">Recently confirmed</option><option value="name">Name</option></select></label><button type="button" className={`${styles.secondary} ${styles.mobileOnly}`} onClick={() => setFiltersOpen(true)}><Icon name="filters" />Filters{activeCount ? ` (${activeCount})` : ''}</button></div>
     </div>
     {feedback && <p role={feedback.ok ? 'status' : 'alert'} className={styles.feedback}>{feedback.message}</p>}
-    {visible.length ? <ul className={styles.grid}>{visible.map(profile => <li className="flex min-w-0" key={profile.id}><ProfileCard profile={profile}
+    {visible.length ? <ul className={`${styles.grid} ${styles.peopleGrid}`}>{visible.map(profile => <li className="flex min-w-0" key={profile.id}><ProfileCard profile={profile}
       saved={marks.get(profile.id)?.saved} contacted={marks.get(profile.id)?.reached_out} disabled={pending}
       reasons={sort === 'recommended' ? matchReasons(own, profile) : []}
       onSave={upgraded ? () => mutate(() => updateBookmark(profile.id, 'saved', !marks.get(profile.id)?.saved)) : undefined}

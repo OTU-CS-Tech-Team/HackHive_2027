@@ -45,6 +45,11 @@ The second migration adds rich profile fields, private bookmarks, recruiting tea
 rosters, join requests, scoped policies, and atomic recruitment functions. Existing
 opted-in profiles continue to work. If the new profile columns are absent, the
 page falls back to basic discovery and listing controls until the migration is applied.
+For the Supabase SQL editor, copy the entire migration: it is one atomic `DO`
+statement that creates its private schema and tables before their dependents.
+No separate schema bootstrap is required. A failed run rolls back its changes.
+For troubleshooting, `supabase/diagnostics/teammate_migration_state.sql` reports
+schema objects without reading hacker data.
 
 Run `npm test`, `npm run lint`, and `npm run build`. Team tests cover safe client
 projections, 1,013-row loading, validation, matching, and real isolated PostgreSQL

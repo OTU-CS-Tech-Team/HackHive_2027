@@ -36,7 +36,7 @@ export function RecruitingBoard({ data, mine }: { data: TeamDirectoryData; mine:
   const renderFeedback = () => feedback && <p role={feedback.ok ? 'status' : 'alert'} className={styles.feedback}>{feedback.message}</p>;
 
   return <section aria-labelledby="recruiting-heading">
-    <div className={styles.sectionHead}><div><h2 id="recruiting-heading">{mine ? 'Your next great team.' : 'An idea. A few good people. You.'}</h2><p className={styles.small}>{mine ? 'Manage your roster and introductions in one place.' : 'Find a team with room for what you bring, or start something of your own.'}</p></div>
+    <div className={styles.sectionHead}><div><h2 id="recruiting-heading">{mine ? 'Your team' : 'Teams with open spots'}</h2><p className={styles.small}>{mine ? 'Manage your roster and join requests.' : 'Find an open role or start a team with your own idea.'}</p></div>
       {!membership && <button type="button" className={styles.primary} onClick={startTeam}>+ Start a team</button>}
       {!mine && membership && <button className={styles.secondary} type="button" onClick={() => updateTeamQuery({ view: 'mine' })}>My team →</button>}
     </div>
