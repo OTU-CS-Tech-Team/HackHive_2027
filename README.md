@@ -54,10 +54,10 @@ is never passed to the browser. Existing posts and legacy data are preserved on
 reruns. `npm run team:seed:clean` removes only accounts with the fixture's protected
 metadata marker and matching test email pattern, plus their cascading data.
 
-Cards use an aligned grid, neutral surfaces, and dark text. Styled Radix selects
-support keyboards and work inside dialogs. A Three.js honeycomb assembles and a
-bee flies in during a short entrance, then the scene settles within 4.2 seconds
-of visible animation. No play/pause control is needed. Reduced motion renders a
+Cards use an aligned grid, warm neutral surfaces, dark text, and amber outlines.
+Styled Radix selects support keyboards and work inside dialogs. A Three.js
+honeycomb assembles on entry, then the bee, wings, and honeycomb keep moving while
+visible. There is no play/pause control. Reduced motion renders a
 static scene; hidden/offscreen animation is suspended. GPU resources are released
 when navigating away, and a static fallback works without WebGL. Card entrances,
 menu transitions, and hover feedback also honor reduced motion.

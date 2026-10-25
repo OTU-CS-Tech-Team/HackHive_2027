@@ -54,12 +54,11 @@ export function HiveAnimation() {
       const droplets = new THREE.Group(); scene.add(droplets);
       for (let i = 0; i < 8; i++) { const drop = new THREE.Mesh(sphere, wax); drop.scale.set(.035, .075, .035); drop.position.set(Math.cos(i * 2.4) * 2.6, Math.sin(i * 2.4) * 1.55, .3); droplets.add(drop); }
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-      // Short entrance animation, then a static scene: no perpetual motion or
-      // pause UI. Offscreen/hidden time doesn't consume the entrance duration.
-      const duration = 4200;
+      // Assemble once, then keep the bee and honeycomb moving while visible.
+      // Reduced motion uses a static pose; offscreen and hidden tabs suspend work.
       let visible = true, frame = 0, last = 0, previous = 0, elapsed = 0;
       const draw = () => {
-        const t = (reduced.matches ? duration : elapsed) / 1000;
+        const t = reduced.matches ? 4.2 : elapsed / 1000;
         const progress = Math.min(1, t / 4.2);
         const ease = 1 - Math.pow(1 - progress, 3);
         hive.scale.setScalar(.85 + ease * .15);
@@ -68,23 +67,21 @@ export function HiveAnimation() {
         nectarCells.forEach((cell, i) => { cell.scale.setScalar(.65 + Math.min(1, progress * 2 + i * .08) * .35); });
         bee.position.set(-2.1 + Math.sin(t * .6) * .48, .5 + Math.sin(t * .95) * .55, 1.3);
         bee.rotation.z = Math.sin(t * .95) * .18;
-        wings.forEach((wing, i) => { wing.rotation.x = Math.sin(t * 30) * .35 * (i ? 1 : -1) * (1 - Math.pow(progress, 4)); });
+        wings.forEach((wing, i) => { wing.rotation.x = reduced.matches ? 0 : Math.sin(t * 30) * .35 * (i ? 1 : -1); });
         droplets.rotation.z = Math.sin(t * .2) * .08;
         renderer.render(scene, camera);
       };
       const animate = (time: number) => {
-        if (previous) elapsed = Math.min(duration, elapsed + Math.max(0, time - previous));
+        if (previous) elapsed += Math.max(0, time - previous);
         previous = time;
-        if (time - last >= 32 || elapsed === duration) { draw(); last = time; }
-        if (elapsed < duration) frame = requestAnimationFrame(animate);
-        else element.dataset.motion = 'settled';
+        if (time - last >= 32) { draw(); last = time; }
+        frame = requestAnimationFrame(animate);
       };
       const sync = () => {
         cancelAnimationFrame(frame);
         previous = 0;
-        if (reduced.matches) elapsed = duration;
-        const running = visible && !document.hidden && !reduced.matches && elapsed < duration;
-        element.dataset.motion = reduced.matches ? 'reduced' : running ? 'running' : elapsed >= duration ? 'settled' : 'suspended';
+        const running = visible && !document.hidden && !reduced.matches;
+        element.dataset.motion = reduced.matches ? 'reduced' : running ? 'running' : 'suspended';
         if (running) frame = requestAnimationFrame(animate);
         else draw();
       };
