@@ -1,5 +1,10 @@
 begin;
 
+-- Run this entire file, including BEGIN/COMMIT, in the SQL editor.
+-- Establish the private namespace before any migration objects are defined.
+create schema if not exists team_internal;
+revoke all on schema team_internal from public,anon,authenticated;
+
 -- Rich, opt-in teammate profiles. Never add email to a directory projection.
 create function public.team_tags_valid(tags text[]) returns boolean
 language sql immutable set search_path = '' as $$
@@ -189,8 +194,6 @@ create trigger team_owner_membership after insert on public.recruiting_teams
 -- This non-exposed trigger is the only privileged cross-user write. Joining a
 -- team hides that member's listing and withdraws their other pending requests.
 -- It never lists someone automatically. Clients cannot call this function.
-create schema if not exists team_internal;
-revoke all on schema team_internal from public,anon,authenticated;
 create function team_internal.member_joined() returns trigger
 language plpgsql security definer set search_path='' as $$
 begin
