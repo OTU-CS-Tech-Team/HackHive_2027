@@ -5,6 +5,7 @@ import { TEAM_GOALS, TEAM_ROLES, type TeamDirectoryData, type RecruitingTeam, ty
 import { saveRecruitingTeam, requestToJoin, reviewJoinRequest, withdrawJoinRequest, leaveTeam, type TeamActionResult } from './actions';
 import { Modal } from './Modal';
 import { Icon } from './Icon';
+import { SelectControl } from './SelectControl';
 import { updateTeamQuery } from './team-query';
 import styles from './team.module.css';
 
@@ -66,8 +67,8 @@ export function RecruitingBoard({ data, mine }: { data: TeamDirectoryData; mine:
     </> : <>
       <div className={`${styles.searchRow} ${styles.teamFilters}`}>
         <label className={styles.search}><Icon name="search" /><span className={styles.srOnly}>Search recruiting teams</span><input type="search" maxLength={100} placeholder="Find a project you believe in…" value={q} onChange={e => updateTeamQuery({ tq: e.target.value || null })} /></label>
-        <label className={styles.sort}><span className={styles.srOnly}>Open role</span><select className={styles.quickSelect} value={role} onChange={e => updateTeamQuery({ trole: e.target.value || null })}><option value="">Any open role</option>{TEAM_ROLES.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label className={styles.sort}><span className={styles.srOnly}>Team goal</span><select className={styles.quickSelect} value={goal} onChange={e => updateTeamQuery({ tgoal: e.target.value || null })}><option value="">Any goal</option>{Object.entries(TEAM_GOALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <div className={styles.sort}><SelectControl label="Open role" className={styles.quickSelect} value={role} onValueChange={value => updateTeamQuery({ trole: value || null })} options={[{value:'',label:'Any open role'},...TEAM_ROLES.map(value=>({value,label:value}))]} /></div>
+        <div className={styles.sort}><SelectControl label="Team goal" className={styles.quickSelect} value={goal} onValueChange={value => updateTeamQuery({ tgoal: value || null })} options={[{value:'',label:'Any goal'},...Object.entries(TEAM_GOALS).map(([value,label])=>({value,label}))]} /></div>
       </div>
       <p className={`${styles.small} mb-4`} role="status" aria-live="polite">{openTeams.length} {openTeams.length === 1 ? 'team' : 'teams'} with room to build together</p>
       {openTeams.length ? <div className={styles.grid}>{openTeams.map(team => {
@@ -91,10 +92,10 @@ export function RecruitingBoard({ data, mine }: { data: TeamDirectoryData; mine:
         <fieldset><legend>We could use help with</legend><div className={styles.chipGroup}>{TEAM_ROLES.map(value => <label className={styles.choice} key={value}><input type="checkbox" name="roles_needed" value={value} defaultChecked={editor?.roles_needed.includes(value) ?? false} />{value}</label>)}</div></fieldset>
         <label>Project interests<input name="interests" maxLength={329} defaultValue={editor?.interests.join(', ') ?? ''} placeholder="Accessibility, games, climate…" /><span className={styles.small}>Use commas to separate up to 10 interests.</span></label>
         <div className={styles.formGrid}>
-          <label>Our goal<select name="goal" defaultValue={editor?.goal ?? 'both'}>{Object.entries(TEAM_GOALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <label>Total team size<select name="capacity" defaultValue={editor?.capacity ?? 4}>{[2, 3, 4].map(size => <option key={size} value={size}>{size} hackers, including you</option>)}</select></label>
+          <label>Our goal<SelectControl label="Our goal" name="goal" defaultValue={editor?.goal ?? 'both'} options={Object.entries(TEAM_GOALS).map(([value,label])=>({value,label}))} /></label>
+          <label>Total team size<SelectControl label="Total team size" name="capacity" defaultValue={String(editor?.capacity ?? 4)} options={[2,3,4].map(size=>({value:String(size),label:`${size} hackers, including you`}))} /></label>
         </div>
-        <label>Recruitment<select name="status" defaultValue={editor?.status ?? 'recruiting'}><option value="recruiting">Open to new teammates</option><option value="closed">Closed — we have our people</option></select></label>
+        <label>Recruitment<SelectControl label="Recruitment" name="status" defaultValue={editor?.status ?? 'recruiting'} options={[{value:'recruiting',label:'Open to new teammates'},{value:'closed',label:'Closed — we have our people'}]} /></label>
         {renderFeedback()}<button type="submit" className={styles.primary} disabled={pending}>{pending ? 'Saving…' : editor ? 'Save team' : 'Publish my team'}</button>
       </form>
     </Modal>}

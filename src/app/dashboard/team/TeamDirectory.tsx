@@ -7,6 +7,7 @@ import { updateTeamQuery } from './team-query';
 import { ProfileCard } from './ProfileCard';
 import { Modal } from './Modal';
 import { Icon } from './Icon';
+import { SelectControl } from './SelectControl';
 import styles from './team.module.css';
 
 const filterKeys = ['q', 'school', 'role', 'interest', 'goal', 'first', 'github', 'hide-contacted'];
@@ -61,14 +62,14 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
     </div>
     <div className={styles.searchRow}>
       <label className={styles.search}><Icon name="search" /><span className={styles.srOnly}>Search hackers</span><input type="search" maxLength={100} value={q} onChange={event => change('q', event.target.value)} placeholder="Search skills, ideas, names…" /></label>
-      <select className={styles.quickSelect} value={role} onChange={event => change('role', event.target.value)} aria-label="Filter by role"><option value="">Any role</option>{TEAM_ROLES.map(value => <option key={value}>{value}</option>)}</select>
-      <select className={styles.quickSelect} value={interest} onChange={event => change('interest', event.target.value)} aria-label="Filter by interest"><option value="">Any interest</option>{interests.map(value => <option key={value}>{value}</option>)}</select>
+      <SelectControl className={styles.quickSelect} value={role} onValueChange={value => change('role', value)} label="Filter by role" options={[{value:'',label:'Any role'},...TEAM_ROLES.map(value=>({value,label:value}))]} />
+      <SelectControl className={styles.quickSelect} value={interest} onValueChange={value => change('interest', value)} label="Filter by interest" options={[{value:'',label:'Any interest'},...interests.map(value=>({value,label:value}))]} />
       <button type="button" className={`${styles.secondary} ${styles.desktopOnly}`} onClick={() => setFiltersOpen(true)}><Icon name="filters" />Filters{activeCount ? ` (${activeCount})` : ''}</button>
     </div>
     {!!activeCount && <div className={styles.activeFilters}><span className={styles.small}>{activeCount} active {activeCount === 1 ? 'filter' : 'filters'}</span><button className={styles.quiet} onClick={clear} type="button">Clear all ×</button></div>}
     <div className={styles.resultRow}>
       <p className={styles.small} role="status" aria-live="polite">{filtered.length ? `${Math.min(shown, filtered.length)} of ${filtered.length.toLocaleString('en-US')} hackers` : 'No matching hackers'}</p>
-      <div className={styles.inlineActions}><label className={styles.sort}><span className={styles.desktopOnly}>Sort by</span><select aria-label="Sort hackers" value={sort} onChange={event => change('sort', event.target.value)}><option value="recommended">Suggested for you</option><option value="recent">Recently confirmed</option><option value="name">Name</option></select></label><button type="button" className={`${styles.secondary} ${styles.mobileOnly}`} onClick={() => setFiltersOpen(true)}><Icon name="filters" />Filters{activeCount ? ` (${activeCount})` : ''}</button></div>
+      <div className={styles.inlineActions}><div className={styles.sort}><span className={styles.desktopOnly}>Sort by</span><SelectControl label="Sort hackers" value={sort} onValueChange={value => change('sort', value)} options={[{value:'recommended',label:'Suggested for you'},{value:'recent',label:'Recently confirmed'},{value:'name',label:'Name'}]} /></div><button type="button" className={`${styles.secondary} ${styles.mobileOnly}`} onClick={() => setFiltersOpen(true)}><Icon name="filters" />Filters{activeCount ? ` (${activeCount})` : ''}</button></div>
     </div>
     {feedback && <p role={feedback.ok ? 'status' : 'alert'} className={styles.feedback}>{feedback.message}</p>}
     {visible.length ? <ul className={`${styles.grid} ${styles.peopleGrid}`}>{visible.map(profile => <li className="flex min-w-0" key={profile.id}><ProfileCard profile={profile}
@@ -84,10 +85,10 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
     {shown < filtered.length && <div className={styles.loadMore}><button type="button" className={styles.secondary} onClick={() => updateTeamQuery({ shown: String(shown + 9) }, false)}>Meet 9 more hackers ↓</button><span className={styles.small}>Keep exploring at your own pace.</span></div>}
     {filtersOpen && <Modal title="Find your kind of team" onClose={() => setFiltersOpen(false)}><div className={styles.form}>
       <div className={styles.formGrid}>
-        <label>Role<select value={role} onChange={e => change('role', e.target.value)}><option value="">Any role</option>{TEAM_ROLES.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Interest<select value={interest} onChange={e => change('interest', e.target.value)}><option value="">Any interest</option>{interests.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Goal<select value={goal} onChange={e => change('goal', e.target.value)}><option value="">Any goal</option>{Object.entries(TEAM_GOALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <label>School<select value={school} onChange={e => change('school', e.target.value)}><option value="">All schools</option>{schools.map(value => <option value={value.value} key={value.value}>{value.label}</option>)}</select></label>
+        <label>Role<SelectControl label="Role" value={role} onValueChange={value => change('role', value)} options={[{value:'',label:'Any role'},...TEAM_ROLES.map(value=>({value,label:value}))]} /></label>
+        <label>Interest<SelectControl label="Interest" value={interest} onValueChange={value => change('interest', value)} options={[{value:'',label:'Any interest'},...interests.map(value=>({value,label:value}))]} /></label>
+        <label>Goal<SelectControl label="Goal" value={goal} onValueChange={value => change('goal', value)} options={[{value:'',label:'Any goal'},...Object.entries(TEAM_GOALS).map(([value,label])=>({value,label}))]} /></label>
+        <label>School<SelectControl label="School" value={school} onValueChange={value => change('school', value)} options={[{value:'',label:'All schools'},...schools]} /></label>
       </div>
       <label className={styles.checkLabel}><input type="checkbox" checked={first} onChange={e => change('first', e.target.checked ? '1' : '')} />First-time hackers</label>
       <label className={styles.checkLabel}><input type="checkbox" checked={hideContacted} onChange={e => change('hide-contacted', e.target.checked ? '1' : '')} />Hide people I&apos;ve reached out to</label>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { TEAM_GOALS, TEAM_ROLES, tags, safeWebUrl, safeSlackProfileUrl, type TeamProfile } from '@/lib/team/profiles';
 import { ProfileCard } from '../ProfileCard';
 import { Modal } from '../Modal';
+import { SelectControl } from '../SelectControl';
 import { saveTeammateProfile } from '../actions';
 import styles from '../team.module.css';
 
@@ -39,8 +40,8 @@ export function ProfileEditor({ own, listed, hasTeam, returnTo }: { own: TeamPro
           <fieldset><legend>I&apos;m looking for teammates who can help with</legend><div className={styles.chipGroup}>{TEAM_ROLES.map(role => <label className={styles.choice} key={role}><input type="checkbox" name="team_seeking" value={role} checked={draft.seeking.includes(role)} onChange={() => toggle('seeking', role)} />{role}</label>)}</div></fieldset>
           <label>Project interests<input name="team_interests" defaultValue={own.interests.join(', ')} onChange={e => set('interests', tags(e.target.value))} maxLength={329} placeholder="Accessibility, climate, games…" /><span className={styles.small}>Use commas to separate up to 10 interests.</span></label>
           <div className={styles.formGrid}>
-            <label>My goal<select name="team_goal" value={draft.goal ?? ''} onChange={e => set('goal', e.target.value as TeamProfile['goal'])}><option value="">Choose a goal</option>{Object.entries(TEAM_GOALS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-            <label>Hackathon experience<select name="team_experience" value={draft.experience ?? ''} onChange={e => set('experience', (e.target.value || null) as TeamProfile['experience'])}><option value="">Prefer not to say</option><option value="first">My first hackathon</option><option value="returning">I&apos;ve hacked before</option></select></label>
+            <label>My goal<SelectControl label="My goal" name="team_goal" value={draft.goal ?? ''} onValueChange={value => set('goal', (value || null) as TeamProfile['goal'])} options={[{value:'',label:'Choose a goal'},...Object.entries(TEAM_GOALS).map(([value,label])=>({value,label}))]} /></label>
+            <label>Hackathon experience<SelectControl label="Hackathon experience" name="team_experience" value={draft.experience ?? ''} onValueChange={value => set('experience', (value || null) as TeamProfile['experience'])} options={[{value:'',label:'Prefer not to say'},{value:'first',label:'My first hackathon'},{value:'returning',label:"I've hacked before"}]} /></label>
           </div>
           <div className={styles.sectionDivider}><h2>Make it easy to say hello</h2><p className={styles.small}>Add a Slack member-profile link or a social profile. You decide what to share.</p></div>
           <label>Slack member profile<input type="url" name="slack_url" value={draft.slackUrl ?? ''} onChange={e => set('slackUrl', e.target.value)} maxLength={500} placeholder="https://workspace.slack.com/team/U123ABC" /><a href="https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile" target="_blank" rel="noopener noreferrer" className={styles.small}>How to copy your Slack member link ↗</a></label>

@@ -51,6 +51,23 @@ No separate schema bootstrap is required. A failed run rolls back its changes.
 For troubleshooting, `supabase/diagnostics/teammate_migration_state.sql` reports
 schema objects without reading hacker data.
 
+### Preview fixtures and visual controls
+
+`npm run team:seed` creates 12 discoverable fictional hackers and three recruiting
+teams on the project configured in `.env` (16 accounts including owners and one
+approved member). Names include `(TEST)`, introductions identify fictional data,
+emails use `example.test`, and profile links use `example.com`. No emails are sent.
+Existing demo teams and their requests/memberships are preserved when rerunning.
+The script requires the service-role key locally; the app never receives that key.
+Run `npm run team:seed:clean` to remove only accounts with this fixture's protected
+metadata marker and matching test email pattern, plus their cascading data.
+
+The teammate page uses styled Radix selects for keyboard navigation and consistent
+menus, including inside dialogs. Its Three.js honeycomb and bee are loaded on the
+client. The animation has a pause control, honors reduced motion, stops offscreen
+or in a hidden tab, caps rendering resolution/frame rate, and frees GPU resources
+when leaving the page. A static honeycomb remains when WebGL is unavailable.
+
 Run `npm test`, `npm run lint`, and `npm run build`. Team tests cover safe client
 projections, 1,013-row loading, validation, matching, and real isolated PostgreSQL
 RLS/recruitment flows using PGlite. They do not require a shared database.

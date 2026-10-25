@@ -20,7 +20,7 @@ export async function Navbar() {
       <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
         HackHive
       </Link>
-      <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
+      <nav aria-label="Page sections" className="hidden items-center gap-8 lg:flex">
         {links.map((link) => (
           <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
             {link.label}
@@ -38,7 +38,7 @@ export async function Navbar() {
             </Link>
             <Link
               href="/apply/status"
-              className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              className="hidden text-sm font-medium text-neutral-600 hover:text-neutral-900 sm:inline"
             >
               My Application
             </Link>
