@@ -97,7 +97,8 @@ function PersonHexCard({ person, role }: {
     touchQuery.addEventListener("change", updateTouchMode);
     return () => touchQuery.removeEventListener("change", updateTouchMode);
   }, []);
-
+  const lastTap = useRef(0);
+  const justTapped = () => performance.now() - lastTap.current < 600;
   return (
     <div
       className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${flipped ? styles.isFlipped : ""} ${hovered ? styles.isHovered : ""}`}
@@ -115,7 +116,15 @@ function PersonHexCard({ person, role }: {
         aria-expanded={isOpen}
         tabIndex={isOpen ? -1 : 0}
         aria-label={`Show details for ${person.name}`}
-        onClick={() => setFlipped((current) => !current)}
+        onPointerUp={(event) => {
+          if (event.pointerType === "mouse") return;
+          lastTap.current = performance.now();
+          setFlipped((current) => !current);
+        }}
+        onClick={() => {
+          if (justTapped()) return;
+          setFlipped((current) => !current);
+        }}
       >
         {person.photo_url ? (
           <img src={person.photo_url} alt="" className={styles.avatar} />
@@ -132,7 +141,7 @@ function PersonHexCard({ person, role }: {
         aria-hidden={!isOpen}
         inert={!isOpen}
         onClick={() => {
-          if (touchMode) setFlipped(false);
+          if (touchMode && !justTapped()) setFlipped(false);
         }}
       >
         <button
@@ -140,29 +149,37 @@ function PersonHexCard({ person, role }: {
           className={styles.backToggle}
           aria-label={`Show front of ${person.name}'s card`}
           tabIndex={isOpen ? 0 : -1}
-          onClick={() => setFlipped(false)}
+          onPointerUp = {(event) => {
+              if (event.pointerType === "mouse") return;
+                    lastTap.current = performance.now();
+              setFlipped((current) => !current);
+            }}
+        onClick={() => {
+          if (justTapped()) return;
+          setFlipped((current) => !current);
+        }}
         >
-          <span className={styles.name}>{person.name}</span>
-          {(person.title || person.company) && (
-            <span className={styles.details}>
-              {[person.title, person.company].filter(Boolean).join(", ")}
-            </span>
-          )}
-          <span className={styles.rule} aria-hidden="true" />
-          {person.bio && <span className={styles.bio}>{person.bio}</span>}
-        </button>
-        {person.linkedin_url && (
-          <a
-            href={person.linkedin_url}
-            target="_blank"
-            rel="noreferrer"
-            className={styles.link}
-          >
-            LinkedIn
-          </a>
+        <span className={styles.name}>{person.name}</span>
+        {(person.title || person.company) && (
+          <span className={styles.details}>
+            {[person.title, person.company].filter(Boolean).join(", ")}
+          </span>
         )}
-      </div>
+        <span className={styles.rule} aria-hidden="true" />
+        {person.bio && <span className={styles.bio}>{person.bio}</span>}
+      </button>
+      {person.linkedin_url && (
+        <a
+          href={person.linkedin_url}
+          target="_blank"
+          rel="noreferrer"
+          className={styles.link}
+        >
+          LinkedIn
+        </a>
+      )}
     </div>
+    </div >
   );
 }
 

@@ -64,9 +64,6 @@
   font-size: clamp(0.7rem, 2.2cqw, 1rem);
 }
 
-.cell:hover {
-  z-index: 1;
-}
 
 .flip {
   position: absolute;
@@ -93,9 +90,7 @@
   inset: 0;
 }
 
-.flip:hover {
-  transform: scale(1);
-}
+
 
 .card {
   transform-style: preserve-3d;
@@ -326,10 +321,33 @@
   transition: transform 200ms ease;
 }
 
-.moreCard:hover {
+@media (hover: hover) and (pointer: fine) {
+  .cell:hover {
+    z-index: 1;
+  }
+
+  .flip:hover,
+  .moreCard:hover {
+    transform: scale(1);
+  }
+}
+.flip:has(.isFlipped) {
   transform: scale(1);
 }
+.cell,
+.flip,
+.card {
+  pointer-events: none;
+}
 
+.face,
+.moreCard {
+  pointer-events: auto;
+}
+.touchMode {
+  transform-style: flat;
+  -webkit-transform-style: flat;
+}
 .moreLabel {
   font-size: 1.3em;
   font-weight: 700;

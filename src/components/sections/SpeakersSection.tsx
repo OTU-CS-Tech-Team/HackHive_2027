@@ -1,7 +1,6 @@
 import { getPeople, type Person } from "@/lib/content";
 import { HoneycombGroup } from "./HoneycombGroup";
 import styles from "./SpeakersSection.module.css";
-
 const GROUPS: { role: Person["role"]; heading: string; blurb: string }[] = [
   { role: "speaker", heading: "Keynote speakers", blurb: "The people opening and closing the weekend." },
   { role: "judge", heading: "Judges", blurb: "They score every project at demo time." },
