@@ -1,0 +1,411 @@
+.section {
+  box-sizing: border-box;
+  width: 100%;
+  background: #14110b;
+  color: #fff6e0;
+  padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+.stage {
+  container-type: inline-size;
+  width: 100%;
+  max-width: 2200px;
+  margin: 0 auto;
+}
+
+.judgesPage {
+  padding-top: calc(4rem + clamp(2.5rem, 6vw, 6rem));
+}
+
+.title {
+  margin: 0 0 clamp(2rem, 4vw, 3.5rem);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.backToHome {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  color: #f5b83d;
+  text-underline-offset: 0.2em;
+}
+
+.group {
+  margin-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.heading {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+  font-weight: 700;
+}
+
+.blurb {
+  margin: 0.5rem 0 clamp(1.5rem, 3vw, 2.25rem);
+  color: #d9cba8;
+}
+
+.hive {
+  --columns: 2;
+  --tile-width: calc(100cqw / var(--columns));
+  display: grid;
+  grid-template-columns: repeat(calc(var(--columns) * 2), minmax(0, 1fr));
+  grid-auto-rows: calc(var(--tile-width) * 0.288675);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hive:not(.ready) {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.hive.ready {
+  animation: hiveIn 250ms ease both;
+}
+
+@keyframes hiveIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.cell {
+  position: relative;
+  grid-column: span 2;
+  grid-row: span 4;
+  align-self: start;
+  width: 100%;
+  height: calc(var(--tile-width) * 1.1547);
+  font-size: clamp(0.7rem, 2.2cqw, 1rem);
+}
+
+
+.flip {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform: scale(0.96);
+  perspective: 800px;
+  -webkit-perspective: 800px;
+  transition: transform 200ms ease;
+}
+
+.flip::before {
+  position: absolute;
+  z-index: 0;
+  inset: -0.12em;
+  background: #f5b83d;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  content: "";
+}
+
+.card {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+
+
+.card {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform 700ms cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+
+.isFlipped,
+.isHovered {
+  transform: rotateY(180deg);
+}
+
+.touchMode,
+.touchMode.isFlipped,
+.touchMode.isHovered {
+  transform: none;
+}
+
+.face {
+  position: absolute;
+  inset: 0.22em;
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  overflow: hidden;
+  padding: 0 2.3em;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  text-align: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.faceButton {
+  margin: 0;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.faceButton:focus-visible,
+.moreCard:focus-visible {
+  outline: 3px solid #fff6e0;
+  outline-offset: -0.5rem;
+}
+
+.front {
+  background: #f5b83d;
+  color: #14110b;
+}
+
+.back {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+  touch-action: manipulation;
+}
+
+.touchMode .face {
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
+.touchMode .back {
+  transform: none;
+  -webkit-transform: none;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.touchMode.isFlipped .front {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.touchMode.isFlipped .back {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.backToggle {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.speaker .back {
+  background: #221b0d;
+  color: #fff6e0;
+}
+
+.judge .front {
+  background: #221b0d;
+  color: #fff6e0;
+}
+
+.judge .back {
+  background: #f5b83d;
+  color: #14110b;
+}
+
+.avatar,
+.avatarFallback {
+  display: flex;
+  width: 6.1em;
+  height: 6.1em;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.4em;
+  border: 2px solid #f5b83d;
+  border-radius: 50%;
+  background: #14110b;
+  color: #f5b83d;
+  object-fit: cover;
+}
+
+.name,
+.details,
+.bio {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.name {
+  font-size: 1.25em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.25em 0.8em;
+  border-radius: 99px;
+  background: #14110b;
+  color: #f5b83d;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.judge .tag {
+  background: #f5b83d;
+  color: #14110b;
+}
+
+.details {
+  font-size: 0.92em;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.bio {
+  font-size: 0.88em;
+  line-height: 1.35;
+}
+
+.speaker .details,
+.speaker .bio {
+  color: #d9cba8;
+}
+
+.judge .details,
+.judge .bio {
+  color: #3b2c08;
+}
+
+.rule {
+  display: block;
+  width: 2em;
+  height: 2px;
+  flex: 0 0 auto;
+  margin: 0.3em 0;
+  background: #f5b83d;
+}
+
+.judge .rule {
+  background: #14110b;
+}
+
+.link {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+  color: #f5b83d;
+  font-size: 0.85em;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.judge .link {
+  color: #14110b;
+}
+
+.moreCard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  background: #f5b83d;
+  color: #14110b;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  text-decoration: none;
+  transform: scale(0.96);
+  transition: transform 200ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cell:hover {
+    z-index: 1;
+  }
+
+  .flip:hover,
+  .moreCard:hover {
+    transform: scale(1);
+  }
+}
+.flip:has(.isFlipped) {
+  transform: scale(1);
+}
+.cell,
+.flip,
+.card {
+  pointer-events: none;
+}
+
+.face,
+.moreCard {
+  pointer-events: auto;
+}
+.touchMode {
+  transform-style: flat;
+  -webkit-transform-style: flat;
+}
+.moreLabel {
+  font-size: 1.3em;
+  font-weight: 700;
+}
+
+.moreArrow {
+  font-size: 1.5em;
+  line-height: 1;
+}
+
+.empty {
+  margin: 0;
+  color: #d9cba8;
+}
+
+/* Give phone bios room to breathe; tablet cards stay in two columns. */
+@container (max-width: 839px) {
+  .cell {
+    font-size: 1rem;
+  }
+
+  .details,
+  .bio,
+  .link {
+    font-size: 0.9375rem;
+    line-height: 1.45;
+  }
+
+  .tag {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .flip,
+  .moreCard {
+    transition: none ;
+  }
+  .hive.ready {
+  animation: none;
+}
+}
