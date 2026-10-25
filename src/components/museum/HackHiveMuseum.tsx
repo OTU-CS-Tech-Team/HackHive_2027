@@ -1,12 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import Link from 'next/link';
-import type { ArchiveCollection } from '@/data/hackhive';
-import type { HackHiveProject } from '@/types/hackhive';
-import ArchiveCard from './ArchiveCard';
-import PuzzlePiece, { type EdgeKind, type PuzzleSlot } from './PuzzlePiece';
-import styles from './museum.module.css';
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import type { ArchiveCollection } from "@/data/hackhive";
+import ArchiveCard from "./ArchiveCard";
+import PuzzlePiece, { type EdgeKind, type PuzzleSlot } from "./PuzzlePiece";
+import styles from "./museum.module.css";
 
 type HackHiveMuseumProps = {
   collections: ArchiveCollection[];
@@ -26,51 +25,37 @@ type PieceSpec = {
 const PIECES: PieceSpec[] = [
   {
     year: 2026,
-    word: 'HACK',
-    fill: '#e7a4b4',
-    slot: 'tl',
-    north: 'flat',
-    west: 'flat',
-    east: 'tab',
-    south: 'tab',
+    word: "HACK",
+    fill: "#f5b83d",
+    slot: "tl",
+    north: "flat",
+    west: "flat",
+    east: "tab",
+    south: "tab",
   },
   {
     year: 2025,
-    word: 'HIVE',
-    fill: '#9aa56f',
-    slot: 'tr',
-    north: 'flat',
-    east: 'flat',
-    west: 'blank',
-    south: 'tab',
+    word: "HIVE",
+    fill: "#ffd879",
+    slot: "tr",
+    north: "flat",
+    east: "flat",
+    west: "blank",
+    south: "tab",
   },
   {
     year: 2024,
-    word: 'MUSEUM',
-    fill: '#8eb4c4',
-    slot: 'wide',
-    west: 'flat',
-    south: 'flat',
-    north: 'blank',
-    east: 'flat',
+    word: "MUSEUM",
+    fill: "#e8a62a",
+    slot: "wide",
+    west: "flat",
+    south: "flat",
+    north: "blank",
+    east: "flat",
   },
 ];
 
-function chunkProjects(projects: HackHiveProject[], size: number) {
-  const rows: HackHiveProject[][] = [];
-  for (let index = 0; index < projects.length; index += size) {
-    rows.push(projects.slice(index, index + size));
-  }
-  return rows;
-}
-
-const YEAR_ACCENT: Record<number, string> = {
-  2026: '#d45d7d',
-  2025: '#7a8544',
-  2024: '#4e8aa0',
-};
-
-const INK = '#1b003f';
+const INK = "#231c10";
 const UNLOCK_LINE = 0.3;
 const EXIT_MS = 420;
 
@@ -88,7 +73,8 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
 
   useEffect(() => {
     const updateUnlocked = () => {
-      const menuBottom = yearNavRef.current?.getBoundingClientRect().bottom ?? 0;
+      const menuBottom =
+        yearNavRef.current?.getBoundingClientRect().bottom ?? 0;
       const line = Math.max(window.innerHeight * UNLOCK_LINE, menuBottom + 16);
       let next = newest;
       for (const year of years) {
@@ -102,11 +88,11 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
     };
 
     updateUnlocked();
-    window.addEventListener('scroll', updateUnlocked, { passive: true });
-    window.addEventListener('resize', updateUnlocked);
+    window.addEventListener("scroll", updateUnlocked, { passive: true });
+    window.addEventListener("resize", updateUnlocked);
     return () => {
-      window.removeEventListener('scroll', updateUnlocked);
-      window.removeEventListener('resize', updateUnlocked);
+      window.removeEventListener("scroll", updateUnlocked);
+      window.removeEventListener("resize", updateUnlocked);
     };
   }, [newest, years]);
 
@@ -147,19 +133,26 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
   }, [exitingYear, newest, renderedYears, unlockedYear, years]);
 
   const scrollToYear = (year: number) => {
-    sectionRefs.current[year]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sectionRefs.current[year]?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   return (
     <div className={styles.museum}>
-      <nav ref={yearNavRef} className={styles.yearNav} aria-label="Museum years">
-        <span className={styles.yearNavLabel}>Jump to year</span>
+      <nav
+        ref={yearNavRef}
+        className={styles.yearNav}
+        aria-label="Museum years"
+      >
+        <span className={styles.yearNavLabel}>Explore the years</span>
         {years.map((year) => (
           <a
             key={year}
             href={`#year-${year}`}
             className={styles.yearLink}
-            aria-current={year === unlockedYear ? 'location' : undefined}
+            aria-current={year === unlockedYear ? "location" : undefined}
           >
             {year}
           </a>
@@ -171,7 +164,11 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
             Back to homepage
           </Link>
           <div className={styles.brand}>
-            <h1 className={styles.title}>HackHive Archive</h1>
+            <p className={styles.kicker}>The archive</p>
+            <p className={styles.title}>
+              A little history.
+              <br />A lot of building.
+            </p>
           </div>
           <div className={styles.squad} aria-label="HackHive Museum">
             {PIECES.filter((piece) => renderedYears.includes(piece.year)).map(
@@ -208,19 +205,34 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
                 />
               </svg>
             </span>
-            scroll down to view previous years
+            Scroll through the years.
+            <br />
+            Watch the archive come together.
           </p>
         </aside>
 
         <div className={styles.main}>
           <header className={styles.welcome}>
-            <h2 className={styles.welcomeTitle}>Welcome to the HackHive archive.</h2>
+            <p className={styles.kicker}>Made at HackHive</p>
+            <h1 className={styles.welcomeTitle}>HackHive Museum</h1>
             <p className={styles.welcomeCopy}>
-              Not every year was clean. Some weekends broke, some projects stalled,
-              and a few ideas only made sense at 3 a.m. Each one still left something
-              behind — a trick, a standard, a reason the next cohort could build
-              further. This is that stack. Scroll it.
+              Explore the projects built by past HackHive teams. Watch their
+              demos and revisit the ideas that started here.
             </p>
+            <div className={styles.archiveStats}>
+              <span>
+                <strong>
+                  {collections.reduce(
+                    (total, collection) => total + collection.projects.length,
+                    0,
+                  )}
+                </strong>{" "}
+                projects
+              </span>
+              <span>
+                <strong>{years.length}</strong> years of HackHive
+              </span>
+            </div>
           </header>
           {collections.map((collection) => (
             <section
@@ -230,31 +242,36 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
                 sectionRefs.current[collection.year] = node;
               }}
               className={styles.yearSection}
-              style={{ '--year-accent': YEAR_ACCENT[collection.year] ?? INK } as CSSProperties}
               aria-labelledby={`heading-${collection.year}`}
             >
-              <span className={styles.yearRule} />
-              <h2 id={`heading-${collection.year}`} className={styles.yearTitle}>
-                {collection.title}
-              </h2>
+              <div className={styles.yearHeading}>
+                <span className={styles.yearBadge} aria-hidden="true">
+                  {collection.year}
+                </span>
+                <div>
+                  <h2
+                    id={`heading-${collection.year}`}
+                    className={styles.yearTitle}
+                  >
+                    {collection.title}
+                  </h2>
+                  <p className={styles.yearCount}>
+                    {collection.projects.length}{" "}
+                    {collection.projects.length === 1 ? "project" : "projects"}{" "}
+                    in this collection
+                  </p>
+                </div>
+              </div>
               {collection.projects.length > 0 ? (
-                <div className={styles.rows}>
-                  {chunkProjects(collection.projects, 3).map((row, index) => (
-                    <div key={row.map((project) => project.id).join('-')}>
-                      {index > 0 ? <div className={styles.rowRule} /> : null}
-                      <div className={styles.grid}>
-                        {row.map((project) => (
-                          <ArchiveCard
-                            key={project.id}
-                            project={project}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                <div className={styles.grid}>
+                  {collection.projects.map((project) => (
+                    <ArchiveCard key={project.id} project={project} />
                   ))}
                 </div>
               ) : (
-                <p className={styles.emptyYear}>Winners for this year will land here.</p>
+                <p className={styles.emptyYear}>
+                  Winners for this year will land here.
+                </p>
               )}
             </section>
           ))}
