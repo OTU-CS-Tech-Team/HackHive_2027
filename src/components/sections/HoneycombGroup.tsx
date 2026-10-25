@@ -18,8 +18,8 @@ function columnsForWidth(width: number) {
   if (width >= 1440) return 6;
   if (width >= 1120) return 5;
   if (width >= 840) return 4;
-  if (width >= 560) return 3;
-  return 2;
+  if (width >= 560) return 2;
+  return 1;
 }
 
 function centerOutSlot(index: number, count: number) {
@@ -33,6 +33,9 @@ function centerOutSlot(index: number, count: number) {
 }
 
 function positionForIndex(index: number, columns: number, peopleCount: number) {
+  if (columns === 1) {
+    return { gridColumn: '1 / span 2', gridRow: `${index * 4 + 1} / span 4` };
+  }
   const cellsPerPattern = columns * 2 - 1;
   const patternIndex = Math.floor(index / cellsPerPattern);
   const cellInPattern = index % cellsPerPattern;
@@ -193,7 +196,7 @@ export function HoneycombGroup({
   const hiveRef = useRef<HTMLUListElement>(null);
   const [columns, setColumns] = useState<number | null>(null);
   const measured = columns !== null;
-  const activeColumns = columns ?? 2;
+  const activeColumns = columns ?? 1;
   const roleClass = role === "speaker" ? styles.speaker : styles.judge;
 
   useEffect(() => {

@@ -7,7 +7,7 @@ export default async function JudgesPage() {
   const judges = (await getPeople()).filter((person) => person.role === "judge");
 
   return (
-    <main className={styles.section}>
+    <main className={`${styles.section} ${styles.judgesPage}`}>
       <div className={styles.stage}>
         <Link className={styles.backToHome} href="/#speakers">
           ← Speakers &amp; Judges
