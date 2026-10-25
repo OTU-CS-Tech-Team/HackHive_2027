@@ -56,5 +56,6 @@ describe('richer teammate profiles', () => {
     expect(recruitingTeamSchema.safeParse({ ...input, pitch: '' }).success).toBe(false);
     expect(recruitingTeamSchema.safeParse({ ...input, slack_url: '' }).success).toBe(false);
     expect(recruitingTeamSchema.safeParse({ ...input, slack_url: 'https://slack.com.evil.test/team/U123ABC' }).success).toBe(false);
+    expect(recruitingTeamSchema.parse({ ...input, slack_url:'https://demo.slack.com/team/U123ABC?source=profile#details' }).slack_url).toBe('https://demo.slack.com/team/U123ABC');
   });
 });

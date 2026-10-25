@@ -5,7 +5,7 @@ const tagArray = z.array(z.string().trim().min(1).max(32)).max(10, 'Use at most 
 const roleArray = z.array(z.enum(TEAM_ROLES)).max(8);
 const goal = z.enum(['learn', 'compete', 'both']);
 const link = z.string().max(500).refine(value => !value || !!safeWebUrl(value), 'Use a valid HTTP or HTTPS profile URL without a username or password.');
-const slack = z.string().max(500).refine(value => !value || !!safeSlackProfileUrl(value), 'Use an HTTPS Slack member-profile link, such as https://workspace.slack.com/team/U123ABC.');
+const slack = z.string().max(500).refine(value => !value || !!safeSlackProfileUrl(value), 'Use an HTTPS Slack member-profile link, such as https://workspace.slack.com/team/U123ABC.').transform(value => safeSlackProfileUrl(value) ?? '');
 export const uuid = z.uuid();
 export const teammateProfileSchema = z.object({
   full_name: z.string().trim().min(1, 'Add your name.').max(100), school: z.string().trim().max(100),
