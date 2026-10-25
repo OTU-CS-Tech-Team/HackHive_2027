@@ -56,8 +56,9 @@ metadata marker and matching test email pattern, plus their cascading data.
 
 Cards use an aligned grid, warm neutral surfaces, dark text, and amber outlines.
 Styled Radix selects support keyboards and work inside dialogs. A Three.js
-honeycomb assembles on entry, then the bee, wings, and honeycomb keep moving while
-visible. There is no play/pause control. Reduced motion renders a
+swarm fills the honeycomb with yellow hexagons, honey spills from the bottom,
+and the empty hive resets in a continuous twelve-second loop. Ambient flecks are
+removed. There is no play/pause control. Reduced motion renders a
 static scene; hidden/offscreen animation is suspended. GPU resources are released
 when navigating away, and a static fallback works without WebGL. Card entrances,
 menu transitions, and hover feedback also honor reduced motion.

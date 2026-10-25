@@ -35,40 +35,83 @@ export function HiveAnimation() {
       shape.closePath(); hole.closePath(); shape.holes.push(hole);
       const geometry = new THREE.ExtrudeGeometry(shape, { depth: .24, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .025, bevelThickness: .025 });
       const wax = new THREE.MeshStandardMaterial({ color: 0xf4bc42, roughness: .32, metalness: .28 });
-      const honey = new THREE.MeshStandardMaterial({ color: 0xd88b0b, roughness: .2, metalness: .35 });
-      const fill = new THREE.CylinderGeometry(.55, .55, .07, 6); fill.rotateX(Math.PI / 2); fill.rotateZ(Math.PI / 6);
-      const cells: import('three').Mesh[] = [], nectarCells: import('three').Mesh[] = [];
-      [[0, 0], [1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]].forEach(([q, r], i) => {
-        const cell = new THREE.Mesh(geometry, wax); cell.position.set(Math.sqrt(3) * .71 * (q + r / 2), 1.5 * .71 * r, 0); hive.add(cell); cells.push(cell);
-        if (i % 2 === 0) { const nectar = new THREE.Mesh(fill, honey); nectar.position.copy(cell.position); nectar.position.z = .04; hive.add(nectar); nectarCells.push(nectar); }
+      const honey = new THREE.MeshStandardMaterial({ color: 0xffca32, roughness: .22, metalness: .2 });
+      const fill = new THREE.CylinderGeometry(.555, .555, .1, 6); fill.rotateX(Math.PI / 2);
+      const nectarCells: import('three').Mesh[] = [];
+      const locations = [[0, 0], [1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+      locations.forEach(([q, r]) => {
+        const cell = new THREE.Mesh(geometry, wax); cell.position.set(Math.sqrt(3) * .71 * (q + r / 2), 1.5 * .71 * r, 0); hive.add(cell);
+        const nectar = new THREE.Mesh(fill, honey); nectar.position.copy(cell.position); nectar.position.z = .13; hive.add(nectar); nectarCells.push(nectar);
       });
-      const bee = new THREE.Group(); scene.add(bee);
+      hive.position.set(.4, .25, 0); hive.scale.setScalar(.76);
       const sphere = new THREE.SphereGeometry(1, 16, 10);
       const black = new THREE.MeshStandardMaterial({ color: 0x272115, roughness: .55 });
-      const body = new THREE.Mesh(sphere, wax); body.scale.set(.36, .23, .22); bee.add(body);
-      const head = new THREE.Mesh(sphere, black); head.scale.setScalar(.15); head.position.x = .3; bee.add(head);
       const stripeGeometry = new THREE.TorusGeometry(.215, .035, 6, 24);
-      [-.14, .02].forEach(x => { const stripe = new THREE.Mesh(stripeGeometry, black); stripe.rotation.y = Math.PI / 2; stripe.position.x = x; bee.add(stripe); });
       const wingMaterial = new THREE.MeshStandardMaterial({ color: 0xfff8dc, transparent: true, opacity: .7, roughness: .2 });
-      const wings = [-1, 1].map(side => { const wing = new THREE.Mesh(sphere, wingMaterial); wing.scale.set(.21, .34, .035); wing.position.set(-.08, side * .24, .17); wing.rotation.z = side * -.35; bee.add(wing); return wing; });
-      const droplets = new THREE.Group(); scene.add(droplets);
-      for (let i = 0; i < 8; i++) { const drop = new THREE.Mesh(sphere, wax); drop.scale.set(.035, .075, .035); drop.position.set(Math.cos(i * 2.4) * 2.6, Math.sin(i * 2.4) * 1.55, .3); droplets.add(drop); }
+      const bees = Array.from({length:8}, (_, index) => {
+        const bee = new THREE.Group(); scene.add(bee);
+        const body = new THREE.Mesh(sphere, wax); body.scale.set(.36, .23, .22); bee.add(body);
+        const head = new THREE.Mesh(sphere, black); head.scale.setScalar(.15); head.position.x = .3; bee.add(head);
+        [-.14,.02].forEach(x => { const stripe = new THREE.Mesh(stripeGeometry, black); stripe.rotation.y = Math.PI / 2; stripe.position.x = x; bee.add(stripe); });
+        const wings = [-1,1].map(side => { const wing = new THREE.Mesh(sphere, wingMaterial); wing.scale.set(.21,.34,.035); wing.position.set(-.08, side * .24, .17); wing.rotation.z = side * -.35; bee.add(wing); return wing; });
+        bee.scale.setScalar(.5 + (index % 3) * .06);
+        return {bee,wings};
+      });
+      // Honey appears outside the cells only during the spill, with no ambient flecks.
+      const spill = new THREE.Group(); hive.add(spill);
+      const honeyRibbon = new THREE.Shape();
+      honeyRibbon.moveTo(-.12,.05);
+      honeyRibbon.bezierCurveTo(-.11,-.35,-.05,-.65,-.12,-.9);
+      honeyRibbon.bezierCurveTo(-.27,-1.15,-.14,-1.35,.02,-1.35);
+      honeyRibbon.bezierCurveTo(.26,-1.32,.23,-1.1,.12,-.9);
+      honeyRibbon.bezierCurveTo(.06,-.6,.16,-.25,.12,.05);
+      honeyRibbon.closePath();
+      const streamGeometry = new THREE.ExtrudeGeometry(honeyRibbon, {depth:.07,bevelEnabled:true,bevelSize:.015,bevelThickness:.015,bevelSegments:2,steps:1});
+      const spillMaterial = new THREE.MeshBasicMaterial({color:0xffc83f,depthTest:false});
+      const streams = [-.615,.615].map(x => {
+        const stream = new THREE.Mesh(streamGeometry, spillMaterial); stream.renderOrder = 3; spill.add(stream);
+        const drops = Array.from({length:3}, () => { const drop = new THREE.Mesh(sphere, spillMaterial); drop.renderOrder = 3; spill.add(drop); return drop; });
+        return {x,stream,drops};
+      });
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-      // Assemble once, then keep the bee and honeycomb moving while visible.
+      // Twelve-second story: swarm, fill, overflow, empty, and repeat.
       // Reduced motion uses a static pose; offscreen and hidden tabs suspend work.
       let visible = true, frame = 0, last = 0, previous = 0, elapsed = 0;
       const draw = () => {
-        const t = reduced.matches ? 4.2 : elapsed / 1000;
-        const progress = Math.min(1, t / 4.2);
-        const ease = 1 - Math.pow(1 - progress, 3);
-        hive.scale.setScalar(.85 + ease * .15);
-        hive.rotation.set(.16 + Math.sin(t * .3) * .07, -.25 + Math.sin(t * .25) * .12, .06);
-        cells.forEach((cell, i) => { cell.position.z = (1 - ease) * (.3 + i * .16); });
-        nectarCells.forEach((cell, i) => { cell.scale.setScalar(.65 + Math.min(1, progress * 2 + i * .08) * .35); });
-        bee.position.set(-2.1 + Math.sin(t * .6) * .48, .5 + Math.sin(t * .95) * .55, 1.3);
-        bee.rotation.z = Math.sin(t * .95) * .18;
-        wings.forEach((wing, i) => { wing.rotation.x = reduced.matches ? 0 : Math.sin(t * 30) * .35 * (i ? 1 : -1); });
-        droplets.rotation.z = Math.sin(t * .2) * .08;
+        const t = reduced.matches ? 7 : elapsed / 1000;
+        const phase = t % 12;
+        const clamp = (value: number) => Math.max(0, Math.min(1, value));
+        const approach = 1 - Math.pow(1 - clamp(phase / 2.3), 3);
+        const depart = clamp((phase - 10) / 1.5);
+        const drain = 1 - clamp((phase - 9.2) / 1.8);
+        element.dataset.phase = phase < 2.5 ? 'swarm' : phase < 6.5 ? 'filling' : phase < 7.5 ? 'full' : phase < 8.2 ? 'overflowing' : phase < 10.5 ? 'spilling' : 'reset';
+        hive.rotation.set(.1 + Math.sin(t * .3) * .035, -.17 + Math.sin(t * .25) * .07, .025);
+        nectarCells.forEach((cell,i) => {
+          const amount = clamp((phase - 2.4 - i * .48) / .65) * drain;
+          cell.visible = amount > .005;
+          cell.scale.setScalar(Math.max(.001, amount));
+        });
+        bees.forEach(({bee,wings},i) => {
+          const angle = t * .9 + i * Math.PI / 4;
+          const orbitX = .35 + Math.cos(angle) * (1.75 + (i % 2) * .35);
+          const orbitY = .3 + Math.sin(angle) * (1 + (i % 3) * .16);
+          bee.position.set((-3.7 - i * .12) * (1 - approach) + orbitX * approach + depart * 4, orbitY + Math.sin(t * 3 + i) * .08, 1 + (i % 3) * .15);
+          bee.rotation.z = Math.sin(angle + .5) * .35;
+          bee.rotation.y = Math.cos(angle) > 0 ? Math.PI : 0;
+          bee.scale.setScalar((.5 + (i % 3) * .06) * (1 - depart));
+          wings.forEach((wing,j) => { wing.rotation.x = reduced.matches ? 0 : Math.sin(t * 32 + i) * .45 * (j ? 1 : -1); });
+        });
+        spill.visible = !reduced.matches && phase >= 7.5 && phase < 11;
+        streams.forEach(({x,stream,drops},i) => {
+          const flow = clamp((phase - 7.5 - i * .2) / .75) * (1 - clamp((phase - 10.2) / .8));
+          stream.scale.set(flow, Math.max(.001,flow), 1);
+          stream.position.set(x,-1.48,.38);
+          drops.forEach((drop,j) => {
+            const fall = ((phase - 7.5) * .85 + j / 3 + i * .17) % 1;
+            drop.position.set(x + Math.sin(fall * 4 + i) * .035, -1.62 - fall * 1.6, .4);
+            drop.scale.set(.1 * flow, (.14 + fall * .08) * flow, .1 * flow);
+          });
+        });
         renderer.render(scene, camera);
       };
       const animate = (time: number) => {
@@ -91,7 +134,7 @@ export function HiveAnimation() {
       resize.observe(element); observer.observe(element); reduced.addEventListener('change', sync); document.addEventListener('visibilitychange', sync); draw(); sync();
       teardown = () => {
         cancelAnimationFrame(frame); resize.disconnect(); observer.disconnect(); reduced.removeEventListener('change', sync); document.removeEventListener('visibilitychange', sync);
-        geometry.dispose(); fill.dispose(); sphere.dispose(); stripeGeometry.dispose(); wax.dispose(); honey.dispose(); black.dispose(); wingMaterial.dispose(); renderer.dispose(); renderer.forceContextLoss(); canvas.remove(); element.dataset.renderer = 'fallback';
+        geometry.dispose(); fill.dispose(); sphere.dispose(); stripeGeometry.dispose(); streamGeometry.dispose(); spillMaterial.dispose(); wax.dispose(); honey.dispose(); black.dispose(); wingMaterial.dispose(); renderer.dispose(); renderer.forceContextLoss(); canvas.remove(); element.dataset.renderer = 'fallback';
       };
     }).catch(() => { /* The static fallback keeps discovery usable if 3D cannot load. */ });
     return () => { disposed = true; teardown(); };

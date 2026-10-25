@@ -6,7 +6,7 @@ export function TeamHero() {
   return <>
     <Link href="/dashboard" className={styles.back}>← Hacker hub</Link>
     <header className={`${styles.hero} ${styles.discoveryHero}`}>
-      <div><div className={styles.eyebrow}><span />HACKHIVE 2027 · TEAM FINDER</div><h1>Find your teammates</h1><p>Browse hackers and recruiting teams. Connect directly on Slack.</p></div>
+      <div><div className={styles.eyebrow}>HACKHIVE 2027</div><h1>Find Your Teammates</h1></div>
       <HiveAnimation />
     </header>
   </>;
