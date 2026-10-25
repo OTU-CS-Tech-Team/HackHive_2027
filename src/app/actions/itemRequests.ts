@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
+import { sendItemRequestReceivedEmail } from '@/lib/email';
 import { createClient } from '@/lib/supabase/server';
 import { itemRequestSchema, MAX_PENDING_REQUESTS, type ItemRequestInput } from '@/lib/itemRequests';
 
@@ -38,5 +40,9 @@ export async function submitItemRequest(input: ItemRequestInput): Promise<Submit
 
   const { data: positions } = await supabase.rpc('my_item_request_positions');
   const position = (positions as { id: string; queue_position: number }[] | null)?.find((row) => row.id === data.id)?.queue_position;
+  // Sent after the response, so a slow or failed email never holds up the form.
+  const email = user.email;
+  if (email) after(() => sendItemRequestReceivedEmail(email, { items }));
+
   return { ok: true, message: position ? `Request sent! It's #${position} in the queue.` : 'Request sent!' };
 }

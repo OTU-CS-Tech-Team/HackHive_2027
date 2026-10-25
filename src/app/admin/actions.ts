@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { after } from "next/server";
+import { sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
@@ -231,10 +233,18 @@ export async function reviewItemRequest(id: string, decision: "accepted" | "reje
     .update({ status: decision, reviewed_by: user!.id, reviewed_at: new Date().toISOString(), admin_note: note.trim() || null })
     .eq("id", id)
     .eq("status", "pending")
-    .select("id");
+    .select("id, items, admin_note, requester:profiles!user_id(email)");
   if (error) return { ok: false, message: error.message };
   if (!data.length) return { ok: false, message: "Someone already reviewed this one. Refresh the page." };
   revalidatePath("/admin/requests");
+
+  // Tell the hacker, after the response so a slow or failed email never holds up the review.
+  const [reviewed] = data;
+  const requester = reviewed.requester as { email: string | null } | { email: string | null }[] | null;
+  const email = Array.isArray(requester) ? requester[0]?.email : requester?.email;
+  if (email) {
+    after(() => sendItemRequestReviewedEmail(email, { items: reviewed.items, decision, note: reviewed.admin_note }));
+  }
   return { ok: true, message: decision === "accepted" ? "Accepted." : "Rejected." };
 }
 

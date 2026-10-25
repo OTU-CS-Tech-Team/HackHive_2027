@@ -3,6 +3,49 @@
 import { useState, type CSSProperties } from "react";
 import "./faqSection.css";
 
+// The same address as CLUB_EMAIL on the CS Club website.
+const CLUB_EMAIL = "otu.csclub@gmail.com";
+const CONTACT_SUBJECT = "Hackhive 2027 question";
+
+// Clicking the address opens Gmail's compose window with the address and subject
+// filled in. A mailto: link does nothing for the many people with no email app set
+// up, so this is more reliable. The copy button covers everyone else.
+const GMAIL_URL = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(CLUB_EMAIL)}&su=${encodeURIComponent(CONTACT_SUBJECT)}`;
+
+function ContactLine() {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(CLUB_EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access can be blocked; the address is still on screen to copy by hand.
+    }
+  };
+
+  return (
+    <div className="faq-contact">
+      <p>
+        Have more questions? Email us at{" "}
+        <a href={GMAIL_URL} target="_blank" rel="noopener noreferrer">
+          {CLUB_EMAIL}
+        </a>
+        .
+      </p>
+      <div className="faq-contact-actions">
+        <button type="button" onClick={copy}>
+          {copied ? "Copied!" : "Copy email"}
+        </button>
+      </div>
+      <span className="sr-only" aria-live="polite">
+        {copied ? "Email address copied" : ""}
+      </span>
+    </div>
+  );
+}
+
 type Faq = {
   question: string;
   answer: string;
@@ -57,48 +100,34 @@ const HEX_LAYOUTS: HexSpot[][] = [
   [
     { top: -0.45, left: -0.3 },
     { top: 0.5, left: -0.8 },
-    { top: -0.6, left: "64%", size: 0.8 },
-    { bottom: -0.5, left: "40%", melt: true },
     { bottom: -0.4, right: -0.45, melt: true },
   ],
   // Torn at the top-right corner instead.
   [
     { top: -0.65, right: -0.25 },
-    { top: 0.35, right: -0.85, size: 0.85 },
-    { top: -0.6, left: "18%", size: 0.75 },
-    { bottom: -0.45, left: -0.4, melt: true },
-    { bottom: -0.55, left: "68%", size: 0.85, melt: true },
+    { bottom: -0.45, left: -0.4, size: 0.85, melt: true },
   ],
   // A short strip of comb along the top edge.
   [
     { top: -0.6, left: "26%", size: 0.85 },
     { top: -0.6, left: "calc(26% + var(--cell) * 0.9)", size: 0.85 },
-    { top: 0.35, left: -0.6 },
-    { bottom: -0.5, right: "22%", melt: true },
-    { bottom: -0.35, right: -0.5, size: 0.75, melt: true },
   ],
-  // One big hex on the corner and a few stragglers.
+  // One big hex on the corner and a straggler.
   [
     { top: -0.55, left: -0.45, size: 1.25 },
-    { top: -0.6, left: "52%", size: 0.7 },
-    { top: -0.55, right: -0.35, size: 0.8 },
-    { bottom: -0.5, left: "28%", size: 0.9, melt: true },
+    { bottom: -0.5, right: "28%", size: 0.8, melt: true },
   ],
-  // Heavy at the bottom-left.
+  // Low on the bottom-left.
   [
-    { top: -0.6, left: "46%" },
     { top: -0.5, right: -0.3, size: 0.7 },
     { bottom: -0.4, left: -0.35, melt: true },
     { bottom: -0.65, left: 0.55, size: 0.8, melt: true },
-    { bottom: -0.5, right: "30%", size: 0.75, melt: true },
   ],
   // A pair down the left side.
   [
     { top: -0.35, left: -0.6 },
     { top: 0.6, left: -0.75, size: 0.8 },
     { top: -0.6, left: "74%", size: 0.85 },
-    { top: -0.5, left: "33%", size: 0.65 },
-    { bottom: -0.5, left: "52%", melt: true },
   ],
 ];
 
@@ -231,10 +260,7 @@ export function FaqSection() {
           </div>
         ))}
       </div>
-      <p className="faq-contact">
-        Have more questions? Contact us at <strong>otu.csclub.com</strong> with the subject
-        &quot;Hackhive 2027 question&quot;.
-      </p>
+      <ContactLine />
     </section>
   );
 }

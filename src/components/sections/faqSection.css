@@ -281,8 +281,56 @@
   line-height: 1.5;
 }
 
-.faq-contact strong {
+.faq-contact p {
+  margin: 0;
+}
+
+.faq-contact p a {
+  font-weight: 700;
   text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.faq-contact p a:hover {
+  color: var(--honey);
+}
+
+/* "Copy email": a small chunky honey button like the FAQ bars. */
+.faq-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.faq-contact-actions > * {
+  padding: 0.4rem 1rem;
+  border: var(--line) solid var(--ink);
+  border-radius: 9999px;
+  background: var(--grain), var(--honey);
+  box-shadow: 0 4px 0 var(--side);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms;
+}
+
+.faq-contact-actions > *:hover {
+  background-color: var(--honey-light);
+}
+
+.faq-contact-actions > *:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--side);
+}
+
+.faq-contact a:focus-visible,
+.faq-contact button:focus-visible {
+  outline: 3px solid var(--hive-blue);
+  outline-offset: 3px;
 }
 
 @media (max-width: 760px) {

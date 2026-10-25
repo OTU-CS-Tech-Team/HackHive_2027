@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { teamData, type TeamMember } from "@/app/data/teamData";
 import "./teamSection.css";
 
@@ -8,29 +8,69 @@ type TeamMemberProps = {
   image: string;
   name: string;
   role: string;
+  link?: string;
   position?: string;
+  zoom?: number;
 };
 
 // One hexagon of the hive. The role (which names the team) is revealed on hover or tap.
+// Members with a LinkedIn link get a "LinkedIn" pill under their role, and clicking
+// the hex opens their profile in a new tab.
 function TeamMemberCard(props: TeamMemberProps) {
+  // Touch screens can't hover, so the first tap only pops the hex out to show who it
+  // is; tapping it again opens LinkedIn.
+  const revealed = useRef(false);
+  const openOnSecondTap = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (window.matchMedia("(hover: none)").matches && !revealed.current) {
+      event.preventDefault();
+      revealed.current = true;
+      return;
+    }
+    // LinkedIn opens in a new tab; drop focus so the hex isn't still popped out and
+    // its team still lit when the visitor comes back.
+    event.currentTarget.blur();
+  };
+
   const content = (
     <span className="hex-inner">
       <img
         src={props.image}
         alt={`Photo of ${props.name}`}
-        style={{ objectPosition: props.position }}
+        // Zooming from the same point the crop aims at keeps the face in place.
+        style={{ objectPosition: props.position, transformOrigin: props.position, scale: props.zoom }}
       />
       <span className="hex-label">
         <span className="hex-name">{props.name}</span>
         <span className="hex-role">{props.role}</span>
+        {props.link && (
+          <span className="hex-cta" aria-hidden>
+            LinkedIn ↗
+          </span>
+        )}
       </span>
     </span>
   );
 
+  if (!props.link) {
+    return (
+      <div className="hex-cell" tabIndex={0}>
+        {content}
+      </div>
+    );
+  }
+
   return (
-    <div className="hex-cell" tabIndex={0}>
+    <a
+      className="hex-cell"
+      href={props.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${props.name}, ${props.role}: LinkedIn profile (opens in a new tab)`}
+      onClick={openOnSecondTap}
+      onBlur={() => (revealed.current = false)}
+    >
       {content}
-    </div>
+    </a>
   );
 }
 
@@ -42,6 +82,9 @@ function TeamMemberCard(props: TeamMemberProps) {
 // hex goes (x in hex widths, y in rows) on big and small screens; the rest of the team
 // follows its shape from there. The spots are hand-picked so the teams lock together
 // without overlapping, and `perRow` lets a long row wrap where the hive is narrow.
+// They're spaced for the current team sizes: adding someone to a team can make two
+// hexes land on the same spot (one hides the other), so re-check the spots when a
+// team grows.
 type Spot = { x: number; y: number; perRow?: number };
 
 type TeamGroup = {
@@ -49,19 +92,31 @@ type TeamGroup = {
   name: string;
   kind: "row" | "department" | "cluster";
   members: TeamMember[];
+  // Overrides the shape the team's kind would give it, member by member in order.
+  shape?: [number, number][];
   wide: Spot;
   narrow: Spot;
 };
 
+// The tech team's fifth member (Tomi) sits beside Xavier, under Haseeb, rather than
+// out to the right like the cluster's fifth spot.
+const TECH_SHAPE: [number, number][] = [
+  [0, 0],
+  [0.5, 1],
+  [-0.5, 1],
+  [1, 2],
+  [0, 2],
+];
+
 const groups: TeamGroup[] = [
   { id: "presidents", name: "Presidents", kind: "row", members: teamData.presidents, wide: { x: 4, y: 0 }, narrow: { x: 0.5, y: 0 } },
   { id: "vice-presidents", name: "Vice Presidents", kind: "row", members: teamData.vicePresidents, wide: { x: 6, y: 0 }, narrow: { x: 2.5, y: 0 } },
-  { id: "tech", name: "Tech Team", kind: "cluster", members: teamData.tech, wide: { x: 0.5, y: 1 }, narrow: { x: 1, y: 1 } },
+  { id: "tech", name: "Tech Team", kind: "cluster", members: teamData.tech, shape: TECH_SHAPE, wide: { x: 0.5, y: 1 }, narrow: { x: 1, y: 1 } },
   { id: "operations", name: "Operations Team", kind: "department", members: teamData.operations, wide: { x: 2.5, y: 1 }, narrow: { x: 3, y: 1 } },
   { id: "marketing", name: "Marketing Team", kind: "cluster", members: teamData.marketing, wide: { x: 4.5, y: 1 }, narrow: { x: 3, y: 3 } },
-  { id: "sponsors", name: "Sponsors Team", kind: "department", members: teamData.sponsors, wide: { x: 7.5, y: 1 }, narrow: { x: 1, y: 3 } },
-  { id: "events", name: "Events Team", kind: "cluster", members: teamData.events, wide: { x: 9.5, y: 1 }, narrow: { x: 2, y: 5 } },
-  { id: "advisors", name: "Advisors", kind: "row", members: teamData.advisors, wide: { x: 3, y: 4 }, narrow: { x: 0, y: 7, perRow: 3 } },
+  { id: "sponsors", name: "Sponsors Team", kind: "department", members: teamData.sponsors, wide: { x: 7.5, y: 1 }, narrow: { x: 1.5, y: 4 } },
+  { id: "events", name: "Events Team", kind: "cluster", members: teamData.events, wide: { x: 9.5, y: 1 }, narrow: { x: 2.5, y: 6 } },
+  { id: "advisors", name: "Advisors", kind: "row", members: teamData.advisors, wide: { x: 3, y: 4 }, narrow: { x: 0.5, y: 8, perRow: 3 } },
 ];
 
 // The sketch's five-hex shape with the director as its top hex: a row of three
@@ -122,11 +177,12 @@ function rowPositions(count: number, perRow = count): [number, number][] {
 function groupPositions(group: TeamGroup, spot: Spot): [number, number][] {
   const count = group.members.length;
   const shape =
-    group.kind === "row"
+    group.shape?.slice(0, count) ??
+    (group.kind === "row"
       ? rowPositions(count, spot.perRow)
       : group.kind === "cluster"
         ? clusterPositions(count)
-        : departmentPositions(count);
+        : departmentPositions(count));
   return shape.map(([x, y]) => [x + spot.x, y + spot.y]);
 }
 
@@ -158,7 +214,9 @@ function MemberHex({ member }: { member: TeamMember }) {
       image={member.Image}
       name={member.name}
       role={member.role}
+      link={member.link || undefined}
       position={member.position}
+      zoom={member.zoom}
     />
   );
 }
@@ -196,7 +254,7 @@ export function TeamSection() {
       <h1>The team behind HackHive</h1>
 
       {/* Hovering anyone lights up the rest of their team. */}
-      <div className="honeycomb" onMouseLeave={() => setLitTeam(null)}>
+      <div className="honeycomb">
         {hive.cells.map(({ member, team, wide, narrow }) => (
           <div
             key={member.name}
@@ -210,7 +268,9 @@ export function TeamSection() {
               } as CSSProperties
             }
             onMouseEnter={() => setLitTeam(team)}
-            onFocus={() => setLitTeam(team)}
+            onMouseLeave={() => setLitTeam(null)}
+            // Only keyboard focus lights the team; a click shouldn't leave it lit.
+            onFocus={(event) => event.target.matches(":focus-visible") && setLitTeam(team)}
             onBlur={() => setLitTeam(null)}
           >
             <MemberHex member={member} />
