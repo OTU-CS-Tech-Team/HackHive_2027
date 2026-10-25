@@ -70,6 +70,29 @@ export const TABLES = {
     summary: (row) =>
       [`${row.cost} pts`, row.stock === null ? "unlimited" : `${row.stock} left`, !row.active && "hidden"].filter(Boolean).join(" · "),
   },
+  scavenger_items: {
+    heading: "Scavenger hunt",
+    noun: "item",
+    fields: [
+      { name: "name", label: "Name", required: true },
+      { name: "points", label: "Points", type: "number" },
+      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      { name: "clue", label: "Clue", type: "textarea" },
+    ],
+    summary: (row) => `${row.points} pts`,
+  },
+  hardware_items: {
+    heading: "Hardware",
+    noun: "item",
+    fields: [
+      { name: "name", label: "Name", required: true },
+      { name: "stock", label: "Available (blank = unlimited)", type: "number", nullable: true },
+      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      { name: "image_url", label: "Image", type: "image" },
+      { name: "description", label: "Description", type: "textarea" },
+    ],
+    summary: (row) => (row.stock === null ? "unlimited" : `${row.stock} available`),
+  },
 } satisfies Record<string, TableConfig>;
 
 export type TableName = keyof typeof TABLES;

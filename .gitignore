@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Museum content is generated from the CS Club repo on local start/build.
+/src/data/generated/
+/public/museum/projects/

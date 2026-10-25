@@ -108,6 +108,22 @@ export async function redeemItem(userId: string, itemId: string): Promise<Action
   return insertTransaction(supabase, { user_id: userId, amount: -1, reason: item.name, shop_item_id: itemId }, `Redeemed ${item.name}`);
 }
 
+const DECISIONS = ["accepted", "waitlisted", "rejected"];
+
+// Empty decision = back to "applied".
+export async function setDecision(formData: FormData): Promise<string> {
+  const supabase = await requireAdmin();
+  const decision = String(formData.get("decision") ?? "");
+  if (decision && !DECISIONS.includes(decision)) return "Pick a decision.";
+  const { error } = await supabase
+    .from("applications")
+    .update({ decision: decision || null })
+    .eq("id", String(formData.get("id") ?? ""));
+  if (error) return error.message;
+  revalidatePath("/admin");
+  return "Saved.";
+}
+
 const CATEGORIES = ["hackhive", "workshop", "fun", "food", "ceremony"];
 
 // Creates an event, or updates one when the form carries an id.
