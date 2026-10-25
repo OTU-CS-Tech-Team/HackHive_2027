@@ -34,7 +34,9 @@
 
   const setNavbarHidden = (hidden) => {
     const navbar = document.querySelector("[data-navbar-shell]");
-    if (navbar) navbar.dataset.hidden = String(hidden);
+    if (navbar) {
+      navbar.dataset.hidden = String(hidden && !navbar.contains(document.activeElement));
+    }
   };
 
   const syncPageScrollLock = () => {
@@ -83,21 +85,33 @@
 
     const target = getScrollTarget(event.target);
     const y = getScrollY(target);
-    const previousY = lastScrollByTarget.get(target) ?? y;
-    lastScrollByTarget.set(target, y);
+    let state = lastScrollByTarget.get(target);
+    if (!state) {
+      state = { previousY: y, anchorY: y, direction: 0 };
+      lastScrollByTarget.set(target, state);
+    }
+    const direction = Math.sign(y - state.previousY);
+    // Accumulate small steps, restarting the threshold when direction changes.
+    // A duplicate event from the other scroll listener must not reset it.
+    if (direction && direction !== state.direction) {
+      state.anchorY = state.previousY;
+    }
+    state.previousY = y;
+    if (direction) state.direction = direction;
 
     if (y <= 64) {
       setNavbarHidden(false);
-    } 
-    else if (Math.abs(y - previousY) > 8) {
-      setNavbarHidden(y > previousY);
+      state.anchorY = y;
+    } else if (direction && Math.abs(y - state.anchorY) >= 8) {
+      setNavbarHidden(direction > 0);
+      state.anchorY = y;
     }
   };
 
   const onMouseMove = (event) => {
     if (event.clientY <= 50) {
       setNavbarHidden(false);
-    } else if (getPageScrollY() > 64 &&  y > previousY) {
+    } else if (getPageScrollY() > 64 && lastScrollByTarget.get(document)?.direction > 0) {
       setNavbarHidden(true);
     }
   };
@@ -156,6 +170,11 @@
   window.addEventListener("scroll", onScroll, { passive: true });
   document.addEventListener("scroll", onScroll, { capture: true, passive: true });
   document.addEventListener("mousemove", onMouseMove, { passive: true });
+  document.addEventListener("focusin", (event) => {
+    if (event.target instanceof Element && event.target.closest("[data-navbar-shell]")) {
+      setNavbarHidden(false);
+    }
+  });
   document.addEventListener(
     "touchstart",
     onTouchStart,
@@ -190,5 +209,6 @@
     }
   });
 
-  lastScrollByTarget.set(document, getPageScrollY());
+  const initialY = getPageScrollY();
+  lastScrollByTarget.set(document, { previousY: initialY, anchorY: initialY, direction: 0 });
 })();
