@@ -191,7 +191,9 @@ export function HoneycombGroup({
   moreHref,
 }: HoneycombGroupProps) {
   const hiveRef = useRef<HTMLUListElement>(null);
-  const [columns, setColumns] = useState(2);
+  const [columns, setColumns] = useState<number | null>(null);
+  const measured = columns !== null;
+  const activeColumns = columns ?? 2;
   const roleClass = role === "speaker" ? styles.speaker : styles.judge;
 
   useEffect(() => {
@@ -217,14 +219,14 @@ export function HoneycombGroup({
       {people.length ? (
         <ul
           ref={hiveRef}
-          className={styles.hive}
-          style={{ "--columns": columns } as CSSProperties & { "--columns": number }}
+          className={`${styles.hive} ${measured ? styles.ready : ""}`}
+          style={{ "--columns": activeColumns } as CSSProperties & { "--columns": number }}
         >
           {people.map((person, index) => (
             <li
               key={person.id}
               className={`${styles.cell} ${roleClass}`}
-              style={positionForIndex(index, columns, people.length + Number(Boolean(moreHref)))}
+              style={positionForIndex(index, activeColumns, people.length + Number(Boolean(moreHref)))}
             >
               <div className={styles.flip}>
                 <PersonHexCard person={person} role={role} />
@@ -234,7 +236,7 @@ export function HoneycombGroup({
           {moreHref && (
             <li
               className={`${styles.cell} ${styles.judge}`}
-              style={positionForIndex(people.length, columns, people.length + 1)}
+              style={positionForIndex(people.length, activeColumns, people.length + 1)}
             >
               <Link href={moreHref} className={styles.moreCard}>
                 <span className={styles.moreLabel}>More</span>
