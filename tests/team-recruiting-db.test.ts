@@ -77,6 +77,31 @@ afterEach(async () => { await db.exec('reset role; rollback;'); });
 afterAll(async () => { await db.close(); });
 
 describe('teammate recruiting database authorization and invariants', () => {
+  it('publishes only the team Slack contact while keeping its owner profile private', async () => {
+    const team = await createTeam();
+    await asOwner();
+    await db.exec(await readFile('supabase/migrations/20261025011816_teammate_slack_contact.sql', 'utf8'));
+    await asUser(1);
+    await db.query(`update public.recruiting_teams set slack_url='https://demo.slack.com/team/U123ABC' where id='${team}';`);
+    await rejects(`update public.recruiting_teams set slack_url='javascript:alert(1)' where id='${team}';`);
+    await asUser(2);
+    expect((await db.query('select slack_url from public.recruiting_teams;')).rows).toEqual([{ slack_url: 'https://demo.slack.com/team/U123ABC' }]);
+    expect((await db.query(`select id from public.profiles where id='${user(1)}';`)).rows).toEqual([]);
+  });
+
+  it('retires request writes and approvals without deleting existing teams', async () => {
+    const team = await createTeam();
+    const request = await apply(team, 2);
+    await asOwner();
+    await db.exec(await readFile('supabase/migrations/20261025011816_teammate_slack_contact.sql', 'utf8'));
+    await asUser(1);
+    await rejects(`select public.review_team_join('${request}',true);`, /permission denied/);
+    expect(await scalar<number>(`select count(*)::int as value from public.team_join_requests where id='${request}';`)).toBe(1);
+    await asUser(2);
+    await rejects(`select public.request_team_join('${team}','Another introduction from the old flow.');`, /permission denied/);
+    await rejects(`update public.team_join_requests set status='withdrawn' where id='${request}';`, /permission denied/);
+  });
+
   it('applies as one statement when the private schema already exists', async () => {
     const recovery = new PGlite();
     try {
