@@ -13,9 +13,10 @@ export function TeamHub({ data }: { data: TeamDirectoryData }) {
   const view = data.upgraded && ['teams', 'saved', 'mine'].includes(selected) ? selected : 'people';
   const hasTeam = data.members.some(member => member.user_id === data.own.id);
   const openTeams = data.teams.filter(team => team.status === 'recruiting').length;
+  const visibleProfiles = new Set(data.profiles.map(profile => profile.id));
   const tabs = [{ id: 'people', label: 'Hackers', count: data.profiles.length }, ...(data.upgraded ? [
     { id: 'teams', label: 'Teams', count: openTeams },
-    { id: 'saved', label: 'Saved', count: data.bookmarks.filter(mark => mark.saved).length },
+    { id: 'saved', label: 'Saved', count: data.bookmarks.filter(mark => mark.saved && visibleProfiles.has(mark.target_id)).length },
     { id: 'mine', label: 'Your team', count: 0 },
   ] : [])];
   const returnTo = '/dashboard/team' + (params.toString() ? `?${params.toString()}` : '');

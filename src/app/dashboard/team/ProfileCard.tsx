@@ -27,8 +27,8 @@ export function ProfileCard({ profile, saved = false, reasons = [], preview = fa
     <p className={`${styles.bio} ${styles.profileBio}`}>{profile.bio || 'Open to project ideas. Connect on Slack to find out what you could build together.'}</p>
     {!!profile.skills.length && <div className={styles.chipGroup}>{profile.skills.map(skill => <span className={styles.chip} key={skill}>{skill}</span>)}</div>}
     <div className={styles.cardNeeds}>
-      {!!profile.seeking.length && <p className={styles.small}><strong>Looking for </strong>{profile.seeking.join(' · ')}</p>}
-      {!!profile.interests.length && <p className={styles.small}><strong>Interested in </strong>{profile.interests.join(' · ')}</p>}
+      {!!profile.seeking.length && <p className={styles.small}><strong>Looking for:</strong> {profile.seeking.join(' · ')}</p>}
+      {!!profile.interests.length && <p className={styles.small}><strong>Interested in:</strong> {profile.interests.join(' · ')}</p>}
     </div>
     {profile.experience === 'first' && <p className={`${styles.small} mt-3`}>First hackathon · ready to learn</p>}
     {!!reasons.length && <p className={styles.match}>✦ {reasons[0]}</p>}

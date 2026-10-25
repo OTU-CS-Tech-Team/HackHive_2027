@@ -11,7 +11,7 @@ function done(message: string): TeamActionResult {
   return { ok: true, message };
 }
 function failure(error: { code?: string; message?: string } | null): TeamActionResult {
-  if (error?.code === '23505') return { ok: false, message: 'That change conflicts with an existing team or request. Refresh to see the latest status.' };
+  if (error?.code === '23505') return { ok: false, message: 'You already have a team post. Refresh to edit your existing post.' };
   if (error?.code === '23514') return { ok: false, message: 'Check your profile fields and team size, then try again.' };
   if (['42703', 'PGRST202', 'PGRST204', 'PGRST205'].includes(error?.code ?? '')) return { ok: false, message: 'These teammate tools are temporarily unavailable. Try again later.' };
   return { ok: false, message: error?.code === 'P0001' ? error.message ?? 'This change could not be saved.' : 'This change could not be saved. Refresh and try again.' };

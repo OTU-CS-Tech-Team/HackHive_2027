@@ -43,8 +43,9 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
       return a.name.localeCompare(b.name, 'en') || a.id.localeCompare(b.id);
     });
   }, [profiles, q, school, github, savedOnly, marks, role, interest, goal, first, sort, own]);
-  const shown = Math.min(Math.max(9, Number(params.get('shown')) || 9), Math.max(filtered.length, 9));
+  const shown = Math.min(Math.max(9, Math.floor(Number(params.get('shown'))) || 9), Math.max(filtered.length, 9));
   const visible = filtered.slice(0, shown);
+  const nextBatch = Math.min(9, filtered.length - shown);
   const change = (key: string, value: string) => updateTeamQuery({ [key]: value || null });
   const mutate = (work: () => Promise<TeamActionResult>) => {
     setFeedback(null);
@@ -79,7 +80,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
         <p>{activeCount ? 'Try another skill or widen your search. Your next teammate could be from any school.' : savedOnly ? 'Save profiles as you browse. They will appear here while those hackers are discoverable.' : 'No other hackers are listed yet. Make yourself discoverable and check back as people join.'}</p>
         {activeCount ? <button className={styles.secondary} type="button" onClick={clear}>Show all hackers</button> : savedOnly ? <button className={styles.secondary} type="button" onClick={() => updateTeamQuery({ view: null })}>Explore hackers</button> : null}
       </div>}
-    {shown < filtered.length && <div className={styles.loadMore}><button type="button" className={styles.secondary} onClick={() => updateTeamQuery({ shown: String(shown + 9) }, false)}>Meet 9 more hackers ↓</button><span className={styles.small}>Keep exploring at your own pace.</span></div>}
+    {shown < filtered.length && <div className={styles.loadMore}><button type="button" className={styles.secondary} onClick={() => updateTeamQuery({ shown: String(shown + 9) }, false)}>Show {nextBatch} more {nextBatch === 1 ? 'hacker' : 'hackers'} ↓</button><span className={styles.small}>Keep exploring at your own pace.</span></div>}
     {filtersOpen && <Modal title="Find your kind of team" onClose={() => setFiltersOpen(false)}><div className={styles.form}>
       <div className={styles.formGrid}>
         <label>Role<SelectControl label="Role" value={role} onValueChange={value => change('role', value)} options={[{value:'',label:'Any role'},...TEAM_ROLES.map(value=>({value,label:value}))]} /></label>
@@ -89,7 +90,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
       </div>
       <label className={styles.checkLabel}><input type="checkbox" checked={first} onChange={e => change('first', e.target.checked ? '1' : '')} />First-time hackers</label>
       <label className={styles.checkLabel}><input type="checkbox" checked={github} onChange={e => change('github', e.target.checked ? '1' : '')} />Has a GitHub profile (optional)</label>
-      <div className={styles.inlineActions}><button className={styles.primary} type="button" onClick={() => setFiltersOpen(false)}>Show {filtered.length} hackers</button><button type="button" className={styles.quiet} onClick={clear}>Reset filters</button></div>
+      <div className={styles.inlineActions}><button className={styles.primary} type="button" onClick={() => setFiltersOpen(false)}>Show {filtered.length} {filtered.length === 1 ? 'hacker' : 'hackers'}</button><button type="button" className={styles.quiet} onClick={clear}>Reset filters</button></div>
     </div></Modal>}
   </section>;
 }

@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { type TeamProfile } from '@/lib/team/profiles';
 import { Avatar } from './ProfileCard';
@@ -13,8 +13,10 @@ export function ListingControl({ profile, listed, found, upgraded, hasTeam, edit
 }) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<TeamActionResult | null>(null);
+  const menu = useRef<HTMLDetailsElement>(null);
   const router = useRouter();
   const act = (visible: boolean, teamFound = false) => {
+    if (menu.current) { menu.current.open = false; menu.current.querySelector('summary')?.focus(); }
     setResult(null);
     startTransition(async () => { try { const response = await setTeamListing(visible, teamFound); setResult(response); if (response.ok) router.refresh(); } catch { setResult({ ok: false, message: 'Your listing could not be saved. Try again.' }); } });
   };
@@ -30,7 +32,7 @@ export function ListingControl({ profile, listed, found, upgraded, hasTeam, edit
       </div></div>
       <div className={styles.ownActions}>
         {upgraded ? <Link href={editorHref} className={styles.secondary}>Edit profile ↗</Link> : <Link href="/dashboard?tab=profile" className={styles.secondary}>Edit links</Link>}
-        {hasTeam ? <button type="button" className={styles.quiet} onClick={() => updateTeamQuery({ view: 'mine' })}>Your team →</button> : <details className={styles.availabilityMenu}><summary className={styles.secondary}>Availability ⌄</summary><div>{controls}</div></details>}
+        {hasTeam ? <button type="button" className={styles.quiet} onClick={() => updateTeamQuery({ view: 'mine' })}>Your team →</button> : <details ref={menu} className={styles.availabilityMenu} onBlur={event => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}><summary className={styles.secondary}>Availability ⌄</summary><div>{controls}</div></details>}
       </div>
     </section>
     {result && <p role={result.ok ? 'status' : 'alert'} className={styles.feedback}>{result.message}</p>}
