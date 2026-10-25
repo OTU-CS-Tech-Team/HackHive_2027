@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterTeammates, introduction, matchReasons, tags, teamProfile } from '@/lib/team/profiles';
+import { filterTeammates, matchReasons, tags, teamProfile } from '@/lib/team/profiles';
 import { teammateProfileSchema, recruitingTeamSchema, profileInput } from '@/lib/team/schema';
 
 const row = {
@@ -35,11 +35,8 @@ describe('richer teammate profiles', () => {
     expect(filterTeammates([profile], 'campus frontend', '', false)).toHaveLength(1);
     expect(filterTeammates([profile], 'React Toronto', '', false)).toHaveLength(0);
   });
-  it('normalizes freeform tags and constructs an editable introduction without email', () => {
+  it('normalizes freeform tags without duplicates', () => {
     expect(tags(' React, Python, react , , Figma ')).toEqual(['react', 'Python', 'Figma']);
-    const own = { ...teamProfile(row), roles: ['Frontend'], bio: 'I want to build a campus map.' };
-    const text = introduction(own, { ...teamProfile(row), name: 'Jordan Designer' });
-    expect(text).toContain('Hi Jordan!'); expect(text).toContain('Frontend'); expect(text).not.toContain('@');
   });
   it('validates profile fields, Slack formats, tags and roles on the server', () => {
     const form = new FormData();
@@ -53,9 +50,11 @@ describe('richer teammate profiles', () => {
     expect(teammateProfileSchema.safeParse({ ...valid, team_skills: Array.from({ length: 11 }, (_, index) => String(index)) }).success).toBe(false);
   });
   it('limits team size to the registration limit of four', () => {
-    const input = { name: 'A real idea', pitch: 'An accessible campus guide', roles_needed: ['Backend'], interests: ['Accessibility'], goal: 'learn', capacity: 4, status: 'recruiting' };
+    const input = { name: 'A real idea', pitch: 'An accessible campus guide', roles_needed: ['Backend'], interests: ['Accessibility'], goal: 'learn', capacity: 4, status: 'recruiting', slack_url:'https://demo.slack.com/team/U123ABC' };
     expect(recruitingTeamSchema.safeParse(input).success).toBe(true);
     expect(recruitingTeamSchema.safeParse({ ...input, capacity: 5 }).success).toBe(false);
     expect(recruitingTeamSchema.safeParse({ ...input, pitch: '' }).success).toBe(false);
+    expect(recruitingTeamSchema.safeParse({ ...input, slack_url: '' }).success).toBe(false);
+    expect(recruitingTeamSchema.safeParse({ ...input, slack_url: 'https://slack.com.evil.test/team/U123ABC' }).success).toBe(false);
   });
 });

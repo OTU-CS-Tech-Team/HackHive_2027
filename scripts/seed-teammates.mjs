@@ -31,7 +31,6 @@ const roster = [
   ['Robin Ellis', 'Frontend', ['React', 'Figma'], ['Backend', 'Design'], ['Accessibility'], 'learn', 'Building a campus guide with room for different strengths.'],
   ['Skyler Noor', 'Hardware', ['Arduino', 'Python'], ['Mobile', 'AI / ML'], ['Climate'], 'both', 'Making sustainability visible through small, thoughtful devices.'],
   ['Emery Stone', 'Product', ['Research', 'Pitching'], ['Frontend', 'Design'], ['Education'], 'compete', 'Helping students turn a big goal into one useful next step.'],
-  ['Finley Shah', 'Backend', ['Python', 'SQL'], ['Frontend'], ['Accessibility'], 'learn', 'Contributing APIs and data work to an accessible campus project.'],
 ];
 const schools = ['Ontario Tech University', 'University of Waterloo', 'University of Toronto', 'Toronto Metropolitan University'];
 const accounts = [];
@@ -41,7 +40,7 @@ for (const [index, person] of roster.entries()) {
   if (!user) user = (await required(admin.auth.admin.createUser({ email, email_confirm: true, app_metadata: { fixture: SEED }, user_metadata: { full_name: `${person[0]} (TEST)` } }), 'Create demo account')).user;
   accounts.push({ ...user, email });
   await required(admin.from('applications').upsert({ user_id: user.id, email, status: 'submitted', decision: 'accepted', submitted_at: new Date().toISOString(), first_name: person[0].split(' ')[0], last_name: `${person[0].split(' ').slice(1).join(' ')} (TEST)` }, { onConflict: 'user_id' }), 'Set demo-only application access');
-  await required(admin.from('profiles').update({ full_name: `${person[0]} (TEST)`, school: schools[index % schools.length], team_bio: `Fictional test profile. ${person[6]}`, team_roles: [person[1]], team_skills: person[2], team_seeking: person[3], team_interests: person[4], team_goal: person[5], team_experience: index % 3 ? 'returning' : 'first', github_url: `https://example.com/#hackhive-test-${index + 1}`, looking_for_team: index < 12, team_confirmed_at: new Date().toISOString() }).eq('id', user.id), 'Populate demo profile');
+  await required(admin.from('profiles').update({ full_name: `${person[0]} (TEST)`, school: schools[index % schools.length], team_bio: `Fictional test profile. ${person[6]}`, team_roles: [person[1]], team_skills: person[2], team_seeking: person[3], team_interests: person[4], team_goal: person[5], team_experience: index % 3 ? 'returning' : 'first', slack_url:`https://hackhive-demo.slack.com/team/UDEMO${String(index + 1).padStart(5,'0')}`, github_url: `https://example.com/#hackhive-test-${index + 1}`, looking_for_team: index < 12, team_confirmed_at: new Date().toISOString() }).eq('id', user.id), 'Populate demo profile');
 }
 async function sessionFor(index) {
   const link = await required(admin.auth.admin.generateLink({ type: 'magiclink', email: accounts[index].email }), 'Create non-emailed demo session');
@@ -58,17 +57,10 @@ for (const [index, team] of teams.entries()) {
   const owner = await sessionFor(index + 12);
   try {
     const existing = await required(owner.from('recruiting_teams').select('id').eq('owner_id', accounts[index + 12].id).maybeSingle(), 'Find demo team');
-    if (existing) continue; // Preserve any requests/members created during manual testing.
-    const added = await required(owner.from('recruiting_teams').insert({ ...team, owner_id: accounts[index + 12].id }).select('id').single(), 'Create recruiting team');
-    if (index === 0) {
-      const member = await sessionFor(15);
-      try {
-        await required(member.rpc('request_team_join', { p_team: added.id, p_message: 'Fictional test request. I can contribute backend APIs and help make campus navigation more accessible.' }), 'Seed member request');
-        const request = await required(owner.from('team_join_requests').select('id').eq('team_id', added.id).eq('applicant_id', accounts[15].id).single(), 'Find seeded request');
-        await required(owner.rpc('review_team_join', { p_request: request.id, p_accept: true }), 'Seed approved member');
-      } finally { await member.auth.signOut({ scope: 'global' }); }
-    }
+    const slack_url = `https://hackhive-demo.slack.com/team/UDEMO${String(index + 13).padStart(5,'0')}`;
+    if (existing) await required(owner.from('recruiting_teams').update({slack_url}).eq('id',existing.id), 'Update demo Slack contact');
+    else await required(owner.from('recruiting_teams').insert({ ...team, slack_url, owner_id: accounts[index + 12].id }), 'Create recruiting team');
   } finally { await owner.auth.signOut({ scope: 'global' }); }
 }
-console.log('Seeded 12 discoverable TEST hackers and 3 TEST recruiting teams (16 fictional accounts total). Links point to example.com; no signup emails or external messages were sent.');
+console.log('Seeded 12 discoverable TEST hackers and 3 TEST recruiting teams. Slack links are fictional member-profile placeholders; other links use example.com. No signup emails or external messages were sent.');
 console.log('Cleanup: node --env-file=.env scripts/seed-teammates.mjs --clean');

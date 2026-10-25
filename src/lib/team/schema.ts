@@ -19,6 +19,7 @@ export const recruitingTeamSchema = z.object({
   pitch: z.string().trim().min(10, 'Describe your idea in at least 10 characters.').max(500),
   roles_needed: roleArray, interests: tagArray, goal, capacity: z.coerce.number().int().min(2).max(4),
   status: z.enum(['recruiting', 'closed']),
+  slack_url: slack.refine(value => !!value, 'Add a Slack member-profile link so hackers can contact you.'),
 });
 
 const value = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
@@ -37,6 +38,6 @@ export function recruitingInput(form: FormData) {
   return {
     name: value(form, 'name'), pitch: value(form, 'pitch'), roles_needed: form.getAll('roles_needed'),
     interests: tags(value(form, 'interests')), goal: value(form, 'goal'),
-    capacity: value(form, 'capacity'), status: value(form, 'status'),
+    capacity: value(form, 'capacity'), status: value(form, 'status'), slack_url: value(form, 'slack_url'),
   };
 }

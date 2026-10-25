@@ -3,74 +3,64 @@ HackHive 2027 website
 
 ## Find a team
 
-Open **Looking for group** in the hacker hub, or visit `/dashboard/team`.
-The previous `/dashboard?tab=team` link redirects here. Accepted hackers and
-admins can browse; individual profiles appear only while their owners opt in.
-Directory queries and client props exclude email addresses. The app uses the
-signed-in user's access and row-level security, without a service-role key.
+Open **Looking for group** in the hacker hub or visit `/dashboard/team`.
+The legacy `/dashboard?tab=team` URL redirects here. Accepted hackers and admins
+can browse. Individual profiles appear only while their owners opt in; directory
+projections exclude emails. The app uses the signed-in user's RLS permissions.
 
-### Discovery and profiles
+Profiles include skills, roles, interests, project ideas, experience, goals, and
+a Slack member link. `/dashboard/team/profile` provides a focused editor and live
+preview. Search and URL filters cover all authorized rows, including directories
+larger than the API row limit. Suggested results explain complementary roles or
+shared interests. Nine cards load initially, with a load-more control. Saved
+profiles are private to their owner.
 
-Hackers can share skills, roles, interests, a project idea, experience, and goals
-at `/dashboard/team/profile`, with a live card preview. Search and shareable URL
-filters cover the full authorized directory, including records beyond the API
-row limit. Suggested results explain actual shared interests or complementary
-roles. Nine cards load initially, with **Meet more hackers** on mobile and desktop.
+Hacker cards and recruiting posts link directly to **Message on Slack** in a new
+tab. There are no on-site introductions, messages, join requests, or approvals.
+A profile without a Slack link displays that information plainly. Listing a new
+profile or publishing a team post requires a valid Slack member-profile URL.
+Teams publish a project pitch, open roles, interests, goal, team-size limit, and
+an explicit Slack contact. Owners edit or close their posts after forming a team
+on Slack. Team posts do not alter registration submissions. Existing roster data
+is retained, and existing members can leave their legacy roster if needed.
 
-**Saved** profiles and **I reached out** markers are private to their owner.
-Introductions are editable and copied only on request; the site never sends
-messages automatically. Provided Slack and social links open in another tab.
-Unsafe URLs are suppressed. Slack member links require access to the member's
-workspace. Hackers can hide their listing, confirm they are still looking, or
-mark that they found a team. Joining a recruiting team automatically hides the
-individual listing; leaving never relists someone without their choice.
+### Deployment and verification
 
-### Team recruitment
-
-Hackers can publish a team with a project pitch, open roles, interests, goals,
-and capacity of two to four people including the owner. Join requests are private
-to the applicant and owner. Owners can accept or decline requests, edit recruitment,
-or disband the team. Members can leave, and applicants can withdraw requests.
-Database constraints and row locks enforce capacity and one team per hacker.
-These discovery rosters do not change registration applications or submissions.
-
-### Deployment and checks
-
-Apply these migrations to the shared Supabase project before deploying:
+Apply these migrations before deploying:
 
 - `supabase/migrations/20261023003437_teammate_slack_profile.sql`
 - `supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql`
+- `supabase/migrations/20261025011816_teammate_slack_contact.sql`
 
-The second migration adds rich profile fields, private bookmarks, recruiting teams,
-rosters, join requests, scoped policies, and atomic recruitment functions. Existing
-opted-in profiles continue to work. If the new profile columns are absent, the
-page falls back to basic discovery and listing controls until the migration is applied.
-For the Supabase SQL editor, copy the entire migration: it is one atomic `DO`
-statement that creates its private schema and tables before their dependents.
-No separate schema bootstrap is required. A failed run rolls back its changes.
-For troubleshooting, `supabase/diagnostics/teammate_migration_state.sql` reports
-schema objects without reading hacker data.
+The last migration adds a separately published team Slack contact and revokes
+legacy join-request writes and approvals. Historical records are preserved.
+The larger discovery migration is one atomic `DO` statement; copy the whole file
+when using the SQL editor. `supabase/diagnostics/teammate_migration_state.sql`
+reports schema objects without reading hacker data. Missing new contact columns
+fall back to readable posts with editing disabled until the migration is applied.
 
-### Preview fixtures and visual controls
+Run `npm test`, `npm run lint`, and `npm run build`. Tests cover safe projections,
+1,013-row loading, matching, URL validation, RLS, SQL rollback, and retirement of
+request writes in isolated PostgreSQL using PGlite.
 
-`npm run team:seed` creates 12 discoverable fictional hackers and three recruiting
-teams on the project configured in `.env` (16 accounts including owners and one
-approved member). Names include `(TEST)`, introductions identify fictional data,
-emails use `example.test`, and profile links use `example.com`. No emails are sent.
-Existing demo teams and their requests/memberships are preserved when rerunning.
-The script requires the service-role key locally; the app never receives that key.
-Run `npm run team:seed:clean` to remove only accounts with this fixture's protected
+### Preview fixtures and motion
+
+`npm run team:seed` creates 12 fictional discoverable hackers and three recruiting
+posts on the project configured in `.env`. Names include `(TEST)`, bios identify
+fictional data, and emails use `example.test`. Slack links are fictional member
+placeholders in `hackhive-demo.slack.com`; other links use `example.com`. No signup
+emails or messages are sent. The script requires a local service-role key, which
+is never passed to the browser. Existing posts and legacy data are preserved on
+reruns. `npm run team:seed:clean` removes only accounts with the fixture's protected
 metadata marker and matching test email pattern, plus their cascading data.
 
-The teammate page uses styled Radix selects for keyboard navigation and consistent
-menus, including inside dialogs. Its Three.js honeycomb and bee are loaded on the
-client. The animation has a pause control, honors reduced motion, stops offscreen
-or in a hidden tab, caps rendering resolution/frame rate, and frees GPU resources
-when leaving the page. A static honeycomb remains when WebGL is unavailable.
-
-Run `npm test`, `npm run lint`, and `npm run build`. Team tests cover safe client
-projections, 1,013-row loading, validation, matching, and real isolated PostgreSQL
-RLS/recruitment flows using PGlite. They do not require a shared database.
+Cards use an aligned grid, neutral surfaces, and dark text. Styled Radix selects
+support keyboards and work inside dialogs. A Three.js honeycomb assembles and a
+bee flies in during a short entrance, then the scene settles within 4.2 seconds
+of visible animation. No play/pause control is needed. Reduced motion renders a
+static scene; hidden/offscreen animation is suspended. GPU resources are released
+when navigating away, and a static fallback works without WebGL. Card entrances,
+menu transitions, and hover feedback also honor reduced motion.
 
 ## Detailed admin stats
 

@@ -19,19 +19,16 @@ export type TeamProfile = {
 export const TEAM_ROLES = ['Frontend', 'Backend', 'Design', 'AI / ML', 'Hardware', 'Mobile', 'Product', 'Pitching'] as const;
 export const TEAM_GOALS = { learn: 'Learn & ship', compete: 'Aim for a prize', both: 'Learn & compete' } as const;
 export type TeamGoal = keyof typeof TEAM_GOALS;
-export type Bookmark = { id: string; target_id: string; saved: boolean; reached_out: boolean };
+export type Bookmark = { id: string; target_id: string; saved: boolean };
 export type RecruitingTeam = {
   id: string; owner_id: string; name: string; pitch: string; roles_needed: string[];
   interests: string[]; goal: TeamGoal; capacity: number; status: 'recruiting' | 'closed'; created_at: string;
+  slack_url?: string | null;
 };
 export type TeamMember = { id: string; team_id: string; user_id: string; display_name: string };
-export type JoinRequest = {
-  id: string; team_id: string; applicant_id: string; applicant_name: string; message: string;
-  status: 'pending' | 'accepted' | 'declined' | 'withdrawn'; created_at: string;
-};
 export type TeamDirectoryData = {
   own: TeamProfile; listed: boolean; found: boolean; upgraded: boolean; profiles: TeamProfile[];
-  bookmarks: Bookmark[]; teams: RecruitingTeam[]; members: TeamMember[]; requests: JoinRequest[];
+  bookmarks: Bookmark[]; teams: RecruitingTeam[]; members: TeamMember[]; recruitingReady: boolean;
 };
 
 export function tags(value: string): string[] {
@@ -49,12 +46,6 @@ export function matchReasons(own: TeamProfile, profile: TeamProfile): string[] {
   if (interests.length) reasons.push(`Shared interest: ${interests.slice(0, 2).join(', ')}`);
   if (own.goal && own.goal === profile.goal) reasons.push(`Shared goal: ${TEAM_GOALS[own.goal]}`);
   return reasons;
-}
-
-export function introduction(own: TeamProfile, profile: TeamProfile): string {
-  const contribution = own.roles.length ? ` I can help with ${own.roles.join(', ')}.` : '';
-  const idea = own.bio ? ` ${own.bio}` : '';
-  return `Hi ${profile.name.split(' ')[0]}! I'm ${own.name} from HackHive.${contribution}${idea} Are you still looking for teammates? I'd love to hear what you're thinking of building.`;
 }
 
 export function safeWebUrl(value: string | null): string | null {

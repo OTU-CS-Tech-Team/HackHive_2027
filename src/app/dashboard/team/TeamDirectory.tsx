@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { filterTeammates, teamSchools, matchReasons, introduction, TEAM_ROLES, TEAM_GOALS, type TeamProfile, type Bookmark } from '@/lib/team/profiles';
+import { filterTeammates, teamSchools, matchReasons, TEAM_ROLES, TEAM_GOALS, type TeamProfile, type Bookmark } from '@/lib/team/profiles';
 import { updateBookmark, type TeamActionResult } from './actions';
 import { updateTeamQuery } from './team-query';
 import { ProfileCard } from './ProfileCard';
@@ -10,14 +10,13 @@ import { Icon } from './Icon';
 import { SelectControl } from './SelectControl';
 import styles from './team.module.css';
 
-const filterKeys = ['q', 'school', 'role', 'interest', 'goal', 'first', 'github', 'hide-contacted'];
+const filterKeys = ['q', 'school', 'role', 'interest', 'goal', 'first', 'github'];
 export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = false }: {
   profiles: TeamProfile[]; own: TeamProfile; bookmarks: Bookmark[]; upgraded: boolean; savedOnly?: boolean;
 }) {
   const params = useSearchParams();
   const router = useRouter();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [intro, setIntro] = useState<TeamProfile | null>(null);
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<TeamActionResult | null>(null);
   const marks = useMemo(() => new Map(bookmarks.map(bookmark => [bookmark.target_id, bookmark])), [bookmarks]);
@@ -25,7 +24,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
   const interests = useMemo(() => [...new Set(profiles.flatMap(profile => profile.interests))].sort((a, b) => a.localeCompare(b)), [profiles]);
   const q = params.get('q') ?? '', school = params.get('school') ?? '', role = params.get('role') ?? '';
   const interest = params.get('interest') ?? '', goal = params.get('goal') ?? '';
-  const github = params.get('github') === '1', first = params.get('first') === '1', hideContacted = params.get('hide-contacted') === '1';
+  const github = params.get('github') === '1', first = params.get('first') === '1';
   const sort = ['recent', 'name'].includes(params.get('sort') ?? '') ? params.get('sort')! : 'recommended';
   const activeCount = filterKeys.filter(key => !!params.get(key)).length;
   const clear = () => updateTeamQuery(Object.fromEntries(filterKeys.map(key => [key, null])));
@@ -33,7 +32,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
     const people = filterTeammates(profiles, q, school, github).filter(profile =>
       (!savedOnly || marks.get(profile.id)?.saved) && (!role || profile.roles.includes(role)) &&
       (!interest || profile.interests.includes(interest)) && (!goal || profile.goal === goal) &&
-      (!first || profile.experience === 'first') && (!hideContacted || !marks.get(profile.id)?.reached_out));
+      (!first || profile.experience === 'first'));
     const date = (profile: TeamProfile) => profile.confirmedAt ? Date.parse(profile.confirmedAt) || 0 : 0;
     return people.sort((a, b) => {
       if (sort === 'recommended') {
@@ -43,7 +42,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
       if (sort !== 'name') { const diff = date(b) - date(a); if (diff) return diff; }
       return a.name.localeCompare(b.name, 'en') || a.id.localeCompare(b.id);
     });
-  }, [profiles, q, school, github, savedOnly, marks, role, interest, goal, first, hideContacted, sort, own]);
+  }, [profiles, q, school, github, savedOnly, marks, role, interest, goal, first, sort, own]);
   const shown = Math.min(Math.max(9, Number(params.get('shown')) || 9), Math.max(filtered.length, 9));
   const visible = filtered.slice(0, shown);
   const change = (key: string, value: string) => updateTeamQuery({ [key]: value || null });
@@ -57,7 +56,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
 
   return <section aria-labelledby="directory-heading" aria-busy={pending}>
     <div className={styles.sectionHead}>
-      <div><h2 id="directory-heading">{savedOnly ? 'Saved hackers' : 'Explore the hive'}</h2><p className={`${styles.small} ${styles.desktopOnly}`}>{savedOnly ? 'Saved just for you. Other hackers cannot see this list.' : 'Browse hackers who are looking for teammates.'}</p></div>
+      <div><h2 id="directory-heading">{savedOnly ? 'Saved hackers' : 'Hackers looking for a team'}</h2><p className={`${styles.small} ${styles.desktopOnly}`}>{savedOnly ? 'Your private shortlist.' : 'Find complementary skills, shared interests, and a similar goal.'}</p></div>
       <button type="button" className={styles.quiet} disabled={pending} onClick={() => startTransition(() => router.refresh())} aria-label="Refresh teammate directory">↻ Refresh</button>
     </div>
     <div className={styles.searchRow}>
@@ -73,11 +72,9 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
     </div>
     {feedback && <p role={feedback.ok ? 'status' : 'alert'} className={styles.feedback}>{feedback.message}</p>}
     {visible.length ? <ul className={`${styles.grid} ${styles.peopleGrid}`}>{visible.map(profile => <li className="flex min-w-0" key={profile.id}><ProfileCard profile={profile}
-      saved={marks.get(profile.id)?.saved} contacted={marks.get(profile.id)?.reached_out} disabled={pending}
+      saved={marks.get(profile.id)?.saved} disabled={pending}
       reasons={sort === 'recommended' ? matchReasons(own, profile) : []}
-      onSave={upgraded ? () => mutate(() => updateBookmark(profile.id, 'saved', !marks.get(profile.id)?.saved)) : undefined}
-      onContacted={upgraded ? value => mutate(() => updateBookmark(profile.id, 'reached_out', value)) : undefined}
-      onIntroduce={() => setIntro(profile)} /></li>)}</ul> :
+      onSave={upgraded ? () => mutate(() => updateBookmark(profile.id, !marks.get(profile.id)?.saved)) : undefined} /></li>)}</ul> :
       <div className={styles.empty}><span aria-hidden="true">✦</span><h3>{activeCount ? 'Your people might be one filter away.' : savedOnly ? 'Make room for a few great possibilities.' : 'A great team could start with you.'}</h3>
         <p>{activeCount ? 'Try another skill or widen your search. Your next teammate could be from any school.' : savedOnly ? 'Save profiles as you browse. They will appear here while those hackers are discoverable.' : 'No other hackers are listed yet. Make yourself discoverable and check back as people join.'}</p>
         {activeCount ? <button className={styles.secondary} type="button" onClick={clear}>Show all hackers</button> : savedOnly ? <button className={styles.secondary} type="button" onClick={() => updateTeamQuery({ view: null })}>Explore hackers</button> : null}
@@ -91,29 +88,8 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
         <label>School<SelectControl label="School" value={school} onValueChange={value => change('school', value)} options={[{value:'',label:'All schools'},...schools]} /></label>
       </div>
       <label className={styles.checkLabel}><input type="checkbox" checked={first} onChange={e => change('first', e.target.checked ? '1' : '')} />First-time hackers</label>
-      <label className={styles.checkLabel}><input type="checkbox" checked={hideContacted} onChange={e => change('hide-contacted', e.target.checked ? '1' : '')} />Hide people I&apos;ve reached out to</label>
       <label className={styles.checkLabel}><input type="checkbox" checked={github} onChange={e => change('github', e.target.checked ? '1' : '')} />Has a GitHub profile (optional)</label>
       <div className={styles.inlineActions}><button className={styles.primary} type="button" onClick={() => setFiltersOpen(false)}>Show {filtered.length} hackers</button><button type="button" className={styles.quiet} onClick={clear}>Reset filters</button></div>
     </div></Modal>}
-    {intro && <Introduction own={own} profile={intro} onClose={() => setIntro(null)} />}
   </section>;
-}
-
-function Introduction({ own, profile, onClose }: { own: TeamProfile; profile: TeamProfile; onClose: () => void }) {
-  const [message, setMessage] = useState(() => introduction(own, profile));
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const links = [['Open Slack', profile.slackUrl], ['Open GitHub', profile.githubUrl], ['Open LinkedIn', profile.linkedinUrl], ['Open Instagram', profile.instagramUrl]].filter(([, href]) => !!href);
-  return <Modal title={`Say hello to ${profile.name.split(' ')[0]}`} onClose={onClose}>
-    <div className="mb-4"><p className={styles.bio}>{profile.bio || 'No project idea added yet.'}</p><div className={styles.chipGroup}>{[...new Set([...profile.roles, ...profile.skills])].map(value => <span className={styles.chip} key={value}>{value}</span>)}</div>
-      {matchReasons(own, profile).length > 0 && <ul className={styles.match}>{matchReasons(own, profile).map(reason => <li key={reason}>✦ {reason}</li>)}</ul>}
-    </div>
-    <p className={`${styles.small} mb-4`}>Start with something personal. Edit this introduction, copy it, then send it yourself. Nothing is sent automatically.</p>
-    <label className={styles.fieldLabel}>Your introduction<textarea className={styles.textarea} maxLength={1200} value={message} onChange={event => { setMessage(event.target.value); setCopyState('idle'); }} /></label>
-    <div className={`${styles.inlineActions} mt-4`}>
-      <button type="button" className={styles.primary} onClick={async () => { try { await navigator.clipboard.writeText(message); setCopyState('copied'); } catch { setCopyState('failed'); } }}>{copyState === 'copied' ? 'Copied ✓' : 'Copy introduction'}</button>
-      {links.map(([label, href]) => <a className={styles.secondary} href={href!} key={label} target="_blank" rel="noopener noreferrer">{label} ↗</a>)}
-    </div>
-    {copyState !== 'idle' && <p className={`${styles.small} mt-3`} role={copyState === 'failed' ? 'alert' : 'status'}>{copyState === 'copied' ? 'Ready to paste. After you send it, mark “I reached out” on their card if you’d like.' : 'Clipboard access is unavailable. Select the text and copy it manually.'}</p>}
-    {!profile.slackUrl && <p className={`${styles.small} mt-3`}>They haven&apos;t added Slack. Use one of their other profile links to connect.</p>}
-  </Modal>;
 }

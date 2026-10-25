@@ -20,6 +20,11 @@ function failure(error: { code?: string; message?: string } | null): TeamActionR
 export async function setTeamListing(listed: boolean, found = false): Promise<TeamActionResult> {
   const access = await requireTeamAccess();
   if (!access.ok || typeof listed !== 'boolean' || typeof found !== 'boolean') return failure(null);
+  if (listed) {
+    const { data: profile, error: profileError } = await access.session.from('profiles').select('slack_url').eq('id', access.user.id).maybeSingle();
+    if (profileError) return failure(profileError);
+    if (!safeSlackProfileUrl(profile?.slack_url ?? null)) return { ok: false, message: 'Add your Slack member-profile link in Edit profile before making your listing available.' };
+  }
   const { error } = await access.session.rpc('confirm_teammate_availability', { p_listed: listed, p_found: found });
   if (error?.code === 'PGRST202') {
     // Keep the pre-migration visibility control functional.
@@ -35,8 +40,8 @@ export async function saveTeammateProfile(form: FormData): Promise<TeamActionRes
   const parsed = teammateProfileSchema.safeParse(profileInput(form));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const profile = parsed.data;
-  if (profile.looking_for_team && ![profile.slack_url, profile.github_url, profile.linkedin_url, profile.instagram_url].some(Boolean)) {
-    return { ok: false, message: 'Add a Slack or social profile link so teammates can reach you.' };
+  if (profile.looking_for_team && !profile.slack_url) {
+    return { ok: false, message: 'Add your Slack member-profile link so teammates can contact you.' };
   }
   const { error, data } = await access.session.from('profiles').update({ ...profile,
     slack_url: safeSlackProfileUrl(profile.slack_url), github_url: safeWebUrl(profile.github_url),
@@ -45,13 +50,13 @@ export async function saveTeammateProfile(form: FormData): Promise<TeamActionRes
   return error || !data ? failure(error) : done('Your teammate profile is saved.');
 }
 
-export async function updateBookmark(targetId: string, kind: 'saved' | 'reached_out', enabled: boolean): Promise<TeamActionResult> {
+export async function updateBookmark(targetId: string, enabled: boolean): Promise<TeamActionResult> {
   const access = await requireTeamAccess();
-  if (!access.ok || !uuid.safeParse(targetId).success || !['saved', 'reached_out'].includes(kind) || typeof enabled !== 'boolean') return failure(null);
+  if (!access.ok || !uuid.safeParse(targetId).success || typeof enabled !== 'boolean') return failure(null);
   const { error } = await access.session.rpc('set_teammate_bookmark', {
-    p_target: targetId, ...(kind === 'saved' ? { p_saved: enabled } : { p_reached_out: enabled }),
+    p_target: targetId, p_saved: enabled,
   });
-  return error ? failure(error) : done(kind === 'saved' ? enabled ? 'Profile saved privately.' : 'Profile removed from saved.' : enabled ? 'Marked as reached out. Only you can see this.' : 'Outreach mark removed.');
+  return error ? failure(error) : done(enabled ? 'Profile saved privately.' : 'Profile removed from saved.');
 }
 
 export async function saveRecruitingTeam(form: FormData): Promise<TeamActionResult> {
@@ -64,31 +69,7 @@ export async function saveRecruitingTeam(form: FormData): Promise<TeamActionResu
   const query = id ? access.session.from('recruiting_teams').update(parsed.data).eq('id', id).eq('owner_id', access.user.id)
     : access.session.from('recruiting_teams').insert({ ...parsed.data, owner_id: access.user.id });
   const { data, error } = await query.select('id').maybeSingle();
-  return error || !data ? failure(error) : done(id ? 'Team updated.' : 'Your team is published. Your individual listing is now hidden.');
-}
-
-export async function requestToJoin(teamId: string, message: string): Promise<TeamActionResult> {
-  const access = await requireTeamAccess();
-  if (!access.ok || !uuid.safeParse(teamId).success || typeof message !== 'string' || message.trim().length < 10 || message.length > 500) {
-    return { ok: false, message: 'Introduce yourself in 10–500 characters.' };
-  }
-  const { error } = await access.session.rpc('request_team_join', { p_team: teamId, p_message: message.trim() });
-  return error ? failure(error) : done('Request sent. The team owner can review your introduction.');
-}
-
-export async function reviewJoinRequest(requestId: string, accept: boolean): Promise<TeamActionResult> {
-  const access = await requireTeamAccess();
-  if (!access.ok || !uuid.safeParse(requestId).success || typeof accept !== 'boolean') return failure(null);
-  const { error } = await access.session.rpc('review_team_join', { p_request: requestId, p_accept: accept });
-  return error ? failure(error) : done(accept ? 'Teammate added. Their other pending requests and individual listing are closed.' : 'Request declined.');
-}
-
-export async function withdrawJoinRequest(requestId: string): Promise<TeamActionResult> {
-  const access = await requireTeamAccess();
-  if (!access.ok || !uuid.safeParse(requestId).success) return failure(null);
-  const { error, data } = await access.session.from('team_join_requests').update({ status: 'withdrawn' })
-    .eq('id', requestId).eq('applicant_id', access.user.id).eq('status', 'pending').select('id').maybeSingle();
-  return error || !data ? failure(error) : done('Request withdrawn.');
+  return error || !data ? failure(error) : done(id ? 'Team post updated.' : 'Your team post is published. Hackers can contact you on Slack.');
 }
 
 export async function leaveTeam(teamId: string, disband = false): Promise<TeamActionResult> {
@@ -97,5 +78,5 @@ export async function leaveTeam(teamId: string, disband = false): Promise<TeamAc
   const query = disband ? access.session.from('recruiting_teams').delete().eq('id', teamId).eq('owner_id', access.user.id)
     : access.session.from('team_memberships').delete().eq('team_id', teamId).eq('user_id', access.user.id);
   const { error, data } = await query.select('id').maybeSingle();
-  return error || !data ? failure(error) : done(disband ? 'Team disbanded. Members can choose whether to list themselves again.' : 'You left the team. Reconfirm your availability to appear in the directory again.');
+  return error || !data ? failure(error) : done(disband ? 'Team post removed. You can make your hacker profile visible again.' : 'You left the existing roster. Reconfirm your availability to appear in the directory again.');
 }
