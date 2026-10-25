@@ -71,35 +71,7 @@
 .sidebar {
   position: sticky;
   top: 10rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1.5rem;
   min-width: 0;
-  padding: 1.5rem 1.25rem 1.75rem;
-  border: 1px solid #6b5427;
-  border-radius: 0.8rem;
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='138'%3E%3Cpath d='M40 0 80 23v46L40 92 0 69V23ZM0 69v46l40 23 40-23V69' fill='none' stroke='%23f5b83d' stroke-opacity='.09'/%3E%3C/svg%3E"),
-    #201b11;
-  color: #fff6e0;
-}
-.backLink {
-  width: fit-content;
-  font-size: 0.875rem;
-  text-decoration: none;
-  text-underline-offset: 4px;
-}
-.backLink::before {
-  content: "← ";
-}
-.backLink:hover {
-  text-decoration: underline;
-}
-.brand {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
 }
 .kicker {
   margin: 0;
@@ -108,16 +80,6 @@
   font-weight: 700;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-}
-.sidebar .kicker {
-  color: #ffd879;
-}
-.title {
-  margin: 0;
-  font-size: 1.45rem;
-  font-weight: 650;
-  letter-spacing: -0.025em;
-  line-height: 1.35;
 }
 .squad {
   --squad: 100%;
@@ -168,27 +130,6 @@
 }
 .pieceActive {
   z-index: 2;
-}
-.sidebar .piece:focus-visible,
-.sidebar .backLink:focus-visible {
-  outline-color: #ffe0a0;
-}
-.scrollHint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  margin: 0;
-  color: #e6d7b7;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  text-align: center;
-}
-.scrollArrow {
-  display: flex;
-  color: #ffd879;
-  animation: scrollNudge 1.8s ease-in-out infinite;
 }
 .main {
   min-width: 0;
@@ -410,15 +351,6 @@
 .cardImage {
   object-fit: cover;
 }
-@keyframes scrollNudge {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(0.35rem);
-  }
-}
 @keyframes pieceFlyIn {
   0% {
     opacity: 0;
@@ -461,28 +393,11 @@
     position: relative;
     top: 0;
     display: grid;
-    grid-template-columns: 1fr minmax(10rem, 14rem);
-    gap: 1rem;
-    padding: 1.5rem;
-  }
-  .backLink {
-    grid-column: 1 / -1;
-  }
-  .brand {
-    align-self: center;
+    justify-items: center;
   }
   .squad {
-    grid-column: 2;
-    grid-row: 2 / span 2;
-    align-self: center;
+    width: min(100%, 16rem);
     margin: 0;
-  }
-  .scrollHint {
-    align-items: flex-start;
-    text-align: left;
-  }
-  .scrollArrow {
-    display: none;
   }
   .welcome {
     padding-bottom: 2rem;
@@ -504,26 +419,6 @@
   }
   .shell {
     padding-inline: 1rem;
-  }
-  .sidebar {
-    grid-template-columns: 1fr;
-    padding: 1.25rem;
-  }
-  .squad {
-    grid-column: 1;
-    grid-row: auto;
-    width: min(100%, 16rem);
-    justify-self: center;
-  }
-  .brand {
-    gap: 0.4rem;
-  }
-  .title {
-    font-size: 1.35rem;
-  }
-  .scrollHint {
-    align-items: center;
-    text-align: center;
   }
   .welcomeTitle {
     font-size: 2.15rem;
@@ -547,8 +442,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .pieceIn,
-  .pieceOut,
-  .scrollArrow {
+  .pieceOut {
     animation: none;
   }
   .card,

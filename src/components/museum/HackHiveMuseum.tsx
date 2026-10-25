@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import type { ArchiveCollection } from "@/data/hackhive";
 import ArchiveCard from "./ArchiveCard";
 import PuzzlePiece, { type EdgeKind, type PuzzleSlot } from "./PuzzlePiece";
@@ -160,16 +159,6 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
       </nav>
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
-          <Link href="/" className={styles.backLink}>
-            Back to homepage
-          </Link>
-          <div className={styles.brand}>
-            <p className={styles.kicker}>The archive</p>
-            <p className={styles.title}>
-              A little history.
-              <br />A lot of building.
-            </p>
-          </div>
           <div className={styles.squad} aria-label="HackHive Museum">
             {PIECES.filter((piece) => renderedYears.includes(piece.year)).map(
               (piece) => (
@@ -192,23 +181,6 @@ export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
               ),
             )}
           </div>
-          <p className={styles.scrollHint}>
-            <span className={styles.scrollArrow} aria-hidden>
-              <svg viewBox="0 0 24 40" width="22" height="38">
-                <path
-                  d="M12 2v28M4 20l8 14 8-14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            Scroll through the years.
-            <br />
-            Watch the archive come together.
-          </p>
         </aside>
 
         <div className={styles.main}>
