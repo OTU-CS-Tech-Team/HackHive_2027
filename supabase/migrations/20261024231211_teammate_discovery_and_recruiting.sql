@@ -1,6 +1,9 @@
-begin;
+-- One statement for SQL editors and migration runners. PostgreSQL executes the
+-- enclosed DDL in order, in one transaction; any failure rolls everything back.
+do $team_migration$
+begin
+execute $team_ddl$
 
--- Run this entire file, including BEGIN/COMMIT, in the SQL editor.
 -- Establish the private namespace before any migration objects are defined.
 create schema if not exists team_internal;
 revoke all on schema team_internal from public,anon,authenticated;
@@ -301,4 +304,6 @@ revoke all on function public.confirm_teammate_availability(boolean,boolean),pub
 grant execute on function public.confirm_teammate_availability(boolean,boolean),public.set_teammate_bookmark(uuid,boolean,boolean),
   public.request_team_join(uuid,text),public.review_team_join(uuid,boolean) to authenticated;
 
-commit;
+$team_ddl$;
+end;
+$team_migration$;

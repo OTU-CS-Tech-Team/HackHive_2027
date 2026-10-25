@@ -63,7 +63,9 @@ async function apply(team: string, n: number) {
 beforeAll(async () => {
   await db.exec(setup);
   await db.exec(await readFile('supabase/migrations/20261023003437_teammate_slack_profile.sql', 'utf8'));
-  await db.exec(await readFile('supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql', 'utf8'));
+  // Use a single prepared statement, as well as the SQL editor's execution path.
+  // This catches dependency resolution before the tables/schema are created.
+  await db.query(await readFile('supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql', 'utf8'));
   for (let n = 1; n <= 8; n++) {
     await db.query(`insert into auth.users(id) values($1);`, [user(n)]);
     await db.query(`insert into public.profiles(id,email,full_name,school,slack_url,looking_for_team) values($1,$2,$3,'Ontario Tech','https://demo.slack.com/team/U123ABC',true);`, [user(n), `private-${n}@example.test`, `Hacker ${n}`]);
@@ -75,6 +77,30 @@ afterEach(async () => { await db.exec('reset role; rollback;'); });
 afterAll(async () => { await db.close(); });
 
 describe('teammate recruiting database authorization and invariants', () => {
+  it('applies as one statement when the private schema already exists', async () => {
+    const recovery = new PGlite();
+    try {
+      await recovery.exec(setup);
+      await recovery.exec(await readFile('supabase/migrations/20261023003437_teammate_slack_profile.sql', 'utf8'));
+      await recovery.exec('create schema team_internal; revoke all on schema team_internal from public,anon,authenticated;');
+      await recovery.query(await readFile('supabase/migrations/20261024231211_teammate_discovery_and_recruiting.sql', 'utf8'));
+      const result = await recovery.query<{ count: number }>(`select count(*)::int from pg_tables where schemaname='public'
+        and tablename in ('teammate_bookmarks','recruiting_teams','team_memberships','team_join_requests');`);
+      expect(result.rows[0].count).toBe(4);
+    } finally { await recovery.close(); }
+  });
+
+  it('reports migration state without requiring the new tables to exist', async () => {
+    const diagnostic = await readFile('supabase/diagnostics/teammate_migration_state.sql', 'utf8');
+    const result = await db.query<{ teammate_migration_state: string }>(diagnostic);
+    expect(JSON.parse(result.rows[0].teammate_migration_state).tables['public.team_memberships']).toBe('team_memberships');
+    await db.exec('savepoint diagnostic_without_tables; drop table public.team_memberships cascade;');
+    try {
+      const missing = await db.query<{ teammate_migration_state: string }>(diagnostic);
+      expect(JSON.parse(missing.rows[0].teammate_migration_state).tables['public.team_memberships']).toBeNull();
+    } finally { await db.exec('rollback to savepoint diagnostic_without_tables;'); }
+  });
+
   it('enables RLS on every new table and denies anonymous access', async () => {
     expect(await scalar<number>(`select count(*)::int as value from pg_class where relname in ('teammate_bookmarks','recruiting_teams','team_memberships','team_join_requests') and relrowsecurity;`)).toBe(4);
     expect(await scalar<boolean>(`select has_function_privilege('authenticated','team_internal.member_joined()','execute') as value;`)).toBe(false);
