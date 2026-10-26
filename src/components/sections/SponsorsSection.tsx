@@ -311,7 +311,7 @@ export async function SponsorsSection() {
 
         <header className={styles.intro}>
           <h2 className={styles.title}>Sponsors</h2>
-          <p className={styles.lead}>hackhive slogan idk.</p>
+          <p className={styles.lead}>The teams making HackHive possible.</p>
         </header>
 
         <div className={styles.boards}>
