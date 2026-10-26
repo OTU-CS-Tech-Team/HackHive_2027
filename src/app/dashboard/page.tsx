@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
-import { ApplicationView } from "@/components/ApplicationView";
+import { ApplicationNextSteps, ApplicationView } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { signOut } from "@/app/actions/auth";
 import { getMyApplication } from "@/lib/application/api";
@@ -116,7 +116,10 @@ async function ApplicationTab() {
     <section>
       <h2 className="mb-4 text-2xl font-bold">My application</h2>
       {result.ok && result.application ? (
-        <ApplicationView application={result.application} />
+        <>
+          <ApplicationNextSteps application={result.application} />
+          <ApplicationView application={result.application} />
+        </>
       ) : (
         <p className={muted}>
           {result.ok ? "You haven't started an application yet. " : `${result.error}. `}

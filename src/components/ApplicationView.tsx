@@ -1,11 +1,20 @@
+import Link from "next/link";
 import type { Application } from "@/lib/application/schema";
 
 const BADGES = {
   draft: ["Draft", "bg-neutral-100 text-neutral-800"],
-  applied: ["Applied", "bg-blue-100 text-blue-800"],
+  applied: ["Submitted · Pending review", "bg-blue-100 text-blue-800"],
   accepted: ["Accepted", "bg-green-100 text-green-800"],
   waitlisted: ["Waitlisted", "bg-yellow-100 text-yellow-800"],
-  rejected: ["Rejected", "bg-red-100 text-red-800"],
+  rejected: ["Not accepted", "bg-red-100 text-red-800"],
+} as const;
+
+const NEXT_STEPS = {
+  draft: "Your application is saved but not submitted. Organizers can't see it until you submit.",
+  applied: "We've got your application and will email you a decision. The rest of the dashboard unlocks if you're accepted.",
+  accepted: "You're in! The full hacker dashboard is unlocked: schedule, your pass, teammates, hardware and points.",
+  waitlisted: "You're on the waitlist. We'll email you if a spot opens up.",
+  rejected: "We couldn't offer you a spot this year. Thanks for applying, and we hope to see you next time.",
 } as const;
 
 export function applicantStatus(application: Pick<Application, "status" | "decision">): keyof typeof BADGES {
@@ -15,6 +24,20 @@ export function applicantStatus(application: Pick<Application, "status" | "decis
 function StatusBadge({ application }: { application: Application }) {
   const [label, styles] = BADGES[applicantStatus(application)];
   return <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${styles}`}>{label}</span>;
+}
+
+// Hacker-facing only; the admin list reuses ApplicationView without it.
+export function ApplicationNextSteps({ application }: { application: Application }) {
+  return (
+    <p className="mb-8 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-neutral-700">
+      {NEXT_STEPS[applicantStatus(application)]}{" "}
+      {application.status === "draft" && (
+        <Link href="/apply" className="font-medium underline">
+          Finish your application
+        </Link>
+      )}
+    </p>
+  );
 }
 
 function FieldDisplay({ label, value }: { label: string; value: string | null | undefined }) {

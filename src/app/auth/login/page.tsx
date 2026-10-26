@@ -11,7 +11,7 @@ interface LoginPageProps {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
-  const next = params.next && isValidRedirectPath(params.next) ? params.next : "/apply";
+  const next = params.next && isValidRedirectPath(params.next) ? params.next : "/dashboard";
   
   const verifiedUser = await getVerifiedUser();
   if (verifiedUser) {

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { OAuthButtons, OrDivider } from "@/components/auth/OAuthButtons";
 
@@ -11,7 +10,6 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ next }: LoginFormProps) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -30,8 +28,9 @@ export function LoginForm({ next }: LoginFormProps) {
       setIsLoading(false);
       return;
     }
-    router.push(next);
-    router.refresh();
+    // Full page load: the session cookie was just set in the browser, and a
+    // client navigation can keep serving the signed-out navbar from cache.
+    window.location.assign(next);
   };
 
   // Fallback for forgotten passwords and accounts made back when sign-in was
