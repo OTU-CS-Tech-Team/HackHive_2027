@@ -433,19 +433,35 @@
 
   .avatar,
   .avatarFallback {
-    width: 2.2em;
-    height: 2.2em;
-    margin-bottom: 0.1em;
+    width: calc(var(--tile-width) * 0.25);
+    height: calc(var(--tile-width) * 0.25);
+    margin-bottom: 0.05em;
   }
 
   .judge .back .avatar,
   .judge .back .avatarFallback {
-    width: 2.2em;
-    height: 2.2em;
+    width: calc(var(--tile-width) * 0.25);
+    height: calc(var(--tile-width) * 0.25);
   }
 
   .rule {
     margin: 0.1em 0;
+  }
+}
+
+@container (max-width: 479px) {
+  .face,
+  .backToggle {
+    gap: 0.05em;
+  }
+
+  .avatar,
+  .avatarFallback {
+    margin-bottom: 0;
+  }
+
+  .rule {
+    margin: 0;
   }
 }
 
