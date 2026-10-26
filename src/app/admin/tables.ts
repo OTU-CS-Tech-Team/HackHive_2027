@@ -51,7 +51,11 @@ export const TABLES = {
       { name: "name", label: "Name", required: true },
       { name: "tier", label: "Tier", options: SPONSOR_TIERS, required: true },
       { name: "website_url", label: "Website", type: "url" },
-      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      {
+        name: "sort_order",
+        label: "Order (lower shows first)",
+        type: "number",
+      },
       { name: "logo_url", label: "Logo", type: "image" },
     ],
     summary: (row) => SPONSOR_TIERS[row.tier as keyof typeof SPONSOR_TIERS],
@@ -66,27 +70,55 @@ export const TABLES = {
       { name: "title", label: "Job title" },
       { name: "company", label: "Company" },
       { name: "linkedin_url", label: "LinkedIn", type: "url" },
-      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      {
+        name: "sort_order",
+        label: "Order (lower shows first)",
+        type: "number",
+      },
       { name: "photo_url", label: "Photo", type: "image" },
       { name: "bio", label: "Bio", type: "textarea" },
     ],
-    summary: (row) => [ROLES[row.role as keyof typeof ROLES], row.company].filter(Boolean).join(" · "),
+    summary: (row) =>
+      [ROLES[row.role as keyof typeof ROLES], row.company]
+        .filter(Boolean)
+        .join(" · "),
   },
   shop_items: {
     heading: "Points shop",
     noun: "item",
     fields: [
       { name: "name", label: "Name", required: true },
-      { name: "cost", label: "Cost (points)", type: "number", required: true, min: 1 },
-      { name: "stock", label: "Stock (blank = unlimited)", type: "number", nullable: true },
-      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      {
+        name: "cost",
+        label: "Cost (points)",
+        type: "number",
+        required: true,
+        min: 1,
+      },
+      {
+        name: "stock",
+        label: "Stock (blank = unlimited)",
+        type: "number",
+        nullable: true,
+      },
+      {
+        name: "sort_order",
+        label: "Order (lower shows first)",
+        type: "number",
+      },
       { name: "active", label: "Show in shop", type: "checkbox" },
       { name: "image_url", label: "Image", type: "image" },
       { name: "description", label: "Description", type: "textarea" },
     ],
     inUse: "Someone already redeemed this, so it can't be deleted. Untick \"Show in shop\" to hide it instead.",
     summary: (row) =>
-      [`${row.cost} pts`, row.stock === null ? "unlimited" : `${row.stock} left`, !row.active && "hidden"].filter(Boolean).join(" · "),
+      [
+        `${row.cost} pts`,
+        row.stock === null ? "unlimited" : `${row.stock} left`,
+        !row.active && "hidden",
+      ]
+        .filter(Boolean)
+        .join(" · "),
   },
   scavenger_items: {
     heading: "Scavenger hunt",
@@ -94,7 +126,11 @@ export const TABLES = {
     fields: [
       { name: "name", label: "Name", required: true },
       { name: "points", label: "Points", type: "number" },
-      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      {
+        name: "sort_order",
+        label: "Order (lower shows first)",
+        type: "number",
+      },
       { name: "clue", label: "Clue", type: "textarea" },
     ],
     summary: (row) => `${row.points} pts`,
@@ -104,12 +140,22 @@ export const TABLES = {
     noun: "item",
     fields: [
       { name: "name", label: "Name", required: true },
-      { name: "stock", label: "Available (blank = unlimited)", type: "number", nullable: true },
-      { name: "sort_order", label: "Order (lower shows first)", type: "number" },
+      {
+        name: "stock",
+        label: "Available (blank = unlimited)",
+        type: "number",
+        nullable: true,
+      },
+      {
+        name: "sort_order",
+        label: "Order (lower shows first)",
+        type: "number",
+      },
       { name: "image_url", label: "Image", type: "image" },
       { name: "description", label: "Description", type: "textarea" },
     ],
-    summary: (row) => (row.stock === null ? "unlimited" : `${row.stock} available`),
+    summary: (row) =>
+      row.stock === null ? "unlimited" : `${row.stock} available`,
   },
 } satisfies Record<string, TableConfig>;
 
