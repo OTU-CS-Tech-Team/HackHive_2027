@@ -85,6 +85,6 @@ function TeamCard({team}: {team: RecruitingTeam}) {
     <h3 className={styles.teamTitle}>{team.name}</h3><p className={styles.bio}>{team.pitch}</p>
     <span className={styles.label}>Looking for</span><div className={styles.chipGroup}>{team.roles_needed.length ? team.roles_needed.map(role => <span className={`${styles.chip} ${styles.role}`} key={role}>{role}</span>) : <span className={styles.small}>Open to different strengths</span>}</div>
     <span className={styles.label}>Interests & goal</span><div className={styles.chipGroup}>{team.interests.map(value => <span className={styles.chip} key={value}>{value}</span>)}<span className={styles.chip}>{TEAM_GOALS[team.goal]}</span></div>
-    <div className={styles.cardFooter}>{slack ? <a href={slack} target="_blank" rel="noopener noreferrer" className={`${styles.primary} ${styles.full}`} aria-label={`Message ${team.name} on Slack (opens in a new tab)`}>Message on Slack <span aria-hidden="true">↗</span></a> : <p className={styles.contactMissing}>Slack contact not added</p>}</div>
+    <div className={styles.cardFooter}>{slack ? <a href={slack} target="_blank" rel="noopener noreferrer" className={`${styles.primary} ${styles.full}`} aria-label={`Message ${team.name} on Slack (opens in a new tab)`}>Message on Slack</a> : <p className={styles.contactMissing}>Slack contact not added</p>}</div>
   </article>;
 }
