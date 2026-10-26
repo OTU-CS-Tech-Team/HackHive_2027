@@ -104,7 +104,7 @@
   transform: scale(0.96);
   perspective: 800px;
   -webkit-perspective: 800px;
-  transition: transform 200ms ease;
+  transition: inset 200ms ease, transform 200ms ease;
 }
 
 .flip::before {
@@ -244,12 +244,6 @@
   color: #fff6e0;
 }
 
-.judge .back .avatar,
-.judge .back .avatarFallback {
-  width: 7.5em;
-  height: 7.5em;
-}
-
 .judge .back .name,
 .judge .back .details,
 .judge .back .bio {
@@ -270,13 +264,14 @@
 
 .judge .link {
   color: #f5b83d;
+  
 }
 
 .avatar,
 .avatarFallback {
   display: flex;
-  width: 6.1em;
-  height: 6.1em;
+  width: calc(var(--tile-width) * 0.3);
+  height: calc(var(--tile-width) * 0.3);
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -288,13 +283,16 @@
   object-fit: cover;
 }
 
-.name,
-.details,
 .bio {
   display: block;
   max-width: 100%;
   margin: 0;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  overflow: hidden;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .name {
@@ -310,8 +308,8 @@
 }
 
 .bio {
-  font-size: 0.88em;
-  line-height: 1.35;
+  font-size: 1,2em;
+  line-height: 1.3;
 }
 
 .speaker .details,
@@ -348,9 +346,19 @@
   text-underline-offset: 0.15em;
 }
 
-.judge .link {
-  color: #14110b;
+.link,
+.bio {
+  display: none;
 }
+
+.morePrompt {
+  display: block;
+  color: inherit;
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
+
 
 .moreCard {
   position: absolute;
@@ -371,6 +379,92 @@
 
 .flip:has(.isFlipped) {
   transform: scale(1);
+}
+
+.cell:has(.isExpanded),
+.cell:has(.backToggle:focus-visible) {
+  z-index: 2;
+}
+
+.flip:has(.isExpanded),
+.flip:has(.backToggle:focus-visible) {
+  inset: -25%;
+  transform: translateX(var(--expand-shift, 0px)) scale(1);
+}
+
+.card.isExpanded .back,
+.back:has(.backToggle:focus-visible) {
+  justify-content: flex-start;
+  padding-top: 0.75em;
+}
+
+.card.isExpanded .backToggle,
+.back:has(.backToggle:focus-visible) .backToggle {
+  flex: 0 0 auto;
+}
+
+.card.isExpanded .bio,
+.card.isExpanded .link,
+.card.isExpanded .morePrompt,
+.back:has(.backToggle:focus-visible) .bio {
+  display: block;
+}
+
+.card.isExpanded .morePrompt,
+.back:has(.backToggle:focus-visible) .morePrompt {
+  display: none;
+}
+
+.card.isExpanded .bio,
+.back:has(.backToggle:focus-visible) .bio {
+  display: -webkit-box;
+  overflow: visible;
+  line-clamp: unset;
+  -webkit-line-clamp: unset;
+}
+
+.card.isExpanded .details,
+.back:has(.backToggle:focus-visible) .details {
+  display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cell:has(.flip:hover) {
+    z-index: 2;
+  }
+
+  .flip:hover {
+    inset: -25%;
+    transform: translateX(var(--expand-shift, 0px)) scale(1);
+  }
+
+  .flip:hover .back {
+    justify-content: flex-start;
+    padding-top: 0.75em;
+  }
+
+  .flip:hover .backToggle {
+    flex: 0 0 auto;
+  }
+
+  .flip:hover .link,
+  .flip:hover .bio {
+    display: block;
+  }
+
+  .flip:hover .bio {
+    overflow: visible;
+    line-clamp: unset;
+    -webkit-line-clamp: unset;
+  }
+
+  .flip:hover .morePrompt {
+    display: none;
+  }
+
+  .flip:hover .details {
+    display: block;
+  }
 }
 .cell,
 .flip,
@@ -404,7 +498,7 @@
 /* Fit longer bios inside the fixed compact hexes without clipping. */
 @container (max-width: 839px) {
   .cell {
-    font-size: clamp(0.6875rem, 3.8cqw, 0.8125rem);
+    font-size: clamp(0.75rem, 4cqw, 0.875rem);
   }
 
   .face {
@@ -417,35 +511,44 @@
   }
 
   .name {
-    font-size: 1.1em;
+    font-size: 1.15em;
   }
 
   .bio {
-    font-size: 0.75em;
-    line-height: 1.2;
-  }
-
-  .details,
-  .link {
-    font-size: 0.72rem;
-    line-height: 1.3;
+    font-size: 1.2em;
+    line-height: 1.22;
   }
 
   .avatar,
   .avatarFallback {
-    width: calc(var(--tile-width) * 0.25);
-    height: calc(var(--tile-width) * 0.25);
+    width: calc(var(--tile-width) * 0.28);
+    height: calc(var(--tile-width) * 0.28);
     margin-bottom: 0.05em;
   }
 
   .judge .back .avatar,
   .judge .back .avatarFallback {
-    width: calc(var(--tile-width) * 0.25);
-    height: calc(var(--tile-width) * 0.25);
+    width: calc(var(--tile-width) * 0.28);
+    height: calc(var(--tile-width) * 0.28);
   }
 
   .rule {
     margin: 0.1em 0;
+  }
+}
+
+@container (max-width: 359px) {
+  .details {
+    display: none;
+  }
+
+  .name {
+    font-size: 0.95em;
+  }
+
+  .bio {
+    font-size: 0.85em;
+    line-height: 1.2;
   }
 }
 

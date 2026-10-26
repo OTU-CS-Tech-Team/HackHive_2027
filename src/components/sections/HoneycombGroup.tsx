@@ -24,6 +24,7 @@ function columnsForWidth(width: number) {
   if (width >= 1440) return 6;
   if (width >= 1120) return 5;
   if (width >= 840) return 4;
+  if (width >= 480) return 3;
   return 2;
 }
 
@@ -37,9 +38,14 @@ function centerOutSlot(index: number, count: number) {
   return slots[index];
 }
 
-function positionForIndex(index: number, columns: number, peopleCount: number) {
+function positionForIndex(
+  index: number,
+  columns: number,
+  peopleCount: number,
+): CSSProperties & { "--expand-shift": string } {
   if (columns === 2) {
     const position = getCompactHoneycombPosition(index, peopleCount);
+    const expandShift = position.columnStart === 1 ? 0.3 : position.columnStart === 3 ? -0.3 : 0;
 
     return {
       gridColumn: `${position.columnStart} / span 2`,
@@ -47,6 +53,7 @@ function positionForIndex(index: number, columns: number, peopleCount: number) {
       transform: position.translateX
         ? `translateX(calc(var(--tile-width) * ${position.translateX}))`
         : undefined,
+      "--expand-shift": `calc(var(--tile-width) * ${expandShift})`,
     };
   }
   const cellsPerPattern = columns * 2 - 1;
@@ -76,18 +83,23 @@ function positionForIndex(index: number, columns: number, peopleCount: number) {
   // Rows always interlock now, so each one starts 3 grid rows below the last.
   const targetRow = patternIndex * 2 + Number(isInsetRow);
   const gridRow = targetRow * 3 + 1;
+  const gridColumn = slot * 2 + (isInsetRow ? 2 : 1);
+  const expandShift = gridColumn === 1 ? 0.3 : gridColumn >= columns * 2 - 1 ? -0.3 : 0;
 
   return {
-    gridColumn: `${slot * 2 + (isInsetRow ? 2 : 1)} / span 2`,
+    gridColumn: `${gridColumn} / span 2`,
     gridRow: `${gridRow} / span 4`,
     transform: `translateX(calc(var(--tile-width) * ${rowOffset}))`,
+    "--expand-shift": `calc(var(--tile-width) * ${expandShift})`,
   };
 }
 
-function PersonHexCard({ person, role, revealed, onFlipEnd }: {
+function PersonHexCard({ person, role, revealed, expanded, onToggleExpanded, onFlipEnd }: {
   person: Person;
   role: Person["role"];
   revealed: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onFlipEnd: () => void;
 }) {
   const [touchMode, setTouchMode] = useState(false);
@@ -103,7 +115,7 @@ function PersonHexCard({ person, role, revealed, onFlipEnd }: {
 
   return (
     <div
-      className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${revealed ? styles.isFlipped : ""}`}
+      className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${revealed ? styles.isFlipped : ""} ${expanded ? styles.isExpanded : ""}`}
       style={{ transitionDuration: `${FLIP_DURATION_MS}ms` }}
       onTransitionEnd={(event) => {
         if (event.target === event.currentTarget && event.propertyName === "transform") {
@@ -126,7 +138,12 @@ function PersonHexCard({ person, role, revealed, onFlipEnd }: {
         aria-hidden={!revealed}
         inert={!revealed}
       >
-        <div className={styles.backToggle}>
+        <button
+          type="button"
+          className={styles.backToggle}
+          aria-expanded={expanded}
+          onClick={onToggleExpanded}
+        >
           {role === "judge" && (
             person.photo_url ? (
               <img src={person.photo_url} alt="" className={styles.avatar} />
@@ -140,8 +157,10 @@ function PersonHexCard({ person, role, revealed, onFlipEnd }: {
           {person.title && <span className={styles.details}>{person.title}</span>}
           {person.company && <span className={styles.details}>{person.company}</span>}
           <span className={styles.rule} aria-hidden="true" />
-          {person.bio && <span className={styles.bio}>{person.bio}</span>}
-        </div>
+          {(person.linkedin_url || person.bio) && !expanded && (
+            <span className={styles.morePrompt}>More...</span>
+          )}
+        </button>
         {person.linkedin_url && (
           <a
             href={person.linkedin_url}
@@ -152,6 +171,7 @@ function PersonHexCard({ person, role, revealed, onFlipEnd }: {
             LinkedIn
           </a>
         )}
+        {person.bio && <span className={styles.bio}>{person.bio}</span>}
       </div>
     </div>
   );
@@ -171,6 +191,7 @@ export function HoneycombGroup({
   const roleClass = role === "speaker" ? styles.speaker : styles.judge;
 
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
+  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const revealedRef = useRef(revealed);
   const desiredRef = useRef<ReadonlySet<string>>(new Set());
   const onFlipEndRef = useRef<() => void>(() => {});
@@ -338,6 +359,8 @@ export function HoneycombGroup({
                   person={person}
                   role={role}
                   revealed={revealed.has(person.id)}
+                  expanded={expandedPersonId === person.id}
+                  onToggleExpanded={() => setExpandedPersonId((current) => current === person.id ? null : person.id)}
                   onFlipEnd={() => onFlipEndRef.current()}
                 />
               </div>
