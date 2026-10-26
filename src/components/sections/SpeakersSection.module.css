@@ -5,9 +5,23 @@
   color: #fff6e0;
   padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.gavelRain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .stage {
+  position: relative;
+  z-index: 1;
   container-type: inline-size;
   width: 100%;
   max-width: 2200px;
@@ -60,7 +74,7 @@
 
 .hive:not(.ready) {
   height: 0;
-  overflow: hidden;
+  overflow: clip;
   visibility: hidden;
 }
 
@@ -136,7 +150,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.3em;
-  overflow: hidden;
+  overflow: clip;
   padding: 0 2.3em;
   clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
   text-align: center;
@@ -217,13 +231,45 @@
 }
 
 .judge .front {
+  background: #f5b83d;
+  color: #14110b;
+}
+
+.judge .front > * {
+  visibility: hidden;
+}
+
+.judge .back {
   background: #221b0d;
   color: #fff6e0;
 }
 
-.judge .back {
+.judge .back .avatar,
+.judge .back .avatarFallback {
+  width: 7.5em;
+  height: 7.5em;
+}
+
+.judge .back .name,
+.judge .back .details,
+.judge .back .bio {
+  color: #f5b83d;
+}
+
+.judge .back .details {
+  font-weight: 600;
+}
+
+.judge .back .bio {
+  font-weight: 500;
+}
+
+.judge .rule {
   background: #f5b83d;
-  color: #14110b;
+}
+
+.judge .link {
+  color: #f5b83d;
 }
 
 .avatar,
@@ -255,23 +301,6 @@
   font-size: 1.25em;
   font-weight: 700;
   line-height: 1.2;
-}
-
-.tag {
-  display: inline-block;
-  padding: 0.25em 0.8em;
-  border-radius: 99px;
-  background: #14110b;
-  color: #f5b83d;
-  font-size: 0.8em;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.judge .tag {
-  background: #f5b83d;
-  color: #14110b;
 }
 
 .details {
@@ -339,16 +368,7 @@
   transition: transform 200ms ease;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .cell:hover {
-    z-index: 1;
-  }
 
-  .flip:hover,
-  .moreCard:hover {
-    transform: scale(1);
-  }
-}
 .flip:has(.isFlipped) {
   transform: scale(1);
 }
@@ -392,10 +412,6 @@
   .link {
     font-size: 0.9375rem;
     line-height: 1.45;
-  }
-
-  .tag {
-    font-size: 0.8125rem;
   }
 }
 
