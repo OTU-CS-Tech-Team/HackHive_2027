@@ -61,8 +61,6 @@ export function HiveAnimation() {
         <g stroke="#dba83d" strokeWidth="1.6" strokeLinejoin="round">{outlines}</g>
         <g mask={'url(#' + mask + ')'}>
           <rect className={styles.shimmerAcross} x="-22" y="-180" width="44" height="360" fill={'url(#' + light + ')'} />
-          <rect className={styles.shimmerDown} x="-16" y="-180" width="32" height="360" fill={'url(#' + light + ')'} />
-          <rect className={styles.shimmerOrbit} x="18" y="-180" width="26" height="360" fill={'url(#' + light + ')'} />
         </g>
       </svg>
     </div>
