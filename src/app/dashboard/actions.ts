@@ -3,6 +3,8 @@
 import QRCode from "qrcode";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { parseSlackProfileUrl } from "@/lib/team/profiles";
+import { LISTING_COLUMNS, teammateListingIssue } from "@/lib/team/listing";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -40,6 +42,14 @@ function webUrl(formData: FormData, key: string) {
 export async function saveProfile(formData: FormData) {
   const { supabase, user } = await requireUser();
   try {
+    if (formData.get("looking_for_team") === "on") {
+      const { data: current, error } = await supabase.from("profiles").select(LISTING_COLUMNS).eq("id", user.id).maybeSingle();
+      if (error || !current) return "Your teammate profile could not be checked. Try again later.";
+      const issue = teammateListingIssue({ ...current, full_name: text(formData, "full_name"),
+        ...(formData.has("slack_url") ? { slack_url: parseSlackProfileUrl(String(formData.get("slack_url") ?? "")) } : {}),
+      });
+      if (issue) return `${issue} Open Edit your teammate profile to finish your card.`;
+    }
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -48,6 +58,7 @@ export async function saveProfile(formData: FormData) {
         linkedin_url: webUrl(formData, "linkedin_url"),
         github_url: webUrl(formData, "github_url"),
         instagram_url: webUrl(formData, "instagram_url"),
+        ...(formData.has("slack_url") ? { slack_url: parseSlackProfileUrl(String(formData.get("slack_url") ?? "")) } : {}),
         looking_for_team: formData.get("looking_for_team") === "on",
       })
       .eq("id", user.id);
@@ -56,6 +67,7 @@ export async function saveProfile(formData: FormData) {
     return error instanceof Error ? error.message : "Could not save";
   }
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/team");
   return "Saved.";
 }
 
@@ -87,4 +99,5 @@ export async function saveAvatarUrl(avatarUrl: string) {
   const { error } = await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/team");
 }
