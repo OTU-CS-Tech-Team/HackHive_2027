@@ -1,84 +1,18 @@
-import styles from './museum.module.css';
+type EdgeKind = 'flat' | 'tab' | 'blank';
 
-export type EdgeKind = 'flat' | 'tab' | 'blank';
-
-export type PuzzleSlot = 'tl' | 'tr' | 'wide';
-
-type PuzzlePieceProps = {
-  year: number;
-  word: string;
-  fill: string;
-  ink: string;
-  slot: PuzzleSlot;
-  north: EdgeKind;
-  east: EdgeKind;
-  south: EdgeKind;
-  west: EdgeKind;
-  active: boolean;
-  animate?: boolean;
-  exiting?: boolean;
-  onSelect: () => void;
-};
-
-export default function PuzzlePiece({
-  year,
-  word,
-  fill,
-  ink,
-  slot,
-  north,
-  east,
-  south,
-  west,
-  active,
-  animate = true,
-  exiting = false,
-  onSelect,
-}: PuzzlePieceProps) {
-  const titleId = `puzzle-${year}`;
-  const wide = slot === 'wide';
-  const path = wide ? museumPath() : piecePath(north, east, south, west);
-
+/** Shared decorative mark; year navigation stays in semantic HTML. */
+export default function MuseumMark({ className }: { className?: string }) {
   return (
-    <button
-      type="button"
-      className={`${styles.piece} ${styles[slot]} ${active ? styles.pieceActive : ''} ${exiting ? styles.pieceOut : ''} ${!exiting && animate ? styles.pieceIn : ''}`}
-      onClick={onSelect}
-      aria-current={active ? 'true' : undefined}
-      aria-label={`${word}, ${year} projects`}
-    >
-      <svg
-        viewBox={wide ? '-18 -18 236 108' : '-18 -18 136 136'}
-        role="img"
-        aria-labelledby={titleId}
-      >
-        <title id={titleId}>{`${word} ${year}`}</title>
-        <path d={path} fill={fill} />
-        <text
-          x={wide ? '100' : '50'}
-          y={wide ? '38' : '46'}
-          textAnchor="middle"
-          fill={ink}
-          fontSize={wide ? '17' : '18'}
-          fontWeight="700"
-          letterSpacing="0.08em"
-        >
-          {word}
-        </text>
-        <text
-          x={wide ? '100' : '50'}
-          y={wide ? '56' : '66'}
-          textAnchor="middle"
-          fill={ink}
-          fillOpacity="0.55"
-          fontSize="11"
-          fontWeight="600"
-          letterSpacing="0.04em"
-        >
-          {year}
-        </text>
-      </svg>
-    </button>
+    <svg className={className} viewBox="-8 -8 216 188" aria-hidden="true" focusable="false">
+      <path d={piecePath('flat', 'tab', 'tab', 'flat')} fill="#f5b83d" />
+      <path d={piecePath('flat', 'flat', 'tab', 'blank')} transform="translate(100 0)" fill="#ffd879" />
+      <path d={museumPath()} transform="translate(0 100)" fill="#e8a62a" />
+      <g fill="#231c10" textAnchor="middle" fontWeight="750" letterSpacing="2">
+        <text x="45" y="55" fontSize="18">HACK</text>
+        <text x="155" y="55" fontSize="18">HIVE</text>
+        <text x="100" y="148" fontSize="19">MUSEUM</text>
+      </g>
+    </svg>
   );
 }
 

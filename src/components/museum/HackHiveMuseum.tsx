@@ -3,184 +3,73 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArchiveCollection } from "@/data/hackhive";
 import ArchiveCard from "./ArchiveCard";
-import PuzzlePiece, { type EdgeKind, type PuzzleSlot } from "./PuzzlePiece";
+import MuseumMark from "./MuseumMark";
 import styles from "./museum.module.css";
 
 type HackHiveMuseumProps = {
   collections: ArchiveCollection[];
 };
 
-type PieceSpec = {
-  year: number;
-  word: string;
-  fill: string;
-  slot: PuzzleSlot;
-  north: EdgeKind;
-  east: EdgeKind;
-  south: EdgeKind;
-  west: EdgeKind;
-};
-
-const PIECES: PieceSpec[] = [
-  {
-    year: 2026,
-    word: "HACK",
-    fill: "#f5b83d",
-    slot: "tl",
-    north: "flat",
-    west: "flat",
-    east: "tab",
-    south: "tab",
-  },
-  {
-    year: 2025,
-    word: "HIVE",
-    fill: "#ffd879",
-    slot: "tr",
-    north: "flat",
-    east: "flat",
-    west: "blank",
-    south: "tab",
-  },
-  {
-    year: 2024,
-    word: "MUSEUM",
-    fill: "#e8a62a",
-    slot: "wide",
-    west: "flat",
-    south: "flat",
-    north: "blank",
-    east: "flat",
-  },
-];
-
-const INK = "#231c10";
-const UNLOCK_LINE = 0.3;
-const EXIT_MS = 420;
-
 export default function HackHiveMuseum({ collections }: HackHiveMuseumProps) {
   const years = useMemo(
     () => collections.map((collection) => collection.year),
     [collections],
   );
-  const newest = years[0] ?? 2026;
+  const newest = years[0];
   const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
   const yearNavRef = useRef<HTMLElement | null>(null);
-  const [unlockedYear, setUnlockedYear] = useState(newest);
-  const [renderedYears, setRenderedYears] = useState<number[]>([newest]);
-  const [exitingYear, setExitingYear] = useState<number | null>(null);
+  const [activeYear, setActiveYear] = useState(newest);
 
   useEffect(() => {
-    const updateUnlocked = () => {
-      const menuBottom =
-        yearNavRef.current?.getBoundingClientRect().bottom ?? 0;
-      const line = Math.max(window.innerHeight * UNLOCK_LINE, menuBottom + 16);
+    const updateActiveYear = () => {
+      const menuBottom = window.matchMedia("(max-width: 900px)").matches
+        ? (yearNavRef.current?.getBoundingClientRect().bottom ?? 0)
+        : 0;
+      const line = Math.max(window.innerHeight * 0.3, menuBottom + 16);
       let next = newest;
       for (const year of years) {
         const node = sectionRefs.current[year];
-        if (!node) continue;
-        if (node.getBoundingClientRect().top <= line) {
-          next = year;
-        }
+        if (node && node.getBoundingClientRect().top <= line) next = year;
       }
-      setUnlockedYear(next);
+      // Short final collections may not reach the activation line.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        next = years.at(-1) ?? newest;
+      }
+      setActiveYear(next);
     };
 
-    updateUnlocked();
-    window.addEventListener("scroll", updateUnlocked, { passive: true });
-    window.addEventListener("resize", updateUnlocked);
+    updateActiveYear();
+    window.addEventListener("scroll", updateActiveYear, { passive: true });
+    window.addEventListener("resize", updateActiveYear);
     return () => {
-      window.removeEventListener("scroll", updateUnlocked);
-      window.removeEventListener("resize", updateUnlocked);
+      window.removeEventListener("scroll", updateActiveYear);
+      window.removeEventListener("resize", updateActiveYear);
     };
   }, [newest, years]);
 
-  useEffect(() => {
-    if (exitingYear !== null) {
-      const timer = window.setTimeout(() => {
-        setRenderedYears((current) =>
-          current.filter((year) => year !== exitingYear),
-        );
-        setExitingYear(null);
-      }, EXIT_MS);
-      return () => window.clearTimeout(timer);
-    }
-
-    const wanted = new Set(years.filter((year) => year >= unlockedYear));
-    const extras = renderedYears.filter(
-      (year) => year !== newest && !wanted.has(year),
-    );
-    if (extras.length > 0) {
-      const frame = window.requestAnimationFrame(() => {
-        setExitingYear(Math.min(...extras));
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-
-    const missing = years.filter(
-      (year) => wanted.has(year) && !renderedYears.includes(year),
-    );
-    if (missing.length > 0) {
-      const incoming = Math.max(...missing);
-      const frame = window.requestAnimationFrame(() => {
-        setRenderedYears((current) =>
-          [...current, incoming].sort((a, b) => b - a),
-        );
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-  }, [exitingYear, newest, renderedYears, unlockedYear, years]);
-
-  const scrollToYear = (year: number) => {
-    sectionRefs.current[year]?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-
   return (
     <div className={styles.museum}>
-      <nav
-        ref={yearNavRef}
-        className={styles.yearNav}
-        aria-label="Museum years"
-      >
-        <span className={styles.yearNavLabel}>Explore the years</span>
-        {years.map((year) => (
-          <a
-            key={year}
-            href={`#year-${year}`}
-            className={styles.yearLink}
-            aria-current={year === unlockedYear ? "location" : undefined}
-          >
-            {year}
-          </a>
-        ))}
-      </nav>
       <div className={styles.shell}>
         <aside className={styles.sidebar}>
-          <div className={styles.squad} aria-label="HackHive Museum">
-            {PIECES.filter((piece) => renderedYears.includes(piece.year)).map(
-              (piece) => (
-                <PuzzlePiece
-                  key={piece.year}
-                  year={piece.year}
-                  word={piece.word}
-                  fill={piece.fill}
-                  ink={INK}
-                  slot={piece.slot}
-                  north={piece.north}
-                  east={piece.east}
-                  south={piece.south}
-                  west={piece.west}
-                  active={piece.year === unlockedYear}
-                  animate={piece.year !== newest}
-                  exiting={piece.year === exitingYear}
-                  onSelect={() => scrollToYear(piece.year)}
-                />
-              ),
-            )}
-          </div>
+          <MuseumMark className={styles.museumMark} />
+          <nav ref={yearNavRef} className={styles.yearNav} aria-label="Museum years">
+            <p className={styles.yearNavLabel}>Explore the years</p>
+            <ol className={styles.yearList}>
+              {years.map((year) => (
+                <li key={year}>
+                  <a
+                    href={`#year-${year}`}
+                    className={styles.yearLink}
+                    aria-current={year === activeYear ? "location" : undefined}
+                  >
+                    <span className={styles.yearDot} aria-hidden="true" />
+                    {year}
+                    <span className={styles.yearArrow} aria-hidden="true">↗</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
         </aside>
 
         <div className={styles.main}>
