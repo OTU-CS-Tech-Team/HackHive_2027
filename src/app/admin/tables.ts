@@ -2,6 +2,8 @@
 // list, and the server-side validation, so they can't drift apart.
 // (Events have their own form: they need Toronto-time date handling.)
 
+import { COLORS } from "@/lib/schedule";
+
 export type Field = {
   name: string;
   label: string;
@@ -20,12 +22,27 @@ type TableConfig = {
   cacheTag?: string; // matches cacheTag() in lib/content.ts
   fields: Field[];
   summary: (row: Row) => string;
+  inUse?: string; // shown when delete hits a foreign key (23503)
 };
 
 const SPONSOR_TIERS = { gold: "Gold", silver: "Silver", bronze: "Bronze" };
 const ROLES = { speaker: "Keynote speaker", judge: "Judge" };
 
+const COLOR_OPTIONS = Object.fromEntries(Object.entries(COLORS).map(([key, { label }]) => [key, label]));
+
 export const TABLES = {
+  event_categories: {
+    heading: "Schedule categories",
+    noun: "category",
+    cacheTag: "events",
+    fields: [
+      { name: "name", label: "Name (e.g. Networking)", required: true },
+      { name: "color", label: "Colour", options: COLOR_OPTIONS, required: true },
+      { name: "sort_order", label: "Column order (lower shows first)", type: "number" },
+    ],
+    summary: (row) => `${COLOR_OPTIONS[row.color as string] ?? "Grey"} · column ${row.sort_order}`,
+    inUse: "Some events still use this category. Move them to another category (or delete them) first.",
+  },
   sponsors: {
     heading: "Sponsors",
     noun: "sponsor",
@@ -67,6 +84,7 @@ export const TABLES = {
       { name: "image_url", label: "Image", type: "image" },
       { name: "description", label: "Description", type: "textarea" },
     ],
+    inUse: "Someone already redeemed this, so it can't be deleted. Untick \"Show in shop\" to hide it instead.",
     summary: (row) =>
       [`${row.cost} pts`, row.stock === null ? "unlimited" : `${row.stock} left`, !row.active && "hidden"].filter(Boolean).join(" · "),
   },
