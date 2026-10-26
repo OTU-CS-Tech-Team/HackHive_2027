@@ -22,8 +22,8 @@ export function HiveAnimation() {
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-3.7, 3.7, 2, -2, .1, 30);
       camera.position.z = 12;
-      scene.add(new THREE.AmbientLight(0xffedc6, 2));
-      const light = new THREE.DirectionalLight(0xffe0a0, 5); light.position.set(2, 4, 8); scene.add(light);
+      scene.add(new THREE.AmbientLight(0xffedc6, 1.1));
+      const light = new THREE.DirectionalLight(0xffe0a0, 2.2); light.position.set(2, 4, 8); scene.add(light);
       const glint = new THREE.PointLight(0xfff4d6, 16, 12, 2);
       glint.position.set(-3, 1.8, 3); scene.add(glint);
       const hive = new THREE.Group(); scene.add(hive);
@@ -31,34 +31,37 @@ export function HiveAnimation() {
       for (let i = 0; i < 6; i++) {
         const angle = Math.PI / 6 + i * Math.PI / 3;
         const innerAngle = Math.PI / 6 - i * Math.PI / 3;
-        if (!i) { shape.moveTo(Math.cos(angle) * .7, Math.sin(angle) * .7); hole.moveTo(Math.cos(innerAngle) * .56, Math.sin(innerAngle) * .56); }
-        else { shape.lineTo(Math.cos(angle) * .7, Math.sin(angle) * .7); hole.lineTo(Math.cos(innerAngle) * .56, Math.sin(innerAngle) * .56); }
+        if (!i) { shape.moveTo(Math.cos(angle) * .7, Math.sin(angle) * .7); hole.moveTo(Math.cos(innerAngle) * .655, Math.sin(innerAngle) * .655); }
+        else { shape.lineTo(Math.cos(angle) * .7, Math.sin(angle) * .7); hole.lineTo(Math.cos(innerAngle) * .655, Math.sin(innerAngle) * .655); }
       }
       shape.closePath(); hole.closePath(); shape.holes.push(hole);
-      const geometry = new THREE.ExtrudeGeometry(shape, { depth: .24, bevelEnabled: true, bevelSegments: 4, steps: 1, bevelSize: .025, bevelThickness: .025 });
-      const cells: { x: number; material: import('three').MeshStandardMaterial }[] = [];
+      const geometry = new THREE.ExtrudeGeometry(shape, { depth: .1, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: .006, bevelThickness: .006 });
+      const cells: { x: number; y: number; material: import('three').MeshStandardMaterial }[] = [];
       const locations = [[0, 0], [1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
       locations.forEach(([q, r]) => {
         const material = new THREE.MeshStandardMaterial({
-          color: 0xf4bc42, roughness: .2, metalness: .5,
+          color: 0xe7ad32, roughness: .16, metalness: .5,
           emissive: 0xc88a20, emissiveIntensity: .06,
         });
         const cell = new THREE.Mesh(geometry, material);
         cell.position.set(Math.sqrt(3) * .71 * (q + r / 2), 1.5 * .71 * r, 0);
         hive.add(cell);
-        cells.push({ x: cell.position.x, material });
+        cells.push({ x: cell.position.x, y: cell.position.y, material });
       });
       hive.scale.setScalar(.95); hive.rotation.set(.12,-.18,.02); hive.updateMatrixWorld(true);
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-      // A soft highlight travels across the fixed gold hexagons.
+      // A bright diagonal glint sweeps across slender gold outlines.
+      const gold = new THREE.Color(0xc88a20);
+      const shimmer = new THREE.Color(0xfff3cf);
       let visible = true, frame = 0, last = 0, previous = 0, elapsed = 0;
       const draw = () => {
-        const sweep = reduced.matches ? 0 : Math.sin(elapsed / 1800) * 3;
+        const sweep = reduced.matches ? 0 : (elapsed % 4200) / 4200 * 6 - 3;
         glint.position.x = sweep;
         element.dataset.phase = reduced.matches ? 'static' : 'glistening';
-        cells.forEach(({ x, material }) => {
-          const highlight = Math.exp(-Math.pow(x - sweep, 2) / .45);
-          material.emissiveIntensity = reduced.matches ? .06 : .04 + .28 * highlight;
+        cells.forEach(({ x, y, material }) => {
+          const highlight = Math.exp(-Math.pow(x + .4 * y - sweep, 2) / .22);
+          material.emissive.lerpColors(gold, shimmer, reduced.matches ? 0 : highlight);
+          material.emissiveIntensity = reduced.matches ? .06 : .03 + 1.7 * highlight;
         });
         renderer.render(scene, camera);
       };
