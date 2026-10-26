@@ -63,20 +63,11 @@
   background: var(--canvas);
   transition: background 160ms ease, border-color 160ms ease;
 }
-.yearArrow {
-  margin-left: auto;
-  opacity: 0;
-  color: #82550f;
-}
 .yearLink:hover .yearDot,
 .yearLink[aria-current="location"] .yearDot {
   border-color: #a96a0e;
   background: var(--honey);
   box-shadow: 0 0 0 4px #f5b83d26;
-}
-.yearLink:hover .yearArrow,
-.yearLink[aria-current="location"] .yearArrow {
-  opacity: 1;
 }
 .yearLink[aria-current="location"] {
   font-weight: 750;
@@ -103,10 +94,55 @@
   letter-spacing: 0.13em;
   text-transform: uppercase;
 }
-.museumMark {
+.squad {
+  --squad: 12rem;
+  position: relative;
+  width: var(--squad);
+  aspect-ratio: 236 / 208;
+  margin-top: 0.25rem;
+}
+.piece {
+  appearance: none;
+  position: absolute;
+  width: calc(var(--squad) * 136 / 236);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform-origin: 50% 80%;
+}
+.tl {
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+.tr {
+  top: 0;
+  left: calc(var(--squad) * 100 / 236);
+  z-index: 2;
+}
+.wide {
+  top: calc(100% * 100 / 208);
+  left: 0;
+  width: 100%;
+  z-index: 1;
+}
+.piece svg {
   display: block;
   width: 100%;
   height: auto;
+  filter: drop-shadow(0 5px 8px #0003);
+}
+.pieceIn {
+  animation: pieceFlyIn 0.72s cubic-bezier(0.18, 0.89, 0.24, 1.12) both;
+}
+.pieceOut {
+  animation: pieceFlyOut 0.42s cubic-bezier(0.55, 0.02, 0.8, 0.4) both;
+  pointer-events: none;
+}
+.pieceActive {
+  z-index: 2;
 }
 .main {
   min-width: 0;
@@ -175,11 +211,6 @@
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.3;
-}
-.yearCount {
-  margin: 0.3rem 0 0;
-  color: var(--muted);
-  font-size: 0.875rem;
 }
 .emptyYear {
   padding: 2rem;
@@ -323,6 +354,37 @@
 .cardImage {
   object-fit: cover;
 }
+@keyframes pieceFlyIn {
+  0% {
+    opacity: 0;
+    transform: translateY(58vh) rotate(-11deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-0.55rem) rotate(1.4deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+@keyframes pieceFlyOut {
+  to {
+    opacity: 0;
+    transform: translateY(46vh) rotate(8deg);
+  }
+}
+.yearItemIn {
+  animation: yearReveal 420ms ease both;
+}
+.yearItemOut {
+  animation: yearReveal 420ms ease reverse both;
+  pointer-events: none;
+}
+@keyframes yearReveal {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @media (max-width: 1200px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -345,9 +407,10 @@
     border-bottom: 1px solid var(--line);
     background: var(--canvas);
   }
-  .museumMark {
-    flex: 0 0 5rem;
-    width: 5rem;
+  .squad {
+    --squad: 5rem;
+    flex: 0 0 var(--squad);
+    margin: 0;
   }
   .yearNav {
     flex: 1;
@@ -369,9 +432,6 @@
     min-height: 2.75rem;
     gap: 0.5rem;
     font-size: 0.875rem;
-  }
-  .yearArrow {
-    display: none;
   }
   .yearSection {
     scroll-margin-top: 12rem;
@@ -401,6 +461,12 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .pieceIn,
+  .pieceOut,
+  .yearItemIn,
+  .yearItemOut {
+    animation: none;
+  }
   .card,
   .facadePlay,
   .yearDot {

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ARCHIVE_YEARS } from "@/data/hackhive";
-import MuseumMark from "@/components/museum/MuseumMark";
 
 export function HackHive2025Section() {
   return (
@@ -9,8 +8,7 @@ export function HackHive2025Section() {
       aria-labelledby="museum-heading"
       className="scroll-mt-16 border-y border-[#e3d7bb] bg-[#faf8f1] px-6 py-12 sm:px-12 sm:py-16"
     >
-      <div className="mx-auto grid w-full max-w-5xl items-center gap-8 sm:grid-cols-[10rem_1fr] sm:gap-12">
-        <MuseumMark className="w-28 sm:w-full" />
+      <div className="mx-auto w-full max-w-5xl">
         <div>
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#82550f]">
             {[...ARCHIVE_YEARS].sort((a, b) => a - b).join(" · ")}
