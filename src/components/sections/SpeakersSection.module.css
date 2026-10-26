@@ -401,17 +401,51 @@
   color: #d9cba8;
 }
 
-/* Give phone bios room to breathe; tablet cards stay in two columns. */
+/* Fit longer bios inside the fixed compact hexes without clipping. */
 @container (max-width: 839px) {
   .cell {
-    font-size: 1rem;
+    font-size: clamp(0.6875rem, 3.8cqw, 0.8125rem);
+  }
+
+  .face {
+    gap: 0.15em;
+    padding: 0 0.55em;
+  }
+
+  .backToggle {
+    gap: 0.15em;
+  }
+
+  .name {
+    font-size: 1.1em;
+  }
+
+  .bio {
+    font-size: 0.75em;
+    line-height: 1.2;
   }
 
   .details,
-  .bio,
   .link {
-    font-size: 0.9375rem;
-    line-height: 1.45;
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+
+  .avatar,
+  .avatarFallback {
+    width: 2.2em;
+    height: 2.2em;
+    margin-bottom: 0.1em;
+  }
+
+  .judge .back .avatar,
+  .judge .back .avatarFallback {
+    width: 2.2em;
+    height: 2.2em;
+  }
+
+  .rule {
+    margin: 0.1em 0;
   }
 }
 

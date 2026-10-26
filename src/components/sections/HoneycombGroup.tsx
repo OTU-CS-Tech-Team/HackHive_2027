@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- photos come from Supabase Storage */
 import Link from "next/link";
 import type { Person } from "@/lib/content";
+import { getCompactHoneycombPosition } from "@/lib/honeycomb-layout";
 import styles from "./SpeakersSection.module.css";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 // A row is "open" once its centre rises above this line, given as a fraction
@@ -23,8 +24,7 @@ function columnsForWidth(width: number) {
   if (width >= 1440) return 6;
   if (width >= 1120) return 5;
   if (width >= 840) return 4;
-  if (width >= 560) return 2;
-  return 1;
+  return 2;
 }
 
 function centerOutSlot(index: number, count: number) {
@@ -38,8 +38,16 @@ function centerOutSlot(index: number, count: number) {
 }
 
 function positionForIndex(index: number, columns: number, peopleCount: number) {
-  if (columns === 1) {
-    return { gridColumn: "1 / span 2", gridRow: `${index * 4 + 1} / span 4` };
+  if (columns === 2) {
+    const position = getCompactHoneycombPosition(index, peopleCount);
+
+    return {
+      gridColumn: `${position.columnStart} / span 2`,
+      gridRow: `${position.rowIndex * 3 + 1} / span 4`,
+      transform: position.translateX
+        ? `translateX(calc(var(--tile-width) * ${position.translateX}))`
+        : undefined,
+    };
   }
   const cellsPerPattern = columns * 2 - 1;
   const patternIndex = Math.floor(index / cellsPerPattern);
