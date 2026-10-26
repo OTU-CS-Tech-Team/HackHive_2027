@@ -120,14 +120,12 @@
 .selectTrigger { display:inline-flex; align-items:center; justify-content:space-between; gap:.65rem; min-width:0; max-width:100%; min-height:44px; padding:.7rem .85rem; border:1px solid #dbc99f; border-radius:9px; background:white; color:#674d24; font-size:.83rem; font-weight:500; text-align:left; cursor:pointer; transition:background .15s,border-color .15s; }
 .selectTrigger>span:first-child { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .selectTrigger:hover,.selectTrigger[data-state=open] { background:#fff8e9; border-color:#ba8b2e; }
-.selectChevron { display:flex; flex-shrink:0; color:#947332; }
 .selectMenu { z-index:100; min-width:var(--radix-select-trigger-width); max-width:calc(100vw - 24px); max-height:min(320px,var(--radix-select-content-available-height)); overflow:hidden; border:1px solid #d8bf84; border-radius:10px; background:white; color:#63491e; box-shadow:0 10px 30px #60471520; font-family:system-ui,sans-serif; animation:menuEnter .12s ease-out; }
-.selectViewport { padding:5px; }
+.selectViewport { max-height:min(310px,calc(var(--radix-select-content-available-height) - 10px)); padding:5px; }
 .selectOption { position:relative; display:flex; align-items:center; min-height:40px; padding:.6rem 2.2rem .6rem .75rem; border-radius:6px; font-size:.83rem; line-height:1.4; cursor:pointer; outline:none; user-select:none; overflow-wrap:anywhere; }
 .selectOption[data-highlighted] { background:#fbefd4; }
 .selectOption[data-state=checked] { background:#f9e7b6; color:#79510d; font-weight:600; }
 .selectCheck { position:absolute; right:.7rem; color:#8b6115; }
-.selectScroll { display:flex; align-items:center; justify-content:center; height:24px; background:#fff; color:#81652f; }
 .quickSelect { max-width:175px; }
 .sort .selectTrigger { font-size:.8rem; }
 .form .selectTrigger { width:100%; font-weight:400; }

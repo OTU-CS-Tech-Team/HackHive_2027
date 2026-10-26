@@ -58,7 +58,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
   return <section aria-labelledby="directory-heading" aria-busy={pending}>
     <div className={styles.sectionHead}>
       <div><h2 id="directory-heading">{savedOnly ? 'Saved hackers' : 'Hackers looking for a team'}</h2><p className={`${styles.small} ${styles.desktopOnly}`}>{savedOnly ? 'Your private shortlist.' : 'Find complementary skills, shared interests, and a similar goal.'}</p></div>
-      <button type="button" className={styles.quiet} disabled={pending} onClick={() => startTransition(() => router.refresh())} aria-label="Refresh teammate directory">↻ Refresh</button>
+      <button type="button" className={styles.quiet} disabled={pending} onClick={() => startTransition(() => router.refresh())} aria-label="Refresh teammate directory">Refresh</button>
     </div>
     <div className={styles.searchRow}>
       <label className={styles.search}><Icon name="search" /><span className={styles.srOnly}>Search hackers</span><input type="search" maxLength={100} value={q} onChange={event => change('q', event.target.value)} placeholder="Search skills, ideas, names…" /></label>
@@ -80,7 +80,7 @@ export function TeamDirectory({ profiles, own, bookmarks, upgraded, savedOnly = 
         <p>{activeCount ? 'Try another skill or widen your search. Your next teammate could be from any school.' : savedOnly ? 'Save profiles as you browse. They will appear here while those hackers are discoverable.' : 'No other hackers are listed yet. Make yourself discoverable and check back as people join.'}</p>
         {activeCount ? <button className={styles.secondary} type="button" onClick={clear}>Show all hackers</button> : savedOnly ? <button className={styles.secondary} type="button" onClick={() => updateTeamQuery({ view: null })}>Explore hackers</button> : null}
       </div>}
-    {shown < filtered.length && <div className={styles.loadMore}><button type="button" className={styles.secondary} onClick={() => updateTeamQuery({ shown: String(shown + 9) }, false)}>Show {nextBatch} more {nextBatch === 1 ? 'hacker' : 'hackers'} ↓</button><span className={styles.small}>Keep exploring at your own pace.</span></div>}
+    {shown < filtered.length && <div className={styles.loadMore}><button type="button" className={styles.secondary} onClick={() => updateTeamQuery({ shown: String(shown + 9) }, false)}>Show {nextBatch} more {nextBatch === 1 ? 'hacker' : 'hackers'}</button><span className={styles.small}>Keep exploring at your own pace.</span></div>}
     {filtersOpen && <Modal title="Find your kind of team" onClose={() => setFiltersOpen(false)}><div className={styles.form}>
       <div className={styles.formGrid}>
         <label>Role<SelectControl label="Role" value={role} onValueChange={value => change('role', value)} options={[{value:'',label:'Any role'},...TEAM_ROLES.map(value=>({value,label:value}))]} /></label>
