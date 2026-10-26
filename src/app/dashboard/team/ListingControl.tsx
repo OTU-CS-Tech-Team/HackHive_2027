@@ -31,8 +31,8 @@ export function ListingControl({ profile, listed, found, upgraded, hasTeam, edit
         <p className={styles.small}>{listed ? 'Your profile is visible to other hackers.' : 'Your profile is hidden from the directory.'}</p>
       </div></div>
       <div className={styles.ownActions}>
-        {upgraded ? <Link href={editorHref} className={styles.secondary}>Edit profile ↗</Link> : <Link href="/dashboard?tab=profile" className={styles.secondary}>Edit links</Link>}
-        {hasTeam ? <button type="button" className={styles.quiet} onClick={() => updateTeamQuery({ view: 'mine' })}>Your team →</button> : <details ref={menu} className={styles.availabilityMenu} onBlur={event => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}><summary className={styles.secondary}>Availability ⌄</summary><div>{controls}</div></details>}
+        {upgraded ? <Link href={editorHref} className={styles.secondary}>Edit profile</Link> : <Link href="/dashboard?tab=profile" className={styles.secondary}>Edit links</Link>}
+        {hasTeam ? <button type="button" className={styles.quiet} onClick={() => updateTeamQuery({ view: 'mine' })}>Your team</button> : <details ref={menu} className={styles.availabilityMenu} onBlur={event => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }}><summary className={styles.secondary}>Availability</summary><div>{controls}</div></details>}
       </div>
     </section>
     {result && <p role={result.ok ? 'status' : 'alert'} className={styles.feedback}>{result.message}</p>}
