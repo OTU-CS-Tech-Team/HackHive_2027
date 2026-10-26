@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HoneycombGroup } from "@/components/sections/HoneycombGroup";
-import { MegaphoneBanner } from "@/components/sections/Megaphone";
+import { MegaphoneBanner, MegaphoneRain } from "@/components/sections/Megaphone";
 import styles from "@/components/sections/SpeakersSection.module.css";
 import { getPeople } from "@/lib/content";
 
@@ -9,6 +9,7 @@ export default async function SpeakersPage() {
 
   return (
     <main className={`${styles.section} ${styles.judgesPage}`}>
+      <MegaphoneRain x={0.5} y={0.5} dim={0.35} />
       <div className={styles.stage}>
         <Link className={styles.backToHome} href="/#judges">
           ← Judges

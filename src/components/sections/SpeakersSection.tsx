@@ -1,28 +1,10 @@
-import { getPeople, type Person } from "@/lib/content";
+import { getPeople } from "@/lib/content";
 import { HoneycombGroup } from "./HoneycombGroup";
 import { GavelRain } from "./GavelRain";
 import styles from "./SpeakersSection.module.css";
-// remove min judges and slice on line 28 to remove placeholders
 
 
-// function addPlaceholderJudges(people: Person[]) {
-//   const judges = people.filter((person) => person.role === "judge");
-//   const placeholders = Array.from(
-//     { length:  judges.length },
-//     (_, index): Person => ({
-//       id: `placeholder-judge-${index + 1}`,
-//       name: `Judge ${judges.length + index + 1}`,
-//       role: "judge",
-//       title: null,
-//       company: null,
-//       bio: "Details coming soon.",
-//       photo_url: null,
-//       linkedin_url: null,
-//     }),
-//   );
 
-//   return [...people, ...placeholders];
-// }
 
 export async function SpeakersSection() {
   const people = await getPeople();

@@ -48,7 +48,7 @@ export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6 }: GavelRainProps) {
       const cy = H * y;
 
       // sound block
-      const bx = cx + 14 * u;
+      const bx = cx + 29 * u;
       const by = cy + 36 * u;
       let gr = g.createLinearGradient(bx - 44 * u, 0, bx + 44 * u, 0);
       gr.addColorStop(0, "#222");
@@ -76,7 +76,7 @@ export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6 }: GavelRainProps) {
 
       // gavel (Shifted further left so it aligns above the sound block)
       g.save();
-      g.translate(cx - 50 * u, cy - 30 * u);
+      g.translate(cx - 35 * u, cy - 30 * u);
       g.rotate((7 * Math.PI) / 6);
       gr = g.createLinearGradient(-4 * u, 0, 4 * u, 0);
       gr.addColorStop(0, "#333");
