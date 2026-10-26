@@ -6,12 +6,9 @@ export function HackHive2025Section() {
     <section
       id="hackhive-2025"
       aria-labelledby="museum-heading"
-      className="flex min-h-[60vh] scroll-mt-16 items-center border-y border-neutral-200 bg-[#fff8f2] px-6 py-20 sm:px-12"
+      className="flex min-h-[60vh] scroll-mt-16 items-center bg-[#fff8f2] px-6 py-20 sm:px-12"
     >
       <div className="mx-auto w-full max-w-5xl">
-        <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#7a4961]">
-          {[...ARCHIVE_YEARS].sort((a, b) => a - b).join(" · ")}
-        </p>
         <h2
           id="museum-heading"
           className="max-w-2xl text-3xl font-bold tracking-tight text-[#1b003f] sm:text-5xl"
@@ -19,7 +16,8 @@ export function HackHive2025Section() {
           HackHive, through the years
         </h2>
         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-neutral-600">
-          Explore the projects and ideas built by past HackHive teams. Visit the
+          Explore the projects and ideas built by past HackHive teams in{" "}
+          {[...ARCHIVE_YEARS].sort((a, b) => a - b).join(", ")}. Visit the
           museum for winning projects, demos, and a look back at every year.
         </p>
         <Link
