@@ -1,43 +1,47 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
-
-const links = [
-  { href: "/dashboard", label: "Schedule" },
-  { href: "/#speakers", label: "Speakers & Judges" },
-  { href: "/#sponsors", label: "Sponsors" },
-  { href: "/#hackhive-2025", label: "Archive" },
-] as const;
+import { links } from "@/components/navbar/links";
+import MobileNavMenu from "@/components/navbar/MobileNavMenu";
 
 export async function Navbar() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isSignedIn = !!user;
+  const accountLinks = isSignedIn
+    ? [
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/apply/status", label: "My Application" },
+      ]
+    : [];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-neutral-200 bg-white px-4 sm:px-6">
-      <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
-        HackHive
-      </Link>
-      <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
-        {links.map((link) => (
-          <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
-            {link.label}
-          </Link>
-        ))}
-      </nav>
+    <>
+      <div className="flex shrink-0 items-center gap-2">
+        <MobileNavMenu links={links} accountLinks={accountLinks} />
+        <Link href="/" className="shrink-0 text-lg font-bold text-neutral-900">
+          HackHive
+        </Link>
+      </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+        <nav aria-label="Page sections" className="hidden items-center gap-8 md:flex">
+          {links.map((link) => (
+            <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
         {isSignedIn ? (
           <>
             <Link
               href="/dashboard"
-              className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              className="hidden text-sm font-medium text-neutral-600 hover:text-neutral-900 lg:inline"
             >
               Dashboard
             </Link>
             <Link
               href="/apply/status"
-              className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              className="hidden text-sm font-medium text-neutral-600 hover:text-neutral-900 lg:inline"
             >
               My Application
             </Link>
@@ -59,6 +63,6 @@ export async function Navbar() {
           </Link>
         )}
       </div>
-    </header>
+    </>
   );
 }

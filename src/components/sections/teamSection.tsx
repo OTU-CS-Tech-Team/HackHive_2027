@@ -997,10 +997,11 @@ export function TeamSection() {
     const progress = (): number[] => {
       const vh = window.innerHeight;
       if ("pinned" in page.dataset) {
-        // From when the section is halfway up the screen to the end of the pinned stretch.
+        // From when the section is halfway up the screen to the end of the pinned
+        // stretch, when the stage (pinned at the top of the screen) lets go.
         const top = page.getBoundingClientRect().top;
         const from = vh * 0.5;
-        const to = navHeight() - (page.offsetHeight - stage.offsetHeight);
+        const to = -(page.offsetHeight - stage.offsetHeight);
         const overall = clamp((from - top) / (from - to));
         return hive.cells.map((cell) => clamp((overall - cell.start) / FLIGHT_SHARE));
       }

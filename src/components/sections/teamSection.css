@@ -13,7 +13,7 @@
 }
 
 .team-page[data-pinned] {
-  height: calc(100svh - var(--nav-h, 4rem) + var(--scroll-room));
+  height: calc(100svh + var(--scroll-room));
 }
 
 .team-stage {
@@ -25,11 +25,14 @@
   overflow: clip;
 }
 
-/* Holds still under the navbar while the bees work. */
+/* Holds still, filling the screen, while the bees work. The navbar slides away
+   while scrolling down and back when scrolling up, so the forest runs behind it
+   (nothing jumps or leaves a gap when it goes) and the hive and team start below it. */
 .team-page[data-pinned] .team-stage {
   position: sticky;
-  top: var(--nav-h, 4rem);
-  height: calc(100svh - var(--nav-h, 4rem));
+  top: 0;
+  height: 100svh;
+  padding-top: var(--nav-h, 4rem);
 }
 
 /* The top of the forest, warmed into the FAQ's amber above it (the honey dripping
