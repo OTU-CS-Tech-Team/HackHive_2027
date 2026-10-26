@@ -1,0 +1,24 @@
+.header {
+  transition-property: transform;
+  transition-duration: 300ms;
+  transition-timing-function: ease-in-out;
+}
+
+.header[data-hidden="true"] {
+  transform: translateY(-100%);
+}
+
+.header:has([data-mobile-menu][open]) {
+  transform: none;
+}
+
+.header:focus-within {
+  transform: none;
+  transition-duration: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header {
+    transition-duration: 0.01ms;
+  }
+}
