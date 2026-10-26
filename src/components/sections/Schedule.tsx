@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { EventCategory, HackEvent } from "@/lib/content";
-import { colorOf, layoutLanes } from "@/lib/schedule";
-import { formatDay, formatTime } from "@/lib/time";
+import { colorOf, layoutLanes, scheduleDays } from "@/lib/schedule";
+import { formatDay, formatTime, toLocalInput } from "@/lib/time";
 import { createClient } from "@/lib/supabase/client";
 
 const HOUR = 3_600_000;
@@ -69,23 +69,19 @@ export function Schedule({ initialEvents, initialCategories }: { initialEvents: 
       return next;
     });
 
-  const days = new Map<string, HackEvent[]>();
-  for (const event of events) {
-    const key = formatDay(event.starts_at);
-    days.set(key, [...(days.get(key) ?? []), event]);
-  }
+  const days = scheduleDays(events);
   if (days.size === 0) return <p className="text-neutral-600">Nothing scheduled yet. Check back soon.</p>;
 
   // Open on today during the event, otherwise the first day.
-  const today = now === null ? null : formatDay(new Date(now).toISOString());
+  const today = now === null ? null : toLocalInput(new Date(now).toISOString()).slice(0, 10);
   const active = day && days.has(day) ? day : today && days.has(today) ? today : [...days.keys()][0];
-  const dayEvents = days.get(active)!;
+  const { events: dayEvents, start: dayStart, end: dayEnd } = days.get(active)!;
   // Only categories with something on this day, in the order admins set.
   const dayCategories = categories.filter((c) => dayEvents.some((e) => e.category_id === c.id));
   const columns = dayCategories.filter((c) => !hidden.has(c.id));
   // Toronto is a whole-hour offset from UTC, so flooring to the UTC hour lands on a local hour too.
-  const start = Math.floor(Math.min(...dayEvents.map((e) => Date.parse(e.starts_at))) / HOUR) * HOUR;
-  const end = Math.ceil(Math.max(...dayEvents.map((e) => Date.parse(e.ends_at))) / HOUR) * HOUR;
+  const start = Math.max(dayStart, Math.floor(Math.min(...dayEvents.map((e) => Date.parse(e.starts_at))) / HOUR) * HOUR);
+  const end = Math.min(dayEnd, Math.ceil(Math.max(...dayEvents.map((e) => Date.parse(e.ends_at))) / HOUR) * HOUR);
   const hours = Array.from({ length: (end - start) / HOUR }, (_, i) => start + i * HOUR);
   const selectedCategory = selected && categories.find((c) => c.id === selected.category_id);
   const nowTop = now !== null && now >= start && now < end ? px(now - start) : null;
@@ -96,8 +92,8 @@ export function Schedule({ initialEvents, initialCategories }: { initialEvents: 
   return (
     <>
       <div className="mb-4 flex gap-2 overflow-x-auto" role="tablist" aria-label="Day">
-        {[...days.keys()].map((key) => {
-          const [weekday, date] = key.split(", ");
+        {[...days].map(([key, value]) => {
+          const [weekday, date] = value.label.split(", ");
           return (
             <button
               key={key}
@@ -171,6 +167,7 @@ export function Schedule({ initialEvents, initialCategories }: { initialEvents: 
                 const e = Date.parse(event.ends_at);
                 const live = now !== null && s <= now && now < e;
                 const over = now !== null && e <= now;
+                const visibleStart = Math.max(s, dayStart), visibleEnd = Math.min(e, dayEnd);
                 return (
                   <button
                     key={event.id}
@@ -180,16 +177,18 @@ export function Schedule({ initialEvents, initialCategories }: { initialEvents: 
                       colorOf(category.color).chip
                     } ${live ? "z-10 ring-2 ring-neutral-900" : ""} ${over ? "opacity-50" : ""}`}
                     style={{
-                      top: px(s - start) + 1,
-                      height: Math.max(px(e - s) - 2, 20),
+                      top: px(visibleStart - start) + 1,
+                      height: Math.max(px(visibleEnd - visibleStart) - 2, 20),
                       left: `calc(${(lane / lanes) * 100}% + 2px)`,
                       width: `calc(${100 / lanes}% - 4px)`,
                     }}
                   >
                     <span className="block font-semibold">{event.title}</span>
                     <span className="block opacity-80">
-                      {formatTime(event.starts_at)} – {formatTime(event.ends_at)}
+                      {formatTime(new Date(visibleStart).toISOString())} – {formatTime(new Date(visibleEnd).toISOString())}
                     </span>
+                    {s < dayStart && <span className="block">Continued from previous day</span>}
+                    {e > dayEnd && <span className="block">Continues next day</span>}
                     {event.location && <span className="block truncate opacity-80">{event.location}</span>}
                   </button>
                 );
@@ -221,7 +220,7 @@ export function Schedule({ initialEvents, initialCategories }: { initialEvents: 
             <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
               <dt className="text-neutral-500">When</dt>
               <dd>
-                {formatDay(selected.starts_at)}, {formatTime(selected.starts_at)} – {formatTime(selected.ends_at)}
+                {formatDay(selected.starts_at)}, {formatTime(selected.starts_at)} – {formatDay(selected.starts_at) !== formatDay(selected.ends_at) && `${formatDay(selected.ends_at)}, `}{formatTime(selected.ends_at)}
               </dd>
               {selected.location && (
                 <>

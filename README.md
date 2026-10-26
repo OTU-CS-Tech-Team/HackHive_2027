@@ -1,6 +1,25 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Schedule deployment
+
+Apply the schedule migrations before deploying PR #15:
+
+- `supabase/migrations/20261023000000_event_categories.sql`
+- `supabase/migrations/20261025000000_schedule_colours.sql`
+- `supabase/migrations/20261026062455_schedule_category_compatibility.sql`
+
+If the first two are already applied, run only the compatibility migration.
+Copy its entire file into the SQL editor; it is one atomic statement. It keeps
+old enum-only admin forms and new category-ID forms working together. Existing
+open schedules still receive a valid enum; custom categories display as general
+HackHive events on old clients and retain their exact name/colour on new clients.
+The trigger runs with the caller's permissions and preserves the admin-only RLS.
+
+The schedule lists overnight events on every Toronto date they overlap, clips
+each day's placement at midnight, and shows the full date range in event details.
+Tests cover exact-midnight endings, DST boundaries, and old/new database writes.
+
 ## Find a team
 
 Open **Looking for group** in the hacker hub or visit `/dashboard/team`.

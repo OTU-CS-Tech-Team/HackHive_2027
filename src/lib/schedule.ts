@@ -1,3 +1,5 @@
+import { formatDay, fromLocalInput, toLocalInput } from './time';
+
 // Colours an admin can give a schedule category. The key is what event_categories.color
 // stores. Full class strings so Tailwind picks them up.
 export const COLORS: Record<string, { label: string; bar: string; chip: string }> = {
@@ -19,6 +21,30 @@ export const COLORS: Record<string, { label: string; bar: string; chip: string }
 export const colorOf = (key: string | undefined) => COLORS[key ?? ""] ?? COLORS.slate;
 
 type Timed = { starts_at: string; ends_at: string };
+
+type ScheduleDay<T> = { label: string; start: number; end: number; events: T[] };
+
+// Use Toronto calendar midnights, including 23/25-hour DST days. Preserve the
+// original events for details; only their placement is clipped to each day.
+export function scheduleDays<T extends Timed>(events: T[]) {
+  const days = new Map<string, ScheduleDay<T>>();
+  for (const event of events) {
+    const start = Date.parse(event.starts_at), end = Date.parse(event.ends_at);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    let date = toLocalInput(event.starts_at).slice(0, 10);
+    while (true) {
+      const midnight = Date.parse(fromLocalInput(`${date}T00:00`));
+      if (midnight >= end) break; // An end exactly at midnight belongs to the prior day.
+      const nextDate = new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+      const nextMidnight = Date.parse(fromLocalInput(`${nextDate}T00:00`));
+      const entry: ScheduleDay<T> = days.get(date) ?? { label: formatDay(new Date(midnight).toISOString()), start: midnight, end: nextMidnight, events: [] };
+      entry.events.push(event);
+      days.set(date, entry);
+      date = nextDate;
+    }
+  }
+  return new Map([...days].sort(([a], [b]) => a.localeCompare(b)));
+}
 
 // Google Calendar-style placement: events that overlap in one column sit side by side,
 // each taking 1/lanes of the width; events that don't overlap get the full width.
