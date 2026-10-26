@@ -1,67 +1,223 @@
-/* HackHive's palette: only these four colours (and transparencies of them) are allowed. */
+/* HackHive's colours for the hexes. The forest, hive and bees behind them use
+   their own natural greens, browns and golds. */
 .team-page {
   --hive-yellow: #fff29c;
   --hive-blue: #6495ed;
   --hive-black: #000000;
-  --hive-purple: #1b003f;
+  /* How much scrolling the bees take to bring everyone out while the forest is pinned. */
+  --scroll-room: 90svh;
+
+  position: relative;
+  background: #3f5e30;
+  color: var(--hive-yellow);
+}
+
+.team-page[data-pinned] {
+  height: calc(100svh - var(--nav-h, 4rem) + var(--scroll-room));
+}
+
+.team-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(12rem, 26%) minmax(0, 1fr);
+  align-items: start;
+  min-height: calc(100svh - var(--nav-h, 4rem));
+  overflow: clip;
+}
+
+/* Holds still under the navbar while the bees work. */
+.team-page[data-pinned] .team-stage {
+  position: sticky;
+  top: var(--nav-h, 4rem);
+  height: calc(100svh - var(--nav-h, 4rem));
+}
+
+/* The top of the forest, warmed into the FAQ's amber above it (the honey dripping
+   off the FAQ hangs over this), fading out downward. teamSection.tsx clears it
+   away as the section comes up to the navbar. */
+.forest-edge {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 14rem;
+  background: linear-gradient(to bottom, #c97a00, rgb(201 122 0 / 0.45) 40%, transparent);
+  pointer-events: none;
+}
+
+/* The forest fills the whole section behind everything else. */
+.forest {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bee-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.sun-rays {
+  animation: shimmer 7s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  50% {
+    opacity: 0.65;
+  }
+}
+
+/* Wind: grass leans one way and back from its roots, and the bushes rock gently.
+   Each group is set a little out of step (teamSection.tsx), so it never moves as one. */
+.sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sway 4.5s ease-in-out infinite alternate;
+}
+
+@keyframes sway {
+  from {
+    transform: skewX(-4deg);
+  }
+  to {
+    transform: skewX(3deg);
+  }
+}
+
+.bush {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: bush-rock 6s ease-in-out infinite alternate;
+}
+
+@keyframes bush-rock {
+  from {
+    transform: rotate(-0.8deg) scaleY(1);
+  }
+  to {
+    transform: rotate(0.6deg) scaleY(1.015);
+  }
+}
+
+/* The honey off the bottom of the hive: the drip slowly stretches as a drop swells
+   at its tip, the drop lets go and falls, easing into its fall like real honey,
+   and the drip settles back to start again. */
+.hive-drip {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: hive-ooze 6s ease-in-out infinite;
+}
+
+@keyframes hive-ooze {
+  0%,
+  100% {
+    transform: scaleY(0.85);
+  }
+  55% {
+    transform: scaleY(1.15);
+  }
+  62% {
+    transform: scaleY(0.9);
+  }
+}
+
+.hive-drop {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: hive-drop 6s infinite;
+}
+
+@keyframes hive-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.2);
+    animation-timing-function: ease-out;
+  }
+  10% {
+    opacity: 1;
+  }
+  55% {
+    transform: translateY(2px) scale(1) scaleY(1.15);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6);
+  }
+  85% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(260px) scale(0.9) scaleY(1.25);
+  }
+}
+
+.motes circle {
+  animation: drift 8s ease-in-out infinite;
+}
+
+@keyframes drift {
+  50% {
+    opacity: 0.25;
+    transform: translate(12px, -30px);
+  }
+}
+
+/* Hangs from the top-left, its branch reaching in from the edge of the section. */
+.hanging-hive {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  margin-top: 1rem;
+  overflow: visible;
+  filter: drop-shadow(0 14px 16px rgb(20 36 13 / 0.4));
+}
+
+.team-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 2rem 1.5rem 3rem 1rem;
+}
+
+/* Unpinned (on a phone), this section ends the page, so a stretch of meadow under
+   the team leaves enough scrolling for the bees to bring everyone out in turn. */
+.team-page[data-flying]:not([data-pinned]) .team-content {
+  padding-bottom: 30svh;
+}
+
+.team-content h1 {
+  margin: 0.5rem 0 2rem;
+  text-align: center;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #fffbe6;
+  text-shadow:
+    0 1px 2px rgb(20 36 13 / 0.6),
+    0 2px 16px rgb(20 36 13 / 0.55);
+}
+
+/* The honeycomb ------------------------------------------------------------ */
+
+/* The hexes size themselves to the width this leaves them (100cqw below). */
+.honeycomb-frame {
+  container-type: inline-size;
+}
+
+/* Sized to the cells' bounding box; each cell is placed by its --x / --y grid position. */
+.honeycomb {
   /* The hive's size in hexes (set from the layout in teamSection.tsx). */
   --cols: var(--wide-cols);
   --rows: var(--wide-rows);
   --hex-gap: 5px;
   --hex-border: 4px;
-  /* As big as 7rem, but shrunk so the whole hive fits across the screen. */
-  --hex-w: min(7rem, calc((100vw - 3rem) / var(--cols) - var(--hex-gap)));
+  /* As big as 7rem, but shrunk so the whole hive fits across. */
+  --hex-w: min(7rem, calc(100cqw / var(--cols) - var(--hex-gap)));
   /* A regular pointy-top hexagon is 2/sqrt(3) times taller than it is wide. */
   --hex-h: calc(var(--hex-w) * 1.1547);
   /* Rows overlap by a quarter hex, and each row is shifted half a hex sideways. */
   --pitch-x: calc(var(--hex-w) + var(--hex-gap));
   --pitch-y: calc(var(--hex-h) * 0.75 + var(--hex-gap) * 0.866);
 
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100svh - var(--nav-h, 4rem));
-  padding: 2rem 1rem 3rem;
-  /* A faint yellow honeycomb tiled over black. The tile is one hexagon plus the
-     stubs that join it to the hexagons above and below, so tiles meet seamlessly. */
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='104' height='180'%3E%3Cpath d='M52 30 104 60v60L52 150 0 120V60zM52 0v30M52 150v30' fill='none' stroke='%23fff29c' stroke-opacity='.09' stroke-width='2'/%3E%3C/svg%3E"),
-    var(--hive-purple);
-  color: var(--hive-yellow);
-}
-
-/* Below this the wide hive's hexes get too small, so switch to the tall, narrow layout. */
-@media (max-width: 1200px) {
-  .team-page {
-    --cols: var(--narrow-cols);
-    --rows: var(--narrow-rows);
-  }
-}
-
-@media (max-width: 640px) {
-  .team-page {
-    --hex-gap: 4px;
-    --hex-border: 3px;
-    --hex-w: min(5rem, calc((100vw - 2.5rem) / var(--cols) - var(--hex-gap)));
-  }
-}
-
-.team-page h1 {
-  margin: 0.5rem 0 2rem;
-  text-align: center;
-  font-size: 2.25rem;
-  font-weight: 800;
-  color: var(--hive-yellow);
-}
-
-@media (max-width: 640px) {
-  .team-page h1 {
-    margin-bottom: 1.5rem;
-    font-size: 1.875rem;
-  }
-}
-
-/* Sized to the cells' bounding box; each cell is placed by its --x / --y grid position. */
-.honeycomb {
   position: relative;
   width: calc(var(--cols) * var(--pitch-x) - var(--hex-gap));
   height: calc(var(--rows) * var(--pitch-y) + var(--hex-h));
@@ -78,19 +234,31 @@
   height: var(--hex-h);
   /* The slot is a rectangle; only the clipped hexagon inside should catch the pointer. */
   pointer-events: none;
+  filter: drop-shadow(0 5px 8px rgb(20 36 13 / 0.45));
 }
 
-/* Has to come after the rule above to override its --x / --y (same specificity). */
-@media (max-width: 1200px) {
+/* Below this the wide hive's hexes get too small, so switch to the tall, narrow layout. */
+@container (max-width: 840px) {
+  .honeycomb {
+    --cols: var(--narrow-cols);
+    --rows: var(--narrow-rows);
+  }
+
   .hex-slot {
     --x: var(--narrow-x);
     --y: var(--narrow-y);
   }
 }
 
+/* Over the hexes already in place while it's carried past them. */
+.hex-slot.is-flying {
+  z-index: 2;
+  will-change: transform;
+}
+
 .hex-slot:hover,
 .hex-slot:has(:focus-visible) {
-  z-index: 1;
+  z-index: 3;
 }
 
 .hex-cell,
@@ -192,9 +360,119 @@
   opacity: 1;
 }
 
-/* On a phone the hexes are too small for text, so they show just the photo and
-   a tapped hex pops out over its neighbours to show the name and role. */
+/* The bees -------------------------------------------------------------------- */
+
+.bee {
+  overflow: visible;
+}
+
+.bee-dark {
+  fill: #24170a;
+}
+
+.bee-eye {
+  fill: #110a04;
+}
+
+.bee-band {
+  fill: none;
+  stroke: #2a1a08;
+  stroke-opacity: 0.85;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+.bee-fuzz {
+  fill: none;
+  stroke: #e7c27a;
+  stroke-opacity: 0.7;
+  stroke-width: 0.8;
+  stroke-linecap: round;
+}
+
+.bee-legs,
+.bee-antenna {
+  fill: none;
+  stroke: #24170a;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bee-wing {
+  fill: url(#bee-wing);
+  stroke: rgb(70 50 30 / 0.35);
+  stroke-width: 0.5;
+}
+
+.bee-vein {
+  fill: none;
+  stroke: rgb(70 50 30 / 0.3);
+  stroke-width: 0.5;
+}
+
+/* A quick shiver rather than a big flap, so the wings read as a blur. */
+.bee-wings {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  animation: flap 70ms linear infinite alternate;
+}
+
+@keyframes flap {
+  to {
+    opacity: 0.55;
+    transform: rotate(-14deg) scaleY(0.75);
+  }
+}
+
+/* Sits on the hex's top point, legs gripping it. Only there while bees are carrying. */
+.carrier {
+  --bee-w: calc(var(--hex-w) * 0.62);
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--bee-w) * -0.6875 + 4px);
+  left: calc(50% - var(--bee-w) / 2);
+  width: var(--bee-w);
+  display: none;
+}
+
+.team-page[data-flying] .carrier {
+  display: block;
+}
+
+/* Small screens --------------------------------------------------------------- */
+
+/* No room for the hive beside the team, so it hangs above it instead. */
+@media (max-width: 900px) {
+  .team-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hanging-hive {
+    width: auto;
+    height: 11rem;
+    margin-top: 0.5rem;
+  }
+
+  .team-content {
+    padding: 0 1rem 3rem;
+  }
+}
+
 @media (max-width: 640px) {
+  .team-content h1 {
+    margin-bottom: 1.5rem;
+    font-size: 1.875rem;
+  }
+
+  .honeycomb {
+    --hex-gap: 4px;
+    --hex-border: 3px;
+    --hex-w: min(5rem, calc(100cqw / var(--cols) - var(--hex-gap)));
+  }
+
+  /* On a phone the hexes are too small for text, so they show just the photo and
+     a tapped hex pops out over its neighbours to show the name and role. */
   .hex-name {
     font-size: 0.75rem;
   }
@@ -225,6 +503,20 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ambient-bees,
+  .hive-drop {
+    display: none;
+  }
+
+  .sun-rays,
+  .motes circle,
+  .sway,
+  .bush,
+  .hive-drip,
+  .bee-wings {
+    animation: none;
+  }
+
   .hex-cell,
   .hex-cta,
   .hex-role,

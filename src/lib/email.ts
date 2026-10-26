@@ -49,14 +49,12 @@ const PICKUP = {
   slackContact: 'PERSON',
 };
 
-// One item per line, with the last two joined by "and":
+// One item per line:
 //   2 × Arduino Uno
 //   1 × Breadboard
-//   1 × Toothbrush and 1 × Towel
+//   1 × Toothbrush
 function itemLines(items: Item[]) {
-  const lines = items.map((item) => `${item.quantity} × ${item.name}`);
-  if (lines.length < 2) return lines;
-  return [...lines.slice(0, -2), `${lines.at(-2)} and ${lines.at(-1)}`];
+  return items.map((item) => `${item.quantity} × ${item.name}`);
 }
 
 function itemsHtml(items: Item[]) {

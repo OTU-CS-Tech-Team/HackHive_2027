@@ -18,18 +18,109 @@
   --hex-clip: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .23 0 0 0 0 .12 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
 
+  /* Above the team section below, so the honey dripping off the bottom hangs
+     over the top of the forest. */
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  padding: 2rem 1rem 3rem;
+  /* Clears the honey oozing over the top edge. */
+  padding: 11rem 1rem 5rem;
   /* The hexes hang off the bars' edges, so never let them cause a sideways scroll. */
   overflow-x: clip;
-  /* The same faint honeycomb as the team page. */
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='104' height='180'%3E%3Cpath d='M52 30 104 60v60L52 150 0 120V60zM52 0v30M52 150v30' fill='none' stroke='%23fff29c' stroke-opacity='.09' stroke-width='2'/%3E%3C/svg%3E"),
-    var(--hive-purple);
-  color: var(--hive-yellow);
+  /* The wax between the comb's cells, until the comb (CombBackdrop) draws. */
+  background: #b86a00;
+  color: var(--ink);
+}
+
+/* Inside the hive ------------------------------------------------------------ */
+
+.faq-comb {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Slightly soft, so it sits behind the questions. */
+  filter: blur(0.6px);
+}
+
+/* The same grain as the cards, over the comb. */
+.faq-page::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--grain);
+  pointer-events: none;
+}
+
+/* The sheets of honey along the top and bottom edges. At least 900px wide, so the
+   drips stay chunky on a phone (the sides are cropped instead). The sheet's lower
+   edge is 30 of the drawing's 240 units down, so the bottom one is lifted by that
+   much (12.5%) to sit on the section's edge with its drips hanging below it. */
+.honey-edge {
+  position: absolute;
+  left: 50%;
+  width: max(100%, 900px);
+  aspect-ratio: 1600 / 240;
+  overflow: visible;
+  translate: -50% 0;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 0 var(--side));
+}
+
+.honey-edge.is-top {
+  top: 0;
+}
+
+.honey-edge.is-bottom {
+  top: 100%;
+  translate: -50% -12.5%;
+}
+
+/* Each drip slowly stretches and shrinks back, like honey about to let go. */
+.drip {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: ooze 5s ease-in-out infinite alternate;
+}
+
+@keyframes ooze {
+  to {
+    transform: scaleY(1.2);
+  }
+}
+
+/* A drop that breaks off, falls and fades, then waits before the next one. */
+.drop {
+  opacity: 0;
+  animation: fall 5.1s ease-in infinite;
+}
+
+@keyframes fall {
+  0%,
+  55% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(420px);
+  }
+}
+
+/* Cream lettering with a dark-brown outline and a solid shadow, like the bars.
+   Positioned so it (and the contact line) sits over the falling drops. */
+.faq-page h1,
+.faq-contact {
+  position: relative;
 }
 
 .faq-page h1 {
@@ -37,6 +128,10 @@
   text-align: center;
   font-size: 2.25rem;
   font-weight: 800;
+  color: #fff8d6;
+  -webkit-text-stroke: 6px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 5px 0 var(--ink);
 }
 
 .faq-grid {
@@ -281,8 +376,15 @@
   line-height: 1.5;
 }
 
+/* On a pale card like the answers, so it reads clearly over the comb. */
 .faq-contact p {
   margin: 0;
+  padding: 0.75rem 1.25rem;
+  border: var(--line) solid var(--ink);
+  border-radius: 0.875rem;
+  background: var(--grain), #fff8d6;
+  box-shadow: 0 6px 0 var(--side);
+  font-weight: 600;
 }
 
 .faq-contact p a {
@@ -293,7 +395,7 @@
 }
 
 .faq-contact p a:hover {
-  color: var(--honey);
+  color: var(--honey-deep);
 }
 
 /* "Copy email": a small chunky honey button like the FAQ bars. */
@@ -376,6 +478,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .drip {
+    animation: none;
+  }
+
+  .drop {
+    display: none;
+  }
+
   .faq-question,
   .faq-answer,
   .faq-hexes > span,
