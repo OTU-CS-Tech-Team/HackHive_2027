@@ -102,12 +102,17 @@ create policy "item_requests_read" on public.item_requests
   for select to authenticated
   using (user_id = (select auth.uid()) or (select public.is_admin()));
 
--- New requests must be the hacker's own, pending and unreviewed, so nobody can approve themselves.
+-- New requests must be the hacker's own, pending and unreviewed, so nobody can approve
+-- themselves, and only accepted hackers (and admins) can send them. The dashboard only
+-- shows the form to them, but anyone signed in could call the API directly.
+-- has_hub_access() is from 20261020000000_application_decisions.sql, which is why this
+-- file has to run after it.
 drop policy if exists "item_requests_insert_own" on public.item_requests;
 create policy "item_requests_insert_own" on public.item_requests
   for insert to authenticated
   with check (
     user_id = (select auth.uid())
+    and (select public.has_hub_access())
     and status = 'pending'
     and reviewed_by is null
     and reviewed_at is null

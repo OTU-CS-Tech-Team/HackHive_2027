@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { formatDateTime } from "@/lib/time";
-import { deleteItemRequest, reviewItemRequest } from "../actions";
+import { deleteItemRequest, loadRequestHistory, reviewItemRequest } from "../actions";
 
 export type ItemRequest = {
   id: string;
@@ -112,7 +112,9 @@ export function RequestQueue({ requests }: { requests: ItemRequest[] }) {
   );
 }
 
-function DeleteRequest({ request }: { request: ItemRequest }) {
+// `onDeleted` takes it out of the history straight away, including from pages
+// loaded with "Load more", which the page refreshing after the delete doesn't cover.
+function DeleteRequest({ request, onDeleted }: { request: ItemRequest; onDeleted: () => void }) {
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -121,6 +123,7 @@ function DeleteRequest({ request }: { request: ItemRequest }) {
     startTransition(async () => {
       const result = await deleteItemRequest(request.id);
       if (!result.ok) setMessage(result.message);
+      else onDeleted();
     });
   };
 
@@ -138,8 +141,55 @@ function DeleteRequest({ request }: { request: ItemRequest }) {
   );
 }
 
-// Every accepted and rejected request, most recently reviewed first.
-export function RequestHistory({ requests }: { requests: ItemRequest[] }) {
+// The history's order: most recently reviewed first (unreviewed last), then by id.
+// Matches loadRequestHistory, whose cursor is the last request shown.
+function historyOrder(a: ItemRequest, b: ItemRequest) {
+  if (a.reviewed_at !== b.reviewed_at) {
+    if (a.reviewed_at === null) return 1;
+    if (b.reviewed_at === null) return -1;
+    return Date.parse(b.reviewed_at) - Date.parse(a.reviewed_at);
+  }
+  return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+}
+
+// Adds `incoming` to `rows`, replacing any already there, in history order.
+function mergeRows(rows: ItemRequest[], incoming: ItemRequest[]) {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  for (const row of incoming) byId.set(row.id, row);
+  return [...byId.values()].sort(historyOrder);
+}
+
+// Every accepted and rejected request, most recently reviewed first, a page at a
+// time. Everything loaded is kept: when the page refreshes after a review or a
+// delete, its new first page is merged in rather than replacing what's shown, so a
+// request pushed off the first page doesn't fall into the gap before the next one.
+export function RequestHistory({ firstPage, firstPageHasMore }: { firstPage: ItemRequest[]; firstPageHasMore: boolean }) {
+  const [requests, setRequests] = useState(firstPage);
+  const [hasMore, setHasMore] = useState(firstPageHasMore);
+  const [seenFirstPage, setSeenFirstPage] = useState(firstPage);
+  const [message, setMessage] = useState("");
+  const [loading, startLoading] = useTransition();
+
+  if (firstPage !== seenFirstPage) {
+    setSeenFirstPage(firstPage);
+    setRequests((rows) => mergeRows(rows, firstPage));
+    setHasMore((more) => more || firstPageHasMore);
+  }
+
+  const loadMore = () => {
+    const last = requests.at(-1);
+    if (!last) return;
+    setMessage("");
+    startLoading(async () => {
+      const page = await loadRequestHistory({ reviewedAt: last.reviewed_at, id: last.id });
+      if (!page.ok) return setMessage(page.message);
+      setRequests((rows) => mergeRows(rows, page.requests));
+      setHasMore(page.hasMore);
+    });
+  };
+
+  const removed = (id: string) => setRequests((rows) => rows.filter((row) => row.id !== id));
+
   return (
     <section>
       <h2 className="mb-4 text-xl font-bold">History</h2>
@@ -168,11 +218,25 @@ export function RequestHistory({ requests }: { requests: ItemRequest[] }) {
                     <span className="font-medium">Admin note:</span> {request.admin_note}
                   </p>
                 )}
-                <DeleteRequest request={request} />
+                <DeleteRequest request={request} onDeleted={() => removed(request.id)} />
               </li>
             );
           })}
         </ul>
+      )}
+      {hasMore && (
+        <button
+          disabled={loading}
+          onClick={loadMore}
+          className="mt-4 rounded border border-neutral-300 px-4 py-2 text-sm disabled:opacity-50"
+        >
+          {loading ? "Loading…" : "Load more"}
+        </button>
+      )}
+      {message && (
+        <p role="status" className="mt-2 text-sm text-red-700">
+          Could not load more: {message}
+        </p>
       )}
     </section>
   );

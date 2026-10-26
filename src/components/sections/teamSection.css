@@ -340,29 +340,6 @@
   opacity: 1;
 }
 
-/* The LinkedIn call to action, revealed with the role. */
-.hex-cta {
-  max-height: 0;
-  margin-top: 0;
-  overflow: hidden;
-  opacity: 0;
-  border-radius: 9999px;
-  background: var(--hive-blue);
-  color: var(--hive-black);
-  font-size: 0.625rem;
-  font-weight: 700;
-  line-height: 1.6;
-  padding: 0 0.45rem;
-  transition: max-height 200ms ease, opacity 200ms ease, margin-top 200ms ease;
-}
-
-.hex-cell:hover .hex-cta,
-.hex-cell:focus-visible .hex-cta {
-  max-height: 1.25rem;
-  margin-top: 0.25rem;
-  opacity: 1;
-}
-
 /* The bees -------------------------------------------------------------------- */
 
 .bee {
@@ -484,10 +461,6 @@
     font-size: 0.625rem;
   }
 
-  .hex-cta {
-    font-size: 0.5rem;
-  }
-
   .hex-label {
     padding-top: 1.75rem;
     opacity: 0;
@@ -521,7 +494,6 @@
   }
 
   .hex-cell,
-  .hex-cta,
   .hex-role,
   .hex-label {
     transition: none;

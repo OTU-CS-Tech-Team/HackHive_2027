@@ -23,8 +23,7 @@ type TeamMemberProps = {
 };
 
 // One hexagon of the hive. The role (which names the team) is revealed on hover or tap.
-// Members with a LinkedIn link get a "LinkedIn" pill under their role, and clicking
-// the hex opens their profile in a new tab.
+// For members with a LinkedIn link, clicking the hex opens their profile in a new tab.
 function TeamMemberCard(props: TeamMemberProps) {
   // Touch screens can't hover, so the first tap only pops the hex out to show who it
   // is; tapping it again opens LinkedIn.
@@ -51,11 +50,6 @@ function TeamMemberCard(props: TeamMemberProps) {
       <span className="hex-label">
         <span className="hex-name">{props.name}</span>
         <span className="hex-role">{props.role}</span>
-        {props.link && (
-          <span className="hex-cta" aria-hidden>
-            LinkedIn ↗
-          </span>
-        )}
       </span>
     </span>
   );

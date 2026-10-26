@@ -6,6 +6,8 @@ import { sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
+import { HISTORY_PAGE_SIZE, REQUEST_COLUMNS, type HistoryCursor } from "./requests/query";
+import type { ItemRequest } from "./requests/RequestQueue";
 
 export type ScannedHacker = {
   id: string;
@@ -249,6 +251,42 @@ export async function reviewItemRequest(id: string, decision: "accepted" | "reje
 }
 
 // Only reviewed requests can be deleted; pending ones have to go through the queue.
+export type HistoryPage =
+  | { ok: true; requests: ItemRequest[]; hasMore: boolean }
+  | { ok: false; message: string };
+
+// One page of reviewed requests, most recently reviewed first, starting just after
+// `cursor` (or from the top without one). Keyset pagination on (reviewed_at, id)
+// rather than offsets, so reviewing or deleting requests between pages can't make
+// one skip or repeat. Asks for one extra row to tell whether there's another page.
+export async function loadRequestHistory(cursor: HistoryCursor | null): Promise<HistoryPage> {
+  const supabase = await requireAdmin();
+  let query = supabase
+    .from("item_requests")
+    .select(REQUEST_COLUMNS)
+    .neq("status", "pending")
+    .order("reviewed_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .limit(HISTORY_PAGE_SIZE + 1);
+
+  if (cursor) {
+    if (!UUID.test(cursor.id)) return { ok: false, message: "Unknown request." };
+    if (cursor.reviewedAt === null) {
+      // Past the last reviewed request: only the ones with no review time are left.
+      query = query.is("reviewed_at", null).lt("id", cursor.id);
+    } else {
+      if (Number.isNaN(Date.parse(cursor.reviewedAt))) return { ok: false, message: "Unknown request." };
+      const at = `"${cursor.reviewedAt}"`;
+      query = query.or(`reviewed_at.lt.${at},and(reviewed_at.eq.${at},id.lt.${cursor.id}),reviewed_at.is.null`);
+    }
+  }
+
+  const { data, error } = await query;
+  if (error) return { ok: false, message: error.message };
+  const rows = (data ?? []) as unknown as ItemRequest[];
+  return { ok: true, requests: rows.slice(0, HISTORY_PAGE_SIZE), hasMore: rows.length > HISTORY_PAGE_SIZE };
+}
+
 export async function deleteItemRequest(id: string): Promise<ActionResult> {
   const supabase = await requireAdmin();
   if (!UUID.test(id)) return { ok: false, message: "Unknown request." };

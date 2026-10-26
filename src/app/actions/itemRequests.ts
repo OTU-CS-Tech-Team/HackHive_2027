@@ -15,6 +15,11 @@ export async function submitItemRequest(input: ItemRequestInput): Promise<Submit
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: 'Log in to request items.' };
 
+  // Only accepted hackers (and admins) can request items. RLS enforces this too;
+  // checking first gives a clearer message than a policy violation.
+  const { data: hasAccess } = await supabase.rpc('has_hub_access');
+  if (!hasAccess) return { ok: false, message: 'Item requests open once your application has been accepted.' };
+
   const parsed = itemRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const { items, teamMembers, details } = parsed.data;

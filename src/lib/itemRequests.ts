@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const MAX_ITEMS = 5;
 
 // Requests one hacker can have waiting in the queue at once. The database enforces
-// it too, in supabase/migrations/20261019000000_item_requests.sql.
+// it too, in supabase/migrations/20261021000000_item_requests.sql.
 export const MAX_PENDING_REQUESTS = 3;
 
 const itemSchema = z.object({
