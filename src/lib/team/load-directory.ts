@@ -1,5 +1,6 @@
 import "server-only";
 import { requireTeamAccess } from './access';
+import { teammateListingIssue } from './listing';
 import { teamProfile, safeSlackProfileUrl, type TeamProfileRow, type TeamDirectoryData, type Bookmark, type RecruitingTeam, type TeamMember } from './profiles';
 
 const LEGACY_COLUMNS = 'id,full_name,school,avatar_url,github_url,linkedin_url,instagram_url,slack_url';
@@ -51,6 +52,8 @@ export async function loadTeamDirectory(): Promise<({ ok: true } & TeamDirectory
     if (results.some(result => result === null)) return { ok: false };
     bookmarks = results[0]!; teams = results[1]!.map(team => ({ ...team, slack_url: safeSlackProfileUrl(team.slack_url ?? null) })); members = results[2]!;
   }
-  return { ok: true, own: teamProfile(own), listed: own.looking_for_team === true, found: own.team_found === true,
-    upgraded, profiles: profiles.map(teamProfile), bookmarks, teams, members, recruitingReady };
+  // Apply the publishing rule here too, so old opt-ins and direct API writes
+  // cannot put empty cards into the client directory or its counts.
+  return { ok: true, own: teamProfile(own), listed: own.looking_for_team === true && !teammateListingIssue(own), found: own.team_found === true,
+    upgraded, profiles: profiles.filter(profile => !teammateListingIssue(profile)).map(teamProfile), bookmarks, teams, members, recruitingReady };
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireTeamAccess } from '@/lib/team/access';
 import { profileInput, teammateProfileSchema, recruitingInput, recruitingTeamSchema, uuid } from '@/lib/team/schema';
 import { safeSlackProfileUrl, safeWebUrl } from '@/lib/team/profiles';
+import { LISTING_COLUMNS, teammateListingIssue } from '@/lib/team/listing';
 
 export type TeamActionResult = { ok: boolean; message: string };
 function done(message: string): TeamActionResult {
@@ -21,9 +22,11 @@ export async function setTeamListing(listed: boolean, found = false): Promise<Te
   const access = await requireTeamAccess();
   if (!access.ok || typeof listed !== 'boolean' || typeof found !== 'boolean') return failure(null);
   if (listed) {
-    const { data: profile, error: profileError } = await access.session.from('profiles').select('slack_url').eq('id', access.user.id).maybeSingle();
+    const { data: profile, error: profileError } = await access.session.from('profiles').select(LISTING_COLUMNS).eq('id', access.user.id).maybeSingle();
     if (profileError) return failure(profileError);
-    if (!safeSlackProfileUrl(profile?.slack_url ?? null)) return { ok: false, message: 'Add your Slack member-profile link in Edit profile before making your listing available.' };
+    if (!profile) return failure(null);
+    const issue = teammateListingIssue(profile);
+    if (issue) return { ok: false, message: `${issue} Open Edit profile to finish your card.` };
   }
   const { error } = await access.session.rpc('confirm_teammate_availability', { p_listed: listed, p_found: found });
   if (error?.code === 'PGRST202') {
@@ -40,9 +43,6 @@ export async function saveTeammateProfile(form: FormData): Promise<TeamActionRes
   const parsed = teammateProfileSchema.safeParse(profileInput(form));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const profile = parsed.data;
-  if (profile.looking_for_team && !profile.slack_url) {
-    return { ok: false, message: 'Add your Slack member-profile link so teammates can contact you.' };
-  }
   const { error, data } = await access.session.from('profiles').update({ ...profile,
     slack_url: safeSlackProfileUrl(profile.slack_url), github_url: safeWebUrl(profile.github_url),
     linkedin_url: safeWebUrl(profile.linkedin_url), instagram_url: safeWebUrl(profile.instagram_url),

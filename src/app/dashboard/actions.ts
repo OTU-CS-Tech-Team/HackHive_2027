@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseSlackProfileUrl } from "@/lib/team/profiles";
+import { LISTING_COLUMNS, teammateListingIssue } from "@/lib/team/listing";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -41,6 +42,14 @@ function webUrl(formData: FormData, key: string) {
 export async function saveProfile(formData: FormData) {
   const { supabase, user } = await requireUser();
   try {
+    if (formData.get("looking_for_team") === "on") {
+      const { data: current, error } = await supabase.from("profiles").select(LISTING_COLUMNS).eq("id", user.id).maybeSingle();
+      if (error || !current) return "Your teammate profile could not be checked. Try again later.";
+      const issue = teammateListingIssue({ ...current, full_name: text(formData, "full_name"),
+        ...(formData.has("slack_url") ? { slack_url: parseSlackProfileUrl(String(formData.get("slack_url") ?? "")) } : {}),
+      });
+      if (issue) return `${issue} Open Edit your teammate profile to finish your card.`;
+    }
     const { error } = await supabase
       .from("profiles")
       .update({

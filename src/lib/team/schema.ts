@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { safeWebUrl, safeSlackProfileUrl, tags, TEAM_ROLES } from './profiles';
+import { teammateListingIssue } from './listing';
 
 const tagArray = z.array(z.string().trim().min(1).max(32)).max(10, 'Use at most 10 tags.');
 const roleArray = z.array(z.enum(TEAM_ROLES)).max(8);
@@ -13,6 +14,10 @@ export const teammateProfileSchema = z.object({
   team_seeking: roleArray, team_interests: tagArray, team_goal: goal.nullable(),
   team_experience: z.enum(['first', 'returning']).nullable(),
   github_url: link, linkedin_url: link, instagram_url: link, slack_url: slack, looking_for_team: z.boolean(),
+}).superRefine((profile, context) => {
+  if (!profile.looking_for_team) return;
+  const message = teammateListingIssue(profile);
+  if (message) context.addIssue({ code: 'custom', path: ['looking_for_team'], message });
 });
 export const recruitingTeamSchema = z.object({
   name: z.string().trim().min(2, 'Give your team a name.').max(60),

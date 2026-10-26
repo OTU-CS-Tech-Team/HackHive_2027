@@ -58,4 +58,19 @@ describe('richer teammate profiles', () => {
     expect(recruitingTeamSchema.safeParse({ ...input, slack_url: 'https://slack.com.evil.test/team/U123ABC' }).success).toBe(false);
     expect(recruitingTeamSchema.parse({ ...input, slack_url:'https://demo.slack.com/team/U123ABC?source=profile#details' }).slack_url).toBe('https://demo.slack.com/team/U123ABC');
   });
+  it('allows incomplete drafts but requires useful, contactable published profiles', () => {
+    const draft = profileInput(new FormData());
+    draft.full_name = 'Alex';
+    expect(teammateProfileSchema.safeParse(draft).success).toBe(true);
+    const published = { ...draft, looking_for_team: true, team_bio: 'A campus accessibility guide',
+      team_skills: ['Figma'], team_goal: 'learn', slack_url: row.slack_url };
+    expect(teammateProfileSchema.safeParse(published).success).toBe(true);
+    expect(teammateProfileSchema.safeParse({ ...published, team_skills: [], team_roles: ['Design'] }).success).toBe(true);
+    for (const incomplete of [
+      { full_name: '  ' }, { team_bio: '' }, { team_bio: '   short   ' },
+      { team_skills: [], team_roles: [] }, { team_skills: ['  '], team_roles: [] },
+      { team_goal: null }, { slack_url: '' },
+    ]) expect(teammateProfileSchema.safeParse({ ...published, ...incomplete }).success).toBe(false);
+    expect(teammateProfileSchema.safeParse({ ...published, team_interests: [], team_seeking: [], team_experience: null }).success).toBe(true);
+  });
 });
