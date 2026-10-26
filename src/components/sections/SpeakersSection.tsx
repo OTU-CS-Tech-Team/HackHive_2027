@@ -1,6 +1,7 @@
 import { getPeople } from "@/lib/content";
 import { HoneycombGroup } from "./HoneycombGroup";
 import { GavelRain } from "./GavelRain";
+import { MegaphoneBanner } from "./Megaphone";
 import styles from "./SpeakersSection.module.css";
 
 
@@ -14,11 +15,16 @@ export async function SpeakersSection() {
     <section id="judges" className={`${styles.section} scroll-mt-16`}>
       <GavelRain />
       <div className={styles.stage}>
-        <h2 className={styles.title}>Judges</h2>
+        <MegaphoneBanner
+          icon="hammer-gavel"
+          title="Meet the judges"
+          subtitle="Get to know the people scoring every project at demo time."
+          ctaHref=""
+        />
         <HoneycombGroup
           role="judge"
-          heading="Meet the judges"
-          blurb="They score every project at demo time."
+          heading=""
+          blurb=""
           people={judges}
           moreHref="/speakers"
         />
