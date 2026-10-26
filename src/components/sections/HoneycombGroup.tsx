@@ -94,9 +94,8 @@ function positionForIndex(
   };
 }
 
-function PersonHexCard({ person, role, revealed, expanded, onToggleExpanded, onFlipEnd }: {
+function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd }: {
   person: Person;
-  role: Person["role"];
   revealed: boolean;
   expanded: boolean;
   onToggleExpanded: () => void;
@@ -144,14 +143,12 @@ function PersonHexCard({ person, role, revealed, expanded, onToggleExpanded, onF
           aria-expanded={expanded}
           onClick={onToggleExpanded}
         >
-          {role === "judge" && (
-            person.photo_url ? (
-              <img src={person.photo_url} alt="" className={styles.avatar} />
-            ) : (
-              <span className={styles.avatarFallback} aria-hidden="true">
-                {person.name.charAt(0)}
-              </span>
-            )
+          {person.photo_url ? (
+            <img src={person.photo_url} alt="" className={styles.avatar} />
+          ) : (
+            <span className={styles.avatarFallback} aria-hidden="true">
+              {person.name.charAt(0)}
+            </span>
           )}
           <span className={styles.name}>{person.name}</span>
           {person.title && <span className={styles.details}>{person.title}</span>}
@@ -339,8 +336,8 @@ export function HoneycombGroup({
 
   return (
     <div className={styles.group}>
-      <h3 className={styles.heading}>{heading}</h3>
-      <p className={styles.blurb}>{blurb}</p>
+      {heading && <h3 className={styles.heading}>{heading}</h3>}
+      {blurb && <p className={styles.blurb}>{blurb}</p>}
       {people.length ? (
         <ul
           ref={hiveRef}
@@ -357,7 +354,6 @@ export function HoneycombGroup({
               <div className={styles.flip}>
                 <PersonHexCard
                   person={person}
-                  role={role}
                   revealed={revealed.has(person.id)}
                   expanded={expandedPersonId === person.id}
                   onToggleExpanded={() => setExpandedPersonId((current) => current === person.id ? null : person.id)}

@@ -227,7 +227,23 @@
 
 .speaker .back {
   background: #221b0d;
-  color: #fff6e0;
+  color: #f5b83d;
+}
+
+.speaker .front {
+  background: #f5b83d;
+  color: #14110b;
+}
+
+.speaker .front > * {
+  visibility: hidden;
+}
+
+.speaker .name,
+.speaker .details,
+.speaker .bio,
+.speaker .link {
+  color: #f5b83d;
 }
 
 .judge .front {
@@ -314,7 +330,11 @@
 
 .speaker .details,
 .speaker .bio {
-  color: #d9cba8;
+  color: #f5b83d;
+}
+
+.speaker .morePrompt {
+  color: #fff6e0;
 }
 
 .judge .details,
