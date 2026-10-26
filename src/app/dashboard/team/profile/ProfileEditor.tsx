@@ -21,7 +21,7 @@ export function ProfileEditor({ own, listed, hasTeam, returnTo }: { own: TeamPro
   const preview = { ...draft, name: draft.name || 'Your name', avatarUrl: own.avatarUrl,
     githubUrl: safeWebUrl(draft.githubUrl), linkedinUrl: safeWebUrl(draft.linkedinUrl), instagramUrl: safeWebUrl(draft.instagramUrl), slackUrl: safeSlackProfileUrl(draft.slackUrl) };
   return <>
-    <Link href={returnTo} className={styles.back}>← Back to teammate finder</Link>
+    <Link href={returnTo} className={styles.back}>Back to teammate finder</Link>
     <header className={styles.hero}><div><div className={styles.eyebrow}><span />YOUR TEAMMATE PROFILE</div><h1>Your place in the hive</h1><p>Add your skills and what you want to build. Your email stays out of the directory.</p></div></header>
     <div className={styles.editorGrid}>
       <div className={styles.editorPanel}>
@@ -44,7 +44,7 @@ export function ProfileEditor({ own, listed, hasTeam, returnTo }: { own: TeamPro
             <label>Hackathon experience<SelectControl label="Hackathon experience" name="team_experience" value={draft.experience ?? ''} onValueChange={value => set('experience', (value || null) as TeamProfile['experience'])} options={[{value:'',label:'Prefer not to say'},{value:'first',label:'My first hackathon'},{value:'returning',label:"I've hacked before"}]} /></label>
           </div>
           <div className={styles.sectionDivider}><h2>Where teammates can reach you</h2><p className={styles.small}>Add your Slack member profile to make your listing available. Social links are optional.</p></div>
-          <label>Slack member profile<input type="url" name="slack_url" required={visible} value={draft.slackUrl ?? ''} onChange={e => set('slackUrl', e.target.value)} maxLength={500} placeholder="https://workspace.slack.com/team/U123ABC" /><a href="https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile" target="_blank" rel="noopener noreferrer" className={styles.small}>How to copy your Slack member link ↗</a></label>
+          <label>Slack member profile<input type="url" name="slack_url" required={visible} value={draft.slackUrl ?? ''} onChange={e => set('slackUrl', e.target.value)} maxLength={500} placeholder="https://workspace.slack.com/team/U123ABC" /><a href="https://slack.com/help/articles/360003827751-Create-a-link-to-a-members-profile" target="_blank" rel="noopener noreferrer" className={styles.small}>How to copy your Slack member link</a></label>
           <div className={styles.formGrid}>
             <label>GitHub<input type="url" name="github_url" value={draft.githubUrl ?? ''} onChange={e => set('githubUrl', e.target.value)} maxLength={500} placeholder="https://github.com/you" /></label>
             <label>LinkedIn<input type="url" name="linkedin_url" value={draft.linkedinUrl ?? ''} onChange={e => set('linkedinUrl', e.target.value)} maxLength={500} placeholder="https://linkedin.com/in/you" /></label>

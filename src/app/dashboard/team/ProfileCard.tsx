@@ -33,8 +33,8 @@ export function ProfileCard({ profile, saved = false, reasons = [], preview = fa
     {profile.experience === 'first' && <p className={`${styles.small} mt-3`}>First hackathon · ready to learn</p>}
     {!!reasons.length && <p className={styles.match}>✦ {reasons[0]}</p>}
     <div className={styles.cardFooter}>
-      <div className={styles.socials}>{links.filter(([, href]) => href).map(([label, href]) => <a key={label} href={href!} target="_blank" rel="noopener noreferrer" aria-label={`${label}: ${profile.name} (opens in a new tab)`}>{label} <span aria-hidden="true">↗</span></a>)}</div>
-      {preview ? <span className={`${styles.primary} ${styles.full}`}>Message on Slack ↗</span> : profile.slackUrl ? <a className={`${styles.primary} ${styles.full}`} href={profile.slackUrl} target="_blank" rel="noopener noreferrer" aria-label={`Message ${profile.name} on Slack (opens in a new tab)`}>Message on Slack <span aria-hidden="true">↗</span></a> : <p className={styles.contactMissing}>Slack profile not added</p>}
+      <div className={styles.socials}>{links.filter(([, href]) => href).map(([label, href]) => <a key={label} href={href!} target="_blank" rel="noopener noreferrer" aria-label={`${label}: ${profile.name} (opens in a new tab)`}>{label}</a>)}</div>
+      {preview ? <span className={`${styles.primary} ${styles.full}`}>Message on Slack</span> : profile.slackUrl ? <a className={`${styles.primary} ${styles.full}`} href={profile.slackUrl} target="_blank" rel="noopener noreferrer" aria-label={`Message ${profile.name} on Slack (opens in a new tab)`}>Message on Slack</a> : <p className={styles.contactMissing}>Slack profile not added</p>}
       <div className={styles.footerMeta}>
         {profile.confirmedAt && <p className={styles.confirmed}>Confirmed {new Date(profile.confirmedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' })}</p>}
       </div>
