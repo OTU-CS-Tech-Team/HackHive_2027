@@ -9,7 +9,7 @@ export default async function SpeakersPage() {
 
   return (
     <main className={`${styles.section} ${styles.judgesPage}`}>
-      <MegaphoneRain x={0.5} y={0.5} dim={0.35} />
+      <MegaphoneRain x={0.5} y={0.5} dim={0.65} />
       <div className={styles.stage}>
         <Link className={styles.backToHome} href="/#judges">
           ← Judges
