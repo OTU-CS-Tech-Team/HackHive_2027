@@ -4,11 +4,12 @@
   --hive-yellow: #fff29c;
   --hive-blue: #6495ed;
   --hive-black: #000000;
-  /* How much scrolling the bees take to bring everyone out while the forest is pinned. */
-  --scroll-room: 90svh;
+  /* How much scrolling the forest stays pinned for. The bees start once the FAQ's
+     honey has scrolled away and use the rest of it to bring everyone out. */
+  --scroll-room: 150svh;
 
   position: relative;
-  background: #3f5e30;
+  background: #36442d;
   color: var(--hive-yellow);
 }
 
@@ -46,12 +47,15 @@
   pointer-events: none;
 }
 
-/* The forest fills the whole section behind everything else. */
+/* The forest fills the whole section behind everything else. Each of its layers
+   is composited separately, so the grass swaying in one doesn't make the browser
+   repaint the blurs and textures in the others. */
 .forest {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  will-change: transform;
 }
 
 .bee-defs {
@@ -61,12 +65,13 @@
 }
 
 .sun-rays {
+  mix-blend-mode: screen;
   animation: shimmer 7s ease-in-out infinite;
 }
 
 @keyframes shimmer {
   50% {
-    opacity: 0.65;
+    opacity: 0.7;
   }
 }
 
@@ -171,7 +176,7 @@
   max-width: 24rem;
   margin-top: 1rem;
   overflow: visible;
-  filter: drop-shadow(0 14px 16px rgb(20 36 13 / 0.4));
+  filter: drop-shadow(0 18px 22px rgb(18 26 14 / 0.45));
 }
 
 .team-content {
@@ -237,7 +242,7 @@
   height: var(--hex-h);
   /* The slot is a rectangle; only the clipped hexagon inside should catch the pointer. */
   pointer-events: none;
-  filter: drop-shadow(0 5px 8px rgb(20 36 13 / 0.45));
+  filter: drop-shadow(0 6px 10px rgb(18 26 14 / 0.5));
 }
 
 /* Below this the wide hive's hexes get too small, so switch to the tall, narrow layout. */
@@ -274,14 +279,17 @@
   position: absolute;
   inset: 0;
   display: block;
-  background: var(--hive-yellow);
+  background-color: var(--hive-yellow);
+  /* Shaded like a rim of beeswax, catching the light along its top and darker
+     underneath, over whichever colour the border is. */
+  background-image: linear-gradient(165deg, rgb(255 255 255 / 0.5), transparent 35%, rgb(90 60 10 / 0.35));
   pointer-events: auto;
   transition: transform 200ms ease, background-color 200ms;
 }
 
 /* The rest of the hovered person's team. */
 .hex-slot.is-lit .hex-cell {
-  background: var(--hive-blue);
+  background-color: var(--hive-blue);
 }
 
 /* :focus-visible (keyboard focus) rather than :focus, so a hex doesn't stay popped
@@ -289,7 +297,7 @@
 .hex-cell:hover,
 .hex-cell:focus-visible {
   transform: scale(1.12);
-  background: var(--hive-blue);
+  background-color: var(--hive-blue);
   outline: none;
 }
 

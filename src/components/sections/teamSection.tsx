@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  memo,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type MouseEvent,
   type Ref,
   type SVGProps,
@@ -263,10 +265,11 @@ function seeded(seed: number) {
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // The bees' colours, shared by every bee on the page. They live in their own
 // always-rendered SVG because a gradient inside a hidden SVG stops working.
-function BeeDefs() {
+const BeeDefs = memo(function BeeDefs() {
   return (
     <svg className="bee-defs" aria-hidden>
       <defs>
@@ -292,7 +295,7 @@ function BeeDefs() {
       </defs>
     </svg>
   );
-}
+});
 
 // Each caste's body: the abdomen's outline, where its bands go, and how big the
 // thorax and eye are. Queens are long and slender, drones stout with big eyes.
@@ -472,32 +475,39 @@ function grassRun(seed: number, y: number, spacing: number, height: [number, num
 }
 
 // A bush: `w` wide and about `h` tall, sitting on the ground at `base`, made of
-// `count` clusters of leaves `size` across.
-type Bush = { cx: number; base: number; w: number; h: number; count: number; size: [number, number] };
+// `count` clusters of leaves `size` across. `bloom` scatters blossoms of that
+// colour over its outside.
+type Bush = { cx: number; base: number; w: number; h: number; count: number; size: [number, number]; bloom?: string };
 
-// Deep shadow green up to sunlit yellow-green.
-const BUSH_SHADES = ["#13260f", "#1b3315", "#24421b", "#2f5422", "#3c662a", "#4d7a33", "#62903e", "#7ca84c", "#9cc061"];
+// Deep shadow green up to sunlit olive, muted like real foliage rather than bright cartoon greens.
+const BUSH_SHADES = ["#141f10", "#1b2a16", "#23361c", "#2d4423", "#38532b", "#466236", "#577443", "#6c8655", "#869c6c"];
+// Leaves on the outside of a bush facing into the sun, lit through from behind
+// so they glow a warm yellow-green.
+const BUSH_RIM = ["#8f9f5c", "#a8b56b", "#c2c97f", "#d8d896"];
+// Where the sun sits, above the middle of the clearing.
+const SUN = { x: 900, y: -60 };
 
 // The bush's outline: a lumpy dome, its height at `t` (-1 at the left edge, 1 at
-// the right) wobbling with a few bulges so no two bushes share a shape.
+// the right) wobbling with bulges big and small so no two bushes share a shape.
 function domeHeight(bush: Bush, t: number, wobble: number[]) {
   const dome = Math.sqrt(Math.max(0, 1 - t * t));
-  const bulges = wobble.reduce((sum, w, k) => sum + w * Math.sin((t + 1) * Math.PI * (k + 2)), 0);
+  const bulges = wobble.reduce((sum, w, k) => sum + w * Math.sin((t + 1) * Math.PI * (k + 2) + k), 0);
   return bush.h * dome * (0.9 + bulges);
 }
 
 // Bushes along the edge of the clearing, after a rhododendron: a tall, lumpy dome
 // built from clusters of broad, glossy leaves fanning out from a point. Clusters
 // deep in the bush are drawn first and stay dark; those on the outside, especially
-// on top, catch the light, so the gaps between clusters read as shadow. Each bush
-// casts a soft shadow on the ground and rocks gently in the wind.
+// on top, catch the light, so the gaps between clusters read as shadow. Sprigs
+// poke out past the dome so the outline is ragged, the leaves facing the sun are
+// backlit, and each bush casts a soft shadow on the ground and rocks gently in the wind.
 function Bushes({ bushes, seed }: { bushes: Bush[]; seed: number }) {
   const rand = seeded(seed);
 
   return (
     <>
       {bushes.map((bush, b) => {
-        const wobble = [0.06 + rand() * 0.05, (rand() - 0.5) * 0.08, (rand() - 0.5) * 0.06];
+        const wobble = [0.06 + rand() * 0.05, (rand() - 0.5) * 0.08, (rand() - 0.5) * 0.06, (rand() - 0.5) * 0.05, (rand() - 0.5) * 0.04];
         const half = bush.w / 2;
         // A dark core, a little smaller than the bush, so no ground shows between
         // the leaves and the leaves spill over its edges rather than showing its outline.
@@ -509,27 +519,38 @@ function Bushes({ bushes, seed }: { bushes: Bush[]; seed: number }) {
 
         // Clusters through the dome, crowding toward its surface; `depth` is how far
         // out toward the surface each sits, and the outermost are drawn last.
+        // A few clusters are sprigs reaching past the dome, smaller than the rest.
         const clusters = Array.from({ length: bush.count }, () => {
           const t = rand() * 2 - 1;
           const top = domeHeight(bush, t, wobble);
-          const depth = rand() ** 0.45;
+          const sprig = rand() < 0.07;
+          const depth = sprig ? 1.03 + rand() * 0.15 : rand() ** 0.45;
           const y = bush.base - top * depth;
           // Lit from above and a little from the sunny middle of the clearing; the
-          // lower sides stay in soft shade rather than going black.
-          const sunSide = Math.sign(900 - bush.cx) * t * 0.12;
-          const light = 0.18 + depth * 0.38 + (top / bush.h) * depth * 0.3 + sunSide + (rand() - 0.5) * 0.2;
-          return { x: bush.cx + t * half, y, depth, light, size: bush.size[0] + rand() * (bush.size[1] - bush.size[0]) };
+          // lower sides stay in soft shade rather than going black, and the bottom
+          // of the bush, under all its leaves, is darkest.
+          const sunSide = Math.sign(SUN.x - bush.cx) * t * 0.12;
+          const low = 1 - (bush.base - y) / bush.h;
+          const light = 0.2 + depth * 0.38 + (top / bush.h) * depth * 0.3 + sunSide - low * 0.18 + (rand() - 0.5) * 0.2;
+          const size = (bush.size[0] + rand() * (bush.size[1] - bush.size[0])) * (sprig ? 0.7 : 1);
+          return { x: bush.cx + t * half, y, depth, light, size };
         }).sort((a, b) => a.depth - b.depth);
 
         const leaves = clusters.flatMap((cluster, c) => {
           const count = 5 + Math.floor(rand() * 3);
           const spin = rand() * Math.PI * 2;
+          const toSun = Math.atan2(SUN.y - cluster.y, SUN.x - cluster.x);
           return Array.from({ length: count }, (_, l) => {
             const angle = spin + (l / count) * Math.PI * 2 + (rand() - 0.5) * 0.5;
-            const len = cluster.size * (0.8 + rand() * 0.4);
+            const len = cluster.size * (0.7 + rand() * 0.55);
             // Leaves facing up catch more light than those hanging down.
             const facing = -Math.sin(angle) * 0.12;
             const shade = Math.round((cluster.light + facing + (rand() - 0.5) * 0.08) * (BUSH_SHADES.length - 1));
+            // Outer leaves pointing toward the sun have it shining through them.
+            const backlit = cluster.depth > 0.85 && Math.cos(angle - toSun) > 0.55 && rand() < 0.6;
+            const fill = backlit
+              ? BUSH_RIM[Math.min(BUSH_RIM.length - 1, Math.floor(rand() * BUSH_RIM.length * cluster.depth))]
+              : BUSH_SHADES[Math.max(0, Math.min(BUSH_SHADES.length - 1, shade))];
             // Broad leaves that droop a little toward their tips.
             const droop = Math.cos(angle) * 6;
             return (
@@ -537,18 +558,39 @@ function Bushes({ bushes, seed }: { bushes: Bush[]; seed: number }) {
                 key={`${c}-${l}`}
                 d={`M0 0Q${round(len * 0.45)} ${round(-len * 0.3)} ${round(len)} ${round(droop * 0.2)}Q${round(len * 0.5)} ${round(len * 0.28)} 0 0Z`}
                 transform={`translate(${round(cluster.x)} ${round(cluster.y)}) rotate(${Math.round((angle * 180) / Math.PI)})`}
-                fill={BUSH_SHADES[Math.max(0, Math.min(BUSH_SHADES.length - 1, shade))]}
+                fill={fill}
               />
             );
           });
         });
 
+        // Blossoms over the outside of a flowering bush, among the outer leaves.
+        const blossoms = bush.bloom
+          ? clusters
+              .filter((cluster) => cluster.depth > 0.75 && rand() < 0.4)
+              .map((cluster, i) => {
+                const s = (cluster.size / 34) * (0.8 + rand() * 0.5);
+                const x = cluster.x + (rand() - 0.5) * cluster.size;
+                const y = cluster.y + (rand() - 0.5) * cluster.size * 0.6;
+                return (
+                  <use
+                    key={i}
+                    href="#blossom"
+                    fill={bush.bloom}
+                    transform={`translate(${round(x)} ${round(y)}) rotate(${Math.round(rand() * 72)}) scale(${round2(s)})`}
+                    opacity={round(0.55 + cluster.light * 0.35)}
+                  />
+                );
+              })
+          : null;
+
         return (
           <g key={b}>
             <ellipse cx={bush.cx} cy={bush.base + 3} rx={half * 1.15} ry={bush.h * 0.12} fill="#14240d" opacity="0.55" filter="url(#blur-mid)" />
             <g className="bush" style={{ animationDelay: `${-b * 1.7}s` }}>
-              <path d={body} fill="#13260f" />
+              <path d={body} fill="#141f10" />
               {leaves}
+              {blossoms}
             </g>
           </g>
         );
@@ -557,205 +599,431 @@ function Bushes({ bushes, seed }: { bushes: Bush[]; seed: number }) {
   );
 }
 
+// A blossom for the flowering bushes, drawn once in ForestBackdrop's <defs> about
+// 12 units across, centred on 0, 0, and placed with <use>. Its petals take their
+// colour from the <use>.
+function BlossomDef() {
+  return (
+    <g id="blossom">
+      {Array.from({ length: 5 }, (_, i) => (
+        <ellipse key={i} cx="2.9" cy="0" rx="3.1" ry="2.5" transform={`rotate(${i * 72})`} />
+      ))}
+      <circle r="1.5" fill="#f0cf6a" />
+    </g>
+  );
+}
+
+// Which flowers grow in the meadow and how often: the shape of the head, its
+// petals' and centre's colours, and its share of the meadow.
+type Wildflower = { shape: "daisy" | "five" | "poppy" | "spike"; petals: string; centre?: string; share: number };
+
+const WILDFLOWERS: Wildflower[] = [
+  { shape: "daisy", petals: "#f4f1e6", centre: "#d9a420", share: 0.34 },
+  { shape: "five", petals: "#e8bd2a", centre: "#c48a16", share: 0.22 },
+  { shape: "spike", petals: "#8e6fb4", share: 0.16 },
+  { shape: "five", petals: "#e6a9bd", centre: "#f0cf6a", share: 0.1 },
+  { shape: "five", petals: "#9fb6de", centre: "#f0cf6a", share: 0.08 },
+  { shape: "poppy", petals: "#c5442b", centre: "#2a1a12", share: 0.06 },
+  { shape: "five", petals: "#f3efe2", centre: "#f0cf6a", share: 0.04 },
+];
+
+// Each head shape's petals, as [count, distance from the centre to the petal's
+// middle, half its length, half its width], and the centre's radius; 1 is about
+// 12 units across.
+const HEADS = {
+  daisy: { petals: [14, 4, 3.4, 1.15], centre: 2.3 },
+  five: { petals: [5, 2.9, 3.1, 2.5], centre: 1.5 },
+  poppy: { petals: [4, 3, 3.8, 3.4], centre: 1.8 },
+} as const;
+
+// An ellipse as path commands, for adding to a path shared with many others.
+const ellipseD = (x: number, y: number, rx: number, ry: number) =>
+  `M${round(x - rx)} ${round(y)}a${round(rx)} ${round(ry)} 0 1 0 ${round(rx * 2)} 0a${round(rx)} ${round(ry)} 0 1 0 ${round(-rx * 2)} 0Z`;
+
+// Wildflowers scattered through the meadow between `top` and `bottom`: each a
+// thin stem bending up to a head, bigger the lower (nearer) it grows, the round
+// heads seen a little from above so they're squashed upright. Grouped to sway
+// with the grass like grassRun. `size` is the heads' scale at the top and bottom
+// (1 is about 12 units across).
+//
+// There are hundreds of them in layers that repaint as they sway, so each group
+// draws all its stems as one path and its heads as one path per colour, rather
+// than an element per flower.
+function wildflowers(seed: number, count: number, top: number, bottom: number, size: [number, number], from = -30, to = 1630) {
+  const rand = seeded(seed);
+  const groups = Array.from({ length: 4 }, () => ({ stems: "", heads: new Map<string, string>() }));
+  const add = (group: (typeof groups)[number], color: string, d: string) => group.heads.set(color, (group.heads.get(color) ?? "") + d);
+
+  for (let i = 0; i < count; i++) {
+    const x = from + rand() * (to - from);
+    const y = top + rand() * (bottom - top);
+    const near = (y - top) / (bottom - top || 1);
+    const s = (size[0] + near * (size[1] - size[0])) * (0.75 + rand() * 0.5);
+    let pick = rand();
+    const flower = WILDFLOWERS.find(({ share }) => (pick -= share) < 0) ?? WILDFLOWERS[0];
+    const h = s * (22 + rand() * 20);
+    const lean = (rand() - 0.5) * h * 0.35;
+    const tipX = x + lean;
+    const tipY = y - h;
+    const group = groups[Math.max(0, Math.min(3, Math.floor((x / 1600) * 4)))];
+
+    group.stems += `M${round(x)} ${round(y)}Q${round(x + lean * 0.2)} ${round(y - h * 0.55)} ${round(tipX)} ${round(tipY)}`;
+
+    if (flower.shape === "spike") {
+      // Pairs of little florets climbing the stem, shrinking toward the top and
+      // leaning the way the stem does.
+      for (let k = 0; k < 7; k++) {
+        const up = (k * 2.1 + 0.5) * s;
+        const along = lean / h;
+        const r = (2 - k * 0.18) * s;
+        add(group, flower.petals, ellipseD(tipX + along * up - 1.3 * s, tipY - up, r, r * 0.75));
+        add(group, flower.petals, ellipseD(tipX + along * (up + 1.2 * s) + 1.3 * s, tipY - up - 1.2 * s, r, r * 0.75));
+      }
+      continue;
+    }
+
+    // Each petal a pointed oval running out from the centre, turned in the
+    // flower's own plane and then squashed, as if seen from a little above.
+    const head = HEADS[flower.shape];
+    const [petals, dist, half, width] = head.petals;
+    const spin = rand() * Math.PI;
+    const point = (u: number, v: number, a: number) => [
+      round(tipX + (u * Math.cos(a) - v * Math.sin(a)) * s),
+      round(tipY + (u * Math.sin(a) + v * Math.cos(a)) * s * 0.68),
+    ];
+    for (let k = 0; k < petals; k++) {
+      const a = spin + (k / petals) * Math.PI * 2;
+      const [x0, y0] = point(dist - half, 0, a);
+      const [x1, y1] = point(dist, width * 1.4, a);
+      const [x2, y2] = point(dist + half, 0, a);
+      const [x3, y3] = point(dist, -width * 1.4, a);
+      add(group, flower.petals, `M${x0} ${y0}Q${x1} ${y1} ${x2} ${y2}Q${x3} ${y3} ${x0} ${y0}Z`);
+    }
+    add(group, flower.centre!, ellipseD(tipX, tipY, head.centre * s, head.centre * s * 0.68));
+  }
+
+  const stemWidth = round2(Math.max(0.4, ((size[0] + size[1]) / 2) * 0.7));
+  return groups.map(({ stems, heads }, g) => (
+    <g key={g} className="sway" style={{ animationDelay: `${-g * 1.3 - seed * 0.1}s`, animationDuration: `${4 + g * 0.7}s` }}>
+      <path d={stems} stroke="#4a6131" strokeWidth={stemWidth} fill="none" />
+      {[...heads].map(([color, d]) => (
+        <path key={color} d={d} fill={color} />
+      ))}
+    </g>
+  ));
+}
+
 const MOTES: [number, number, number][] = [
   [700, 300, 3], [820, 420, 2], [930, 260, 2.5], [1040, 380, 3], [760, 520, 2],
   [1120, 300, 2], [880, 600, 2.5], [990, 520, 2], [640, 430, 2], [1180, 470, 2.5],
 ];
 
-const LEAVES = ["#24461c", "#2f5a22", "#3c6e2a", "#4f8434", "#6b9c42", "#8db455"];
+const LEAVES = ["#1f3119", "#293f21", "#344d2a", "#435e35", "#587347", "#738a5e"];
 
-// The sunlit forest behind the whole section: light pouring into a clearing through
-// layers of trees, hazier the further away they are, with a meadow along the bottom.
-function ForestBackdrop() {
+// Out-of-focus light through the canopy, like a camera's bokeh: soft-edged discs
+// of sunlight scattered across the top of the forest, thickest near the clearing.
+function Bokeh({ seed, count }: { seed: number; count: number }) {
+  const rand = seeded(seed);
   return (
-    <svg className="forest" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden>
-      <defs>
-        <radialGradient id="forest-sky" cx="0.56" cy="0.2" r="0.8">
-          <stop offset="0" stopColor="#fbf7dc" />
-          <stop offset="0.16" stopColor="#e9ecb4" />
-          <stop offset="0.42" stopColor="#a9c27c" />
-          <stop offset="1" stopColor="#3f5e30" />
-        </radialGradient>
-        <linearGradient id="forest-ray" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fffbe6" stopOpacity="0.8" />
-          <stop offset="1" stopColor="#fffbe6" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="forest-ground" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#b5c46e" />
-          <stop offset="0.35" stopColor="#7f9a46" />
-          <stop offset="1" stopColor="#34501f" />
-        </linearGradient>
-        <linearGradient id="forest-haze" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#f4f1cf" stopOpacity="0" />
-          <stop offset="0.7" stopColor="#f4f1cf" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#f4f1cf" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="bark-left" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#2a1e12" />
-          <stop offset="0.6" stopColor="#4a3622" />
-          <stop offset="1" stopColor="#7a6040" />
-        </linearGradient>
-        <linearGradient id="bark-right" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#7a6040" />
-          <stop offset="0.4" stopColor="#4a3622" />
-          <stop offset="1" stopColor="#2a1e12" />
-        </linearGradient>
-        {/* Grass blades: dark at the root, lighter toward the tip where the light catches. */}
-        {[
-          ["grass-far-a", "#5e7d34", "#b7c873"],
-          ["grass-far-b", "#6a8a3a", "#cbd88b"],
-          ["grass-near-a", "#1c3315", "#5d8a35"],
-          ["grass-near-b", "#243f19", "#78a043"],
-          ["grass-near-c", "#1a2e12", "#4c7a2c"],
-        ].map(([id, root, tip]) => (
-          <linearGradient key={id} id={id} x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0" stopColor={root} />
-            <stop offset="1" stopColor={tip} />
-          </linearGradient>
-        ))}
-        <radialGradient id="forest-vignette" cx="0.55" cy="0.4" r="0.8">
-          <stop offset="0.55" stopColor="#14240d" stopOpacity="0" />
-          <stop offset="1" stopColor="#14240d" stopOpacity="0.55" />
-        </radialGradient>
-        <filter id="blur-far" x="-10%" y="-10%" width="120%" height="120%">
-          <feGaussianBlur stdDeviation="5" />
-        </filter>
-        <filter id="blur-mid" x="-10%" y="-10%" width="120%" height="120%">
-          <feGaussianBlur stdDeviation="1.8" />
-        </filter>
-        <filter id="blur-light" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="16" />
-        </filter>
-        {/* Fine grain over everything, so it reads as painted rather than flat vector. */}
-        <filter id="grain">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-          <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.09 0" />
-        </filter>
-      </defs>
+    <g fill="#fff8df" filter="url(#blur-bokeh)">
+      {Array.from({ length: count }, (_, i) => {
+        const x = 900 + (rand() - 0.5) * 1500 * Math.sqrt(rand());
+        const y = rand() ** 1.6 * 420;
+        const r = 6 + rand() * 18;
+        return <circle key={i} cx={round(x)} cy={round(y)} r={round(r)} opacity={round(0.12 + rand() * 0.3)} />;
+      })}
+    </g>
+  );
+}
 
-      <rect width="1600" height="900" fill="url(#forest-sky)" />
-
-      {/* Far trees and leaves, soft with distance. */}
-      <g filter="url(#blur-far)" opacity="0.75">
-        <g fill="#8ea877">
-          {[60, 200, 320, 470, 620, 1080, 1190, 1310, 1430, 1560].map((x, i) => (
-            <path key={x} d={trunk(x, 14 + (i % 3) * 4, 8, (i % 2 ? 6 : -6), 700)} />
-          ))}
-        </g>
-        <Foliage
-          seed={11}
-          colors={["#7f9c66", "#93ad74", "#a9bf86", "#c2d29c"]}
-          clumps={[
-            { cx: 120, cy: 160, rx: 200, ry: 110, count: 70, size: [16, 34] },
-            { cx: 480, cy: 120, rx: 170, ry: 90, count: 55, size: [16, 32] },
-            { cx: 1180, cy: 130, rx: 190, ry: 100, count: 60, size: [16, 34] },
-            { cx: 1500, cy: 180, rx: 180, ry: 120, count: 60, size: [16, 34] },
-          ]}
-        />
-      </g>
-
-      <rect y="300" width="1600" height="480" fill="url(#forest-haze)" />
-
-      {/* Shafts of light, blurred so they glow. */}
-      <g className="sun-rays" filter="url(#blur-light)">
-        <path d="M860 -20H940L1280 900H1040Z" fill="url(#forest-ray)" opacity="0.55" />
-        <path d="M900 -20H950L860 900H700Z" fill="url(#forest-ray)" opacity="0.6" />
-        <path d="M940 -20H990L1520 900H1360Z" fill="url(#forest-ray)" opacity="0.4" />
-        <path d="M870 -20H910L420 900H320Z" fill="url(#forest-ray)" opacity="0.45" />
-      </g>
-
-      {/* Middle trees. */}
-      <g filter="url(#blur-mid)">
-        {[
-          [140, 34, -10],
-          [390, 26, 8],
-          [570, 20, -4],
-          [1100, 24, 6],
-          [1270, 32, -8],
-          [1440, 28, 10],
-        ].map(([x, base, lean]) => (
-          <path key={x} d={trunk(x, base, base * 0.55, lean, 740)} fill={x < 900 ? "url(#bark-left)" : "url(#bark-right)"} opacity="0.85" />
-        ))}
-        <Foliage
-          seed={23}
-          colors={["#2f5525", "#3d6a2d", "#527f39", "#6f9a4b", "#93b763"]}
-          clumps={[
-            { cx: 160, cy: 70, rx: 230, ry: 120, count: 120, size: [12, 26] },
-            { cx: 470, cy: 40, rx: 170, ry: 80, count: 80, size: [12, 24] },
-            { cx: 1180, cy: 50, rx: 200, ry: 90, count: 90, size: [12, 24] },
-            { cx: 1480, cy: 90, rx: 220, ry: 130, count: 120, size: [12, 26] },
-          ]}
-        />
-      </g>
-
-      {/* The forest floor. */}
-      <path d="M0 700C200 685 420 705 640 692C860 680 1080 700 1300 690C1440 684 1540 692 1600 688V900H0Z" fill="url(#forest-ground)" />
-      <ellipse cx="900" cy="715" rx="460" ry="48" fill="#f3efb8" opacity="0.4" filter="url(#blur-light)" />
-      <g filter="url(#blur-mid)" opacity="0.9">
-        {grassTufts(31, 260, 692, 762, [12, 24], ["url(#grass-far-a)", "url(#grass-far-b)"])}
-      </g>
-
-      {/* A carpet of short grass over the meadow, so the ground isn't bare between tufts. */}
-      {grassRun(97, 800, 3.5, [26, 52], ["url(#grass-far-a)", "url(#grass-far-b)", "url(#grass-near-b)"])}
-
-      {/* Bushes at the edge of the clearing. */}
-      <Bushes
-        seed={47}
-        bushes={[
-          { cx: 190, base: 782, w: 340, h: 150, count: 320, size: [14, 22] },
-          { cx: 565, base: 764, w: 200, h: 88, count: 160, size: [11, 17] },
-          { cx: 1090, base: 766, w: 230, h: 98, count: 185, size: [11, 17] },
-          { cx: 1420, base: 785, w: 360, h: 160, count: 350, size: [14, 22] },
-        ]}
-      />
-
-      {/* Big trees at the front, framing the clearing. */}
-      <path d="M-30 900V-10H96C88 220 98 470 120 690C128 790 160 860 200 900Z" fill="url(#bark-left)" />
-      <path d="M1630 900V-10H1505C1512 250 1498 500 1474 700C1464 800 1430 868 1392 900Z" fill="url(#bark-right)" />
-      <path
-        d="M30 900C38 640 30 300 40 -10M66 880C72 600 66 300 74 -10M1548 900C1540 640 1552 300 1544 -10M1574 880C1568 600 1578 300 1570 -10"
-        stroke="#1d140b"
-        strokeOpacity="0.45"
-        strokeWidth="3"
-        fill="none"
-      />
-      <Foliage
-        seed={59}
-        colors={LEAVES}
-        clumps={[
-          { cx: 60, cy: 30, rx: 260, ry: 110, count: 190, size: [10, 22] },
-          { cx: 1560, cy: 40, rx: 270, ry: 120, count: 200, size: [10, 22] },
-        ]}
-      />
-
-      {/* Grass in the foreground. */}
-      {/* Soft shadow where the front trees meet the ground, and thick grass across
-          their bases, so the trunks stand in the meadow rather than the grass
-          seeming to sprout from the bark. */}
-      <g fill="#14240d" opacity="0.6" filter="url(#blur-mid)">
-        <ellipse cx="90" cy="890" rx="190" ry="34" />
-        <ellipse cx="1510" cy="890" rx="190" ry="34" />
-      </g>
-      {[[-30, 300], [1300, 1630]].map(([from, to], i) => (
-        <g key={from}>
-          {grassRun(81 + i, 845, 1.4, [50, 95], ["url(#grass-near-a)", "url(#grass-near-b)", "url(#grass-near-c)"], from, to)}
-          {grassRun(91 + i, 880, 1.2, [70, 130], ["url(#grass-near-a)", "url(#grass-near-c)", "url(#grass-near-b)"], from, to)}
-        </g>
-      ))}
-      {grassRun(61, 860, 3, [55, 100], ["url(#grass-near-a)", "url(#grass-near-b)", "url(#grass-far-a)"])}
-      {grassRun(73, 915, 2.6, [90, 160], ["url(#grass-near-a)", "url(#grass-near-b)", "url(#grass-near-c)"])}
-
-      <g className="motes" fill="#fffbe6" filter="url(#blur-mid)">
-        {MOTES.map(([x, y, r], i) => (
-          <circle key={i} cx={x} cy={y} r={r} style={{ animationDelay: `${i * 0.6}s` }} />
-        ))}
-      </g>
-
-      <rect width="1600" height="900" fill="url(#forest-vignette)" />
-      <rect width="1600" height="900" filter="url(#grain)" />
+// One layer of the forest. The layers stack exactly on top of each other, and each
+// is composited on its own (see .forest in teamSection.css), so the swaying grass
+// only repaints its own layer and never makes the browser re-run the expensive
+// blurs and textures on the still layers around it.
+function ForestLayer({ className = "", children }: { className?: string; children: ReactNode }) {
+  return (
+    <svg className={`forest ${className}`} viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden>
+      {children}
     </svg>
   );
 }
+
+// The sunlit forest behind the whole section: light pouring into a clearing through
+// layers of trees, hazier the further away they are, with a meadow along the bottom.
+// Still and moving parts are in separate layers (see ForestLayer); the gradients
+// and filters defined in the first are shared by all of them. Memoised, like the
+// hive and the bees' colours, so hovering the team (which re-renders the section
+// to light up a team) doesn't rebuild its thousands of elements.
+const ForestBackdrop = memo(function ForestBackdrop() {
+  return (
+    <>
+      <ForestLayer>
+        <defs>
+          <radialGradient id="forest-sky" cx="0.56" cy="0.2" r="0.8">
+            <stop offset="0" stopColor="#fbf6e2" />
+            <stop offset="0.1" stopColor="#e4dfb6" />
+            <stop offset="0.36" stopColor="#8f9c73" />
+            <stop offset="1" stopColor="#2c3925" />
+          </radialGradient>
+          <linearGradient id="forest-ray" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fffbe6" stopOpacity="0.95" />
+            <stop offset="0.6" stopColor="#fff4cc" stopOpacity="0.45" />
+            <stop offset="1" stopColor="#fff4cc" stopOpacity="0" />
+          </linearGradient>
+          {/* The sun's glare where it breaks through the canopy over the clearing. */}
+          <radialGradient id="sun-bloom">
+            <stop offset="0" stopColor="#fffef4" />
+            <stop offset="0.25" stopColor="#fff7d6" stopOpacity="0.8" />
+            <stop offset="0.6" stopColor="#fbe9a8" stopOpacity="0.25" />
+            <stop offset="1" stopColor="#fbe9a8" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="sun-pool">
+            <stop offset="0" stopColor="#fff3bf" stopOpacity="1" />
+            <stop offset="1" stopColor="#fff3bf" stopOpacity="0" />
+          </radialGradient>
+          <BlossomDef />
+          <linearGradient id="forest-ground" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#b3b682" />
+            <stop offset="0.35" stopColor="#7a8650" />
+            <stop offset="1" stopColor="#2f3f22" />
+          </linearGradient>
+          <linearGradient id="forest-haze" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#f4f1cf" stopOpacity="0" />
+            <stop offset="0.7" stopColor="#f4f1cf" stopOpacity="0.2" />
+            <stop offset="1" stopColor="#f4f1cf" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="bark-left" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#2a1e12" />
+            <stop offset="0.6" stopColor="#4a3622" />
+            <stop offset="1" stopColor="#7a6040" />
+          </linearGradient>
+          <linearGradient id="bark-right" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#7a6040" />
+            <stop offset="0.4" stopColor="#4a3622" />
+            <stop offset="1" stopColor="#2a1e12" />
+          </linearGradient>
+          {/* Grass blades: dark at the root, lighter toward the tip where the light catches. */}
+          {[
+            ["grass-far-a", "#5f7140", "#b4bb84"],
+            ["grass-far-b", "#6b7d47", "#c6c99a"],
+            ["grass-near-a", "#1c2a16", "#56703a"],
+            ["grass-near-b", "#24351c", "#6c8448"],
+            ["grass-near-c", "#1a2714", "#4a6332"],
+          ].map(([id, root, tip]) => (
+            <linearGradient key={id} id={id} x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stopColor={root} />
+              <stop offset="1" stopColor={tip} />
+            </linearGradient>
+          ))}
+          <radialGradient id="forest-vignette" cx="0.55" cy="0.4" r="0.8">
+            <stop offset="0.5" stopColor="#121a0e" stopOpacity="0" />
+            <stop offset="1" stopColor="#121a0e" stopOpacity="0.65" />
+          </radialGradient>
+          {/* Depth of field: the team is in focus, and everything blurs the further it
+              is in front of or behind them, like a photo with a wide-open lens. */}
+          <filter id="blur-far" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="9" />
+          </filter>
+          <filter id="blur-back" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="3.5" />
+          </filter>
+          <filter id="blur-mid" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="1.8" />
+          </filter>
+          <filter id="blur-near" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="1.2" />
+          </filter>
+          <filter id="blur-bokeh" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.4" />
+          </filter>
+          {/* Bark: noise stretched tall into furrows, lit from the side and multiplied
+              over the trunk's colour, softened a touch since the trunks are close to the lens. */}
+          <filter id="bark-texture" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.035 0.006" numOctaves="4" seed="3" />
+            <feDiffuseLighting surfaceScale="6" lightingColor="#ffffff">
+              <feDistantLight azimuth="20" elevation="40" />
+            </feDiffuseLighting>
+            <feComposite in="SourceGraphic" operator="arithmetic" k1="1.45" />
+            <feComposite in2="SourceAlpha" operator="in" />
+            <feGaussianBlur stdDeviation="0.8" />
+          </filter>
+          <filter id="blur-ray" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="10" />
+          </filter>
+          <filter id="blur-light" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="16" />
+          </filter>
+          {/* Fine grain over everything, so it reads as painted rather than flat vector. */}
+          <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
+            <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0" />
+          </filter>
+        </defs>
+
+        <rect width="1600" height="900" fill="url(#forest-sky)" />
+
+        {/* Far trees and leaves, soft with distance. */}
+        <g filter="url(#blur-far)" opacity="0.75">
+          <g fill="#8d9a7c">
+            {[60, 200, 320, 470, 620, 1080, 1190, 1310, 1430, 1560].map((x, i) => (
+              <path key={x} d={trunk(x, 14 + (i % 3) * 4, 8, (i % 2 ? 6 : -6), 700)} />
+            ))}
+          </g>
+          <Foliage
+            seed={11}
+            colors={["#7f8f6c", "#93a07e", "#a9b393", "#c3c9ab"]}
+            clumps={[
+              { cx: 120, cy: 160, rx: 200, ry: 110, count: 70, size: [16, 34] },
+              { cx: 480, cy: 120, rx: 170, ry: 90, count: 55, size: [16, 32] },
+              { cx: 1180, cy: 130, rx: 190, ry: 100, count: 60, size: [16, 34] },
+              { cx: 1500, cy: 180, rx: 180, ry: 120, count: 60, size: [16, 34] },
+            ]}
+          />
+        </g>
+
+        <rect y="300" width="1600" height="480" fill="url(#forest-haze)" />
+      </ForestLayer>
+
+      {/* The sun breaking through over the clearing, and shafts of light fanning
+          out from it through the trees, blurred so they glow. The whole layer is
+          screened over the forest so it brightens rather than fogs, and shimmers,
+          which the browser can do without repainting it. */}
+      <ForestLayer className="sun-rays">
+        <ellipse cx={SUN.x} cy={SUN.y + 60} rx="640" ry="380" fill="url(#sun-bloom)" />
+        <g filter="url(#blur-ray)">
+          {[
+            [855, 935, 1040, 1280, 0.95],
+            [895, 950, 700, 860, 1],
+            [935, 990, 1360, 1520, 0.75],
+            [865, 910, 320, 420, 0.8],
+            [880, 920, 520, 600, 0.65],
+            [915, 960, 1150, 1210, 0.7],
+            [870, 900, 40, 140, 0.5],
+            [950, 985, 1640, 1720, 0.45],
+          ].map(([topL, topR, bottomL, bottomR, opacity]) => (
+            <path key={topL + bottomL} d={`M${topL} -20H${topR}L${bottomR} 900H${bottomL}Z`} fill="url(#forest-ray)" opacity={opacity} />
+          ))}
+        </g>
+        {/* Where the shafts land, the meadow glows. */}
+        <ellipse cx="790" cy="760" rx="170" ry="40" fill="url(#sun-pool)" />
+        <ellipse cx="1160" cy="770" rx="190" ry="42" fill="url(#sun-pool)" opacity="0.8" />
+        <ellipse cx="560" cy="735" rx="110" ry="26" fill="url(#sun-pool)" opacity="0.6" />
+      </ForestLayer>
+
+      <ForestLayer>
+        {/* Middle trees. */}
+        <g filter="url(#blur-back)">
+          {[
+            [140, 34, -10],
+            [390, 26, 8],
+            [570, 20, -4],
+            [1100, 24, 6],
+            [1270, 32, -8],
+            [1440, 28, 10],
+          ].map(([x, base, lean]) => (
+            <path key={x} d={trunk(x, base, base * 0.55, lean, 740)} fill={x < 900 ? "url(#bark-left)" : "url(#bark-right)"} opacity="0.85" />
+          ))}
+          <Foliage
+            seed={23}
+            colors={["#2d4326", "#3a5231", "#4d6640", "#677e57", "#8a9c74"]}
+            clumps={[
+              { cx: 160, cy: 70, rx: 230, ry: 120, count: 120, size: [12, 26] },
+              { cx: 470, cy: 40, rx: 170, ry: 80, count: 80, size: [12, 24] },
+              { cx: 1180, cy: 50, rx: 200, ry: 90, count: 90, size: [12, 24] },
+              { cx: 1480, cy: 90, rx: 220, ry: 130, count: 120, size: [12, 26] },
+            ]}
+          />
+        </g>
+
+        <Bokeh seed={17} count={38} />
+
+        {/* The forest floor. */}
+        <path d="M0 700C200 685 420 705 640 692C860 680 1080 700 1300 690C1440 684 1540 692 1600 688V900H0Z" fill="url(#forest-ground)" />
+        <ellipse cx="900" cy="715" rx="460" ry="48" fill="#f3efb8" opacity="0.4" filter="url(#blur-light)" />
+      </ForestLayer>
+
+      <ForestLayer>
+        <g filter="url(#blur-mid)" opacity="0.9">
+          {grassTufts(31, 260, 692, 762, [12, 24], ["url(#grass-far-a)", "url(#grass-far-b)"])}
+        </g>
+
+        {/* A carpet of short grass over the meadow, so the ground isn't bare between tufts. */}
+        {grassRun(97, 800, 3.5, [26, 52], ["url(#grass-far-a)", "url(#grass-far-b)", "url(#grass-near-b)"])}
+
+        {/* Wildflowers poking up through the meadow grass. */}
+        {wildflowers(41, 130, 700, 800, [0.22, 0.42])}
+
+        {/* Bushes at the edge of the clearing, just behind the team so a little soft. */}
+        <g filter="url(#blur-near)">
+          <Bushes
+            seed={47}
+            bushes={[
+              { cx: 190, base: 782, w: 340, h: 150, count: 320, size: [14, 22], bloom: "#f1e8ee" },
+              { cx: 565, base: 764, w: 200, h: 88, count: 160, size: [11, 17] },
+              { cx: 1090, base: 766, w: 230, h: 98, count: 185, size: [11, 17], bloom: "#e7a7bd" },
+              { cx: 1420, base: 785, w: 360, h: 160, count: 350, size: [14, 22] },
+            ]}
+          />
+          {/* More flowers growing up around the bushes' feet. */}
+          {wildflowers(53, 70, 780, 830, [0.42, 0.6])}
+        </g>
+      </ForestLayer>
+
+      <ForestLayer>
+        {/* Big trees at the front, framing the clearing, with furrowed bark. */}
+        <path d="M-30 900V-10H96C88 220 98 470 120 690C128 790 160 860 200 900Z" fill="url(#bark-left)" filter="url(#bark-texture)" />
+        <path d="M1630 900V-10H1505C1512 250 1498 500 1474 700C1464 800 1430 868 1392 900Z" fill="url(#bark-right)" filter="url(#bark-texture)" />
+        <g filter="url(#blur-mid)">
+          <Foliage
+            seed={59}
+            colors={LEAVES}
+            clumps={[
+              { cx: 60, cy: 30, rx: 260, ry: 110, count: 190, size: [10, 22] },
+              { cx: 1560, cy: 40, rx: 270, ry: 120, count: 200, size: [10, 22] },
+            ]}
+          />
+        </g>
+
+        {/* Grass in the foreground. */}
+        {/* Soft shadow where the front trees meet the ground, and thick grass across
+            their bases, so the trunks stand in the meadow rather than the grass
+            seeming to sprout from the bark. */}
+        <g fill="#14240d" opacity="0.6" filter="url(#blur-mid)">
+          <ellipse cx="90" cy="890" rx="190" ry="34" />
+          <ellipse cx="1510" cy="890" rx="190" ry="34" />
+        </g>
+      </ForestLayer>
+
+      <ForestLayer>
+        {/* Closest to the lens, so out of focus. */}
+        <g filter="url(#blur-near)">
+          {[[-30, 300], [1300, 1630]].map(([from, to], i) => (
+            <g key={from}>
+              {grassRun(81 + i, 845, 1.4, [50, 95], ["url(#grass-near-a)", "url(#grass-near-b)", "url(#grass-near-c)"], from, to)}
+              {grassRun(91 + i, 880, 1.2, [70, 130], ["url(#grass-near-a)", "url(#grass-near-c)", "url(#grass-near-b)"], from, to)}
+            </g>
+          ))}
+          {grassRun(61, 860, 3, [55, 100], ["url(#grass-near-a)", "url(#grass-near-b)", "url(#grass-far-a)"])}
+          {wildflowers(67, 60, 850, 895, [1, 1.5])}
+        </g>
+        <g filter="url(#blur-mid)">
+          {grassRun(73, 915, 2.6, [90, 160], ["url(#grass-near-a)", "url(#grass-near-b)", "url(#grass-near-c)"])}
+        </g>
+
+        <g className="motes" fill="#fffbe6" filter="url(#blur-mid)">
+          {MOTES.map(([x, y, r], i) => (
+            <circle key={i} cx={x} cy={y} r={r} style={{ animationDelay: `${i * 0.6}s` }} />
+          ))}
+        </g>
+      </ForestLayer>
+
+      <ForestLayer>
+        <rect width="1600" height="900" fill="url(#forest-vignette)" />
+        <rect width="1600" height="900" filter="url(#grain)" />
+      </ForestLayer>
+    </>
+  );
+});
 
 
 // Bees looping around the hive between deliveries.
@@ -768,7 +1036,7 @@ const AMBIENT_FLIGHTS = [
 // A wild hive hanging from a branch that reaches in from the left edge: a lumpy,
 // ridged body lit from the upper right, with honey seeping from the bottom.
 // `entranceRef` marks the hole the bees fly out of.
-function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
+const HangingHive = memo(function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
   // Each ridge: its height and half-width, so the ridges follow the hive's curve.
   const ridges: [number, number][] = [[92, 40], [118, 62], [146, 76], [174, 82], [202, 81], [230, 74], [258, 62], [284, 44]];
   const outline =
@@ -778,20 +1046,33 @@ function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
     <svg className="hanging-hive" viewBox="0 0 300 380" aria-hidden>
       <defs>
         <radialGradient id="hive-body" cx="0.68" cy="0.3" r="0.85">
-          <stop offset="0" stopColor="#f2d38a" />
-          <stop offset="0.45" stopColor="#d2a24e" />
-          <stop offset="0.85" stopColor="#8f6128" />
-          <stop offset="1" stopColor="#5e3e18" />
+          <stop offset="0" stopColor="#e8d3a2" />
+          <stop offset="0.45" stopColor="#bf9a5c" />
+          <stop offset="0.85" stopColor="#7c5a30" />
+          <stop offset="1" stopColor="#4c341a" />
         </radialGradient>
+        {/* Rough, papery layers: fine noise swirled sideways, lit from the upper right
+            and multiplied over the colour underneath, for the hive and the bark alike. */}
+        <filter id="hive-soften" x="-10%" y="-50%" width="120%" height="200%">
+          <feGaussianBlur stdDeviation="1.2" />
+        </filter>
+        <filter id="hive-texture" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.11" numOctaves="4" seed="8" />
+          <feDiffuseLighting surfaceScale="2.5" lightingColor="#ffffff">
+            <feDistantLight azimuth="-45" elevation="45" />
+          </feDiffuseLighting>
+          <feComposite in="SourceGraphic" operator="arithmetic" k1="1.4" />
+          <feComposite in2="SourceAlpha" operator="in" />
+        </filter>
         <radialGradient id="hive-entrance" cx="0.5" cy="0.4" r="0.6">
           <stop offset="0" stopColor="#0d0803" />
           <stop offset="0.75" stopColor="#24170a" />
           <stop offset="1" stopColor="#4a3215" />
         </radialGradient>
         <linearGradient id="hive-honey" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#c47a0c" />
-          <stop offset="0.4" stopColor="#f2b233" />
-          <stop offset="1" stopColor="#a8620a" />
+          <stop offset="0" stopColor="#8a5410" stopOpacity="0.85" />
+          <stop offset="0.4" stopColor="#c98d2e" stopOpacity="0.8" />
+          <stop offset="1" stopColor="#6e420c" stopOpacity="0.85" />
         </linearGradient>
         <linearGradient id="branch-bark" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#7a6040" />
@@ -799,8 +1080,8 @@ function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
           <stop offset="1" stopColor="#2a1e12" />
         </linearGradient>
         <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#8fb35a" />
-          <stop offset="1" stopColor="#3f6a2a" />
+          <stop offset="0" stopColor="#7f9658" />
+          <stop offset="1" stopColor="#36502a" />
         </linearGradient>
         <pattern id="hive-comb" width="10" height="17.32" patternUnits="userSpaceOnUse">
           <path d="M5 0L10 2.9V8.7L5 11.5L0 8.7V2.9ZM5 11.5V17.32" fill="none" stroke="#5e3e18" strokeWidth="0.8" />
@@ -815,10 +1096,11 @@ function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
       <path
         d="M-60 50C20 42 90 37 150 39C200 41 240 37 270 33C284 31 296 29 306 27C294 33 282 38 268 41C238 47 200 54 150 56C90 57 20 66 -60 84Z"
         fill="url(#branch-bark)"
+        filter="url(#hive-texture)"
       />
-      <path d="M218 45C240 34 262 18 286 3C268 21 248 37 233 46Z" fill="url(#branch-bark)" />
+      <path d="M218 45C240 34 262 18 286 3C268 21 248 37 233 46Z" fill="url(#branch-bark)" filter="url(#hive-texture)" />
       <path d="M244 46C258 50 272 58 287 66C272 60 258 54 242 50Z" fill="#4d3923" />
-      <path d="M84 46C78 30 68 16 50 3C72 13 88 27 100 42Z" fill="url(#branch-bark)" />
+      <path d="M84 46C78 30 68 16 50 3C72 13 88 27 100 42Z" fill="url(#branch-bark)" filter="url(#hive-texture)" />
       {/* Bark: a lit ridge along the top, a darker groove beneath it, and a knot. */}
       <path d="M-60 56C20 48 90 43 150 44C200 45 236 41 262 37" stroke="#8a6d48" strokeOpacity="0.5" strokeWidth="1.5" fill="none" />
       <path d="M-60 70C20 61 90 52 150 51C196 50 226 46 250 43" stroke="#2a1e12" strokeOpacity="0.35" strokeWidth="1.2" fill="none" />
@@ -835,29 +1117,32 @@ function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
       ].map(({ x, y, r }) => (
         <g key={`${x}-${y}`} transform={`translate(${x} ${y}) rotate(${r})`}>
           <path d="M0 0C10 -11 32 -11 46 0C32 11 10 11 0 0Z" fill="url(#leaf)" />
-          <path d="M0 0H42M14 0L22 -5M24 0L32 -5M14 0L22 5M24 0L32 5" stroke="#2f4f1f" strokeOpacity="0.5" strokeWidth="0.8" fill="none" />
+          <path d="M0 0H42M14 0L22 -5M24 0L32 -5M14 0L22 5M24 0L32 5" stroke="#2f4f1f" strokeOpacity="0.22" strokeWidth="0.6" fill="none" />
         </g>
       ))}
 
       {/* The hive. */}
-      <path d={outline} fill="url(#hive-body)" />
+      <path d={outline} fill="url(#hive-body)" filter="url(#hive-texture)" />
       <g clipPath="url(#hive-clip)">
-        <rect width="300" height="380" fill="url(#hive-comb)" opacity="0.14" />
+        <rect width="300" height="380" fill="url(#hive-comb)" opacity="0.05" />
+        {/* Soft, uneven ridges where each layer of the hive overlaps the last. */}
         {ridges.map(([y, half], i) => (
           <g key={y}>
             <path
               d={`M${152 - half - 8} ${y}C${152 - half / 2} ${y + 13 + (i % 2) * 3} ${152 + half / 2} ${y + 12 - (i % 3)} ${152 + half + 8} ${y - 1}`}
-              stroke="#5e3e18"
-              strokeOpacity="0.55"
-              strokeWidth={3 + (i % 3)}
+              stroke="#4c341a"
+              strokeOpacity={0.22 + (i % 3) * 0.06}
+              strokeWidth={4 + (i % 3)}
               fill="none"
+              filter="url(#hive-soften)"
             />
             <path
               d={`M${152 - half - 8} ${y - 5}C${152 - half / 2} ${y + 7} ${152 + half / 2} ${y + 6} ${152 + half + 8} ${y - 6}`}
-              stroke="#f6e1a6"
-              strokeOpacity="0.35"
+              stroke="#f2e2b8"
+              strokeOpacity="0.18"
               strokeWidth="2"
               fill="none"
+              filter="url(#hive-soften)"
             />
           </g>
         ))}
@@ -891,7 +1176,7 @@ function HangingHive({ entranceRef }: { entranceRef: Ref<SVGEllipseElement> }) {
       </g>
     </svg>
   );
-}
+});
 
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
@@ -957,6 +1242,8 @@ export function TeamSection() {
     // How far each hex's spot is from the hive entrance. The spots are read from
     // offsetLeft/Top, which ignore the transforms the flight puts on them.
     let paths: { dx: number; dy: number }[] = [];
+    // How far the honey dripping off the FAQ above hangs down over the forest.
+    let overhang = 0;
     let frame = 0;
 
     const navHeight = () => parseFloat(getComputedStyle(page).getPropertyValue("--nav-h")) || 64;
@@ -972,6 +1259,10 @@ export function TeamSection() {
         honeycomb.getBoundingClientRect().bottom + 48,
       ) - stageTop;
       if (needed <= window.innerHeight - navHeight()) page.dataset.pinned = "";
+
+      // Its drips stretch as they ooze (see .drip in faqSection.css), so allow a little extra.
+      const honey = document.querySelector(".honey-edge.is-bottom");
+      overhang = honey ? Math.max(0, honey.getBoundingClientRect().bottom - page.getBoundingClientRect().top) * 1.15 : 0;
 
       const hole = entrance.getBoundingClientRect();
       const comb = honeycomb.getBoundingClientRect();
@@ -991,10 +1282,11 @@ export function TeamSection() {
     const progress = (): number[] => {
       const vh = window.innerHeight;
       if ("pinned" in page.dataset) {
-        // From when the section is halfway up the screen to the end of the pinned
+        // From when the FAQ's honey has scrolled off the top of the screen, so
+        // everyone stays in the hive while it's in view, to the end of the pinned
         // stretch, when the stage (pinned at the top of the screen) lets go.
         const top = page.getBoundingClientRect().top;
-        const from = vh * 0.5;
+        const from = -overhang;
         const to = -(page.offsetHeight - stage.offsetHeight);
         const overall = clamp((from - top) / (from - to));
         return hive.cells.map((cell) => clamp((overall - cell.start) / FLIGHT_SHARE));
