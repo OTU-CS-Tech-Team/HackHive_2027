@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import "./faqSection.css";
 
 // The same address as CLUB_EMAIL on the CS Club website.
@@ -240,175 +240,253 @@ function FaqItem({
 
 // The hive ------------------------------------------------------------------------
 
-// A small seeded random number generator, so the server and browser draw the same comb.
-function seeded(seed: number) {
-  return () => {
-    seed = (seed * 16807) % 2147483647;
-    return (seed - 1) / 2147483646;
-  };
-}
+// A stream of honey-coloured light flowing across the section, like the PS3's wave
+// backdrop: four translucent sheets, bundled together, that fold over as they go.
+// Each is a smooth veil, brighter toward its rims and glowing where it turns
+// edge-on, drawn small and blurred on one canvas so it stays soft; its rims and the
+// tiny hexes drifting around it like dust are drawn crisp on another over it. The stream leans gently
+// toward the cursor. Additive blending makes the sheets brighten where they cross.
+// It only animates while on screen, and holds still for reduced motion.
+type Sheet = {
+  y: number; // centre line, as a fraction of the screen's height
+  amp: number;
+  k: number; // how tightly it waves
+  speed: number;
+  spread: number; // half its width where it faces you
+  twist: number; // how often it folds over
+  twistSpeed: number;
+  phase: number;
+  color: "honey" | "honeyLight" | "hiveYellow";
+};
 
-const round = (n: number) => Math.round(n * 10) / 10;
+const SHEETS: Sheet[] = [
+  { y: 0.47, amp: 70, k: 0.0019, speed: 0.26, spread: 80, twist: 0.0026, twistSpeed: 0.32, phase: 0, color: "honeyLight" },
+  { y: 0.53, amp: 55, k: 0.0024, speed: -0.2, spread: 60, twist: 0.0021, twistSpeed: -0.27, phase: 2.2, color: "hiveYellow" },
+  { y: 0.49, amp: 62, k: 0.0016, speed: 0.18, spread: 50, twist: 0.003, twistSpeed: -0.22, phase: 4.1, color: "honey" },
+  { y: 0.51, amp: 48, k: 0.0029, speed: -0.31, spread: 70, twist: 0.0018, twistSpeed: 0.25, phase: 5.3, color: "honeyLight" },
+];
 
-// The comb is one tile of cells repeated across the background, in pixels so the
-// cells are the same size on any screen. COMB_ROWS must be even so the half-cell
-// offset of alternate rows lines up where tiles meet.
-const COMB_COLS = 18;
-const COMB_ROWS = 12;
-const CELL_W = 60;
-const CELL_H = CELL_W * 1.1547;
-const ROW_PITCH = CELL_H * 0.75;
+const DUST = 70;
+const STEP = 8;
+const SOFT_SCALE = 0.5; // the veils are drawn at half size, then blurred up
 
-type CellFill = "empty" | "honey" | "capped";
-
-// What's in each cell: honey and wax caps gather in patches, as in a real hive,
-// with empty cells between. The patches come from waves that repeat exactly once
-// across the tile, so they carry on seamlessly into the next.
-const COMB: CellFill[][] = (() => {
-  const rand = seeded(7);
-  return Array.from({ length: COMB_ROWS }, (_, row) =>
-    Array.from({ length: COMB_COLS }, (_, col) => {
-      const across = (col / COMB_COLS) * Math.PI * 2;
-      const down = (row / COMB_ROWS) * Math.PI * 2;
-      const patch = 0.5 + 0.25 * Math.sin(2 * across + down) + 0.25 * Math.cos(2 * down - across);
-      const value = 0.6 * patch + 0.4 * rand();
-      return value > 0.72 ? "capped" : value > 0.34 ? "honey" : "empty";
-    }),
-  );
-})();
-
-// A pointy-top hexagon centred on (x, y), `inset` in from a full cell.
-function hexPoints(x: number, y: number, inset: number) {
-  const r = CELL_H / 2 - inset;
-  return [-90, -30, 30, 90, 150, 210]
-    .map((deg) => {
-      const a = (deg * Math.PI) / 180;
-      return `${round(x + r * Math.cos(a))},${round(y + r * Math.sin(a))}`;
-    })
-    .join(" ");
-}
-
-// The hive's comb behind the questions: thin wax walls around softly shaded
-// cells, mostly honey, with patches of capped wax and a few empty cells, all in
-// close, muted tones so it stays in the background. A soft shade over it darkens
-// the middle, where the questions sit. Cells that cross the tile's edge are drawn
-// on both sides (taking their contents from the wrapped-around cell), so the tiles
-// join without a seam.
-function CombBackdrop() {
-  const tileW = COMB_COLS * CELL_W;
-  const tileH = COMB_ROWS * ROW_PITCH;
-  const cells = [];
-
-  for (let row = -1; row <= COMB_ROWS; row++) {
-    for (let col = -1; col <= COMB_COLS; col++) {
-      const fill = COMB[(row + COMB_ROWS) % COMB_ROWS][(col + COMB_COLS) % COMB_COLS];
-      const x = col * CELL_W + (Math.abs(row) % 2) * (CELL_W / 2);
-      const y = row * ROW_PITCH;
-      cells.push(<polygon key={`${row}-${col}`} points={hexPoints(x, y, 2.5)} fill={`url(#comb-${fill})`} />);
-    }
+function hexPath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rot: number) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = rot + (i * Math.PI) / 3;
+    ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
   }
-
-  return (
-    <svg className="faq-comb" aria-hidden>
-      <defs>
-        {/* Each cell lit from the upper left and darker toward its edges. */}
-        {[
-          ["empty", "#5e3a12", "#3a220a"],
-          ["honey", "#e7a83a", "#b9781c"],
-          ["capped", "#e2c486", "#c69e58"],
-        ].map(([name, light, dark]) => (
-          <radialGradient key={name} id={`comb-${name}`} cx="0.4" cy="0.38" r="0.7">
-            <stop offset="0" stopColor={light} />
-            <stop offset="1" stopColor={dark} />
-          </radialGradient>
-        ))}
-        <radialGradient id="comb-shade" cx="0.5" cy="0.45" r="0.7">
-          <stop offset="0" stopColor="#2a1704" stopOpacity="0.45" />
-          <stop offset="1" stopColor="#2a1704" stopOpacity="0.2" />
-        </radialGradient>
-        <pattern id="faq-comb-tile" width={round(tileW)} height={round(tileH)} patternUnits="userSpaceOnUse">
-          {/* The wax walls between cells. */}
-          <rect width={round(tileW)} height={round(tileH)} fill="#8a5716" />
-          {cells}
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#faq-comb-tile)" />
-      <rect width="100%" height="100%" fill="url(#comb-shade)" />
-    </svg>
-  );
+  ctx.closePath();
 }
 
-// Drips hanging from a sheet of honey: x position, length and width, in the
-// drawing's own units (1600 across).
-type Drip = [number, number, number];
+// "#rrggbb" to its channels, so the colour can be given any opacity.
+const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ");
 
-const TOP_DRIPS: Drip[] = [
-  [60, 50, 11], [170, 110, 14], [290, 35, 10], [400, 85, 13], [530, 140, 15], [660, 45, 10],
-  [780, 100, 13], [905, 60, 11], [1030, 130, 15], [1150, 40, 10], [1270, 95, 13], [1400, 55, 11], [1520, 120, 14],
-];
+function HexStream() {
+  const softRef = useRef<HTMLCanvasElement>(null);
+  const sharpRef = useRef<HTMLCanvasElement>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
 
-// These hang over the top of the team section, so the ones over its title (in
-// the middle-right) are kept short.
-const BOTTOM_DRIPS: Drip[] = [
-  [90, 90, 13], [230, 150, 16], [370, 60, 11], [510, 120, 14], [650, 70, 12], [790, 30, 10],
-  [930, 25, 10], [1070, 35, 10], [1200, 30, 10], [1340, 95, 13], [1480, 140, 15],
-];
+  useEffect(() => {
+    const softCanvas = softRef.current;
+    const sharpCanvas = sharpRef.current;
+    const view = viewRef.current;
+    const section = view?.closest("section");
+    const soft = softCanvas?.getContext("2d");
+    const sharp = sharpCanvas?.getContext("2d");
+    if (!softCanvas || !sharpCanvas || !view || !section || !soft || !sharp) return;
 
-// One drip, `w` its width where it leaves the sheet: it narrows, then swells into
-// a round drop `len` below the sheet's edge at y = 30.
-function dripPath(x: number, len: number, w: number) {
-  const neck = 30 + len - w * 0.8;
-  const drop = 30 + len;
-  const r = w * 0.85;
-  return [
-    `M${x - w * 1.3} 26`,
-    `C${x - w * 0.5} 30 ${x - w * 0.5} 40 ${x - w * 0.45} 52`,
-    `L${x - w * 0.4} ${neck}`,
-    `C${x - w * 0.4} ${neck + w * 0.3} ${x - r} ${drop - r * 0.6} ${x - r} ${drop}`,
-    `A${r} ${r} 0 0 0 ${x + r} ${drop}`,
-    `C${x + r} ${drop - r * 0.6} ${x + w * 0.4} ${neck + w * 0.3} ${x + w * 0.4} ${neck}`,
-    `L${x + w * 0.45} 52`,
-    `C${x + w * 0.5} 40 ${x + w * 0.5} 30 ${x + w * 1.3} 26Z`,
-  ].join("");
-}
+    // The cards' colours, from the section's custom properties.
+    const css = getComputedStyle(section);
+    const palette = {
+      honey: css.getPropertyValue("--honey").trim(),
+      honeyLight: css.getPropertyValue("--honey-light").trim(),
+      hiveYellow: css.getPropertyValue("--hive-yellow").trim(),
+    };
+    const rgb = {
+      honey: channels(palette.honey),
+      honeyLight: channels(palette.honeyLight),
+      hiveYellow: channels(palette.hiveYellow),
+    };
 
-// A cartoon sheet of honey along an edge of the section, its drips slowly
-// stretching and a few of them letting drops fall. Drawn hanging down; the
-// bottom one hangs off the section over the top of the forest below.
-function HoneyEdge({ drips, className }: { drips: Drip[]; className: string }) {
+    // The dust: where along the stream it is, how far out from the sheet, and how it drifts.
+    const dust = Array.from({ length: DUST }, () => ({
+      sheet: Math.floor(Math.random() * SHEETS.length),
+      u: Math.random(),
+      v: (Math.random() * 2 - 1) * 1.6,
+      lift: (Math.random() - 0.5) * 40,
+      size: 1.2 + Math.random() * 2.3,
+      drift: 0.004 + Math.random() * 0.012,
+      twinkle: Math.random() * Math.PI * 2,
+    }));
+
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const pointer = { x: 0, y: 0, tx: 0, ty: 0, strength: 0, target: 0 };
+    let width = 0;
+    let height = 0;
+    let frame = 0;
+    let onScreen = false;
+    let lastT = 0;
+
+    // The sheet's centre line at x, leaning toward the cursor nearby.
+    const centre = (s: Sheet, x: number, t: number) => {
+      const a = x * s.k + t * s.speed + s.phase;
+      const y = s.y * height + s.amp * Math.sin(a) + s.amp * 0.4 * Math.sin(a * 2.1 - t * 0.17 + s.phase);
+      const pull = pointer.strength * Math.exp(-((x - pointer.x) ** 2) / (2 * 260 * 260));
+      return y + Math.max(-120, Math.min(120, pointer.y - y)) * pull * 0.35;
+    };
+
+    // How far across the sheet a lane (-1 to 1, rim to rim) sits from its centre
+    // line at x: the sheet folds over, so this shrinks to nothing where it turns edge-on.
+    const across = (s: Sheet, lane: number, x: number, t: number) =>
+      s.spread * lane * Math.cos(x * s.twist + t * s.twistSpeed + s.phase) * (0.75 + 0.25 * Math.sin(x * 0.0013 + t * 0.15));
+
+    // The veils: each sheet filled a slice at a time, fading from its rims toward its
+    // middle, and brighter the more it's folded (the same light in less room).
+    const drawSoft = (t: number) => {
+      soft.clearRect(0, 0, width, height);
+      soft.globalCompositeOperation = "lighter";
+
+      for (const s of SHEETS) {
+        const color = rgb[s.color];
+        let prev: [number, number, number] | null = null;
+        for (let x = -STEP; x <= width + STEP; x += STEP) {
+          const c = centre(s, x, t);
+          const h = across(s, 1, x, t);
+          if (prev) {
+            const reach = Math.abs(h) + 1;
+            const a = 0.09 + 0.2 * (1 - Math.min(1, reach / s.spread)) ** 2;
+            const fill = soft.createLinearGradient(0, c - reach, 0, c + reach);
+            fill.addColorStop(0, `rgba(${color}, ${a * 1.6})`);
+            fill.addColorStop(0.3, `rgba(${color}, ${a * 0.5})`);
+            fill.addColorStop(0.5, `rgba(${color}, ${a * 0.3})`);
+            fill.addColorStop(0.7, `rgba(${color}, ${a * 0.5})`);
+            fill.addColorStop(1, `rgba(${color}, ${a * 1.6})`);
+            soft.beginPath();
+            soft.moveTo(prev[0] - 1, prev[1]);
+            soft.lineTo(x + 1, c - h);
+            soft.lineTo(x + 1, c + h);
+            soft.lineTo(prev[0] - 1, prev[2]);
+            soft.closePath();
+            soft.fillStyle = fill;
+            soft.fill();
+          }
+          prev = [x, c - h, c + h];
+        }
+      }
+
+      soft.globalCompositeOperation = "source-over";
+    };
+
+    // The rims, and the dust drifting along with the stream, twinkling softly.
+    const drawSharp = (t: number) => {
+      sharp.clearRect(0, 0, width, height);
+      sharp.globalCompositeOperation = "lighter";
+      sharp.lineJoin = "round";
+      sharp.lineWidth = 1.2;
+
+      for (const s of SHEETS) {
+        sharp.strokeStyle = `rgba(${rgb[s.color]}, 0.45)`;
+        for (const lane of [-1, 1]) {
+          sharp.beginPath();
+          for (let x = -STEP; x <= width + STEP; x += STEP) sharp.lineTo(x, centre(s, x, t) + across(s, lane, x, t));
+          sharp.stroke();
+        }
+      }
+
+      sharp.fillStyle = palette.hiveYellow;
+      for (const d of dust) {
+        const s = SHEETS[d.sheet];
+        const u = (d.u + t * d.drift * Math.sign(s.speed) + 1) % 1;
+        const x = u * (width + 40) - 20;
+        const y = centre(s, x, t) + across(s, d.v, x, t) + d.lift;
+        sharp.globalAlpha = 0.25 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.3 + d.twinkle));
+        hexPath(sharp, x, y, d.size, d.twinkle);
+        sharp.fill();
+      }
+
+      sharp.globalAlpha = 1;
+      sharp.globalCompositeOperation = "source-over";
+    };
+
+    const draw = (t: number) => {
+      drawSoft(t);
+      drawSharp(t);
+    };
+
+    const tick = (ms: number) => {
+      pointer.x += (pointer.tx - pointer.x) * 0.08;
+      pointer.y += (pointer.ty - pointer.y) * 0.08;
+      pointer.strength += (pointer.target - pointer.strength) * 0.03;
+      lastT = ms / 1000;
+      draw(lastT);
+      frame = onScreen ? requestAnimationFrame(tick) : 0;
+    };
+
+    const start = () => {
+      if (!still && onScreen && !frame) frame = requestAnimationFrame(tick);
+    };
+
+    // The canvases fill a screen-sized view that stays pinned while the section
+    // scrolls past, so opening or closing a question (which changes the section's
+    // height) never resizes them; resizing a canvas can show it blank for a frame.
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = view.clientWidth;
+      height = view.clientHeight;
+      softCanvas.width = Math.ceil(width * SOFT_SCALE);
+      softCanvas.height = Math.ceil(height * SOFT_SCALE);
+      soft.setTransform(SOFT_SCALE, 0, 0, SOFT_SCALE, 0, 0);
+      sharpCanvas.width = width * dpr;
+      sharpCanvas.height = height * dpr;
+      sharp.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw(lastT);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      const rect = view.getBoundingClientRect();
+      pointer.tx = e.clientX - rect.left;
+      pointer.ty = e.clientY - rect.top;
+      // Start leaning at the cursor when it comes in, rather than sweeping from where it left.
+      if (pointer.strength < 0.02) {
+        pointer.x = pointer.tx;
+        pointer.y = pointer.ty;
+      }
+      pointer.target = 1;
+    };
+    const onLeave = () => {
+      pointer.target = 0;
+    };
+
+    const sizeObserver = new ResizeObserver(resize);
+    sizeObserver.observe(view);
+    const viewObserver = new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting;
+      start();
+    });
+    viewObserver.observe(section);
+
+    if (!still) {
+      section.addEventListener("pointermove", onMove);
+      section.addEventListener("pointerleave", onLeave);
+    }
+
+    return () => {
+      cancelAnimationFrame(frame);
+      sizeObserver.disconnect();
+      viewObserver.disconnect();
+      section.removeEventListener("pointermove", onMove);
+      section.removeEventListener("pointerleave", onLeave);
+    };
+  }, []);
+
   return (
-    <svg className={`honey-edge ${className}`} viewBox="0 0 1600 240" preserveAspectRatio="xMidYMin slice" aria-hidden>
-      <g stroke="#3b1f00" strokeWidth="4" strokeLinejoin="round">
-        {drips.map(([x, len, w], i) => (
-          <g key={x} className="drip" style={{ animationDelay: `${-i * 1.1}s`, animationDuration: `${4.5 + (i % 4)}s` }}>
-            <path d={dripPath(x, len, w)} fill="#ffc21a" />
-            <ellipse cx={x - w * 0.3} cy={30 + len - w * 0.1} rx={w * 0.22} ry={w * 0.32} fill="#fff8d6" stroke="none" />
-          </g>
-        ))}
-        {/* The sheet itself, its lower edge sagging between drips. */}
-        <path
-          d="M0 0H1600V28C1550 36 1500 24 1450 31C1380 40 1320 24 1250 32C1180 40 1120 25 1050 31C980 38 920 24 850 32C780 40 720 25 650 31C580 38 520 24 450 32C380 40 320 25 250 31C180 38 100 24 0 30Z"
-          fill="#ffc21a"
-        />
-        <path d="M0 14C300 19 600 10 900 15C1200 20 1400 11 1600 15" stroke="#ffd95a" strokeWidth="5" strokeLinecap="round" fill="none" />
-      </g>
-      {/* Every so often a drop breaks off and falls. */}
-      {drips
-        .filter((_, i) => i % 3 === 1)
-        .map(([x, len, w], i) => (
-          <circle
-            key={x}
-            className="drop"
-            cx={x}
-            cy={30 + len + w * 1.8}
-            r={w * 0.65}
-            fill="#ffc21a"
-            stroke="#3b1f00"
-            strokeWidth="3"
-            style={{ animationDelay: `${i * 1.7}s` }}
-          />
-        ))}
-    </svg>
+    <div className="faq-stream" aria-hidden>
+      <div ref={viewRef} className="faq-stream-view">
+        <canvas ref={softRef} className="is-soft" />
+        <canvas ref={sharpRef} />
+      </div>
+    </div>
   );
 }
 
@@ -417,9 +495,7 @@ export function FaqSection() {
 
   return (
     <section id="faq" aria-label="FAQ" className="faq-page scroll-mt-16">
-      <CombBackdrop />
-      <HoneyEdge drips={TOP_DRIPS} className="is-top" />
-      <HoneyEdge drips={BOTTOM_DRIPS} className="is-bottom" />
+      <HexStream />
       <h1>Frequently asked questions</h1>
       {/* Two independent columns, so opening one question doesn't push the other column around. */}
       <div className="faq-grid">

@@ -63,7 +63,6 @@ export default function Home() {
       <SponsorsSection />
       <HackHive2025Section />
       <FaqSection />
-      <TeamSection />
     </main>
   );
 }

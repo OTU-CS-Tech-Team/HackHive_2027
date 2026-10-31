@@ -18,36 +18,59 @@
   --hex-clip: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .23 0 0 0 0 .12 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
 
-  /* Above the team section below, so the honey dripping off the bottom hangs
-     over the top of the forest. */
+  /* Its own stacking context, so the stream and grain behind the questions
+     (z-index: -1) still sit above its background. */
   position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  /* Clears the honey oozing over the top edge. */
-  padding: 11rem 1rem 5rem;
+  padding: 6rem 1rem 5rem;
   /* The hexes hang off the bars' edges, so never let them cause a sideways scroll. */
   overflow-x: clip;
-  /* The wax between the comb's cells, until the comb (CombBackdrop) draws. */
-  background: #b86a00;
+  /* Deep hive purple into cornflower blue, with a warm honey glow rising from the
+     bottom and soft blue and honey light off the upper corners. Kept dark in the
+     middle so the honey bars stand out. */
+  background:
+    radial-gradient(ellipse 60% 45% at 12% 18%, rgb(100 149 237 / 0.45), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 90% 30%, rgb(255 194 26 / 0.22), transparent 70%),
+    radial-gradient(ellipse 90% 50% at 50% 105%, rgb(255 194 26 / 0.4), transparent 70%),
+    linear-gradient(170deg, #1b003f 0%, #2a1366 35%, #3b3f9e 65%, #2a1366 85%, #1b003f 100%);
   color: var(--ink);
 }
 
-/* Inside the hive ------------------------------------------------------------ */
-
-.faq-comb {
+/* The stream of light (HexStream), over the gradient. Its canvases sit in a
+   screen-sized view that stays pinned while the section scrolls past, so the
+   stream stays behind the questions in view. The view uses the largest screen
+   height, so it doesn't resize as a phone's address bar shows and hides. */
+.faq-stream {
   position: absolute;
   z-index: -1;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  /* Slightly soft, so it sits behind the questions. */
-  filter: blur(0.6px);
+  pointer-events: none;
 }
 
-/* The same grain as the cards, over the comb. */
+.faq-stream-view {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+}
+
+.faq-stream canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Its veils, drawn at half size and blurred, so they're smooth with no seams. */
+.faq-stream canvas.is-soft {
+  filter: blur(5px);
+}
+
+/* The same grain as the cards, over the stream. */
 .faq-page::after {
   content: "";
   position: absolute;
@@ -57,67 +80,7 @@
   pointer-events: none;
 }
 
-/* The sheets of honey along the top and bottom edges. At least 900px wide, so the
-   drips stay chunky on a phone (the sides are cropped instead). The sheet's lower
-   edge is 30 of the drawing's 240 units down, so the bottom one is lifted by that
-   much (12.5%) to sit on the section's edge with its drips hanging below it. */
-.honey-edge {
-  position: absolute;
-  left: 50%;
-  width: max(100%, 900px);
-  aspect-ratio: 1600 / 240;
-  overflow: visible;
-  translate: -50% 0;
-  pointer-events: none;
-  filter: drop-shadow(0 5px 0 var(--side));
-}
-
-.honey-edge.is-top {
-  top: 0;
-}
-
-.honey-edge.is-bottom {
-  top: 100%;
-  translate: -50% -12.5%;
-}
-
-/* Each drip slowly stretches and shrinks back, like honey about to let go. */
-.drip {
-  transform-box: fill-box;
-  transform-origin: 50% 0;
-  animation: ooze 5s ease-in-out infinite alternate;
-}
-
-@keyframes ooze {
-  to {
-    transform: scaleY(1.2);
-  }
-}
-
-/* A drop that breaks off, falls and fades, then waits before the next one. */
-.drop {
-  opacity: 0;
-  animation: fall 5.1s ease-in infinite;
-}
-
-@keyframes fall {
-  0%,
-  55% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(420px);
-  }
-}
-
-/* Cream lettering with a dark-brown outline and a solid shadow, like the bars.
-   Positioned so it (and the contact line) sits over the falling drops. */
+/* Cream lettering with a dark-brown outline and a solid shadow, like the bars. */
 .faq-page h1,
 .faq-contact {
   position: relative;
@@ -376,7 +339,7 @@
   line-height: 1.5;
 }
 
-/* On a pale card like the answers, so it reads clearly over the comb. */
+/* On a pale card like the answers, so it reads clearly over the background. */
 .faq-contact p {
   margin: 0;
   padding: 0.75rem 1.25rem;
@@ -478,14 +441,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drip {
-    animation: none;
-  }
-
-  .drop {
-    display: none;
-  }
-
   .faq-question,
   .faq-answer,
   .faq-hexes > span,
