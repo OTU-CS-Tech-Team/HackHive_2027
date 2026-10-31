@@ -1,13 +1,19 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { supabasePublic } from "@/lib/supabase/public";
 
-export type EventCategory = "hackhive" | "workshop" | "fun" | "food" | "ceremony";
+// Admin-editable; each one is a column and a colour on the schedule.
+export type EventCategory = {
+  id: string;
+  name: string;
+  color: string; // key of COLORS in lib/schedule.ts
+  sort_order: number;
+};
 
 export type HackEvent = {
   id: string;
   title: string;
   description: string | null;
-  category: EventCategory;
+  category_id: string;
   location: string | null;
   host: string | null;
   starts_at: string;
@@ -48,6 +54,14 @@ export async function getEvents() {
   cacheLife("minutes");
   cacheTag("events");
   return selectAll<HackEvent>("events", "starts_at");
+}
+
+// Same tag as events: a renamed or recoloured category refreshes the schedule.
+export async function getEventCategories() {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("events");
+  return selectAll<EventCategory>("event_categories", "sort_order");
 }
 
 export async function getSponsors() {
