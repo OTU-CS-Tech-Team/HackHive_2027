@@ -16,4 +16,5 @@ export const ERROR_MESSAGES: Record<string, string> = {
   already_submitted: "You have already submitted your application.",
   not_verified: "Please verify your email before submitting.",
   server: "Something went wrong. Please try again later.",
+  network: "We couldn't reach the server. Your answers are saved in this browser, so refresh the page and try again.",
 };

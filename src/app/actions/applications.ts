@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getVerifiedUser } from '@/lib/auth/helpers';
@@ -363,6 +364,20 @@ export async function submitApplication(input: {
       };
     }
 
+    // The RPC only updates an existing draft, and autosave may not have saved
+    // one (debounce still pending, or every save failed).
+    const { error: draftError } = await serviceClient
+      .from('applications')
+      .upsert(
+        { user_id: user.id, email: user.email.toLowerCase() },
+        { onConflict: 'user_id', ignoreDuplicates: true }
+      );
+
+    if (draftError) {
+      console.error('Draft row error:', draftError);
+      return { ok: false, code: 'server', error: 'Failed to submit application' };
+    }
+
     const { data: rpcResult, error: rpcError } = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: input.submissionId,
       p_first_name: data.first_name,
@@ -423,6 +438,11 @@ export async function submitApplication(input: {
     }
 
     if (response.ok && response.application_id) {
+      // cacheComponents keeps visited pages alive, so without this the back
+      // button reopens the editable form for an application that's already in.
+      for (const path of ['/apply', '/apply/status', '/dashboard']) {
+        revalidatePath(path);
+      }
       return {
         ok: true,
         applicationId: response.application_id,

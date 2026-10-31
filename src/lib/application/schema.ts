@@ -31,7 +31,7 @@ const linkedinUrlSchemaForDraft = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://linkedin.com/') || val.startsWith('https://www.linkedin.com/'),
-      { message: 'Must be a valid LinkedIn URL' }
+      { message: 'Must start with https://linkedin.com/ or https://www.linkedin.com/' }
     )
     .optional()
     .nullable()
@@ -43,7 +43,7 @@ const linkedinUrlSchemaForSubmit = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://linkedin.com/') || val.startsWith('https://www.linkedin.com/'),
-      { message: 'Must be a valid LinkedIn URL' }
+      { message: 'Must start with https://linkedin.com/ or https://www.linkedin.com/' }
     )
     .optional()
 );
@@ -54,7 +54,7 @@ const githubUrlSchemaForDraft = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://github.com/'),
-      { message: 'Must be a valid GitHub URL' }
+      { message: 'Must start with https://github.com/' }
     )
     .optional()
     .nullable()
@@ -66,7 +66,7 @@ const githubUrlSchemaForSubmit = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://github.com/'),
-      { message: 'Must be a valid GitHub URL' }
+      { message: 'Must start with https://github.com/' }
     )
     .optional()
 );

@@ -10,7 +10,7 @@ const BADGES = {
 } as const;
 
 const NEXT_STEPS = {
-  draft: "Your application is saved but not submitted. Organizers can't see it until you submit.",
+  draft: "Your application is saved but not submitted yet. We can't review it until you submit.",
   applied: "We've got your application and will email you a decision. The rest of the dashboard unlocks if you're accepted.",
   accepted: "You're in! The full hacker dashboard is unlocked: schedule, your pass, teammates, hardware and points.",
   waitlisted: "You're on the waitlist. We'll email you if a spot opens up.",
@@ -29,14 +29,17 @@ function StatusBadge({ application }: { application: Application }) {
 // Hacker-facing only; the admin list reuses ApplicationView without it.
 export function ApplicationNextSteps({ application }: { application: Application }) {
   return (
-    <p className="mb-8 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-neutral-700">
-      {NEXT_STEPS[applicantStatus(application)]}{" "}
+    <div className="mb-8 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-neutral-700">
+      <p>{NEXT_STEPS[applicantStatus(application)]}</p>
       {application.status === "draft" && (
-        <Link href="/apply" className="font-medium underline">
-          Finish your application
+        <Link
+          href="/apply"
+          className="mt-3 inline-flex rounded-lg bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-800"
+        >
+          Edit draft
         </Link>
       )}
-    </p>
+    </div>
   );
 }
 
@@ -68,12 +71,12 @@ export function ApplicationView({ application }: { application: Application }) {
       <section className="rounded-lg border border-neutral-200 bg-white p-6">
         <h3 className="mb-4 text-lg font-semibold">Personal Information</h3>
         <dl className="grid gap-4 sm:grid-cols-2">
-          <FieldDisplay label="Name" value={`${application.first_name} ${application.last_name}`} />
+          <FieldDisplay label="Name" value={[application.first_name, application.last_name].filter(Boolean).join(" ")} />
           <FieldDisplay label="Email" value={application.email} />
           <FieldDisplay label="Phone" value={application.phone} />
           <FieldDisplay label="Age" value={application.age?.toString()} />
           <FieldDisplay label="Pronouns" value={application.pronouns} />
-          <FieldDisplay label="Location" value={`${application.city}, ${application.country}`} />
+          <FieldDisplay label="Location" value={[application.city, application.country].filter(Boolean).join(", ")} />
         </dl>
       </section>
 
