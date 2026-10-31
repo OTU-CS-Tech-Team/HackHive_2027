@@ -48,9 +48,9 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
   return <div className={styles.museum}>
     <div className={styles.starfield} aria-hidden="true" />
     <aside className={styles.sidebar}>
-      <div className={styles.archiveLabel}><span className={styles.liveDot} /> THE HACKHIVE MUSEUM</div>
+      <h1 className={styles.museumTitle}>Museum</h1>
       <div className={styles.yearIdentity}>
-        <h1 className={styles.brand}>Hack<br className={styles.desktopBreak} />Hive<span className={styles.brandStar} aria-hidden="true">✳</span></h1>
+        <p className={styles.brand}>HackHive</p>
         <div className={styles.yearStack} aria-label={`HackHive ${activeYear}`}>
           {ordered.slice(0, activeIndex + 1).map(collection => <div key={collection.year}
             className={collection.year === activeYear ? styles.currentYear : styles.pastYear}>
@@ -62,17 +62,17 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
       <nav className={styles.yearNav} aria-label="Museum years">
         {ordered.map((collection, index) => <Link key={collection.year} href={`#year-${collection.year}`}
           aria-current={collection.year === activeYear ? "location" : undefined} className={styles.yearLink}>
-          <span className={styles.navDot} /><span>{collection.year}</span><span className={styles.yearCount}>{String(collection.projects.length).padStart(2, "0")}</span>
+          <span className={styles.navDot} /><span>{collection.year}</span>
           <span className={styles.srOnly}> projects, collection {index + 1}</span>
         </Link>)}
       </nav>
-      <div className={styles.sidebarFoot}><span>IDEAS THAT LEFT AN ORBIT.</span><span className={styles.scrollHint}>Scroll to travel back <span aria-hidden="true">↓</span></span></div>
+      <p className={styles.scrollHint}>Previous years <span aria-hidden="true">↓</span></p>
     </aside>
     <div className={styles.collections}>
-      {ordered.map((collection, index) => <section key={collection.year} id={`year-${collection.year}`}
+      {ordered.map(collection => <section key={collection.year} id={`year-${collection.year}`}
         ref={node => { sections.current[collection.year] = node; }} className={styles.yearSection}
         aria-label={`HackHive ${collection.year} projects`}>
-        <Constellation collection={collection} number={index + 1} total={ordered.length}
+        <Constellation collection={collection}
           active={activeYear === collection.year && visible} reducedMotion={reducedMotion} />
       </section>)}
       {!ordered.length && <p className={styles.empty}>The next constellation is on its way.</p>}

@@ -109,7 +109,8 @@ to work as before.
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
 open `/hackhive/archive`. The route is defined by
 `src/app/hackhive/archive/page.tsx`, which imports the museum component and archive
-data. Each year is a constellation on a black star field. A clockwise tour highlights
+data. Each year is a constellation on a black star field. The Museum keeps the
+site navigation, honey-amber accents, warm text, and restrained typography. A clockwise tour highlights
 project stars and updates the featured thumbnail and demo player. Choose any
 star, use previous/next, or pause the tour. Playing a demo holds the selection;
 leaving the year, hiding the tab, or navigating away removes the player.

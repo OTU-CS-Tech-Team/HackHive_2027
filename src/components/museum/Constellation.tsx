@@ -21,8 +21,8 @@ function poster(project: HackHiveProject) {
   return project.thumbnail || (project.youtubeId ? `https://img.youtube.com/vi/${project.youtubeId}/hqdefault.jpg` : null);
 }
 
-export default function Constellation({ collection, number, total, active, reducedMotion }: {
-  collection: ArchiveCollection; number: number; total: number; active: boolean; reducedMotion: boolean;
+export default function Constellation({ collection, active, reducedMotion }: {
+  collection: ArchiveCollection; active: boolean; reducedMotion: boolean;
 }) {
   const { projects, year } = collection;
   const [selected, setSelected] = useState(0);
@@ -53,8 +53,8 @@ export default function Constellation({ collection, number, total, active, reduc
   return <div className={styles.scene} data-active={active} style={{ "--tour-duration": `${TOUR_MS}ms` } as CSSProperties}
     onFocusCapture={() => setFocused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
     <header className={styles.sceneHeader}>
-      <h2>THE {year} CONSTELLATION</h2>
-      <span>{String(number).padStart(2, "0")} <span className={styles.dim}>/ {String(total).padStart(2, "0")}</span></span>
+      <h2>{year} projects</h2>
+      <span>{projects.length} projects</span>
     </header>
     {project && point ? <>
       <div className={styles.starMap}>
@@ -71,9 +71,8 @@ export default function Constellation({ collection, number, total, active, reduc
             <line key={`ray-${selected}`} x1={HUB.x} y1={HUB.y} x2={point.x} y2={point.y} pathLength="1" className={styles.activeRay} />
           </>}
           <circle cx={HUB.x} cy={HUB.y} r="27" className={styles.hubRing} />
-          <path d={`M${HUB.x - 12} ${HUB.y}h24M${HUB.x} ${HUB.y - 12}v24`} className={styles.hubCross} />
-          <rect x={HUB.x - 4} y={HUB.y - 4} width="8" height="8" className={styles.hub} />
-          <text x={HUB.x + 20} y={HUB.y + 5} className={styles.hubLabel}>HH / {year}</text>
+          <path d={`M${HUB.x} ${HUB.y - 7}l6 3.5v7l-6 3.5-6-3.5v-7Z`} className={styles.hub} />
+          <text x={HUB.x + 20} y={HUB.y + 5} className={styles.hubLabel}>{year}</text>
         </svg>
         <div className={styles.nodes} aria-label={`${year} project stars`}>
           {projects.map((item, index) => {
@@ -89,7 +88,7 @@ export default function Constellation({ collection, number, total, active, reduc
         </div>
       </div>
       <article className={styles.preview} aria-label={`${year} featured project`}>
-        <div className={styles.previewHeading}><span><span className={styles.liveDot} /> IN FOCUS</span><span>{String(selected + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
+        <div className={styles.previewHeading}><span>Featured project</span><span>{String(selected + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
         <div key={`${project.id}-${playbackKey}`} className={styles.media}>
           {active && project.youtubeId ? <YouTubeFacade videoId={project.youtubeId} title={project.title} thumbnail={project.thumbnail} onPlay={() => setWatching(true)} />
             : poster(project) ? <Image src={poster(project)!} alt={project.title} fill unoptimized sizes="(max-width: 760px) 100vw, 360px" className={styles.poster} />
@@ -115,7 +114,7 @@ export default function Constellation({ collection, number, total, active, reduc
         </div>
         <div className={styles.progressTrack} aria-hidden="true"><span key={`${project.id}-${touring}`} className={touring ? styles.progress : undefined} /></div>
       </article>
-      <footer className={styles.sceneFooter}><span>{String(projects.length).padStart(2, "0")} PROJECTS / ONE UNFORGETTABLE WEEKEND</span><span aria-hidden="true">+ {year} +</span></footer>
+
     </> : <p className={styles.empty}>The next constellation is on its way.</p>}
   </div>;
 }
