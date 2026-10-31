@@ -109,10 +109,15 @@ to work as before.
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
 open `/hackhive/archive`. The route is defined by
 `src/app/hackhive/archive/page.tsx`, which imports the museum component and archive
-data. A sticky year menu lets visitors jump straight to any collection on mobile
-and desktop. The museum includes
-all 21 projects from 2026, 2025, and 2024, click-to-play videos, project thumbnails,
-and the scroll-driven puzzle navigation.
+data. Each year is a constellation on a black star field. A clockwise tour highlights
+project stars and updates the featured thumbnail and demo player. Choose any
+star, use previous/next, or pause the tour. Playing a demo holds the selection;
+leaving the year, hiding the tab, or navigating away removes the player.
+
+The sticky HackHive year marker crosses out earlier years as visitors scroll
+from 2026 through 2025 to 2024. All years remain directly accessible from the
+year navigation. Reduced-motion mode uses manual selection. Existing shared
+project data and thumbnails remain the source of truth.
 
 ### Shared content, independent design
 
@@ -132,7 +137,7 @@ the build rather than silently publishing stale data.
 `src/data/generated/hackhive.json` and `public/museum/projects/` are generated and
 gitignored. The JSON records its source commit. Do not edit generated files.
 `src/data/hackhive.ts` groups the generated projects into local archive collections.
-HackHive's components, CSS, puzzle animation, year menu, and homepage section live
+HackHive's components, CSS, constellation animation, year menu, and homepage section live
 in this repository. CS Club's presentation fields (rotation, pins, annotations)
 are excluded from the shared content.
 

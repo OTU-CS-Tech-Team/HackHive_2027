@@ -22,3 +22,27 @@
     transition-duration: 0.01ms;
   }
 }
+
+.museumHeader {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 clamp(18px, 4vw, 72px);
+  background: #000;
+  color: #eff3ec;
+  border-bottom: 1px solid #252a24;
+  font-family: var(--font-grotesk), sans-serif;
+}
+.museumHeader a { color: inherit; text-decoration: none; }
+.museumHeader a:focus-visible { outline: 2px solid #c8ff9f; outline-offset: 5px; }
+.museumHome { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; font-size: 20px; font-weight: 500; letter-spacing: -.06em; }
+.museumHome span { font-size: 23px; color: #c8ff9f; }
+.museumLabel { font-family: ui-monospace, monospace; color: #929d89; font-size: 9px; letter-spacing: .12em; }
+.museumBack { display: inline-flex; align-items: center; gap: 20px; min-height: 44px; font-size: 12px; }
+.museumBack:hover { color: #c8ff9f; }
+@media (max-width: 760px) { .museumLabel { display: none; } }
