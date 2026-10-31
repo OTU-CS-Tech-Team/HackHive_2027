@@ -17,7 +17,7 @@ export default function StatsPage() {
           <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">← Admin</Link>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/admin#applications" className="inline-flex min-h-11 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">Review applications</Link>
+          <Link href="/admin/applicants" className="inline-flex min-h-11 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">Review applications</Link>
           <RefreshStats />
         </div>
       </header>

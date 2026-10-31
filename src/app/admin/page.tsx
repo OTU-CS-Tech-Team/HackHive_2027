@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ActionForm } from "@/components/ActionForm";
-import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
+import { applicantStatus } from "@/components/ApplicationView";
 import type { Application } from "@/lib/application/schema";
 import type { HackEvent } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
-import { setDecision } from "./actions";
 import { EventsAdmin } from "./EventsAdmin";
 import { TableAdmin } from "./TableAdmin";
 import { TABLES, type Row, type TableName } from "./tables";
@@ -27,7 +25,6 @@ export default function AdminPage() {
             <a href="#applicants">Applicants</a>
             <a href="#stats">Stats</a>
             <Link href="/admin/stats">Detailed stats</Link>
-            <a href="#applications">Applications</a>
             <a href="#events">Schedule</a>
             {Object.entries(TABLES).map(([table, { heading }]) => (
               <a key={table} href={`#${table}`}>
@@ -36,9 +33,14 @@ export default function AdminPage() {
             ))}
           </nav>
         </div>
-        <Link href="/admin/scan" className="rounded bg-neutral-900 px-4 py-2 text-white">
-          Open scanner
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/applicants" className="rounded bg-neutral-900 px-4 py-2 text-white">
+            Review applicants
+          </Link>
+          <Link href="/admin/scan" className="rounded border border-neutral-300 px-4 py-2">
+            Open scanner
+          </Link>
+        </div>
       </header>
       <Suspense fallback={<p>Loading…</p>}>
         <AdminContent />
@@ -106,41 +108,6 @@ async function AdminContent() {
             </div>
           ))}
         </dl>
-      </section>
-      <section id="applications" className={`${card} scroll-mt-20`}>
-        <h2 className="mb-4 text-lg font-semibold">Applications ({apps.length})</h2>
-        <ol className="flex flex-col divide-y">
-          {apps.map((app) => (
-            <li key={app.id} className="py-3">
-              <details>
-                <summary className="cursor-pointer">
-                  <span className="font-semibold">{[app.first_name, app.last_name].filter(Boolean).join(" ") || app.email}</span>
-                  <span className="text-sm text-neutral-600">
-                    {" "}
-                    · {app.email} · {app.university ?? "No school"} · {applicantStatus(app)}
-                  </span>
-                </summary>
-                <div className="mt-3 flex flex-col gap-4">
-                  {app.status === "submitted" && (
-                    <ActionForm action={setDecision} submitLabel="Save decision">
-                      <input type="hidden" name="id" value={app.id} />
-                      <label>
-                        Decision{" "}
-                        <select name="decision" defaultValue={app.decision ?? ""} className="rounded border border-neutral-300 px-3 py-2">
-                          <option value="">Applied (no decision)</option>
-                          <option value="accepted">Accepted</option>
-                          <option value="waitlisted">Waitlisted</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                      </label>
-                    </ActionForm>
-                  )}
-                  <ApplicationView application={app} />
-                </div>
-              </details>
-            </li>
-          ))}
-        </ol>
       </section>
       <EventsAdmin events={(events ?? []) as HackEvent[]} />
       {tables.map((table, i) => (

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { headers } from "next/headers";
+import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
 import { fromLocalInput } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
@@ -108,20 +110,43 @@ export async function redeemItem(userId: string, itemId: string): Promise<Action
   return insertTransaction(supabase, { user_id: userId, amount: -1, reason: item.name, shop_item_id: itemId }, `Redeemed ${item.name}`);
 }
 
-const DECISIONS = ["accepted", "waitlisted", "rejected"];
+const DECISIONS: readonly string[] = ["accepted", "waitlisted", "rejected"];
 
-// Empty decision = back to "applied".
-export async function setDecision(formData: FormData): Promise<string> {
+// The admin's own origin, so the email links to whichever site they're working on.
+async function emailDecision(to: string, firstName: string | null, decision: Decision) {
+  const requestHeaders = await headers();
+  const siteUrl = requestHeaders.get("origin") ?? `https://${requestHeaders.get("host")}`;
+  return sendDecisionEmail({ to, firstName, decision, siteUrl });
+}
+
+// null = back to "applied", which emails nobody.
+export async function setDecision(id: string, decision: Decision | null): Promise<ActionResult> {
   const supabase = await requireAdmin();
-  const decision = String(formData.get("decision") ?? "");
-  if (decision && !DECISIONS.includes(decision)) return "Pick a decision.";
-  const { error } = await supabase
-    .from("applications")
-    .update({ decision: decision || null })
-    .eq("id", String(formData.get("id") ?? ""));
-  if (error) return error.message;
-  revalidatePath("/admin");
-  return "Saved.";
+  if (!UUID.test(id) || (decision !== null && !DECISIONS.includes(decision))) return { ok: false, message: "Pick a decision." };
+
+  // Only a real change matches a row, so a double click can't send two emails.
+  const change = supabase.from("applications").update({ decision }).eq("id", id).eq("status", "submitted");
+  const { data, error } = await (decision ? change.or(`decision.is.null,decision.neq.${decision}`) : change.not("decision", "is", null))
+    .select("email, first_name");
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin", "layout");
+
+  const applicant = data[0];
+  if (!applicant) return { ok: true, message: "Already saved. No email sent." };
+  if (!decision) return { ok: true, message: "Moved back to pending. No email sent." };
+  return (await emailDecision(applicant.email, applicant.first_name, decision))
+    ? { ok: true, message: `Saved as ${decision} and emailed ${applicant.email}.` }
+    : { ok: false, message: `Saved as ${decision}, but the email to ${applicant.email} failed. Use Resend email to try again.` };
+}
+
+export async function resendDecisionEmail(id: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
+  const { data: applicant } = await supabase.from("applications").select("email, first_name, decision").eq("id", id).maybeSingle();
+  if (!applicant?.decision) return { ok: false, message: "There's no decision to email yet." };
+  return (await emailDecision(applicant.email, applicant.first_name, applicant.decision))
+    ? { ok: true, message: `Emailed ${applicant.email} again.` }
+    : { ok: false, message: `The email to ${applicant.email} failed. Try again in a moment.` };
 }
 
 const CATEGORIES = ["hackhive", "workshop", "fun", "food", "ceremony"];
