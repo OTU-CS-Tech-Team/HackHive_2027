@@ -1,30 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ArchiveCollection } from "@/data/hackhive";
 import type { HackHiveProject } from "@/types/hackhive";
+import { clockwiseOrder, constellationFor } from "./constellations";
 import YouTubeFacade from "./YouTubeFacade";
 import styles from "./museum.module.css";
 
 const TOUR_MS = 6500;
-const HUB = { x: 450, y: 400 };
-
-function position(index: number, count: number, year: number) {
-  const angle = -90 + index * 360 / count;
-  const radius = [0.96, 0.83, 1.04, 0.88, 1, 0.86, 1.03, 0.9, 1.08][(index + year) % 9];
-  return { x: HUB.x + Math.cos(angle * Math.PI / 180) * 350 * radius,
-    y: HUB.y + Math.sin(angle * Math.PI / 180) * 295 * radius, angle };
-}
-
 function poster(project: HackHiveProject) {
   return project.thumbnail || (project.youtubeId ? `https://img.youtube.com/vi/${project.youtubeId}/hqdefault.jpg` : null);
 }
 
-export default function Constellation({ collection, active, reducedMotion }: {
-  collection: ArchiveCollection; active: boolean; reducedMotion: boolean;
+export default function Constellation({ collection, active, revealed, reducedMotion }: {
+  collection: ArchiveCollection; active: boolean; revealed: boolean; reducedMotion: boolean;
 }) {
   const { projects, year } = collection;
+  const shape = useMemo(() => constellationFor(year, projects.length), [year, projects.length]);
+  const order = useMemo(() => clockwiseOrder(shape.points), [shape]);
   const [selected, setSelected] = useState(0);
   const [paused, setPaused] = useState(false);
   const [watching, setWatching] = useState(false);
@@ -32,71 +26,49 @@ export default function Constellation({ collection, active, reducedMotion }: {
   const [focused, setFocused] = useState(false);
   const project = projects[selected];
   const touring = active && !paused && !watching && !focused && !reducedMotion && projects.length > 1;
-  const points = projects.map((_, index) => position(index, projects.length, year));
-  const point = points[selected];
+  const selectedEdge = shape.edges.find(([, to]) => to === selected) ?? shape.edges.find(([from]) => from === selected);
+  const from = selectedEdge ? shape.points[selectedEdge[0] === selected ? selectedEdge[1] : selectedEdge[0]] : null;
+  const to = shape.points[selected];
 
   useEffect(() => {
     if (!touring) return;
-    const timer = window.setTimeout(() => setSelected(index => (index + 1) % projects.length), TOUR_MS);
+    const timer = window.setTimeout(() => setSelected(index => order[(order.indexOf(index) + 1) % order.length]), TOUR_MS);
     return () => window.clearTimeout(timer);
-  }, [touring, selected, projects.length]);
-
+  }, [touring, selected, order]);
   useEffect(() => () => { setWatching(false); setFocused(false); }, [active]);
 
   const select = (index: number) => {
-    setSelected((index + projects.length) % projects.length);
-    setPaused(true);
-    setWatching(false);
-    setPlaybackKey(value => value + 1);
+    setSelected(index); setPaused(true); setWatching(false); setPlaybackKey(value => value + 1);
   };
+  const step = (direction: number) => select(order[(order.indexOf(selected) + direction + order.length) % order.length]);
 
-  return <div className={styles.scene} data-active={active} style={{ "--tour-duration": `${TOUR_MS}ms` } as CSSProperties}
+  return <div className={styles.scene} data-revealed={revealed} inert={!revealed}
     onFocusCapture={() => setFocused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
-    <header className={styles.sceneHeader}>
-      <h2>{year} projects</h2>
-      <span>{projects.length} projects</span>
-    </header>
-    {project && point ? <>
+    {project && to ? <>
       <div className={styles.starMap}>
         <svg className={styles.mapLines} viewBox="0 0 1000 800" preserveAspectRatio="none" aria-hidden="true">
-          <ellipse cx={HUB.x} cy={HUB.y} rx="350" ry="295" className={styles.orbit} />
-          <ellipse cx={HUB.x} cy={HUB.y} rx="240" ry="205" className={styles.orbitInner} />
-          <path d={`M${HUB.x} 50V750M90 ${HUB.y}H835`} className={styles.crosslines} />
-          <path d={`${points.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ")} Z`} className={styles.connections} />
-          {points.map((p, index) => <line key={projects[index].id} x1={HUB.x} y1={HUB.y} x2={p.x} y2={p.y} className={styles.ray} />)}
-          {active && <>
-            <g key={`sweep-${selected}`} className={styles.sweep} style={{ "--sweep-from": `${point.angle - 360 / projects.length}deg`, "--sweep-to": `${point.angle}deg` } as CSSProperties}>
-              <line x1={HUB.x} y1={HUB.y} x2={HUB.x + 350} y2={HUB.y} />
-            </g>
-            <line key={`ray-${selected}`} x1={HUB.x} y1={HUB.y} x2={point.x} y2={point.y} pathLength="1" className={styles.activeRay} />
-          </>}
-          <circle cx={HUB.x} cy={HUB.y} r="27" className={styles.hubRing} />
-          <path d={`M${HUB.x} ${HUB.y - 7}l6 3.5v7l-6 3.5-6-3.5v-7Z`} className={styles.hub} />
-          <text x={HUB.x + 20} y={HUB.y + 5} className={styles.hubLabel}>{year}</text>
+          {shape.edges.map(([a, b]) => <path key={`${a}-${b}`} pathLength="1" className={styles.starPath}
+            d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />)}
+          {active && from && <path key={project.id} pathLength="1" className={styles.activePath} d={`M${from.x} ${from.y}L${to.x} ${to.y}`} />}
         </svg>
-        <div className={styles.nodes} aria-label={`${year} project stars`}>
-          {projects.map((item, index) => {
-            const p = points[index];
-            const image = poster(item);
-            return <button key={item.id} type="button" className={styles.node} aria-pressed={index === selected}
-              aria-label={`Explore ${item.title}`} onClick={() => select(index)}
-              style={{ left: `${p.x / 10}%`, top: `${p.y / 8}%` }}>
-              <span className={styles.nodeMark}>{image ? <Image src={image} alt="" fill unoptimized sizes="40px" /> : <span className={styles.nodeSpark} />}</span>
-              <span className={styles.nodeText}><span className={styles.nodeNumber}>{String(index + 1).padStart(2, "0")}</span>{item.title}</span>
-            </button>;
-          })}
+        <div className={styles.nodes} aria-label={`${year} constellation`}>
+          {projects.map((item, index) => <button key={item.id} type="button" className={styles.node}
+            aria-pressed={index === selected} aria-label={`Explore ${item.title}`} onClick={() => select(index)}
+            style={{ left: `${shape.points[index].x / 10}%`, top: `${shape.points[index].y / 8}%` }}>
+            <span className={styles.star} aria-hidden="true" />
+            <span className={styles.nodeText}>{item.title}</span>
+          </button>)}
         </div>
       </div>
       <article className={styles.preview} aria-label={`${year} featured project`}>
-        <div className={styles.previewHeading}><span>Featured project</span><span>{String(selected + 1).padStart(2, "0")} / {String(projects.length).padStart(2, "0")}</span></div>
         <div key={`${project.id}-${playbackKey}`} className={styles.media}>
           {active && project.youtubeId ? <YouTubeFacade videoId={project.youtubeId} title={project.title} thumbnail={project.thumbnail} onPlay={() => setWatching(true)} />
-            : poster(project) ? <Image src={poster(project)!} alt={project.title} fill unoptimized sizes="(max-width: 760px) 100vw, 360px" className={styles.poster} />
-              : <div className={styles.noMedia}><span aria-hidden="true">✳</span>{project.title}</div>}
+            : poster(project) ? <Image src={poster(project)!} alt={project.title} fill unoptimized sizes="(max-width: 960px) 100vw, 340px" className={styles.poster} />
+              : <div className={styles.noMedia}>{project.title}</div>}
         </div>
         <div className={styles.previewBody} key={project.id}>
           {project.award && <p className={styles.award}>{project.award}</p>}
-          <h3>{project.title}</h3>
+          <h2>{project.title}</h2>
           <p className={styles.description}>{project.description}</p>
           {(project.githubUrl || project.devpostUrl) && <div className={styles.projectLinks}>
             {project.githubUrl && <a href={project.githubUrl} target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>}
@@ -104,17 +76,17 @@ export default function Constellation({ collection, active, reducedMotion }: {
           </div>}
         </div>
         <div className={styles.previewControls}>
-          <button type="button" className={styles.tourButton} disabled={!active || (reducedMotion && !watching)} onClick={() => { setFocused(false); setPlaybackKey(value => value + 1); setWatching(false); setPaused(value => watching ? false : !value); }} aria-label={reducedMotion && !watching ? "Constellation tour paused" : watching || paused ? "Resume constellation tour" : "Pause constellation tour"}>
-            <span aria-hidden="true">{watching || paused ? "▷" : "Ⅱ"}</span>{watching ? "Back to tour" : paused || reducedMotion ? "Tour paused" : "Pause tour"}
+          <button type="button" className={styles.tourButton} disabled={!active || (reducedMotion && !watching)}
+            onClick={() => { setFocused(false); setPlaybackKey(value => value + 1); setWatching(false); setPaused(value => watching ? false : !value); }}
+            aria-label={reducedMotion && !watching ? "Constellation tour paused" : watching || paused ? "Resume constellation tour" : "Pause constellation tour"}>
+            {watching ? <><span aria-hidden="true">×</span> Back to tour</> : <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">{paused || reducedMotion ? <path d="m8 5 11 7-11 7Z" fill="currentColor" /> : <path d="M8 5v14M16 5v14" stroke="currentColor" strokeWidth="2" />}</svg>}
           </button>
           <div className={styles.arrows}>
-            <button type="button" disabled={!active || projects.length < 2} onClick={() => select(selected - 1)} aria-label="Previous project">←</button>
-            <button type="button" disabled={!active || projects.length < 2} onClick={() => select(selected + 1)} aria-label="Next project">→</button>
+            <button type="button" disabled={!active || projects.length < 2} onClick={() => step(-1)} aria-label="Previous project">←</button>
+            <button type="button" disabled={!active || projects.length < 2} onClick={() => step(1)} aria-label="Next project">→</button>
           </div>
         </div>
-        <div className={styles.progressTrack} aria-hidden="true"><span key={`${project.id}-${touring}`} className={touring ? styles.progress : undefined} /></div>
       </article>
-
-    </> : <p className={styles.empty}>The next constellation is on its way.</p>}
+    </> : null}
   </div>;
 }

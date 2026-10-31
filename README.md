@@ -115,10 +115,13 @@ project stars and updates the featured thumbnail and demo player. Choose any
 star, use previous/next, or pause the tour. Playing a demo holds the selection;
 leaving the year, hiding the tab, or navigating away removes the player.
 
-The sticky HackHive year marker crosses out earlier years as visitors scroll
-from 2026 through 2025 to 2024. All years remain directly accessible from the
-year navigation. Reduced-motion mode uses manual selection. Existing shared
-project data and thumbnails remain the source of truth.
+The opening shows only the centered HackHive identity and a scroll cue. Scrolling
+reveals open star paths inspired by Orion, Cassiopeia, and Lyra, with an unframed
+project preview. There are no section dividers or project counts. The sticky year
+marker scribbles over the outgoing year and replaces it in one fixed slot; old
+years never accumulate. Compact year navigation appears after scrolling.
+Reduced-motion mode uses manual selection. Existing shared project data and
+thumbnails remain the source of truth.
 
 ### Shared content, independent design
 

@@ -4,34 +4,43 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ArchiveCollection } from "@/data/hackhive";
 import Constellation from "./Constellation";
+import YearIdentity from "./YearIdentity";
 import styles from "./museum.module.css";
+
+type SceneState = { year: number; entered: boolean; revealed: number[] };
 
 export default function HackHiveMuseum({ collections }: { collections: ArchiveCollection[] }) {
   const ordered = useMemo(() => [...collections].sort((a, b) => b.year - a.year), [collections]);
-  const [activeYear, setActiveYear] = useState(ordered[0]?.year);
+  const firstYear = ordered[0]?.year ?? 2026;
+  const [scene, setScene] = useState<SceneState>({ year: firstYear, entered: false, revealed: [] });
   const [reducedMotion, setReducedMotion] = useState(false);
   const [visible, setVisible] = useState(true);
   const sections = useRef<Record<number, HTMLElement | null>>({});
-  const activeIndex = Math.max(0, ordered.findIndex(collection => collection.year === activeYear));
+  const museum = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const syncMotion = () => setReducedMotion(media.matches);
     const syncVisibility = () => setVisible(!document.hidden);
     let frame = 0;
-    const syncYear = () => {
+    const syncScene = () => {
       frame = 0;
-      // Pick the scene at the reading line, including direct year-anchor visits.
-      const line = window.innerHeight * 0.45;
-      let next = ordered[0]?.year;
+      const viewport = window.innerHeight;
+      const entered = (museum.current?.getBoundingClientRect().top ?? 0) < -100;
+      let year = firstYear;
+      const revealed: number[] = [];
       for (const collection of ordered) {
         const section = sections.current[collection.year];
-        if (section && section.getBoundingClientRect().top <= line) next = collection.year;
+        if (!section) continue;
+        const rect = section.getBoundingClientRect();
+        if (rect.top < viewport * .88 && rect.bottom > 64) revealed.push(collection.year);
+        if (rect.top <= viewport * .45) year = collection.year;
       }
-      setActiveYear(next);
+      setScene(previous => previous.year === year && previous.entered === entered && previous.revealed.join() === revealed.join()
+        ? previous : { year, entered, revealed });
     };
-    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(syncYear); };
-    syncMotion(); syncVisibility(); syncYear();
+    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(syncScene); };
+    syncMotion(); syncVisibility(); syncScene();
     media.addEventListener("change", syncMotion);
     document.addEventListener("visibilitychange", syncVisibility);
     window.addEventListener("scroll", schedule, { passive: true });
@@ -43,39 +52,27 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
       window.removeEventListener("resize", schedule);
       window.cancelAnimationFrame(frame);
     };
-  }, [ordered]);
+  }, [ordered, firstYear]);
 
-  return <div className={styles.museum}>
+  return <div ref={museum} className={styles.museum} data-entered={scene.entered}>
     <div className={styles.starfield} aria-hidden="true" />
     <aside className={styles.sidebar}>
-      <h1 className={styles.museumTitle}>Museum</h1>
-      <div className={styles.yearIdentity}>
-        <p className={styles.brand}>HackHive</p>
-        <div className={styles.yearStack} aria-label={`HackHive ${activeYear}`}>
-          {ordered.slice(0, activeIndex + 1).map(collection => <div key={collection.year}
-            className={collection.year === activeYear ? styles.currentYear : styles.pastYear}>
-            {collection.year === activeYear ? <span key={`current-${collection.year}`}>{collection.year}</span>
-              : <><span>{collection.year}</span><svg viewBox="0 0 200 50" preserveAspectRatio="none" aria-hidden="true"><path d="M1 36 197 11M7 23 185 29" /></svg></>}
-          </div>)}
-        </div>
-      </div>
-      <nav className={styles.yearNav} aria-label="Museum years">
-        {ordered.map((collection, index) => <Link key={collection.year} href={`#year-${collection.year}`}
-          aria-current={collection.year === activeYear ? "location" : undefined} className={styles.yearLink}>
-          <span className={styles.navDot} /><span>{collection.year}</span>
-          <span className={styles.srOnly}> projects, collection {index + 1}</span>
-        </Link>)}
+      <YearIdentity year={scene.year} reducedMotion={reducedMotion} />
+      <nav className={styles.yearNav} aria-label="Archive years" inert={!scene.entered}>
+        {ordered.map(collection => <Link key={collection.year} href={`#year-${collection.year}`}
+          aria-current={collection.year === scene.year ? "location" : undefined}>{collection.year}</Link>)}
       </nav>
-      <p className={styles.scrollHint}>Previous years <span aria-hidden="true">↓</span></p>
     </aside>
     <div className={styles.collections}>
+      <div className={styles.opening}>
+        {ordered.length > 0 && <Link href={`#year-${firstYear}`} className={styles.enterArrow} aria-label="Explore the constellations"><span aria-hidden="true">↓</span></Link>}
+      </div>
       {ordered.map(collection => <section key={collection.year} id={`year-${collection.year}`}
         ref={node => { sections.current[collection.year] = node; }} className={styles.yearSection}
-        aria-label={`HackHive ${collection.year} projects`}>
-        <Constellation collection={collection}
-          active={activeYear === collection.year && visible} reducedMotion={reducedMotion} />
+        aria-label={`HackHive ${collection.year}`}>
+        <Constellation collection={collection} revealed={scene.revealed.includes(collection.year)}
+          active={scene.year === collection.year && visible && scene.revealed.includes(collection.year)} reducedMotion={reducedMotion} />
       </section>)}
-      {!ordered.length && <p className={styles.empty}>The next constellation is on its way.</p>}
     </div>
   </div>;
 }
