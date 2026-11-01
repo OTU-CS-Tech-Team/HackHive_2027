@@ -7,22 +7,18 @@ import styles from "@/components/path/path.module.css";
 
 export function TrailheadPanel() {
   return (
-    <div className={styles.stack}>
-      <div className={`${styles.sign} ${styles.display}`}>
-        <h1 className={styles.signTitle}>HackHive</h1>
-        <hr className={styles.signRule} />
-        <p className={styles.signDate}>{EVENT_DATE_TEXT}</p>
-        <p className={styles.memberLine}>
-          <MLHWordmark /> Official Member
-        </p>
-        <p className={styles.signLine}>{HERO_APPLY_LINE}</p>
-      </div>
-      <div className={styles.signPost} aria-hidden="true" />
+    <div className={styles.hero}>
+      <h1 className={`${styles.heroTitle} ${styles.display}`}>HackHive</h1>
+      <p className={styles.heroDate}>{EVENT_DATE_TEXT}</p>
+      <p className={styles.heroMember}>
+        <MLHWordmark /> Official Member
+      </p>
+      <p className={styles.heroLine}>{HERO_APPLY_LINE}</p>
       <div className={styles.actions}>
         <Link href="/apply" className={styles.cta}>
           Join as a hacker
         </Link>
-        <Link href="#faq" className={`${styles.textLink} ${styles.inkLink}`}>
+        <Link href="#faq" className={styles.heroLearn}>
           Learn more
         </Link>
       </div>

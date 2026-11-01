@@ -24,9 +24,11 @@ and a `layers` list. Each layer has:
 
 Draw each plate as a full-bleed frame, centred, with spare bleed at the edges.
 The camera scales every layer from the centre. Keep type out of the art — copy
-stays in the chapter panels so it can stay readable. Sky is the furthest, sharp
-plane. Foreground is the closest and the softest. The petal curtain between
-chapters is part of the engine, not a layer.
+stays in the chapter panels so it can stay readable. The trailhead placeholder
+is a path straight down the centre with flower beds on both sides. The HackHive
+wordmark is an HTML heading in that panel, not part of the plate. Sky is the
+furthest, sharp plane. Foreground is the closest and the softest. The petal
+curtain between chapters is part of the engine, not a layer.
 
 `prefers-reduced-motion` skips pinning, zoom, and the curtain. The same chapters
 stack as still scenes with the copy in normal document flow.

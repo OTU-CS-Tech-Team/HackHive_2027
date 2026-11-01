@@ -250,86 +250,102 @@
   font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
 }
 
-.sign {
-  position: relative;
-  width: min(26rem, 100%);
-  padding: 1.45rem 1.4rem 1.25rem;
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 226, 180, 0.28), transparent 28%),
-    linear-gradient(180deg, #c4894f 0%, #a56b38 42%, #8a5328 100%);
-  color: #fff6e4;
+.content > .hero {
+  max-height: none;
+  overflow: visible;
+}
+
+.hero {
+  display: flex;
+  width: min(100%, 68rem);
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  box-shadow:
-    0 18px 40px rgba(70, 32, 8, 0.28),
-    inset 0 1px 0 rgba(255, 232, 196, 0.55),
-    inset 0 0 0 3px rgba(92, 48, 18, 0.35);
 }
 
-.sign::before,
-.sign::after {
-  content: "";
-  position: absolute;
-  top: 0.7rem;
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%, #e7c48a, #6a3e1c 70%);
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
-}
-
-.sign::before { left: 0.75rem; }
-.sign::after { right: 0.75rem; }
-
-.signPost {
-  width: 1.05rem;
-  height: 4.2rem;
-  margin: 0 auto;
-  background: linear-gradient(90deg, #6b3f22, #8d5a34 45%, #5c351c);
-  border-radius: 0 0 4px 4px;
-}
-
-.signTitle {
-  margin: 0.35rem 0 0;
-  color: #fff6e4;
-  font-size: clamp(2.5rem, 7vw, 3.7rem);
-  font-weight: 700;
-  letter-spacing: -0.045em;
-  line-height: 0.92;
-  text-shadow: 0 2px 0 rgba(90, 42, 12, 0.28);
-}
-
-.signRule {
-  width: 42%;
-  height: 2px;
-  margin: 0.75rem auto 0.7rem;
-  border: 0;
-  background: rgba(255, 246, 228, 0.55);
-}
-
-.signDate,
-.signLine,
-.memberLine {
+.heroTitle {
   margin: 0;
-  font-size: 0.98rem;
+  color: #5a3814;
+  font-size: clamp(3.35rem, 15vw, 8.6rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.86;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 252, 246, 0.78) 0%,
+    rgba(255, 228, 176, 0.42) 48%,
+    rgba(255, 255, 255, 0.16) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.018em rgba(62, 36, 14, 0.92);
+  paint-order: stroke fill;
+  filter: drop-shadow(0 12px 28px rgba(80, 40, 10, 0.16));
+}
+
+.heroDate,
+.heroLine {
+  margin: 0;
+  color: #3c2916;
   line-height: 1.4;
 }
 
-.memberLine {
+.heroDate {
+  margin-top: 0.85rem;
+  font-size: clamp(1.02rem, 2vw, 1.22rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.heroMember {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  margin-top: 0.45rem;
+  margin: 0.4rem 0 0;
+  color: #4a341c;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.signLine {
-  margin-top: 0.7rem;
-  color: rgba(255, 246, 228, 0.92);
+.heroLine {
+  margin-top: 0.55rem;
+  max-width: 26rem;
+  font-size: 1.02rem;
+}
+
+.heroLearn {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  color: #3f2c16;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.heroLearn:hover {
+  color: #23180e;
+}
+
+@media (max-width: 767px) {
+  .heroTitle {
+    font-size: clamp(2.7rem, 11.2vw, 3.2rem);
+  }
+
+  .heroDate {
+    max-width: 16rem;
+    font-size: 0.98rem;
+    text-wrap: balance;
+  }
+
+  .heroLine {
+    max-width: 16rem;
+    text-wrap: balance;
+  }
 }
 
 .actions {
@@ -634,6 +650,7 @@
 
 .cta:focus-visible,
 .textLink:focus-visible,
+.heroLearn:focus-visible,
 .stone:focus-visible,
 .dot:focus-visible {
   outline: 2px solid #231c10;
@@ -699,6 +716,7 @@
   }
   .cta,
   .textLink,
+  .heroLearn,
   .stone,
   .firefly { transition: none; animation: none; }
   .firefly { opacity: 0.85; }

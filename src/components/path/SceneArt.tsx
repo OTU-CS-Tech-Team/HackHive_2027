@@ -10,7 +10,6 @@ type Mood = {
   sunX: number;
   sunY: number;
   sunR: number;
-  rays: boolean;
   grass: string;
   grassDeep: string;
   path: string;
@@ -21,19 +20,19 @@ type Mood = {
 function mood(id: ChapterId): Mood {
   switch (id) {
     case "trailhead":
-      return { skyTop: "#fff8dc", skyBottom: "#f4e2a4", sun: "#fff4c4", glow: "#fff1b8", sunX: 720, sunY: 132, sunR: 42, rays: true, grass: "#d5e4b4", grassDeep: "#c3d79a", path: "#e6c79a", bend: 18, seed: 1 };
+      return { skyTop: "#fffdf8", skyBottom: "#f4efe0", sun: "#fff6e6", glow: "#fff3dc", sunX: 720, sunY: 168, sunR: 78, grass: "#e7f2cf", grassDeep: "#d7e8bc", path: "#f3ddc4", bend: 0, seed: 1 };
     case "clearing":
-      return { skyTop: "#fff3c8", skyBottom: "#f6d592", sun: "#ffe7a8", glow: "#ffe3a0", sunX: 820, sunY: 150, sunR: 46, rays: false, grass: "#d7e4ae", grassDeep: "#c6da9c", path: "#e4c08a", bend: 70, seed: 2 };
+      return { skyTop: "#fff7e6", skyBottom: "#f6e4bc", sun: "#ffeec4", glow: "#ffe9b8", sunX: 820, sunY: 150, sunR: 46, grass: "#e4f0c8", grassDeep: "#d4e6b6", path: "#f0d4b0", bend: 70, seed: 2 };
     case "fork":
-      return { skyTop: "#ffeab4", skyBottom: "#f3c56e", sun: "#ffd27a", glow: "#ffd08a", sunX: 900, sunY: 168, sunR: 50, rays: false, grass: "#d4e0a8", grassDeep: "#c4d698", path: "#e2b97e", bend: 0, seed: 3 };
+      return { skyTop: "#fff1d0", skyBottom: "#f4d7a0", sun: "#ffe0a4", glow: "#ffdba8", sunX: 900, sunY: 168, sunR: 50, grass: "#e2eec4", grassDeep: "#d2e4b2", path: "#edd0a8", bend: 0, seed: 3 };
     case "oak":
-      return { skyTop: "#ffd9a0", skyBottom: "#f0b25c", sun: "#ffbe6a", glow: "#ffc27a", sunX: 1080, sunY: 190, sunR: 56, rays: false, grass: "#d2dca0", grassDeep: "#c2d294", path: "#deb06e", bend: -80, seed: 4 };
+      return { skyTop: "#ffe8c4", skyBottom: "#f3c890", sun: "#ffd09a", glow: "#ffd4a4", sunX: 1080, sunY: 190, sunR: 56, grass: "#e0ecc0", grassDeep: "#d0e2ae", path: "#e8c89a", bend: -80, seed: 4 };
     case "stream":
-      return { skyTop: "#f8c890", skyBottom: "#e89255", sun: "#ff9d4e", glow: "#ffb06a", sunX: 1160, sunY: 220, sunR: 64, rays: false, grass: "#d0d89a", grassDeep: "#c0ce90", path: "#d9a864", bend: 24, seed: 5 };
+      return { skyTop: "#fad8b4", skyBottom: "#eeae84", sun: "#ffb888", glow: "#ffc49a", sunX: 1160, sunY: 220, sunR: 64, grass: "#dce8b8", grassDeep: "#ccdeb0", path: "#e4c090", bend: 24, seed: 5 };
     case "fence":
-      return { skyTop: "#f2b07e", skyBottom: "#e07048", sun: "#ff8344", glow: "#ff9960", sunX: 1200, sunY: 250, sunR: 74, rays: false, grass: "#cfd492", grassDeep: "#bcc888", path: "#d29a58", bend: 110, seed: 6 };
+      return { skyTop: "#f6c8aa", skyBottom: "#e89878", sun: "#ffaa80", glow: "#ffb892", sunX: 1200, sunY: 250, sunR: 74, grass: "#d8e4b4", grassDeep: "#c8daac", path: "#deb488", bend: 110, seed: 6 };
     case "hive":
-      return { skyTop: "#e88468", skyBottom: "#c44e3a", sun: "#ffb15e", glow: "#ff9966", sunX: 1120, sunY: 300, sunR: 86, rays: false, grass: "#c9cc8c", grassDeep: "#b8c484", path: "#cc8e4e", bend: -36, seed: 7 };
+      return { skyTop: "#f0a898", skyBottom: "#d47060", sun: "#ffc48a", glow: "#ffb898", sunX: 1120, sunY: 300, sunR: 86, grass: "#d4e0b0", grassDeep: "#c6d6a8", path: "#d8aa78", bend: -36, seed: 7 };
     default:
       return assertNever(id);
   }
@@ -79,11 +78,17 @@ function hexPoints(cx: number, cy: number, r: number) {
   }).join(" ");
 }
 
-function Ground({ m }: { m: Mood }) {
+function Ground({ m, id }: { m: Mood; id: ChapterId }) {
+  const grad = `ground-${id}`;
   return (
     <>
-      <rect y="430" width="1440" height="470" fill={m.grass} />
-      <path d={`M0 500 C 360 ${470 + m.bend * 0.1} 1080 ${520 - m.bend * 0.08} 1440 490 V900 H0 Z`} fill={m.grassDeep} />
+      <defs>
+        <linearGradient id={grad} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={m.grass} />
+          <stop offset="100%" stopColor={m.grassDeep} />
+        </linearGradient>
+      </defs>
+      <rect y="418" width="1440" height="482" fill={`url(#${grad})`} />
     </>
   );
 }
@@ -112,15 +117,52 @@ function PathBand({ m, fork = false }: { m: Mood; fork?: boolean }) {
   );
 }
 
+const BLOOM_COLORS = ["#fffdf8", "#f7c9d4", "#ffe4a3", "#f8d5c8"] as const;
+
+function corridorHalf(y: number) {
+  const t = Math.min(1, Math.max(0, (y - 430) / 470));
+  return 54 + t * 196;
+}
+
 function FlowerBed({ m }: { m: Mood }) {
-  const colors = ["#fffdf8", "#f7c4d2", "#ffe28a"];
   const marks = [];
   for (let i = 0; i < 26; i += 1) {
     const side = i % 2 === 0 ? -1 : 1;
     const x = 720 + side * (220 + unit(m.seed * 20 + i) * 420);
     const y = 520 + unit(m.seed * 20 + i + 5) * 340;
     marks.push(
-      <Bloom key={i} x={x} y={y} s={0.7 + unit(m.seed + i) * 0.55} color={colors[i % colors.length]} />,
+      <Bloom key={i} x={x} y={y} s={0.7 + unit(m.seed + i) * 0.55} color={BLOOM_COLORS[i % BLOOM_COLORS.length]} />,
+    );
+  }
+  return <g>{marks}</g>;
+}
+
+function Meadow({
+  seed,
+  count,
+  y0,
+  y1,
+  minScale,
+  maxScale,
+}: {
+  seed: number;
+  count: number;
+  y0: number;
+  y1: number;
+  minScale: number;
+  maxScale: number;
+}) {
+  const marks = [];
+  for (let i = 0; i < count; i += 1) {
+    const y = y0 + unit(seed * 17 + i * 3.1) * (y1 - y0);
+    const side = i % 2 === 0 ? -1 : 1;
+    const half = corridorHalf(y) + 6;
+    const reach = Math.min(240, Math.max(48, 700 - half));
+    const along = unit(seed * 9 + i * 1.7) ** 1.65;
+    const x = 720 + side * (half + along * reach);
+    const scale = minScale + unit(seed + i * 2.3) * (maxScale - minScale);
+    marks.push(
+      <Bloom key={i} x={x} y={y} s={scale} color={BLOOM_COLORS[i % BLOOM_COLORS.length]} />,
     );
   }
   return <g>{marks}</g>;
@@ -135,40 +177,19 @@ function Sky({ id, prefix }: { id: ChapterId; prefix: string }) {
       <defs>
         <linearGradient id={grad} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={m.skyTop} />
+          <stop offset="52%" stopColor={m.skyTop} />
           <stop offset="100%" stopColor={m.skyBottom} />
         </linearGradient>
         <radialGradient id={glow} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={m.glow} stopOpacity="0.95" />
-          <stop offset="70%" stopColor={m.glow} stopOpacity="0" />
+          <stop offset="0%" stopColor={m.glow} stopOpacity="0.55" />
+          <stop offset="72%" stopColor={m.glow} stopOpacity="0" />
         </radialGradient>
       </defs>
       <rect width="1440" height="900" fill={`url(#${grad})`} />
       <circle cx={m.sunX} cy={m.sunY} r={m.sunR * 3.1} fill={`url(#${glow})`} />
       <circle cx={m.sunX} cy={m.sunY} r={m.sunR} fill={m.sun} />
-      {m.rays &&
-        Array.from({ length: 10 }, (_, i) => {
-          const angle = (Math.PI / 180) * (i * 36 - 90);
-          const inner = m.sunR + 14;
-          const outer = m.sunR + 78;
-          return (
-            <line
-              key={i}
-              x1={m.sunX + Math.cos(angle) * inner}
-              y1={m.sunY + Math.sin(angle) * inner}
-              x2={m.sunX + Math.cos(angle) * outer}
-              y2={m.sunY + Math.sin(angle) * outer}
-              stroke="#fff6d2"
-              strokeWidth="3"
-              strokeLinecap="round"
-              opacity="0.75"
-            />
-          );
-        })}
       {id === "trailhead" && (
-        <>
-          <ellipse cx="280" cy="180" rx="90" ry="28" fill="#fffdf6" opacity="0.45" />
-          <ellipse cx="340" cy="190" rx="60" ry="20" fill="#fffdf6" opacity="0.35" />
-        </>
+        <ellipse cx="720" cy="210" rx="280" ry="70" fill="#fffdf8" opacity="0.35" />
       )}
     </svg>
   );
@@ -179,7 +200,7 @@ function Far({ id }: { id: ChapterId }) {
   const shift = m.bend * 0.4;
   return (
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" className={styles.scene} aria-hidden="true">
-      <ellipse cx={720 + shift} cy="455" rx="860" ry="78" fill={m.skyBottom} opacity="0.55" />
+      <ellipse cx={720 + shift} cy="468" rx="900" ry="70" fill={m.grass} opacity="0.28" />
       <Canopy x={150 + shift} y={400} s={0.85} pale />
       <Canopy x={250 + shift} y={418} s={1.05} pale />
       <Canopy x={1120 + shift} y={408} s={0.95} pale />
@@ -192,12 +213,20 @@ function Mid({ id }: { id: ChapterId }) {
   const m = mood(id);
   return (
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" className={styles.scene} aria-hidden="true">
-      <Ground m={m} />
+      <Ground m={m} id={id} />
       <PathBand m={m} fork={id === "fork"} />
       {id === "clearing" && <ellipse cx="720" cy="590" rx="250" ry="92" fill="#e7f2c9" />}
-      <FlowerBed m={m} />
-      <Canopy x={90} y={520} s={1.25} />
-      <Canopy x={1280} y={500} s={1.35} />
+      {id === "trailhead" ? (
+        <Meadow seed={m.seed} count={72} y0={490} y1={880} minScale={0.62} maxScale={1.15} />
+      ) : (
+        <FlowerBed m={m} />
+      )}
+      {id !== "trailhead" && (
+        <>
+          <Canopy x={90} y={520} s={1.25} />
+          <Canopy x={1280} y={500} s={1.35} />
+        </>
+      )}
     </svg>
   );
 }
@@ -278,10 +307,7 @@ function Near({ id }: { id: ChapterId }) {
   return (
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" className={styles.scene} aria-hidden="true">
       {id === "trailhead" && (
-        <>
-          <Canopy x={160} y={560} s={1.7} />
-          <Canopy x={1180} y={540} s={1.7} />
-        </>
+        <Meadow seed={m.seed + 40} count={56} y0={540} y1={930} minScale={1} maxScale={1.85} />
       )}
       {id === "clearing" && (
         <>
@@ -305,7 +331,7 @@ function Near({ id }: { id: ChapterId }) {
           <Canopy x={1280} y={540} s={1.4} />
         </>
       )}
-      {(id === "trailhead" || id === "clearing" || id === "fork") && (
+      {(id === "clearing" || id === "fork") && (
         <FlowerBed m={{ ...m, seed: m.seed + 40 }} />
       )}
     </svg>
@@ -326,20 +352,38 @@ const FLIES = [
 ] as const;
 
 function Foreground({ id }: { id: ChapterId }) {
+  const edge = [
+    [90, 620, 2.1, "#fffdf8"],
+    [40, 760, 2.6, "#f7c9d4"],
+    [170, 840, 2.2, "#ffe4a3"],
+    [250, 900, 1.7, "#fffdf8"],
+    [1360, 610, 2.2, "#fffdf8"],
+    [1410, 750, 2.7, "#f7c9d4"],
+    [1260, 830, 2.15, "#ffe4a3"],
+    [1180, 905, 1.65, "#f8d5c8"],
+  ] as const;
   return (
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" className={styles.scene} aria-hidden="true">
-      <g>
-        <ellipse cx="40" cy="40" rx="120" ry="46" fill="#3e7c34" transform="rotate(-28 40 40)" />
-        <ellipse cx="120" cy="20" rx="90" ry="36" fill="#5c9a46" transform="rotate(-12 120 20)" />
-        <ellipse cx="1400" cy="30" rx="130" ry="48" fill="#2f682c" transform="rotate(24 1400 30)" />
-        <ellipse cx="1280" cy="70" rx="80" ry="30" fill="#74b35a" transform="rotate(16 1280 70)" />
-      </g>
-      <Bloom x={390} y={760} s={2.2} color="#fffdf8" />
-      <Bloom x={300} y={800} s={1.6} color="#f7c4d2" />
-      <Bloom x={470} y={810} s={1.35} color="#ffe28a" />
-      <Bloom x={1040} y={770} s={2.3} color="#fffdf8" />
-      <Bloom x={1140} y={810} s={1.55} color="#f7c4d2" />
-      <Bloom x={940} y={820} s={1.3} color="#ffe28a" />
+      {id !== "trailhead" && (
+        <g>
+          <ellipse cx="40" cy="40" rx="120" ry="46" fill="#3e7c34" transform="rotate(-28 40 40)" />
+          <ellipse cx="120" cy="20" rx="90" ry="36" fill="#5c9a46" transform="rotate(-12 120 20)" />
+          <ellipse cx="1400" cy="30" rx="130" ry="48" fill="#2f682c" transform="rotate(24 1400 30)" />
+          <ellipse cx="1280" cy="70" rx="80" ry="30" fill="#74b35a" transform="rotate(16 1280 70)" />
+        </g>
+      )}
+      {id === "trailhead" ? (
+        edge.map(([x, y, s, color]) => <Bloom key={`${x}-${y}`} x={x} y={y} s={s} color={color} />)
+      ) : (
+        <>
+          <Bloom x={390} y={760} s={2.2} color="#fffdf8" />
+          <Bloom x={300} y={800} s={1.6} color="#f7c4d2" />
+          <Bloom x={470} y={810} s={1.35} color="#ffe28a" />
+          <Bloom x={1040} y={770} s={2.3} color="#fffdf8" />
+          <Bloom x={1140} y={810} s={1.55} color="#f7c4d2" />
+          <Bloom x={940} y={820} s={1.3} color="#ffe28a" />
+        </>
+      )}
       {id === "hive" && (
         <g className={styles.flies}>
           {FLIES.map(([x, y, r, delay]) => (
