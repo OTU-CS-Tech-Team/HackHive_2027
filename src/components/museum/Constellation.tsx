@@ -29,6 +29,10 @@ export default function Constellation({ collection, active, revealed, reducedMot
   const selectedEdge = shape.edges.find(([, to]) => to === selected) ?? shape.edges.find(([from]) => from === selected);
   const from = selectedEdge ? shape.points[selectedEdge[0] === selected ? selectedEdge[1] : selectedEdge[0]] : null;
   const to = shape.points[selected];
+  // Keep neighboring star targets from intercepting each other on small maps.
+  const hitSizes = shape.points.map((point, index) => Math.min(100, ...shape.points
+    .filter((_, other) => other !== index)
+    .map(other => Math.hypot((point.x - other.x) / 10, (point.y - other.y) / 8) * .85)));
 
   useEffect(() => {
     if (!touring) return;
@@ -55,8 +59,9 @@ export default function Constellation({ collection, active, revealed, reducedMot
         </svg>
         <div className={styles.nodes} aria-label={`${year} constellation`}>
           {projects.map((item, index) => <button key={item.id} type="button" className={styles.node}
+            data-label-align={shape.points[index].x < 220 ? "start" : shape.points[index].x > 780 ? "end" : undefined}
             aria-pressed={index === selected} aria-label={`Explore ${item.title}`} onClick={() => select(index)}
-            style={{ left: `${shape.points[index].x / 10}%`, top: `${shape.points[index].y / 8}%` }}>
+            style={{ left: `${shape.points[index].x / 10}%`, top: `${shape.points[index].y / 8}%`, width: `min(48px, ${hitSizes[index]}%)`, height: `min(48px, ${hitSizes[index]}%)` }}>
             <span className={styles.star} aria-hidden="true" />
             <span className={styles.nodeText}>{item.title}</span>
           </button>)}

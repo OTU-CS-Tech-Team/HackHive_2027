@@ -70,7 +70,8 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
       </section>)}
     </div>
       <nav className={styles.yearNav} aria-label="Archive years" inert={!scene.atBottom}>
-        {ordered.map(collection => <Link key={collection.year} href={`#year-${collection.year}`}
+        {ordered.map(collection => <Link key={collection.year} href={`/hackhive/archive#year-${collection.year}`}
+          onClick={() => sections.current[collection.year]?.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", block: "start" })}
           aria-current={collection.year === scene.year ? "location" : undefined}>{collection.year}</Link>)}
       </nav>
   </div>;
