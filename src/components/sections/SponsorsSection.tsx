@@ -1,18 +1,141 @@
 /* eslint-disable @next/next/no-img-element -- logos come from Supabase Storage */
 import type { CSSProperties } from "react";
-import { getSponsors, type Sponsor } from "@/lib/content";
+import Image from "next/image";
+import SplitText from "@/components/SplitText";
+import type { Sponsor } from "@/lib/content";
+import { ForestMotion } from "./ForestMotion";
 import styles from "./SponsorsSection.module.css";
 
 // TODO: real sponsorship inbox.
-const SPONSOR_EMAIL = "sponsors@example.com";
+const SPONSOR_EMAIL = "otu.csclub@gmail.com";
 const SPONSOR_CONTACT = `mailto:${SPONSOR_EMAIL}?subject=Sponsoring%20HackHive%202027`;
 
 // Bigger tiers get wider tiles; each row is filled out with placeholder cells.
 const TIERS = [
-  { tier: "gold", label: "Gold sponsors", columns: 1 },
-  { tier: "silver", label: "Silver sponsors", columns: 2 },
-  { tier: "bronze", label: "Bronze sponsors", columns: 3 },
+  { tier: "diamond", label: "Diamond sponsors", columns: 3 },
+  { tier: "gold", label: "Gold sponsors", columns: 3 },
+  { tier: "silver", label: "Silver sponsors", columns: 3 },
+  { tier: "bronze", label: "Bronze sponsors", columns: 4 },
 ] as const;
+
+// Stand-ins from the last HackHive. The /admin sponsors table isn't shown until
+// the 2027 line-up is confirmed; then this goes back to getSponsors().
+const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
+  tier: (typeof TIERS)[number]["tier"];
+})[] = [
+  {
+    id: "microsoft",
+    name: "Microsoft",
+    tier: "diamond",
+    logo_url: "/sponsors/previous/microsoft.webp",
+    website_url: "https://careers.microsoft.com/v2/global/en/home.html",
+  },
+  {
+    id: "kyndryl",
+    name: "Kyndryl",
+    tier: "diamond",
+    logo_url: "/sponsors/previous/kyndryl.webp",
+    website_url: "https://www.kyndryl.com/us/en",
+  },
+  {
+    id: "science-council",
+    name: "Ontario Tech Science Council",
+    tier: "diamond",
+    logo_url: "/sponsors/previous/science-council.webp",
+    website_url: null,
+  },
+  {
+    id: "nexos-ai",
+    name: "nexos.ai",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nexos-ai.webp",
+    website_url: "https://nexos.ai/",
+  },
+  {
+    id: "incogni",
+    name: "Incogni",
+    tier: "gold",
+    logo_url: "/sponsors/previous/incogni.webp",
+    website_url: "https://incogni.com/",
+  },
+  {
+    id: "saily",
+    name: "Saily",
+    tier: "gold",
+    logo_url: "/sponsors/previous/saily.webp",
+    website_url: "https://saily.com/",
+  },
+  {
+    id: "nordpass",
+    name: "NordPass",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nordpass.webp",
+    website_url: "https://nordpass.com/",
+  },
+  {
+    id: "nordvpn",
+    name: "NordVPN",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nordvpn.webp",
+    website_url: "https://nordvpn.com/hackathons",
+  },
+  {
+    id: "nordprotect",
+    name: "NordProtect",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nordprotect.webp",
+    website_url: "https://nordprotect.com/",
+  },
+  {
+    id: "disabilities-at-microsoft",
+    name: "Disabilities @ Microsoft",
+    tier: "silver",
+    logo_url: "/sponsors/previous/disabilities-at-microsoft.webp",
+    website_url: "https://careers.microsoft.com/v2/global/en/home.html",
+  },
+  {
+    id: "fantuan",
+    name: "Fantuan",
+    tier: "silver",
+    logo_url: "/sponsors/previous/fantuan.webp",
+    website_url: "https://fantuan.ca/en/",
+  },
+  {
+    id: "fidelity",
+    name: "Fidelity Investments",
+    tier: "silver",
+    logo_url: "/sponsors/previous/fidelity.webp",
+    website_url: "https://www.fidelity.ca/en/",
+  },
+  {
+    id: "dayforce",
+    name: "Dayforce",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/dayforce.webp",
+    website_url: "https://www.dayforce.com/",
+  },
+  {
+    id: "brilliant-catalyst",
+    name: "Brilliant Catalyst",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/brilliant-catalyst.webp",
+    website_url: "https://www.ontariotechbrilliant.ca/",
+  },
+  {
+    id: "featherless",
+    name: "Featherless",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/featherless.webp",
+    website_url: "https://featherless.ai/",
+  },
+  {
+    id: "adastra",
+    name: "Adastra",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/adastra.webp",
+    website_url: "https://adastracorp.com/",
+  },
+];
 
 // Deterministic noise so the server markup never changes between renders.
 const rand = (n: number) => {
@@ -20,161 +143,61 @@ const rand = (n: number) => {
   return x - Math.floor(x);
 };
 
-const svgUrl = (w: number, h: number, body: string) =>
-  `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>${body}</svg>`,
-  )}")`;
+// Painted by scripts/paint-forest.html; every layer is sunlit from the upper right.
+const ART = {
+  "oak-a": { width: 1100, height: 1300 },
+  "oak-b": { width: 1000, height: 1000 },
+  "pine-a": { width: 820, height: 1500 },
+  "pine-b": { width: 640, height: 1100 },
+};
 
-// Draw a shape a tile over on both sides too, so the row repeats seamlessly.
-const wrap = (w: number, x: number, draw: (cx: number) => string) =>
-  [x - w, x, x + w].map(draw).join("");
+// Framing trees, overlapping up into the tree wall; `depth` is parallax travel in
+// px, negative for trees nearer than the panels. Right-hand trees are mirrored so
+// the light always falls toward the clearing.
+const TREES: {
+  art: keyof typeof ART;
+  side: "left" | "right";
+  top: string;
+  x: string;
+  w: string;
+  depth: number;
+}[] = [
+  { art: "oak-b", side: "right", top: "-13%", x: "-15rem", w: "38rem", depth: 30 },
+  { art: "pine-a", side: "left", top: "-17%", x: "-9rem", w: "34rem", depth: 40 },
+  { art: "oak-a", side: "left", top: "18%", x: "-19rem", w: "40rem", depth: -40 },
+  { art: "pine-a", side: "right", top: "15%", x: "-10rem", w: "32rem", depth: 30 },
+  { art: "pine-b", side: "left", top: "48%", x: "-8rem", w: "26rem", depth: 30 },
+  { art: "oak-a", side: "right", top: "44%", x: "-19rem", w: "40rem", depth: -50 },
+  { art: "oak-b", side: "left", top: "68%", x: "-17rem", w: "36rem", depth: -30 },
+  { art: "pine-b", side: "right", top: "71%", x: "-7rem", w: "26rem", depth: 30 },
+];
 
-function pines(
-  w: number,
-  h: number,
-  count: number,
-  fill: string,
-  seed: number,
-) {
-  let body = "";
-  for (let i = 0; i < count; i++) {
-    const x = (i + rand(seed + i)) * (w / count);
-    const tall = h * (0.45 + rand(seed + i + 50) * 0.5);
-    body += wrap(w, x, (cx) => {
-      let d = "";
-      for (let t = 0; t < 3; t++) {
-        const top = h - tall + t * tall * 0.22;
-        const spread = tall * 0.22 * (0.6 + t * 0.25);
-        d += `M${cx} ${top}L${cx + spread} ${top + tall * 0.45}L${cx - spread} ${top + tall * 0.45}Z`;
-      }
-      return `<path d='${d}M${cx - 3} ${h - tall * 0.12}h6V${h}h-6Z'/>`;
-    });
-  }
-  return svgUrl(
-    w,
-    h,
-    `<g fill='${fill}'>${body}<rect y='${h - 6}' width='${w}' height='6'/></g>`,
+function Tree({ art, side, top, x, w, depth }: (typeof TREES)[number]) {
+  return (
+    <div
+      className={`${styles.tree} ${styles[side]}`}
+      style={{ "--top": top, "--x": x, "--w": w } as CSSProperties}
+      data-depth={depth}
+      data-lean
+    >
+      <Image
+        src={`/sponsors/${art}.webp`}
+        alt=""
+        {...ART[art]}
+        sizes={`calc(${w} * 0.9)`}
+        data-sway
+      />
+    </div>
   );
 }
 
-function oaks(
-  w: number,
-  h: number,
-  count: number,
-  [fill, light]: [string, string],
-  seed: number,
-) {
-  let body = "";
-  for (let i = 0; i < count; i++) {
-    const x = (i + rand(seed + i)) * (w / count);
-    const tall = h * (0.55 + rand(seed + i + 50) * 0.4);
-    const r = tall * 0.26;
-    const top = h - tall;
-    body += wrap(
-      w,
-      x,
-      (cx) =>
-        `<path d='M${cx - 7} ${h}L${cx - 3} ${top + r}h6L${cx + 7} ${h}Z'/>` +
-        `<circle cx='${cx}' cy='${top + r}' r='${r}'/>` +
-        `<circle cx='${cx - r * 0.85}' cy='${top + r * 1.5}' r='${r * 0.8}'/>` +
-        `<circle cx='${cx + r * 0.8}' cy='${top + r * 1.45}' r='${r * 0.85}'/>` +
-        `<circle cx='${cx - r * 0.25}' cy='${top + r * 0.75}' r='${r * 0.55}' fill='${light}'/>` +
-        `<circle cx='${cx - r * 1.05}' cy='${top + r * 1.3}' r='${r * 0.4}' fill='${light}'/>`,
-    );
-  }
-  return svgUrl(
-    w,
-    h,
-    `<g fill='${fill}'>${body}<rect y='${h - 8}' width='${w}' height='8'/></g>`,
-  );
-}
-
-function meadow(w: number, h: number, seed: number) {
-  let grass = "";
-  let flowers = "";
-  for (let i = 0; i < 90; i++) {
-    const x = rand(seed + i) * w;
-    const tall = 14 + rand(seed + i + 200) * 26;
-    grass += wrap(
-      w,
-      x,
-      (cx) =>
-        `M${cx} ${h - 24}q2 -${tall * 0.6} ${5 + rand(i) * 4} -${tall}q-1 ${tall * 0.5} 1 ${tall}Z`,
-    );
-  }
-  for (let i = 0; i < 14; i++) {
-    const x = rand(seed + i + 400) * w;
-    const y = h - 40 - rand(seed + i + 500) * 40;
-    const colour = ["#f5b83d", "#ffffff", "#f59fb8"][i % 3];
-    flowers += wrap(
-      w,
-      x,
-      (cx) =>
-        `<path d='M${cx} ${h - 24}V${y}' stroke='#2f6e34' stroke-width='2'/>` +
-        [0, 72, 144, 216, 288]
-          .map((a) => {
-            const rad = (a * Math.PI) / 180;
-            return `<circle cx='${cx + Math.cos(rad) * 4}' cy='${y + Math.sin(rad) * 4}' r='3.4' fill='${colour}'/>`;
-          })
-          .join("") +
-        `<circle cx='${cx}' cy='${y}' r='2.4' fill='#c98a0b'/>`,
-    );
-  }
-  const ground = `<path d='M0 ${h - 30}Q${w / 4} ${h - 55} ${w / 2} ${h - 32}T${w} ${h - 30}V${h}H0Z'/>`;
-  return svgUrl(
-    w,
-    h,
-    `<path fill='#3f8a3c' d='${grass}'/><g fill='#2f6e34'>${ground}</g>${flowers}`,
-  );
-}
-
-// Leafy edge of the woods, tiling downwards; flipped for the right side.
-function canopy(w: number, h: number, seed: number, flip: boolean) {
-  const shades = ["#2c6b31", "#3d8a40", "#5aa64f", "#7cc063"];
-  let body = `<path d='M${w * 0.16} 0V${h}' stroke='#7a4b22' stroke-width='22'/>`;
-  shades.forEach((shade, s) => {
-    for (let i = 0; i < 12; i++) {
-      const n = seed + s * 100 + i;
-      const x = rand(n) ** 1.4 * w * (0.85 - s * 0.1);
-      const y = rand(n + 50) * h;
-      const r = 26 + rand(n + 70) * 38 - s * 6;
-      body += [y - h, y, y + h]
-        .map((cy) => `<circle cx='${x}' cy='${cy}' r='${r}' fill='${shade}'/>`)
-        .join("");
-    }
-  });
-  return svgUrl(
-    w,
-    h,
-    flip ? `<g transform='translate(${w} 0) scale(-1 1)'>${body}</g>` : body,
-  );
-}
-
-const FOREST = {
-  "--far": pines(520, 240, 9, "#9fcf97", 1),
-  "--mid": oaks(820, 360, 6, ["#4f9a4a", "#72b862"], 20),
-  "--near": meadow(1100, 140, 40),
-  "--left": canopy(260, 560, 60, false),
-  "--right": canopy(260, 560, 90, true),
-} as CSSProperties;
-
-const MOTES = Array.from({ length: 16 }, (_, i) => ({
+const MOTES = Array.from({ length: 22 }, (_, i) => ({
   left: `${rand(i + 700) * 100}%`,
-  top: `${15 + rand(i + 800) * 70}%`,
+  top: `${4 + rand(i + 800) * 88}%`,
   "--size": `${3 + rand(i + 900) * 3}px`,
   animationDuration: `${7 + rand(i + 1000) * 6}s`,
   animationDelay: `-${rand(i + 1100) * 10}s`,
 })) as CSSProperties[];
-
-function Forest() {
-  return (
-    <div className={styles.forest} style={FOREST} aria-hidden="true">
-      {MOTES.map((style, i) => (
-        <span key={i} className={styles.mote} style={style} />
-      ))}
-    </div>
-  );
-}
 
 function Arrow() {
   return (
@@ -189,13 +212,32 @@ function BeeBody() {
   return (
     <>
       <g className={styles.wings}>
-        <ellipse cx="19" cy="10" rx="8" ry="5" transform="rotate(-25 19 10)" />
-        <ellipse cx="27" cy="9" rx="8" ry="5" transform="rotate(15 27 9)" />
+        <path d="M26 15C22 5 12 1 7 4c-4 3 2 10 15 13z" />
+        <path d="M29 15C28 6 23 0 18 1c-5 1-2 9 8 15z" />
       </g>
-      <ellipse cx="24" cy="22" rx="14" ry="10" fill="#f5b83d" />
-      <path d="M19 12.7v18.6M27 12.2v19.6" stroke="#14110b" strokeWidth="4" />
-      <path d="M10.5 20.5 4 22l6.5 1.5z" fill="#14110b" />
-      <circle cx="33.5" cy="19" r="1.8" fill="#14110b" />
+      <path
+        d="M30 22C30 16 20 13 12 15 6 17 3 21 1 23c3 2 6 5 11 7 9 2 18-1 18-8z"
+        fill="#e8a424"
+      />
+      <path
+        d="M12.5 15.5q2.5 7 0 14M18 14.8q3 7.5 0 15.6M24 15.2q2.8 7 0 14.4"
+        fill="none"
+        stroke="#2a1a0a"
+        strokeWidth="3"
+      />
+      <path
+        d="M9 18.5q8-4 17-2.5"
+        fill="none"
+        stroke="#ffdf8a"
+        strokeLinecap="round"
+        strokeOpacity="0.65"
+        strokeWidth="1.4"
+      />
+      <circle cx="33" cy="20" r="7.5" fill="#4a2c10" />
+      <circle cx="33" cy="18.8" r="5.4" fill="#c98a1f" opacity="0.75" />
+      <circle cx="41" cy="21.5" r="4.6" fill="#2a1a0a" />
+      <circle cx="42.6" cy="20.4" r="1.1" fill="#ffe9b0" />
+      <path d="M43 18q3-5 7-5" fill="none" stroke="#2a1a0a" />
     </>
   );
 }
@@ -211,12 +253,12 @@ function Bee() {
 // Dotted flight trails across the sky, with bees looping along them.
 const TRAILS = [
   "M-80 320C160 180 300 420 480 300C640 190 760 120 800 220C840 320 700 360 680 280C660 200 860 160 1000 240C1160 330 1300 200 1520 260",
-  "M1520 120C1300 40 1180 200 960 140C760 80 640 200 420 130C240 70 120 160-80 110",
+  "M-80 110C120 160 240 70 420 130C640 200 760 80 960 140C1180 200 1300 40 1520 120",
 ];
 const FLIGHTS = [
-  { trail: 0, dur: 16, begin: 0 },
-  { trail: 0, dur: 16, begin: -8 },
-  { trail: 1, dur: 20, begin: -5 },
+  { trail: 0, dur: 16, start: 0 },
+  { trail: 0, dur: 16, start: 0.5 },
+  { trail: 1, dur: 20, start: 0.25 },
 ];
 
 function FlightPaths() {
@@ -227,25 +269,37 @@ function FlightPaths() {
       className={styles.flights}
       aria-hidden="true"
     >
-      {TRAILS.map((d, i) => (
-        <path
+      <mask
+        id="sponsor-trail-reveal"
+        maskUnits="userSpaceOnUse"
+        x="-120"
+        y="-20"
+        width="1680"
+        height="600"
+      >
+        {TRAILS.map((d, i) => (
+          <path key={i} d={d} className={styles.trailReveal} data-draw />
+        ))}
+      </mask>
+      <g mask="url(#sponsor-trail-reveal)">
+        {TRAILS.map((d, i) => (
+          <path
+            key={i}
+            id={`sponsor-trail-${i}`}
+            d={d}
+            className={styles.trail}
+          />
+        ))}
+      </g>
+      {FLIGHTS.map(({ trail, dur, start }, i) => (
+        <g
           key={i}
-          id={`sponsor-trail-${i}`}
-          d={d}
-          className={styles.trail}
-        />
-      ))}
-      {FLIGHTS.map(({ trail, dur, begin }, i) => (
-        <g key={i} className={styles.flightBee}>
-          <animateMotion
-            dur={`${dur}s`}
-            begin={`${begin}s`}
-            repeatCount="indefinite"
-            rotate="auto"
-          >
-            <mpath href={`#sponsor-trail-${trail}`} />
-          </animateMotion>
-          <g transform="translate(-26 -20) scale(1.1)">
+          className={styles.flightBee}
+          data-bee={trail}
+          data-dur={dur}
+          data-start={start}
+        >
+          <g transform="translate(-22 -17) scale(0.9)">
             <BeeBody />
           </g>
         </g>
@@ -254,9 +308,14 @@ function FlightPaths() {
   );
 }
 
-function Tile({ sponsor }: { sponsor: Sponsor }) {
+function Tile({ sponsor }: { sponsor: Omit<Sponsor, "tier"> }) {
   const face = sponsor.logo_url ? (
-    <img src={sponsor.logo_url} alt={sponsor.name} className={styles.logo} />
+    <img
+      src={sponsor.logo_url}
+      alt={sponsor.name}
+      className={styles.logo}
+      loading="lazy"
+    />
   ) : (
     <span className={styles.wordmark}>{sponsor.name}</span>
   );
@@ -296,26 +355,64 @@ function Label({ children }: { children: string }) {
   );
 }
 
-export async function SponsorsSection() {
-  const sponsors = await getSponsors();
+export function SponsorsSection() {
+  const sponsors = PREVIOUS_SPONSORS;
 
   return (
-    <section id="sponsors" className={`${styles.section} scroll-mt-16`}>
+    <ForestMotion id="sponsors" className={`${styles.section} scroll-mt-16`}>
       {/* Dusk from the section above brightens into the honey-lit sky. */}
       <div className={styles.dawn} aria-hidden="true" />
 
-      {/* A clearing in the woods: heading, then wax panels in honeycomb frames. */}
-      <div className={styles.yard}>
-        <Forest />
+      {/* Evening sky over the treeline. */}
+      <div className={styles.sky}>
         <FlightPaths />
 
         <header className={styles.intro}>
-          <h2 className={styles.title}>Sponsors</h2>
+          <SplitText
+            tag="h2"
+            text="Sponsors"
+            className={styles.title}
+            delay={35}
+            duration={1}
+            threshold={0.2}
+            rootMargin="0px"
+          />
           <p className={styles.lead}>The teams making HackHive possible.</p>
         </header>
 
+        <div className={styles.far} aria-hidden="true" data-depth="55">
+          <Image
+            src="/sponsors/far.webp"
+            alt=""
+            width={2600}
+            height={460}
+            sizes="max(100vw, 72rem)"
+          />
+        </div>
+        <div className={styles.wall} aria-hidden="true" data-depth="28">
+          <Image
+            src="/sponsors/wall.webp"
+            alt=""
+            width={3000}
+            height={1120}
+            sizes="max(100vw, 72rem)"
+          />
+        </div>
+      </div>
+
+      {/* In among the trees: wax panels in honeycomb frames. */}
+      <div className={styles.woods}>
+        <div className={styles.trees} aria-hidden="true">
+          {TREES.map((tree) => (
+            <Tree key={`${tree.side}-${tree.top}`} {...tree} />
+          ))}
+          {MOTES.map((style, i) => (
+            <span key={i} className={styles.mote} style={style} />
+          ))}
+        </div>
+
         <div className={styles.boards}>
-          <div className={styles.board}>
+          <div className={styles.board} data-rise>
             <Label>Sponsor HackHive 2027</Label>
             <div className={styles.frame}>
               <div className={`${styles.panel} ${styles.pitch}`}>
@@ -335,8 +432,8 @@ export async function SponsorsSection() {
             </div>
           </div>
 
-          <div className={styles.board}>
-            <Label>Holding up the hive</Label>
+          <div className={styles.board} data-rise>
+            <Label>Previous sponsors</Label>
             <div className={styles.frame}>
               <div className={styles.panel}>
                 {TIERS.map(({ tier, label, columns }) => {
@@ -365,12 +462,31 @@ export async function SponsorsSection() {
                   );
                 })}
 
-                <p className={styles.more}>and more to come…</p>
+                <p className={styles.more}></p>
               </div>
             </div>
           </div>
         </div>
+
+        <div className={styles.floor} aria-hidden="true" data-depth="-36">
+          <Image
+            src="/sponsors/floor.webp"
+            alt=""
+            width={3000}
+            height={560}
+            sizes="max(100vw, 72rem)"
+          />
+        </div>
+        <div className={styles.mist} aria-hidden="true">
+          <Image
+            src="/sponsors/mist.webp"
+            alt=""
+            width={3000}
+            height={380}
+            sizes="max(100vw, 72rem)"
+          />
+        </div>
       </div>
-    </section>
+    </ForestMotion>
   );
 }
