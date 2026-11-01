@@ -1,0 +1,300 @@
+.track {
+  background: #f3e4a6;
+}
+
+.track[data-tall="true"] {
+  height: 280vh;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.stage {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(#f6e39a 0%, #fbf6dc 34%, #d3e4ac 48%, #c2d694 100%);
+  color: #3a2616;
+}
+
+.layer,
+.wall {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.plate,
+.sway,
+.still {
+  position: absolute;
+  inset: 0;
+}
+
+.plate > svg,
+.plateImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
+}
+
+.sway {
+  transform-origin: 50% 42%;
+}
+
+.petal {
+  position: absolute;
+  z-index: 16;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.top {
+  position: absolute;
+  z-index: 30;
+  top: 18px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-shadow: 0 1px 0 rgba(255, 250, 230, 0.45);
+}
+
+.wordmark {
+  color: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  text-decoration: none;
+}
+
+.wordmark:hover {
+  opacity: 0.75;
+}
+
+.wordmark:focus-visible,
+.signButton:focus-visible,
+.walk:focus-visible,
+.scrub input:focus-visible {
+  outline: 2px solid #3a2616;
+  outline-offset: 3px;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.signButton {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  color: #3a2616;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  pointer-events: auto;
+  border: 1.5px solid #5c3a1e;
+  box-shadow:
+    0 2px 0 #5c3a1e,
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+
+.join {
+  background: linear-gradient(#f0c56a, #d4923c);
+}
+
+.learn {
+  background: linear-gradient(#f7e0b6, #e4bc78);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.signButton:hover {
+  filter: brightness(1.06);
+}
+
+.signButton:active {
+  transform: translateY(1px);
+}
+
+.dock {
+  position: absolute;
+  z-index: 30;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: min(420px, calc(100% - 20px));
+  padding: 8px 12px 8px 8px;
+  background: rgba(255, 250, 240, 0.92);
+  border: 1px solid rgba(74, 50, 24, 0.16);
+  border-radius: 999px;
+  box-shadow: 0 12px 40px rgba(70, 42, 16, 0.12);
+  transform: translateX(-50%);
+  backdrop-filter: blur(12px);
+}
+
+.walk {
+  flex: none;
+  padding: 10px 16px;
+  color: #fffaf0;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  background: #3a2616;
+  border: 0;
+  border-radius: 999px;
+}
+
+.walk:hover {
+  background: #2c1c10;
+}
+
+.scrub {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.scrub span {
+  color: #6b5136;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.scrub input {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  cursor: pointer;
+  background: transparent;
+}
+
+.scrub input::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #e6d3ae;
+  border-radius: 999px;
+}
+
+.scrub input::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  appearance: none;
+  background: #c47a32;
+  border: 2px solid #fffaf0;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(58, 38, 22, 0.28);
+}
+
+.scrub input::-moz-range-track {
+  height: 4px;
+  background: #e6d3ae;
+  border: 0;
+  border-radius: 999px;
+}
+
+.scrub input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #c47a32;
+  border: 2px solid #fffaf0;
+  border-radius: 50%;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 767px) {
+  .layer[data-mobile="false"] {
+    display: none;
+  }
+
+  .petal:nth-child(n + 5) {
+    display: none;
+  }
+
+  .top {
+    top: 14px;
+    left: 14px;
+  }
+
+  .dock {
+    bottom: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sway {
+    animation: tree-breeze 9s ease-in-out infinite;
+  }
+
+  .petal {
+    animation-name: drift;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+}
+
+@keyframes tree-breeze {
+  0%,
+  100% {
+    transform: rotate(-0.35deg);
+  }
+
+  50% {
+    transform: rotate(0.45deg);
+  }
+}
+
+@keyframes drift {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+  }
+
+  14% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(20px, 110vh, 0) rotate(80deg);
+  }
+}
