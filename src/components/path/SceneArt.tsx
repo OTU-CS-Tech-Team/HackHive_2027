@@ -182,8 +182,8 @@ function Far({ id }: { id: ChapterId }) {
       <ellipse cx={720 + shift} cy="455" rx="860" ry="78" fill={m.skyBottom} opacity="0.55" />
       <Canopy x={150 + shift} y={400} s={0.85} pale />
       <Canopy x={250 + shift} y={418} s={1.05} pale />
-      <Canopy x={1180 + shift} y={408} s={0.95} pale />
-      <Canopy x={1310 + shift} y={392} s={0.8} pale />
+      <Canopy x={1120 + shift} y={408} s={0.95} pale />
+      <Canopy x={1240 + shift} y={392} s={0.8} pale />
     </svg>
   );
 }
@@ -196,8 +196,8 @@ function Mid({ id }: { id: ChapterId }) {
       <PathBand m={m} fork={id === "fork"} />
       {id === "clearing" && <ellipse cx="720" cy="590" rx="250" ry="92" fill="#e7f2c9" />}
       <FlowerBed m={m} />
-      <Canopy x={70} y={520} s={1.25} />
-      <Canopy x={1360} y={500} s={1.35} />
+      <Canopy x={90} y={520} s={1.25} />
+      <Canopy x={1280} y={500} s={1.35} />
     </svg>
   );
 }
@@ -262,13 +262,13 @@ function Fence() {
 function HiveDome() {
   return (
     <g>
-      <ellipse cx="640" cy="690" rx="220" ry="36" fill="rgba(80,30,10,0.2)" />
-      <ellipse cx="640" cy="560" rx="176" ry="164" fill="#f0a24c" />
-      <ellipse cx="640" cy="500" rx="158" ry="34" fill="#e28a34" />
-      <ellipse cx="640" cy="575" rx="164" ry="26" fill="#c96d28" opacity="0.55" />
-      <ellipse cx="640" cy="640" rx="146" ry="22" fill="#e39a40" />
-      <ellipse cx="640" cy="600" rx="44" ry="34" fill="#24180f" />
-      <rect x="596" y="628" width="88" height="12" rx="3" fill="#f6d48a" />
+      <ellipse cx="470" cy="690" rx="190" ry="32" fill="rgba(80,30,10,0.2)" />
+      <ellipse cx="470" cy="545" rx="158" ry="148" fill="#f0a24c" />
+      <ellipse cx="470" cy="488" rx="142" ry="30" fill="#e28a34" />
+      <ellipse cx="470" cy="560" rx="148" ry="24" fill="#c96d28" opacity="0.55" />
+      <ellipse cx="470" cy="620" rx="132" ry="20" fill="#e39a40" />
+      <ellipse cx="470" cy="585" rx="40" ry="30" fill="#24180f" />
+      <rect x="428" y="612" width="84" height="12" rx="3" fill="#f6d48a" />
     </g>
   );
 }
@@ -279,20 +279,20 @@ function Near({ id }: { id: ChapterId }) {
     <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" className={styles.scene} aria-hidden="true">
       {id === "trailhead" && (
         <>
-          <Canopy x={180} y={560} s={1.7} />
-          <Canopy x={1260} y={540} s={1.8} />
+          <Canopy x={160} y={560} s={1.7} />
+          <Canopy x={1180} y={540} s={1.7} />
         </>
       )}
       {id === "clearing" && (
         <>
-          <Canopy x={220} y={500} s={1.4} />
-          <Canopy x={1220} y={510} s={1.45} />
+          <Canopy x={200} y={500} s={1.4} />
+          <Canopy x={1160} y={510} s={1.4} />
         </>
       )}
       {id === "fork" && (
         <>
-          <Canopy x={160} y={470} s={1.5} />
-          <Canopy x={1280} y={480} s={1.55} />
+          <Canopy x={150} y={470} s={1.5} />
+          <Canopy x={1200} y={480} s={1.5} />
         </>
       )}
       {id === "oak" && <Oak />}
@@ -334,12 +334,12 @@ function Foreground({ id }: { id: ChapterId }) {
         <ellipse cx="1400" cy="30" rx="130" ry="48" fill="#2f682c" transform="rotate(24 1400 30)" />
         <ellipse cx="1280" cy="70" rx="80" ry="30" fill="#74b35a" transform="rotate(16 1280 70)" />
       </g>
-      <Bloom x={430} y={820} s={2.4} color="#fffdf8" />
-      <Bloom x={360} y={860} s={1.8} color="#f7c4d2" />
-      <Bloom x={500} y={870} s={1.5} color="#ffe28a" />
-      <Bloom x={1040} y={830} s={2.5} color="#fffdf8" />
-      <Bloom x={1140} y={870} s={1.7} color="#f7c4d2" />
-      <Bloom x={960} y={880} s={1.4} color="#ffe28a" />
+      <Bloom x={390} y={760} s={2.2} color="#fffdf8" />
+      <Bloom x={300} y={800} s={1.6} color="#f7c4d2" />
+      <Bloom x={470} y={810} s={1.35} color="#ffe28a" />
+      <Bloom x={1040} y={770} s={2.3} color="#fffdf8" />
+      <Bloom x={1140} y={810} s={1.55} color="#f7c4d2" />
+      <Bloom x={940} y={820} s={1.3} color="#ffe28a" />
       {id === "hive" && (
         <g className={styles.flies}>
           {FLIES.map(([x, y, r, delay]) => (

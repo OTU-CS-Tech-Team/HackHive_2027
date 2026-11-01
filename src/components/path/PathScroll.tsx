@@ -102,8 +102,21 @@ export function PathScroll({
       (context) => {
         if (context.conditions?.reduce) {
           root.dataset.motion = "reduce";
+          const chapterEls = [...root.querySelectorAll<HTMLElement>("[data-path-chapter]")];
+          const observer = new IntersectionObserver(
+            (entries) => {
+              const visible = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+              if (!visible) return;
+              const index = chapterEls.indexOf(visible.target as HTMLElement);
+              if (index >= 0) setDots(index);
+            },
+            { threshold: [0.45, 0.7] },
+          );
+          chapterEls.forEach((el) => observer.observe(el));
           root.dataset.pathReady = "true";
-          return;
+          return () => observer.disconnect();
         }
         const mobile = Boolean(context.conditions?.mobile);
         root.dataset.motion = mobile ? "mobile" : "full";
@@ -220,6 +233,9 @@ export function PathScroll({
     if (!root) return;
     const el = root.querySelectorAll<HTMLElement>("[data-path-chapter]")[index];
     if (!el) return;
+    root.querySelectorAll<HTMLButtonElement>("[data-path-dot]").forEach((dot) => {
+      dot.setAttribute("aria-current", dot.dataset.index === String(index) ? "true" : "false");
+    });
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const start = el.dataset.pinStart;
     if (reduce || !start) {
