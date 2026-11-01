@@ -26,8 +26,6 @@ export default function Constellation({ collection, active, revealed, reducedMot
   const [focused, setFocused] = useState(false);
   const project = projects[selected];
   const touring = active && !paused && !watching && !focused && !reducedMotion && projects.length > 1;
-  const selectedEdge = shape.edges.find(([, to]) => to === selected) ?? shape.edges.find(([from]) => from === selected);
-  const from = selectedEdge ? shape.points[selectedEdge[0] === selected ? selectedEdge[1] : selectedEdge[0]] : null;
   const to = shape.points[selected];
   // Keep neighboring star targets from intercepting each other on small maps.
   const hitSizes = shape.points.map((point, index) => Math.min(100, ...shape.points
@@ -55,8 +53,8 @@ export default function Constellation({ collection, active, revealed, reducedMot
             <path pathLength="1" className={styles.starPath} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
             <path className={styles.lineHit} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
           </g>)}
-          {active && from && <path key={project.id} pathLength="1" className={styles.activePath} d={`M${from.x} ${from.y}L${to.x} ${to.y}`} />}
         </svg>
+        {active && <span className={styles.traveler} aria-hidden="true" style={{ left: `${to.x / 10}%`, top: `${to.y / 8}%` }} />}
         <div className={styles.nodes} aria-label={`${year} constellation`}>
           {projects.map((item, index) => <button key={item.id} type="button" className={styles.node}
             data-label-align={shape.points[index].x < 220 ? "start" : shape.points[index].x > 780 ? "end" : undefined}

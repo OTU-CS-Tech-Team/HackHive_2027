@@ -115,15 +115,14 @@ project stars and updates the featured thumbnail and demo player. Choose any
 star, use previous/next, or pause the tour. Playing a demo holds the selection;
 leaving the year, hiding the tab, or navigating away removes the player.
 
-The opening is an empty star field. Scrolling
-reveals open star paths inspired by Orion, Cassiopeia, and Lyra, with an unframed
-project preview. There are no section dividers or project counts. The sticky year
-marker writes each year with animated strokes, scribbles over the outgoing year,
-and replaces it in one fixed slot; old years never accumulate. Quick links appear
-only at the bottom. Project selection cycles every two seconds, and hovering a
-constellation line highlights it.
-Reduced-motion mode uses manual selection. Existing shared project data and
-thumbnails remain the source of truth.
+The first project and its honeycomb constellation appear immediately. The project
+preview has generous space beside the map, with a compact stacked layout on
+smaller screens. A persistent star travels smoothly from node to node in two
+seconds without restarting at each project. The year marker writes each year,
+then scribbles over and replaces it in one slot. Year links stay fixed at the
+bottom for direct navigation at any scroll position. Hovering a line highlights
+it. Reduced-motion mode uses manual selection and immediate position updates.
+Existing shared project data and thumbnails remain the source of truth.
 
 ### Shared content, independent design
 
