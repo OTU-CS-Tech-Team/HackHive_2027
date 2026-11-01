@@ -94,11 +94,9 @@ function positionForIndex(
   };
 }
 
-function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd }: {
+function PersonHexCard({ person, revealed, onFlipEnd }: {
   person: Person;
   revealed: boolean;
-  expanded: boolean;
-  onToggleExpanded: () => void;
   onFlipEnd: () => void;
 }) {
   const [touchMode, setTouchMode] = useState(false);
@@ -129,7 +127,7 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
 
   return (
     <div
-      className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${revealed ? styles.isFlipped : ""} ${expanded ? styles.isExpanded : ""}`}
+      className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${revealed ? styles.isFlipped : ""}`}
       style={{ transitionDuration: `${FLIP_DURATION_MS}ms` }}
       onTransitionEnd={(event) => {
         if (event.target === event.currentTarget && event.propertyName === "transform") {
@@ -146,17 +144,12 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
         aria-hidden={!revealed}
         inert={!revealed}
       >
-        <button
-          type="button"
-          className={styles.backToggle}
-          aria-expanded={expanded}
-          onClick={onToggleExpanded}
-        >
+        <div className={styles.backToggle}>
           {avatar}
           <span className={styles.name}>{person.name}</span>
           {person.title && <span className={styles.details}>{person.title}</span>}
           {person.company && <span className={styles.details}>{person.company}</span>}
-        </button>
+        </div>
         {person.linkedin_url && <span className={styles.rule} aria-hidden="true" />}
         {person.linkedin_url && (
           <a
@@ -188,7 +181,6 @@ export function HoneycombGroup({
   const roleClass = role === "speaker" ? styles.speaker : styles.judge;
 
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
-  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const revealedRef = useRef(revealed);
   const desiredRef = useRef<ReadonlySet<string>>(new Set());
   const onFlipEndRef = useRef<() => void>(() => {});
@@ -355,8 +347,6 @@ export function HoneycombGroup({
                 <PersonHexCard
                   person={person}
                   revealed={revealed.has(person.id)}
-                  expanded={expandedPersonId === person.id}
-                  onToggleExpanded={() => setExpandedPersonId((current) => current === person.id ? null : person.id)}
                   onFlipEnd={() => onFlipEndRef.current()}
                 />
               </div>

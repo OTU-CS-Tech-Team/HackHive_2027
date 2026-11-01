@@ -168,16 +168,6 @@
   -webkit-backface-visibility: hidden;
 }
 
-.faceButton {
-  margin: 0;
-  border: 0;
-  font: inherit;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.faceButton:focus-visible,
 .moreCard:focus-visible {
   outline: 3px solid #fff6e0;
   outline-offset: -0.5rem;
@@ -227,13 +217,9 @@
   justify-content: center;
   gap: 0.3em;
   padding: 0;
-  border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .speaker .back {
@@ -400,47 +386,6 @@
 
 .flip:has(.isFlipped) {
   transform: scale(0.94);
-}
-
-.cell:has(.isExpanded),
-.cell:has(.backToggle:focus-visible) {
-  z-index: 2;
-}
-
-.flip:has(.isExpanded),
-.flip:has(.backToggle:focus-visible) {
-  inset: -25%;
-  transform: translateX(var(--expand-shift, 0px)) scale(1);
-}
-
-.card.isExpanded .back,
-.back:has(.backToggle:focus-visible) {
-  justify-content: flex-start;
-  padding-top: 0.75em;
-}
-
-.card.isExpanded .backToggle,
-.back:has(.backToggle:focus-visible) .backToggle {
-  flex: 0 0 auto;
-}
-
-.card.isExpanded .bio,
-.card.isExpanded .link,
-.back:has(.backToggle:focus-visible) .bio {
-  display: block;
-}
-
-.card.isExpanded .bio,
-.back:has(.backToggle:focus-visible) .bio {
-  display: -webkit-box;
-  overflow: visible;
-  line-clamp: unset;
-  -webkit-line-clamp: unset;
-}
-
-.card.isExpanded .details,
-.back:has(.backToggle:focus-visible) .details {
-  display: block;
 }
 
 /*
