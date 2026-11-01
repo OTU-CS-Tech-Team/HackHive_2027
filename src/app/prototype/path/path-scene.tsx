@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { clamp, placeRect, sceneMotion } from "./motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { clamp, sceneMotion } from "./motion";
 import styles from "./path-scene.module.css";
-import { VIEWBOX, layers, midFlowersSvg, signButtons, walls } from "./scene";
+import { layers, midFlowersSvg, walls } from "./scene";
 
 type PetalKind = "daisy" | "poppy" | "buttercup" | "lupin" | "leaf";
 
@@ -24,18 +24,26 @@ function PetalShape({ kind }: { kind: PetalKind }) {
     case "daisy":
       return (
         <g>
-          <ellipse rx="7" ry="16" fill="#FFFEF8" stroke="#E4DECF" strokeWidth="1" />
-          <circle cy="9" r="3.2" fill="#F0B429" />
+          <ellipse cy="-8" rx="5" ry="11" fill="#FFFFFF" opacity="0.95" />
+          <ellipse cy="-8" rx="5" ry="11" fill="#FFFFFF" transform="rotate(60)" />
+          <ellipse cy="-8" rx="5" ry="11" fill="#F4F7EC" transform="rotate(120)" />
+          <circle r="3.4" fill="#F0C14A" />
         </g>
       );
     case "poppy":
-      return <path d="M0 10 C 9 6 13 -8 0 -16 C -13 -8 -9 6 0 10 Z" fill="#E24B4A" stroke="#7A2428" strokeWidth="1" />;
+      return (
+        <g>
+          <ellipse cy="-6" rx="8" ry="10" fill="#E45462" />
+          <ellipse cy="-6" rx="8" ry="10" fill="#FF8B86" transform="rotate(70)" />
+          <circle r="3" fill="#5C2430" />
+        </g>
+      );
     case "buttercup":
-      return <circle r="8" fill="#F2C63D" stroke="#C89214" strokeWidth="1" />;
+      return <circle r="7" fill="#F6C53A" />;
     case "lupin":
-      return <ellipse rx="5" ry="8" fill="#7D5BA6" stroke="#3C2A58" strokeWidth="1" />;
+      return <ellipse rx="4.5" ry="8" fill="#8E78D8" />;
     case "leaf":
-      return <ellipse rx="6" ry="13" fill="#6EA44C" stroke="#24341C" strokeWidth="1" transform="rotate(28)" />;
+      return <ellipse rx="5" ry="12" fill="#3E9E55" transform="rotate(28)" />;
     default: {
       const neverKind: never = kind;
       return neverKind;
@@ -51,23 +59,11 @@ function phaseLabel(progress: number) {
 
 export function PathScene() {
   const trackRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
   const playing = useRef(false);
   const [progress, setProgress] = useState(0);
   const [tall, setTall] = useState(false);
   const [reduce, setReduce] = useState(false);
-  const [stage, setStage] = useState({ w: 0, h: 0 });
-
-  useLayoutEffect(() => {
-    const element = stageRef.current;
-    if (!element) return;
-    const measure = () => setStage({ w: element.clientWidth, h: element.clientHeight });
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -86,7 +82,7 @@ export function PathScene() {
     const previousScroll = root.style.scrollBehavior;
     const previousBody = document.body.style.backgroundColor;
     root.style.scrollBehavior = "auto";
-    document.body.style.backgroundColor = "#f3e4a6";
+    document.body.style.backgroundColor = "#8ec6ef";
     return () => {
       root.style.scrollBehavior = previousScroll;
       document.body.style.backgroundColor = previousBody;
@@ -152,24 +148,11 @@ export function PathScene() {
   }, [progress, reduce, scrollToProgress]);
 
   const { walk, wallOpen } = sceneMotion(progress);
-  const buttonStyle = (rect: { x: number; y: number; w: number; h: number }) => {
-    const box = placeRect(rect, stage.w, stage.h, VIEWBOX.width, VIEWBOX.height);
-    return {
-      left: box.left,
-      top: box.top,
-      width: box.width,
-      height: box.height,
-      fontSize: Math.max(12, box.height * 0.34),
-      borderRadius: Math.max(6, box.height * 0.22),
-    };
-  };
 
   return (
     <main ref={trackRef} className={styles.track} data-tall={tall ? "true" : "false"}>
       <div className={styles.sticky}>
-        <h1 className={styles.srOnly}>HackHive 2027</h1>
-        <p className={styles.srOnly}>January 29–31, 2027. Chapter 1, Trailhead.</p>
-        <div ref={stageRef} className={styles.stage} data-scene="trailhead">
+        <div className={styles.stage} data-scene="trailhead">
           {layers.map((layer) => {
             const scale = 1 + layer.speed * walk;
             const frame = layer.id === "far-trees" ? styles.sway : styles.still;
@@ -197,21 +180,6 @@ export function PathScene() {
                     />
                   )}
                 </div>
-                {layer.id === "sign" && stage.w > 0 ? (
-                  <>
-                    <Link href="/apply" className={`${styles.signButton} ${styles.join}`} style={buttonStyle(signButtons.join)}>
-                      Join
-                    </Link>
-                    <button
-                      type="button"
-                      className={`${styles.signButton} ${styles.learn}`}
-                      style={buttonStyle(signButtons.learn)}
-                      onClick={play}
-                    >
-                      Learn more
-                    </button>
-                  </>
-                ) : null}
               </div>
             );
           })}
@@ -237,11 +205,18 @@ export function PathScene() {
             <Image className={styles.plateImg} src={walls.right.src} alt="" fill unoptimized priority sizes="100vw" draggable={false} />
           </div>
 
-          <header className={styles.top}>
-            <Link href="/" className={styles.wordmark}>
-              HackHive
-            </Link>
+          <header className={styles.hero}>
             <p className={styles.kicker}>Chapter 1 · Trailhead</p>
+            <h1 className={styles.title}>HackHive</h1>
+            <p className={styles.date}>Jan 29–31, 2027</p>
+            <div className={styles.actions}>
+              <Link href="/apply" className={`${styles.ghost} ${styles.join}`}>
+                Join
+              </Link>
+              <button type="button" className={`${styles.ghost} ${styles.learn}`} onClick={play}>
+                Learn more
+              </button>
+            </div>
           </header>
 
           <div className={styles.dock}>

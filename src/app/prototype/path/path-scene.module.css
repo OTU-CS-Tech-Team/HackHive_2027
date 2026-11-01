@@ -1,5 +1,5 @@
 .track {
-  background: #f3e4a6;
+  background: #8ec6ef;
 }
 
 .track[data-tall="true"] {
@@ -17,8 +17,8 @@
   position: relative;
   height: 100%;
   overflow: hidden;
-  background: linear-gradient(#f6e39a 0%, #fbf6dc 34%, #d3e4ac 48%, #c2d694 100%);
-  color: #3a2616;
+  background: linear-gradient(#6eb6f0 0%, #d7e7b0 62%, #3e9450 100%);
+  color: #f7fbf4;
 }
 
 .layer,
@@ -56,84 +56,98 @@
   opacity: 0.92;
 }
 
-.top {
+.hero {
   position: absolute;
-  z-index: 30;
-  top: 18px;
-  left: 20px;
+  z-index: 12;
+  top: 50%;
+  left: 50%;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  text-shadow: 0 1px 0 rgba(255, 250, 230, 0.45);
+  align-items: center;
+  width: min(920px, calc(100% - 32px));
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -58%);
 }
 
-.wordmark {
-  color: inherit;
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.045em;
-  text-decoration: none;
-}
-
-.wordmark:hover {
-  opacity: 0.75;
-}
-
-.wordmark:focus-visible,
-.signButton:focus-visible,
-.walk:focus-visible,
-.scrub input:focus-visible {
-  outline: 2px solid #3a2616;
-  outline-offset: 3px;
+.hero::before {
+  position: absolute;
+  z-index: -1;
+  width: 140%;
+  height: 160%;
+  pointer-events: none;
+  content: "";
+  background: radial-gradient(ellipse at center, rgba(20, 48, 28, 0.22), transparent 68%);
+  filter: blur(6px);
 }
 
 .kicker {
-  margin: 0;
+  margin: 0 0 10px;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  opacity: 0.72;
+  color: rgba(255, 252, 246, 0.78);
 }
 
-.signButton {
-  position: absolute;
-  z-index: 5;
+.title {
+  margin: 0;
+  font-family: var(--font-grotesk), "Space Grotesk", sans-serif;
+  font-size: clamp(4.2rem, 12vw, 8.6rem);
+  font-weight: 500;
+  line-height: 0.88;
+  letter-spacing: -0.055em;
+  color: transparent;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 10%, rgba(255, 255, 255, 0.58) 100%);
+  background-clip: text;
+  filter: drop-shadow(0 18px 28px rgba(24, 48, 28, 0.16));
+}
+
+.date {
+  margin: 16px 0 0;
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 252, 246, 0.86);
+}
+
+.actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  color: #3a2616;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  white-space: nowrap;
-  text-decoration: none;
+  gap: 10px;
+  margin-top: 18px;
   pointer-events: auto;
-  border: 1.5px solid #5c3a1e;
-  box-shadow:
-    0 2px 0 #5c3a1e,
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.ghost {
+  padding: 10px 18px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #f7fbf4;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  background: rgba(255, 252, 246, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
 }
 
 .join {
-  background: linear-gradient(#f0c56a, #d4923c);
+  background: rgba(255, 252, 246, 0.28);
+  color: #1d3a24;
 }
 
-.learn {
-  background: linear-gradient(#f7e0b6, #e4bc78);
-  font: inherit;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.ghost:hover {
+  background: rgba(255, 252, 246, 0.4);
 }
 
-.signButton:hover {
-  filter: brightness(1.06);
-}
-
-.signButton:active {
-  transform: translateY(1px);
+.ghost:focus-visible,
+.walk:focus-visible,
+.scrub input:focus-visible {
+  outline: 2px solid #f7fbf4;
+  outline-offset: 3px;
 }
 
 .dock {
@@ -146,8 +160,8 @@
   align-items: center;
   width: min(420px, calc(100% - 20px));
   padding: 8px 12px 8px 8px;
-  background: rgba(255, 250, 240, 0.92);
-  border: 1px solid rgba(74, 50, 24, 0.16);
+  background: rgba(255, 252, 246, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 999px;
   box-shadow: 0 12px 40px rgba(70, 42, 16, 0.12);
   transform: translateX(-50%);
@@ -250,9 +264,8 @@
     display: none;
   }
 
-  .top {
-    top: 14px;
-    left: 14px;
+  .hero {
+    transform: translate(-50%, -54%);
   }
 
   .dock {
