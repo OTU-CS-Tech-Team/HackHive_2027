@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getVerifiedUser } from '@/lib/auth/helpers';
@@ -15,6 +16,7 @@ import {
 } from '@/lib/application/schema';
 import crypto from 'crypto';
 
+const REQUIRED_SUBMIT_ENV = ['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_HASH_SECRET', 'TURNSTILE_SECRET_KEY'];
 const MIN_SUBMIT_TIME_MS = 3000;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_IP_MAX_ATTEMPTS = 100;
@@ -266,8 +268,15 @@ export async function submitApplication(input: {
       return { ok: false, code: 'not_verified', error: 'Email not verified' };
     }
 
+    // Names only, so a misconfigured deploy says what to fix instead of a generic error.
+    const missingEnv = REQUIRED_SUBMIT_ENV.filter((name) => !process.env[name]);
+    if (missingEnv.length > 0) {
+      console.error('submitApplication missing env:', missingEnv.join(', '));
+      return { ok: false, code: 'server', error: `Server is missing ${missingEnv.join(', ')}` };
+    }
+
     const serviceClient = createServiceClient();
-    
+
     const { data: existingSubmission } = await serviceClient
       .from('applications')
       .select('id, submitted_at')
@@ -302,9 +311,18 @@ export async function submitApplication(input: {
       return { ok: false, code: 'validation', error: 'Invalid submission' };
     }
 
-    const elapsed = Date.now() - input.startedAt;
-    if (elapsed < MIN_SUBMIT_TIME_MS) {
-      return { ok: false, code: 'too_fast', error: 'Please take more time to fill out the form' };
+    // startedAt is when this page loaded, so someone reopening a finished draft
+    // can trip it. The draft's age is the real time they've been applying.
+    if (Date.now() - input.startedAt < MIN_SUBMIT_TIME_MS) {
+      const { data: draft } = await serviceClient
+        .from('applications')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!draft || Date.now() - Date.parse(draft.created_at) < MIN_SUBMIT_TIME_MS) {
+        return { ok: false, code: 'too_fast', error: 'Please wait a few seconds, then try again.' };
+      }
     }
 
     const result = applicationSubmitSchema.safeParse(input.fields);
@@ -363,6 +381,21 @@ export async function submitApplication(input: {
       };
     }
 
+    // The RPC only updates an existing draft, and autosave may not have saved
+    // one (debounce still pending, or every save failed). Same write and same
+    // session as autosave, so it needs no elevated access.
+    const { error: draftError } = await supabase
+      .from('applications')
+      .upsert(
+        { user_id: user.id, email: user.email.toLowerCase() },
+        { onConflict: 'user_id', ignoreDuplicates: true }
+      );
+
+    if (draftError) {
+      console.error('Draft row error:', draftError);
+      return { ok: false, code: 'server', error: `Couldn't prepare application: ${draftError.message}` };
+    }
+
     const { data: rpcResult, error: rpcError } = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: input.submissionId,
       p_first_name: data.first_name,
@@ -404,7 +437,7 @@ export async function submitApplication(input: {
 
     if (rpcError) {
       console.error('Submit RPC error:', rpcError);
-      return { ok: false, code: 'server', error: 'Failed to submit application' };
+      return { ok: false, code: 'server', error: `Failed to submit application: ${rpcError.message}` };
     }
 
     const response = rpcResult as { ok?: boolean; error?: string; application_id?: string; submitted_at?: string };
@@ -423,6 +456,11 @@ export async function submitApplication(input: {
     }
 
     if (response.ok && response.application_id) {
+      // cacheComponents keeps visited pages alive, so without this the back
+      // button reopens the editable form for an application that's already in.
+      for (const path of ['/apply', '/apply/status', '/dashboard']) {
+        revalidatePath(path);
+      }
       return {
         ok: true,
         applicationId: response.application_id,

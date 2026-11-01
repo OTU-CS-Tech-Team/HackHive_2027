@@ -1,6 +1,22 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Reviewing applicants
+
+Open **Review applicants** from `/admin`, or visit `/admin/applicants`. Pending
+applicants are listed oldest first. Use the tabs to switch status, and search by
+name, email or school. **View application** shows the full application and resume.
+
+**Accept**, **Waitlist** and **Reject** save straight away and email the applicant
+through Resend, so they ask for confirmation first. Only accepted applicants (and
+admins) get the full `/dashboard`; the email to accepted applicants links to it.
+**Move to pending** emails nobody. If an email fails the decision stays saved and
+the page says so; use **Resend email** to try again.
+
+Decision emails need `RESEND_API_KEY` and `RESEND_FROM_EMAIL` on the host, and resume
+links need `SUPABASE_SERVICE_ROLE_KEY`. The dashboard link uses the address the admin
+is signed in on, so review from the live site.
+
 ## Schedule deployment
 
 Apply the schedule migrations before deploying PR #15:
