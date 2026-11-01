@@ -382,8 +382,9 @@ export async function submitApplication(input: {
     }
 
     // The RPC only updates an existing draft, and autosave may not have saved
-    // one (debounce still pending, or every save failed).
-    const { error: draftError } = await serviceClient
+    // one (debounce still pending, or every save failed). Same write and same
+    // session as autosave, so it needs no elevated access.
+    const { error: draftError } = await supabase
       .from('applications')
       .upsert(
         { user_id: user.id, email: user.email.toLowerCase() },

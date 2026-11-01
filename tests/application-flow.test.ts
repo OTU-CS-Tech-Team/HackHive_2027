@@ -22,15 +22,7 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
 
   const serviceClient = {
     state,
-    upsertArgs: [] as unknown[][],
-    from: () => ({
-      ...lookup,
-      upsert: async (...args: unknown[]) => {
-        calls.push('upsert');
-        serviceClient.upsertArgs.push(args);
-        return { error: state.upsertError };
-      },
-    }),
+    from: () => lookup,
     rpc: async (name: string) => {
       if (name === 'reg_check_rate_limit') return { data: true, error: null };
       calls.push(name);
@@ -47,7 +39,15 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   };
 
   const userClient = {
-    from: () => settings,
+    upsertArgs: [] as unknown[][],
+    from: () => ({
+      ...settings,
+      upsert: async (...args: unknown[]) => {
+        calls.push('upsert');
+        userClient.upsertArgs.push(args);
+        return { error: state.upsertError };
+      },
+    }),
     storage: {
       from: () => ({
         list: async () => ({ data: [{ name: 'resume-1.pdf', metadata: { mimetype: 'application/pdf', size: 100 } }], error: null }),
@@ -101,7 +101,7 @@ async function submit(startedAt = Date.now() - 60_000) {
 describe('submitApplication', () => {
   beforeEach(() => {
     calls.length = 0;
-    serviceClient.upsertArgs.length = 0;
+    userClient.upsertArgs.length = 0;
     serviceClient.state.rpcError = null;
     serviceClient.state.upsertError = null;
     serviceClient.state.draftCreatedAt = null;
@@ -170,7 +170,7 @@ describe('submitApplication', () => {
 
     expect(result.ok).toBe(true);
     expect(calls).toEqual(['upsert', 'reg_submit_application']);
-    expect(serviceClient.upsertArgs[0]).toEqual([
+    expect(userClient.upsertArgs[0]).toEqual([
       { user_id: 'user-1', email: 'hacker@test.com' },
       { onConflict: 'user_id', ignoreDuplicates: true },
     ]);
