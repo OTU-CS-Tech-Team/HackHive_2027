@@ -5,7 +5,7 @@ import styles from "./museum.module.css";
 
 // Single-stroke numerals let each year be written, rather than faded in as type.
 const DIGITS: Record<string, string> = {
-  "0": "M29 8C8-1 3 25 8 44C12 64 32 60 35 40C39 21 36 8 29 8Z",
+  "0": "M25 8C8 4 4 24 8 45C12 64 32 60 35 40C39 21 34 5 23 8",
   "1": "M10 19L24 8L23 59",
   "2": "M7 18C12-1 39 5 33 23C29 34 10 41 6 58L37 57",
   "3": "M7 11C32-2 44 20 22 30C47 27 41 65 7 56",
