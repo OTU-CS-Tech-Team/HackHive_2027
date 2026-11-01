@@ -16,6 +16,7 @@ import {
 } from '@/lib/application/schema';
 import crypto from 'crypto';
 
+const REQUIRED_SUBMIT_ENV = ['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_HASH_SECRET', 'TURNSTILE_SECRET_KEY'];
 const MIN_SUBMIT_TIME_MS = 3000;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_IP_MAX_ATTEMPTS = 100;
@@ -267,8 +268,15 @@ export async function submitApplication(input: {
       return { ok: false, code: 'not_verified', error: 'Email not verified' };
     }
 
+    // Names only, so a misconfigured deploy says what to fix instead of a generic error.
+    const missingEnv = REQUIRED_SUBMIT_ENV.filter((name) => !process.env[name]);
+    if (missingEnv.length > 0) {
+      console.error('submitApplication missing env:', missingEnv.join(', '));
+      return { ok: false, code: 'server', error: `Server is missing ${missingEnv.join(', ')}` };
+    }
+
     const serviceClient = createServiceClient();
-    
+
     const { data: existingSubmission } = await serviceClient
       .from('applications')
       .select('id, submitted_at')
@@ -303,9 +311,18 @@ export async function submitApplication(input: {
       return { ok: false, code: 'validation', error: 'Invalid submission' };
     }
 
-    const elapsed = Date.now() - input.startedAt;
-    if (elapsed < MIN_SUBMIT_TIME_MS) {
-      return { ok: false, code: 'too_fast', error: 'Please take more time to fill out the form' };
+    // startedAt is when this page loaded, so someone reopening a finished draft
+    // can trip it. The draft's age is the real time they've been applying.
+    if (Date.now() - input.startedAt < MIN_SUBMIT_TIME_MS) {
+      const { data: draft } = await serviceClient
+        .from('applications')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!draft || Date.now() - Date.parse(draft.created_at) < MIN_SUBMIT_TIME_MS) {
+        return { ok: false, code: 'too_fast', error: 'Please wait a few seconds, then try again.' };
+      }
     }
 
     const result = applicationSubmitSchema.safeParse(input.fields);

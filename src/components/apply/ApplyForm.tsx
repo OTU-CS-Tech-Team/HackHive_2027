@@ -306,7 +306,9 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         const errorCode = result.code as ErrorCode;
         const fieldErrors = result.fieldErrors ? firstErrors(result.fieldErrors) : null;
         const [firstField, firstMessage] = Object.entries(fieldErrors ?? {})[0] ?? [];
-        setSubmitError([ERROR_MESSAGES[errorCode] || result.error, firstMessage].filter(Boolean).join(" "));
+        // "server" covers several failures, so keep the reason visible in reports.
+        const summary = errorCode === "server" ? `${ERROR_MESSAGES.server} (${result.error})` : ERROR_MESSAGES[errorCode] || result.error;
+        setSubmitError([summary, firstMessage].filter(Boolean).join(" "));
 
         if (fieldErrors) {
           setErrors(fieldErrors);

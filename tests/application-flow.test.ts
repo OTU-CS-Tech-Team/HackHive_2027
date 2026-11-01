@@ -2,12 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const calls: string[] = [];
-  const state = { rpcError: null as { message: string } | null };
+  const state = {
+    rpcError: null as { message: string } | null,
+    draftCreatedAt: null as string | null,
+    selected: '',
+  };
 
   const lookup = {
-    select: () => lookup,
+    select: (columns: string) => {
+      state.selected = columns;
+      return lookup;
+    },
     eq: () => lookup,
-    maybeSingle: async () => ({ data: null }),
+    maybeSingle: async () => ({
+      data: state.selected === 'created_at' && state.draftCreatedAt ? { created_at: state.draftCreatedAt } : null,
+    }),
   };
 
   const serviceClient = {
@@ -78,12 +87,12 @@ const validFields = {
   consent_privacy: true,
 };
 
-async function submit() {
+async function submit(startedAt = Date.now() - 60_000) {
   const { submitApplication } = await import('../src/app/actions/applications');
   return submitApplication({
     fields: validFields,
     turnstileToken: 'token',
-    startedAt: Date.now() - 60_000,
+    startedAt,
     submissionId: 'submission-1',
   });
 }
@@ -93,10 +102,48 @@ describe('submitApplication', () => {
     calls.length = 0;
     serviceClient.upsertArgs.length = 0;
     serviceClient.state.rpcError = null;
+    serviceClient.state.draftCreatedAt = null;
     revalidatePath.mockClear();
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
     vi.stubEnv('RATE_LIMIT_HASH_SECRET', 'test-secret');
     vi.stubEnv('TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA');
   });
+
+  it('lets someone finish a saved draft right after reopening the page', async () => {
+    serviceClient.state.draftCreatedAt = new Date(Date.now() - 86_400_000).toISOString();
+
+    const result = await submit(Date.now() - 500);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('still stops a brand new submission sent straight after the page loads', async () => {
+    const result = await submit(Date.now() - 500);
+
+    expect(result).toMatchObject({ ok: false, code: 'too_fast' });
+    expect(calls).toEqual([]);
+  });
+
+  it('still stops a draft created moments ago', async () => {
+    serviceClient.state.draftCreatedAt = new Date(Date.now() - 500).toISOString();
+
+    const result = await submit(Date.now() - 500);
+
+    expect(result).toMatchObject({ ok: false, code: 'too_fast' });
+  });
+
+  it.each(['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_HASH_SECRET', 'TURNSTILE_SECRET_KEY'])(
+    'names %s when the host is missing it',
+    async (name) => {
+      vi.stubEnv(name, '');
+
+      const result = await submit();
+
+      expect(result).toMatchObject({ ok: false, code: 'server' });
+      expect(result.ok === false && result.error).toContain(name);
+      expect(calls).toEqual([]);
+    },
+  );
 
   // The RPC updates `where status = 'draft'`, so with no row it returns no_draft_found.
   it('creates the draft row before the RPC when autosave never saved one', async () => {
