@@ -7,12 +7,12 @@ import Constellation from "./Constellation";
 import YearIdentity from "./YearIdentity";
 import styles from "./museum.module.css";
 
-type SceneState = { year: number; entered: boolean; revealed: number[] };
+type SceneState = { year: number; entered: boolean; atBottom: boolean; revealed: number[] };
 
 export default function HackHiveMuseum({ collections }: { collections: ArchiveCollection[] }) {
   const ordered = useMemo(() => [...collections].sort((a, b) => b.year - a.year), [collections]);
   const firstYear = ordered[0]?.year ?? 2026;
-  const [scene, setScene] = useState<SceneState>({ year: firstYear, entered: false, revealed: [] });
+  const [scene, setScene] = useState<SceneState>({ year: firstYear, entered: false, atBottom: false, revealed: [] });
   const [reducedMotion, setReducedMotion] = useState(false);
   const [visible, setVisible] = useState(true);
   const sections = useRef<Record<number, HTMLElement | null>>({});
@@ -26,7 +26,8 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
     const syncScene = () => {
       frame = 0;
       const viewport = window.innerHeight;
-      const entered = (museum.current?.getBoundingClientRect().top ?? 0) < -100;
+      const entered = (sections.current[firstYear]?.getBoundingClientRect().top ?? viewport) < viewport * .75;
+      const atBottom = (museum.current?.getBoundingClientRect().bottom ?? Infinity) <= viewport + 2;
       let year = firstYear;
       const revealed: number[] = [];
       for (const collection of ordered) {
@@ -36,8 +37,8 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
         if (rect.top < viewport * .88 && rect.bottom > 64) revealed.push(collection.year);
         if (rect.top <= viewport * .45) year = collection.year;
       }
-      setScene(previous => previous.year === year && previous.entered === entered && previous.revealed.join() === revealed.join()
-        ? previous : { year, entered, revealed });
+      setScene(previous => previous.year === year && previous.entered === entered && previous.atBottom === atBottom && previous.revealed.join() === revealed.join()
+        ? previous : { year, entered, atBottom, revealed });
     };
     const schedule = () => { if (!frame) frame = window.requestAnimationFrame(syncScene); };
     syncMotion(); syncVisibility(); syncScene();
@@ -54,25 +55,23 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
     };
   }, [ordered, firstYear]);
 
-  return <div ref={museum} className={styles.museum} data-entered={scene.entered}>
+  return <div ref={museum} className={styles.museum} data-entered={scene.entered} data-bottom={scene.atBottom}>
     <div className={styles.starfield} aria-hidden="true" />
     <aside className={styles.sidebar}>
-      <YearIdentity year={scene.year} reducedMotion={reducedMotion} />
-      <nav className={styles.yearNav} aria-label="Archive years" inert={!scene.entered}>
-        {ordered.map(collection => <Link key={collection.year} href={`#year-${collection.year}`}
-          aria-current={collection.year === scene.year ? "location" : undefined}>{collection.year}</Link>)}
-      </nav>
+      {scene.entered && <YearIdentity year={scene.year} reducedMotion={reducedMotion} />}
     </aside>
     <div className={styles.collections}>
-      <div className={styles.opening}>
-        {ordered.length > 0 && <Link href={`#year-${firstYear}`} className={styles.enterArrow} aria-label="Explore the constellations"><span aria-hidden="true">↓</span></Link>}
-      </div>
+      <div className={styles.opening} aria-hidden="true" />
       {ordered.map(collection => <section key={collection.year} id={`year-${collection.year}`}
         ref={node => { sections.current[collection.year] = node; }} className={styles.yearSection}
         aria-label={`HackHive ${collection.year}`}>
         <Constellation collection={collection} revealed={scene.revealed.includes(collection.year)}
           active={scene.year === collection.year && visible && scene.revealed.includes(collection.year)} reducedMotion={reducedMotion} />
       </section>)}
+      <nav className={styles.yearNav} aria-label="Archive years" inert={!scene.atBottom}>
+        {ordered.map(collection => <Link key={collection.year} href={`#year-${collection.year}`}
+          aria-current={collection.year === scene.year ? "location" : undefined}>{collection.year}</Link>)}
+      </nav>
     </div>
   </div>;
 }

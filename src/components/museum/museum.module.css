@@ -26,22 +26,21 @@
 .starfield::after { background-image: radial-gradient(circle at 98px 130px, #fff6e099 1px, transparent 1.5px); background-size: 587px 433px; opacity: .4; }
 .sidebar { position: sticky; top: 64px; align-self: start; display: grid; place-items: center; height: calc(100svh - 64px); min-height: 520px; }
 .yearIdentity { width: 100%; text-align: center; }
-.brand { margin: 0; font-size: 26px; line-height: 1.25; letter-spacing: -.04em; font-weight: 400; }
-.yearSlot { position: relative; display: grid; place-items: center; width: 180px; height: 80px; margin: 10px auto 0; }
-.yearValue { font-size: 54px; font-weight: 400; line-height: 1; letter-spacing: -.065em; color: var(--signal); animation: replaceYear .5s ease both; }
-.yearSlot svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; overflow: visible; }
-.yearSlot path { fill: none; stroke: var(--signal); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
-.yearSlot[data-scribbling='true'] svg { opacity: 1; }
-.yearSlot[data-scribbling='true'] path { animation: scribble .58s ease both; }
-.yearSlot[data-scribbling='true'] .yearValue { opacity: .4; transition: opacity .4s; }
-.yearNav { position: absolute; bottom: 36px; left: 0; right: 0; display: flex; justify-content: center; gap: 18px; opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity .7s, transform .7s, visibility .7s; }
-.museum[data-entered='true'] .yearNav { opacity: 1; visibility: visible; transform: none; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.yearSlot { position: relative; width: 180px; height: 80px; margin: auto; }
+.yearSlot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.writtenYear path { fill: none; stroke: var(--signal); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: trace .65s ease both; }
+.scribble { opacity: 0; }
+.scribble path { fill: none; stroke: var(--signal); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.yearSlot[data-scribbling='true'] .scribble { opacity: 1; }
+.yearSlot[data-scribbling='true'] .scribble path { animation: scribble .58s ease both; }
+.yearSlot[data-scribbling='true'] .writtenYear { opacity: .4; transition: opacity .4s; }
+.yearNav { display: flex; justify-content: center; align-items: center; gap: 28px; height: 120px; opacity: 0; visibility: hidden; transition: opacity .5s, visibility .5s; }
+.museum[data-bottom='true'] .yearNav { opacity: 1; visibility: visible; }
 .yearNav a { display: inline-flex; align-items: center; min-height: 44px; font-size: 12px; color: #a69b87; transition: color .25s; }
 .yearNav a:hover, .yearNav a[aria-current] { color: var(--signal); }
 .collections { min-width: 0; }
 .opening { position: relative; height: calc(100svh - 64px); min-height: 520px; }
-.enterArrow { position: absolute; bottom: 32px; left: 50%; display: grid; place-items: center; width: 44px; height: 44px; transform: translateX(-50%); color: #b2a58a !important; font-size: 23px; }
-.enterArrow:hover { color: var(--signal) !important; }
 .yearSection { min-height: calc(115svh - 64px); scroll-margin-top: 64px; }
 .yearSection:last-child { min-height: calc(100svh - 64px); }
 .scene { position: sticky; top: 64px; height: calc(100svh - 64px); min-height: 650px; max-height: 1050px; opacity: 0; transform: translateY(28px); transition: opacity 1s ease, transform 1.4s cubic-bezier(.16,1,.3,1); }
@@ -50,9 +49,11 @@
 .mapLines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .starPath { fill: none; stroke: #b2a58b; stroke-width: .75; opacity: .35; stroke-dasharray: 1; stroke-dashoffset: 1; }
 .scene[data-revealed='true'] .starPath { animation: trace 2.5s cubic-bezier(.25,.1,.25,1) both; }
-.activePath { fill: none; stroke: #f5b83d; stroke-width: 1.3; stroke-dasharray: 1; filter: drop-shadow(0 0 4px #f5b83d50); animation: trace 1.2s ease both; }
-.nodes { position: absolute; inset: 0; }
-.node { position: absolute; z-index: 2; display: grid; place-items: center; width: 48px; height: 48px; transform: translate(-50%,-50%); padding: 0; border: 0; background: transparent; color: #c6b99e; }
+.lineHit { fill: none; stroke: transparent; stroke-width: 20; pointer-events: stroke; }
+.line:hover .starPath { stroke: var(--signal); stroke-width: 1.6; opacity: 1; filter: drop-shadow(0 0 5px #f5b83d80); }
+.activePath { pointer-events: none; fill: none; stroke: #f5b83d; stroke-width: 1.3; stroke-dasharray: 1; filter: drop-shadow(0 0 4px #f5b83d50); animation: trace 2s ease both; }
+.nodes { position: absolute; inset: 0; pointer-events: none; }
+.node { pointer-events: auto; position: absolute; z-index: 2; display: grid; place-items: center; width: 48px; height: 48px; transform: translate(-50%,-50%); padding: 0; border: 0; background: transparent; color: #c6b99e; }
 .star { position: relative; display: block; width: 4px; height: 4px; border-radius: 50%; background: #fff1d0; box-shadow: 0 0 9px #fff0cc4d; transition: background .5s, box-shadow .5s; }
 .star::before, .star::after { content: ''; position: absolute; top: 50%; left: 50%; width: 15px; height: 1px; background: #fff2d040; transform: translate(-50%,-50%); }
 .star::after { transform: translate(-50%,-50%) rotate(90deg); }
@@ -94,12 +95,9 @@
 @media (max-width: 960px) {
   .museum { display: block; padding: 0 20px; }
   .sidebar { top: 64px; z-index: 10; height: 132px; min-height: 0; background: linear-gradient(#000 70%, #0000); }
-  .yearIdentity { transform: translateY(calc(50svh - 130px)); transition: transform .9s cubic-bezier(.16,1,.3,1); }
-  .museum[data-entered='true'] .yearIdentity { transform: none; }
-  .brand { font-size: 21px; }
+
   .yearSlot { width: 130px; height: 47px; margin-top: 3px; }
-  .yearValue { font-size: 36px; }
-  .yearNav { bottom: -8px; gap: 22px; }
+  .yearNav { gap: 28px; }
   .yearNav a { font-size: 11px; }
   .opening { height: calc(100svh - 196px); min-height: 380px; }
   .yearSection, .yearSection:last-child { min-height: 0; padding-bottom: 95px; scroll-margin-top: 196px; }
@@ -109,9 +107,9 @@
   .preview { position: relative; inset: auto; transform: none; width: 100%; max-width: 500px; margin: 32px auto 0; }
   .previewBody { padding-top: 13px; }
   .previewBody h2 { font-size: 20px; }
-  .enterArrow { left: 50%; bottom: 24px; }
+
 }
 @media (prefers-reduced-motion: reduce) {
   .museum *, .museum *::before, .museum *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  .starPath, .activePath { stroke-dashoffset: 0; }
+  .starPath, .activePath, .writtenYear path { stroke-dashoffset: 0; }
 }

@@ -8,7 +8,7 @@ import { clockwiseOrder, constellationFor } from "./constellations";
 import YouTubeFacade from "./YouTubeFacade";
 import styles from "./museum.module.css";
 
-const TOUR_MS = 6500;
+const TOUR_MS = 2000;
 function poster(project: HackHiveProject) {
   return project.thumbnail || (project.youtubeId ? `https://img.youtube.com/vi/${project.youtubeId}/hqdefault.jpg` : null);
 }
@@ -47,8 +47,10 @@ export default function Constellation({ collection, active, revealed, reducedMot
     {project && to ? <>
       <div className={styles.starMap}>
         <svg className={styles.mapLines} viewBox="0 0 1000 800" preserveAspectRatio="none" aria-hidden="true">
-          {shape.edges.map(([a, b]) => <path key={`${a}-${b}`} pathLength="1" className={styles.starPath}
-            d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />)}
+          {shape.edges.map(([a, b]) => <g key={`${a}-${b}`} className={styles.line}>
+            <path pathLength="1" className={styles.starPath} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
+            <path className={styles.lineHit} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
+          </g>)}
           {active && from && <path key={project.id} pathLength="1" className={styles.activePath} d={`M${from.x} ${from.y}L${to.x} ${to.y}`} />}
         </svg>
         <div className={styles.nodes} aria-label={`${year} constellation`}>

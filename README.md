@@ -115,11 +115,13 @@ project stars and updates the featured thumbnail and demo player. Choose any
 star, use previous/next, or pause the tour. Playing a demo holds the selection;
 leaving the year, hiding the tab, or navigating away removes the player.
 
-The opening shows only the centered HackHive identity and a scroll cue. Scrolling
+The opening is an empty star field. Scrolling
 reveals open star paths inspired by Orion, Cassiopeia, and Lyra, with an unframed
 project preview. There are no section dividers or project counts. The sticky year
-marker scribbles over the outgoing year and replaces it in one fixed slot; old
-years never accumulate. Compact year navigation appears after scrolling.
+marker writes each year with animated strokes, scribbles over the outgoing year,
+and replaces it in one fixed slot; old years never accumulate. Quick links appear
+only at the bottom. Project selection cycles every two seconds, and hovering a
+constellation line highlights it.
 Reduced-motion mode uses manual selection. Existing shared project data and
 thumbnails remain the source of truth.
 
