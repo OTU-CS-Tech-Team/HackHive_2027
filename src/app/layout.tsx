@@ -14,7 +14,11 @@ const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 
 // Used by the section CSS modules as var(--font-grotesk).
-const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
+const grotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-grotesk",
+});
 
 export const metadata: Metadata = {
   title: "HackHive 2027",

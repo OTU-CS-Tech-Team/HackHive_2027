@@ -1,6 +1,36 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Walk the path
+
+The homepage is a scroll-driven walk. Chapters and their art live in
+`src/components/path/chapters.ts`. Jiwoo's SVG, PNG, or WebP files replace a
+placeholder by setting `src` — nothing else in the engine needs to change.
+Put files in `public/path/` and point `src` at them, for example
+`/path/trailhead-sky.webp`.
+
+Each chapter has an `id`, a `title`, a `light` colour (morning through sunset),
+and a `layers` list. Each layer has:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable name, unique across the path |
+| `slot` | `sky`, `far`, `mid`, `near`, or `foreground` |
+| `depth` | `0` at the horizon to `1` at the camera. Nearer layers scale faster and blur more |
+| `src` | Optional image URL. When set, it replaces the placeholder |
+| `alt` | Image description. Use `""` for decorative plates |
+| `placeholder` | Name of the built-in stand-in used while `src` is empty |
+| `mobile` | `false` hides the layer below 768px |
+
+Draw each plate as a full-bleed frame, centred, with spare bleed at the edges.
+The camera scales every layer from the centre. Keep type out of the art — copy
+stays in the chapter panels so it can stay readable. Sky is the furthest, sharp
+plane. Foreground is the closest and the softest. The petal curtain between
+chapters is part of the engine, not a layer.
+
+`prefers-reduced-motion` skips pinning, zoom, and the curtain. The same chapters
+stack as still scenes with the copy in normal document flow.
+
 ## Schedule deployment
 
 Apply the schedule migrations before deploying PR #15:
