@@ -17,30 +17,33 @@ export const metadata: Metadata = { title: "Admin | HackHive 2027" };
 export default function AdminPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 pt-24 pb-16">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <header className="mb-6">
+        <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold">Admin</h1>
-          <p className="text-neutral-600">Changes show on the site right away.</p>
-          <nav className="mt-2 flex flex-wrap gap-x-4 text-sm underline">
-            <a href="#applicants">Applicants</a>
-            <a href="#stats">Stats</a>
-            <Link href="/admin/stats">Detailed stats</Link>
-            <a href="#events">Schedule</a>
-            {Object.entries(TABLES).map(([table, { heading }]) => (
-              <a key={table} href={`#${table}`}>
-                {heading}
-              </a>
-            ))}
-          </nav>
+          <Link href="/dashboard" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+            ← Dashboard
+          </Link>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/admin/applicants" className="rounded bg-neutral-900 px-4 py-2 text-white">
+        <p className="text-neutral-600">Changes show on the site right away.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/admin/applicants" className="inline-flex min-h-11 items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
             Review applicants
           </Link>
-          <Link href="/admin/scan" className="rounded border border-neutral-300 px-4 py-2">
+          <Link href="/admin/scan" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
             Open scanner
           </Link>
         </div>
+        <nav className="mt-3 flex flex-wrap gap-x-4 text-sm underline">
+          <a href="#applicants">Applicants</a>
+          <a href="#stats">Stats</a>
+          <Link href="/admin/stats">Detailed stats</Link>
+          <a href="#events">Schedule</a>
+          {Object.entries(TABLES).map(([table, { heading }]) => (
+            <a key={table} href={`#${table}`}>
+              {heading}
+            </a>
+          ))}
+        </nav>
       </header>
       <Suspense fallback={<p>Loading…</p>}>
         <AdminContent />

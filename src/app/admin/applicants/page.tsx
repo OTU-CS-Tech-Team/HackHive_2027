@@ -33,7 +33,7 @@ export default function ApplicantsPage({ searchParams }: { searchParams: SearchP
     <main className="mx-auto max-w-5xl px-4 pt-20 pb-8">
       <header className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Applicants</h1>
-        <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">← Admin</Link>
+        <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">← Admin</Link>
       </header>
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading applicants…</p>}>
         <Applicants searchParams={searchParams} />
