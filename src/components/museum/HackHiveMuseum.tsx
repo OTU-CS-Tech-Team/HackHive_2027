@@ -68,10 +68,10 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
         <Constellation collection={collection} revealed={scene.revealed.includes(collection.year)}
           active={scene.year === collection.year && visible && scene.revealed.includes(collection.year)} reducedMotion={reducedMotion} />
       </section>)}
+    </div>
       <nav className={styles.yearNav} aria-label="Archive years" inert={!scene.atBottom}>
         {ordered.map(collection => <Link key={collection.year} href={`#year-${collection.year}`}
           aria-current={collection.year === scene.year ? "location" : undefined}>{collection.year}</Link>)}
       </nav>
-    </div>
   </div>;
 }
