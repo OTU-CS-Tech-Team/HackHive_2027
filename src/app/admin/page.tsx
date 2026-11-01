@@ -26,7 +26,7 @@ export default function AdminPage() {
         </div>
         <p className="text-neutral-600">Changes show on the site right away.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/admin/applicants" className="inline-flex min-h-11 items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+          <Link href="/admin/applicants" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
             Review applicants
           </Link>
           <Link href="/admin/scan" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">

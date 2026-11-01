@@ -5,7 +5,7 @@ import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { formatDateTime } from "@/lib/time";
-import { DecisionControls, ReviewNotice } from "./DecisionControls";
+import { DecisionControls, DeleteApplicant, ReviewNotice } from "./DecisionControls";
 
 export const metadata: Metadata = { title: "Applicants | HackHive 2027" };
 
@@ -132,7 +132,10 @@ function ApplicantRow({ app }: { app: Application }) {
           {school && <p className="text-sm break-words text-neutral-600">{school}</p>}
           {app.submitted_at && <p className="text-sm text-neutral-600">Submitted {formatDateTime(app.submitted_at)}</p>}
         </div>
-        {app.status === "submitted" && <DecisionControls id={app.id} name={name} decision={app.decision} />}
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+          {app.status === "submitted" && <DecisionControls id={app.id} name={name} decision={app.decision} />}
+          <DeleteApplicant id={app.id} email={app.email} />
+        </div>
       </div>
       <details className="mt-2">
         <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">View application</summary>

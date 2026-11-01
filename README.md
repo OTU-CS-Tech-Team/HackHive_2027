@@ -13,6 +13,11 @@ admins) get the full `/dashboard`; the email to accepted applicants links to it.
 **Move to pending** emails nobody. If an email fails the decision stays saved and
 the page says so; use **Resend email** to try again.
 
+**Delete** permanently removes someone's account, application, profile, points,
+team posts and uploaded files, after you type `DELETE` to confirm. It can't be
+undone, and admin accounts are refused. Accounts with no application don't appear
+here, so remove those in Supabase.
+
 Decision emails need `RESEND_API_KEY` and `RESEND_FROM_EMAIL` on the host, and resume
 links need `SUPABASE_SERVICE_ROLE_KEY`. The dashboard link uses the address the admin
 is signed in on, so review from the live site.

@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
 import { fromLocalInput } from "@/lib/time";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
 
 export type ScannedHacker = {
@@ -149,6 +149,48 @@ export async function resendDecisionEmail(id: string): Promise<ActionResult> {
   return sent
     ? { ok: true, message: `Emailed ${applicant.email} again.` }
     : { ok: false, message: `The email to ${applicant.email} failed (${error}). Try again in a moment.` };
+}
+
+// Resumes and avatars live in Storage, so the account's cascade doesn't reach them.
+async function removeUserFiles(service: ReturnType<typeof createServiceClient>, userId: string) {
+  const buckets = await Promise.all(
+    ["resumes", "avatars"].map(async (bucket) => {
+      const { data, error } = await service.storage.from(bucket).list(userId, { limit: 1000 });
+      if (error) return false;
+      if (!data.length) return true;
+      const { error: removeError } = await service.storage.from(bucket).remove(data.map((file) => `${userId}/${file.name}`));
+      return !removeError;
+    }),
+  );
+  return buckets.every(Boolean);
+}
+
+// Permanent. Removes the account, and the application, profile, points and team
+// posts cascade from it. Admins are refused, which also stops deleting yourself.
+export async function deleteApplicant(id: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
+  const { data: applicant } = await supabase.from("applications").select("user_id, email").eq("id", id).maybeSingle();
+  if (!applicant) return { ok: false, message: "Applicant not found." };
+
+  // admin_users only lets admins read their own row, so this needs the service role.
+  const service = createServiceClient();
+  const { data: targetAdmin, error: lookupError } = await service
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", applicant.user_id)
+    .maybeSingle();
+  if (lookupError) return { ok: false, message: `Couldn't check ${applicant.email}: ${lookupError.message}` };
+  if (targetAdmin) return { ok: false, message: `${applicant.email} is an admin and can't be deleted here.` };
+
+  // Account first, so a failure here leaves their resume in place.
+  const { error } = await service.auth.admin.deleteUser(applicant.user_id);
+  if (error) return { ok: false, message: `Couldn't delete ${applicant.email}: ${error.message}` };
+  revalidatePath("/admin", "layout");
+
+  return (await removeUserFiles(service, applicant.user_id))
+    ? { ok: true, message: `Deleted ${applicant.email}.` }
+    : { ok: false, message: `Deleted ${applicant.email}, but some of their files couldn't be removed from Storage.` };
 }
 
 // Creates an event, or updates one when the form carries an id.
