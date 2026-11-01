@@ -2,15 +2,23 @@ import { describe, expect, it } from "vitest";
 import { placeRect, sceneMotion } from "@/app/prototype/path/motion";
 
 describe("trailhead prototype motion", () => {
-  it("starts on the parted trailhead and ends parted after the walk", () => {
-    expect(sceneMotion(0)).toEqual({ walk: 0, wallOpen: 1 });
+  it("starts on the parted trailhead and parts onto the next chapter", () => {
+    expect(sceneMotion(0)).toEqual({ walk: 0, wallOpen: 1, hero: 1, chapter: 0 });
     expect(sceneMotion(1).walk).toBe(1);
     expect(sceneMotion(1).wallOpen).toBe(1);
+    expect(sceneMotion(1).hero).toBe(0);
+    expect(sceneMotion(1).chapter).toBe(1);
   });
 
   it("closes the petal wall between the walk and the parting", () => {
     expect(sceneMotion(0.59).wallOpen).toBeCloseTo(0.5, 5);
+    expect(sceneMotion(0.59).hero).toBeGreaterThan(0);
+    expect(sceneMotion(0.59).hero).toBeLessThan(0.5);
+    expect(sceneMotion(0.7).hero).toBe(0);
     expect(sceneMotion(0.72).wallOpen).toBe(0);
+    expect(sceneMotion(0.72).hero).toBe(0);
+    expect(sceneMotion(0.72).chapter).toBe(0);
+    expect(sceneMotion(0.9).chapter).toBeGreaterThan(0.5);
     expect(sceneMotion(0.3).walk).toBeGreaterThan(0);
     expect(sceneMotion(0.3).walk).toBeLessThan(1);
   });

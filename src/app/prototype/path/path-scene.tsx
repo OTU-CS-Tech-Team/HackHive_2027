@@ -54,7 +54,7 @@ function PetalShape({ kind }: { kind: PetalKind }) {
 function phaseLabel(progress: number) {
   if (progress < 0.46) return "Trailhead";
   if (progress < 0.72) return "Petal wall";
-  return "Wall parts";
+  return "Chapter 2";
 }
 
 export function PathScene() {
@@ -147,7 +147,7 @@ export function PathScene() {
     raf.current = requestAnimationFrame(step);
   }, [progress, reduce, scrollToProgress]);
 
-  const { walk, wallOpen } = sceneMotion(progress);
+  const { walk, wallOpen, hero, chapter } = sceneMotion(progress);
 
   return (
     <main ref={trackRef} className={styles.track} data-tall={tall ? "true" : "false"}>
@@ -155,7 +155,7 @@ export function PathScene() {
         <div className={styles.stage} data-scene="trailhead">
           {layers.map((layer) => {
             const scale = 1 + layer.speed * walk;
-            const frame = layer.id === "far-trees" ? styles.sway : styles.still;
+            const frame = layer.id === "hills" ? styles.sway : styles.still;
             return (
               <div
                 key={layer.id}
@@ -198,24 +198,68 @@ export function PathScene() {
             </svg>
           ))}
 
-          <div className={styles.wall} style={{ transform: `translate3d(${(-wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
-            <Image className={styles.plateImg} src={walls.left.src} alt="" fill unoptimized priority sizes="100vw" draggable={false} />
-          </div>
-          <div className={styles.wall} style={{ transform: `translate3d(${(wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
-            <Image className={styles.plateImg} src={walls.right.src} alt="" fill unoptimized priority sizes="100vw" draggable={false} />
+          <div className={styles.bloom} />
+
+          <div className={styles.chapter} style={{ opacity: chapter }} aria-hidden={chapter < 0.04}>
+            <svg className={styles.chapterArt} viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <defs>
+                <linearGradient id="c2-dirt" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F3E0C0" />
+                  <stop offset="100%" stopColor="#9A7048" />
+                </linearGradient>
+                <linearGradient id="c2-stripe" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FFF4DE" />
+                  <stop offset="100%" stopColor="#C9A06A" />
+                </linearGradient>
+                <filter id="c2-soft" x="-10%" y="-10%" width="120%" height="120%">
+                  <feGaussianBlur stdDeviation="6" />
+                </filter>
+              </defs>
+              <path d="M700 470 C 640 620, 560 760, 390 980 L 1050 980 C 900 760, 790 620, 740 470 Z" fill="url(#c2-dirt)" filter="url(#c2-soft)" />
+              <path d="M712 490 C 690 660, 660 800, 600 980 L 840 980 C 790 800, 750 660, 728 490 Z" fill="url(#c2-stripe)" opacity="0.55" />
+              <g fill="#F4D36A" opacity="0.85">
+                <ellipse cx="250" cy="760" rx="18" ry="10" />
+                <ellipse cx="1180" cy="720" rx="16" ry="9" />
+                <ellipse cx="340" cy="860" rx="22" ry="12" />
+                <ellipse cx="1120" cy="860" rx="20" ry="11" />
+              </g>
+            </svg>
+            <div className={styles.chapterCopy}>
+              <p className={styles.chapterKicker}>Chapter 2</p>
+              <p className={styles.chapterTitle}>Placeholder</p>
+              <p className={styles.chapterNote}>The next chapter starts here.</p>
+            </div>
           </div>
 
-          <header className={styles.hero}>
+          <div className={styles.wall} style={{ transform: `translate3d(${(-wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
+            <Image className={styles.plateImg} src={walls.left.src} alt="" fill unoptimized sizes="100vw" draggable={false} />
+          </div>
+          <div className={styles.wall} style={{ transform: `translate3d(${(wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
+            <Image className={styles.plateImg} src={walls.right.src} alt="" fill unoptimized sizes="100vw" draggable={false} />
+          </div>
+
+          <div className={styles.vignette} />
+
+          <Link href="/" className={styles.brand}>
+            HackHive
+          </Link>
+
+          <header className={styles.hero} style={{ opacity: hero, visibility: hero === 0 ? "hidden" : "visible" }}>
             <p className={styles.kicker}>Chapter 1 · Trailhead</p>
-            <h1 className={styles.title}>HackHive</h1>
+            <h1 className={styles.title}>
+              <span className={styles.frost} aria-hidden="true">
+                HackHive
+              </span>
+              <span className={styles.face}>HackHive</span>
+            </h1>
             <p className={styles.date}>Jan 29–31, 2027</p>
-            <div className={styles.actions}>
+            <div className={styles.actions} style={{ pointerEvents: hero > 0.65 ? "auto" : "none" }}>
               <Link href="/apply" className={`${styles.ghost} ${styles.join}`}>
                 Join
               </Link>
-              <button type="button" className={`${styles.ghost} ${styles.learn}`} onClick={play}>
+              <Link href="/#faq" className={`${styles.ghost} ${styles.learn}`}>
                 Learn more
-              </button>
+              </Link>
             </div>
           </header>
 

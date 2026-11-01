@@ -28,6 +28,10 @@
   pointer-events: none;
 }
 
+.layer {
+  transform-origin: 50% 49.8%;
+}
+
 .plate,
 .sway,
 .still {
@@ -56,9 +60,100 @@
   opacity: 0.92;
 }
 
+.bloom {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 42% 16% at 50% 47%, rgba(255, 252, 244, 0.55), transparent 70%),
+    radial-gradient(ellipse 70% 28% at 50% 78%, rgba(255, 214, 140, 0.16), transparent 72%);
+  mix-blend-mode: screen;
+}
+
+.chapter {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 36% 14% at 50% 42%, rgba(255, 214, 176, 0.55), transparent 72%),
+    linear-gradient(#1b2744 0%, #5e446e 26%, #e39a62 48%, #6d8f56 68%, #243e30 100%);
+}
+
+.chapterArt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chapterCopy {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: min(640px, calc(100% - 32px));
+  text-align: center;
+  transform: translate(-50%, -40%);
+}
+
+.chapterKicker,
+.chapterNote {
+  margin: 0;
+  color: #f6efe4;
+}
+
+.chapterKicker {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.chapterTitle {
+  margin: 8px 0 0;
+  font-family: var(--font-grotesk), "Space Grotesk", sans-serif;
+  font-size: clamp(3rem, 8vw, 5.6rem);
+  font-weight: 500;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  color: #f7f1e6;
+}
+
+.chapterNote {
+  margin-top: 12px;
+  font-size: 1rem;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 46%, rgba(16, 28, 22, 0.32) 100%);
+}
+
+.brand {
+  position: absolute;
+  z-index: 28;
+  top: 16px;
+  left: 16px;
+  padding: 8px 14px;
+  font-family: var(--font-grotesk), "Space Grotesk", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #143224;
+  text-decoration: none;
+  background: rgba(255, 252, 246, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
+}
+
 .hero {
   position: absolute;
-  z-index: 12;
+  z-index: 24;
   top: 50%;
   left: 50%;
   display: flex;
@@ -91,24 +186,48 @@
 }
 
 .title {
+  display: grid;
   margin: 0;
   font-family: var(--font-grotesk), "Space Grotesk", sans-serif;
   font-size: clamp(4.2rem, 12vw, 8.6rem);
   font-weight: 500;
   line-height: 0.88;
   letter-spacing: -0.055em;
-  color: transparent;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 10%, rgba(255, 255, 255, 0.58) 100%);
+  filter: drop-shadow(0 16px 22px rgba(24, 48, 28, 0.18));
+}
+
+.frost,
+.face {
+  grid-area: 1 / 1;
+}
+
+.frost {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.42);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.2));
+  -webkit-background-clip: text;
   background-clip: text;
-  filter: drop-shadow(0 18px 28px rgba(24, 48, 28, 0.16));
+  -webkit-text-fill-color: transparent;
+  -webkit-mask-image: linear-gradient(#fff, #fff);
+  mask-image: linear-gradient(#fff, #fff);
+  -webkit-mask-clip: text;
+  mask-clip: text;
+  -webkit-backdrop-filter: blur(16px) saturate(1.7) brightness(1.14);
+  backdrop-filter: blur(16px) saturate(1.7) brightness(1.14);
+}
+
+.face {
+  color: transparent;
+  -webkit-text-stroke: 1.25px rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .date {
   margin: 16px 0 0;
   font-size: clamp(0.95rem, 2vw, 1.2rem);
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.04em;
-  color: rgba(255, 252, 246, 0.86);
+  color: #143224;
 }
 
 .actions {
@@ -260,10 +379,6 @@
     display: none;
   }
 
-  .petal:nth-child(n + 5) {
-    display: none;
-  }
-
   .hero {
     transform: translate(-50%, -54%);
   }
@@ -275,7 +390,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .sway {
-    animation: tree-breeze 9s ease-in-out infinite;
+    animation: hill-breeze 9s ease-in-out infinite;
   }
 
   .petal {
@@ -285,7 +400,7 @@
   }
 }
 
-@keyframes tree-breeze {
+@keyframes hill-breeze {
   0%,
   100% {
     transform: rotate(-0.35deg);

@@ -3,21 +3,22 @@
  * Outputs public/path SVGs, public/path/README.md, and the prototype scene module.
  * Look: soft gradients and clean blooms, in the spirit of the UofTHacks hero.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { optimize } from "svgo";
 
 const VB = { w: 1440, h: 900 };
 const HORIZON = 448;
 const PATH_END = 1320;
 
 const LAYERS = [
-  { id: "sky", file: "ch1/01-sky.svg", depth: 0, speed: 0.05, mobile: true, role: "Gradient sky, soft clouds, and the meadow ground" },
-  { id: "far-trees", file: "ch1/02-far-trees.svg", depth: 1, speed: 0.16, mobile: true, role: "Distant hills along the horizon" },
-  { id: "path", file: "ch1/03-path.svg", depth: 2, speed: 0.32, mobile: true, role: "Dirt path straight up the centre, from the viewer's feet to the horizon" },
-  { id: "sign", file: "ch1/04-sign.svg", depth: 3, speed: 0.46, mobile: true, role: "Soft mist behind the centred title. The title itself is HTML, not this plate" },
-  { id: "mid-flowers", file: "ch1/05-mid-flowers.svg", depth: 4, speed: 0.68, mobile: true, role: "Dense flower beds on both sides of the path" },
-  { id: "near-flowers", file: "ch1/06-near-flowers.svg", depth: 5, speed: 1.05, mobile: false, role: "Large soft-focus flowers surrounding the viewer" },
-  { id: "foreground-stems", file: "ch1/07-foreground-stems.svg", depth: 6, speed: 1.5, mobile: false, role: "Closest blurred blooms at the frame" },
+  { id: "sky", file: "ch1/01-sky.svg", depth: 0, speed: 0.08, mobile: true, role: "Gradient sky, soft clouds, and the meadow ground" },
+  { id: "hills", file: "ch1/02-hills.svg", depth: 1, speed: 0.34, mobile: true, role: "Distant hills along the horizon" },
+  { id: "path", file: "ch1/03-path.svg", depth: 2, speed: 1.45, mobile: true, role: "Dirt path straight up the centre, from the viewer's feet to the horizon" },
+  { id: "mist", file: "ch1/04-mist.svg", depth: 3, speed: 0.62, mobile: true, role: "Soft mist behind the centred title. The title itself is HTML, not this plate" },
+  { id: "mid-flowers", file: "ch1/05-mid-flowers.svg", depth: 4, speed: 2.25, mobile: true, role: "Dense flower beds on both sides of the path" },
+  { id: "near-flowers", file: "ch1/06-near-flowers.svg", depth: 5, speed: 3.15, mobile: false, role: "Large soft-focus flowers surrounding the viewer" },
+  { id: "foreground-stems", file: "ch1/07-foreground-stems.svg", depth: 6, speed: 4.1, mobile: false, role: "Closest blurred blooms at the frame" },
 ];
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -177,11 +178,19 @@ function stem(length) {
     <ellipse cx="12" cy="${(length * 0.62).toFixed(1)}" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(32 12 ${(length * 0.62).toFixed(1)})" opacity="0.9"/>`;
 }
 
-function placeFlower({ type, x, y, scale, rotate = 0, nod = false, dew = false, stemLength = 54, delay = 0 }) {
+function bloomId(type) {
+  if (type === "poppy" || type === "buttercup" || type === "lupin") return type;
+  return "daisy";
+}
+
+function placeFlower({ type, x, y, scale, rotate = 0, nod = false, dew = false, stemLength = 54, delay = 0, symbol = false }) {
   const motion = nod ? ` class="hh-nod" style="animation-delay:${delay.toFixed(2)}s"` : "";
   const glint = dew ? `<circle cx="8" cy="-18" r="2.1" fill="#FFFFFF" class="hh-dew"/>` : "";
+  const head = symbol
+    ? `<use href="#bloom-${bloomId(type)}" y="${type === "lupin" ? -6 : -8}"/>${glint}`
+    : `<g transform="translate(0 ${type === "lupin" ? -6 : -8})">${bloom(type)}${glint}</g>`;
   return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rotate.toFixed(1)}) scale(${scale.toFixed(3)})">
-    <g${motion}>${stem(stemLength)}<g transform="translate(0 ${type === "lupin" ? -6 : -8})">${bloom(type)}${glint}</g></g>
+    <g${motion}>${stem(stemLength)}${head}</g>
   </g>`;
 }
 
@@ -262,6 +271,18 @@ function hillsLayer() {
 }
 
 function pathLayer() {
+  const rand = mulberry32(19);
+  const grit = [];
+  for (let i = 0; i < 80; i += 1) {
+    const t = 0.08 + Math.pow(rand(), 0.72) * 0.92;
+    const p = pathPoint(Math.min(t, 1));
+    const half = pathHalf(Math.min(t, 1)) * 0.72;
+    const x = p.x + (rand() - 0.5) * 2 * half;
+    const radius = 1.1 + rand() * (1.6 + t * 5);
+    grit.push(
+      `<ellipse cx="${x.toFixed(1)}" cy="${p.y.toFixed(1)}" rx="${radius.toFixed(1)}" ry="${(radius * 0.55).toFixed(1)}" fill="${rand() > 0.55 ? "#A8875C" : "#F6E6C4"}" opacity="${(0.15 + Math.min(t, 1) * 0.4).toFixed(2)}"/>`,
+    );
+  }
   return svgDoc(`
     <defs>
       <linearGradient id="dirt" x1="0" y1="0" x2="0" y2="1">
@@ -273,9 +294,23 @@ function pathLayer() {
         <stop offset="0%" stop-color="#F6E7C4"/>
         <stop offset="100%" stop-color="#E2C48E"/>
       </linearGradient>
+      <linearGradient id="grit-fade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0"/>
+        <stop offset="16%" stop-color="#FFFFFF" stop-opacity="0.2"/>
+        <stop offset="42%" stop-color="#FFFFFF"/>
+      </linearGradient>
+      <radialGradient id="path-haze" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#F7FBFF" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="#F7FBFF" stop-opacity="0"/>
+      </radialGradient>
+      <mask id="grit-mask">
+        <rect width="1440" height="900" fill="url(#grit-fade)"/>
+      </mask>
     </defs>
     <path d="${ribbonPath(1)}" fill="url(#dirt)"/>
     <path d="${ribbonPath(0.46)}" fill="url(#dirt-light)" opacity="0.78"/>
+    <g mask="url(#grit-mask)">${grit.join("")}</g>
+    <ellipse cx="720" cy="452" rx="86" ry="22" fill="url(#path-haze)"/>
   `);
 }
 
@@ -315,6 +350,7 @@ function bed(seed, count, { nod = false, minScale = 0.28, maxScale = 1.05, reach
       dew: nod && rand() > 0.72,
       stemLength: type === "lupin" ? 70 : 52,
       delay: -rand() * 6,
+      symbol: true,
     }));
   }
   return marks.join("");
@@ -335,11 +371,41 @@ function grassBed(seed, count) {
   return marks.join("");
 }
 
+function horizonBed() {
+  const rand = mulberry32(77);
+  const marks = [];
+  for (let i = 0; i < 84; i += 1) {
+    const t = 0.015 + rand() * 0.2;
+    const side = i % 2 === 0 ? -1 : 1;
+    const p = pathPoint(t);
+    const x = 720 + side * (pathHalf(t) + 14 + rand() * 260);
+    const y = p.y + (rand() - 0.45) * 28;
+    const type = KINDS[Math.floor(rand() * KINDS.length)];
+    marks.push(placeFlower({
+      type,
+      x,
+      y,
+      scale: lerp(0.2, 0.58, t / 0.22) * (0.86 + rand() * 0.28),
+      rotate: (rand() - 0.5) * 22,
+      nod: true,
+      dew: rand() > 0.82,
+      stemLength: 32,
+      delay: -rand() * 6,
+      symbol: true,
+    }));
+  }
+  return marks.join("");
+}
+
 function midLayer() {
   const grass = grassBed(11, 280);
+  const horizon = horizonBed();
   const close = bed(21, 110, { nod: true, minScale: 0.34, maxScale: 1.35, reach: 150 });
   const outer = bed(44, 90, { nod: true, minScale: 0.28, maxScale: 1.15, reach: 520 });
-  return svgDoc(`<defs>${PAINT}</defs>${grass}${outer}${close}`, { style: NOD_STYLE });
+  const symbols = ["daisy", "poppy", "buttercup", "lupin"]
+    .map((type) => `<symbol id="bloom-${type}" overflow="visible">${bloom(type)}</symbol>`)
+    .join("");
+  return svgDoc(`<defs>${PAINT}${symbols}</defs>${grass}${horizon}${outer}${close}`, { style: NOD_STYLE });
 }
 
 function nearLayer() {
@@ -390,42 +456,90 @@ function foregroundLayer() {
 
 function wallLayer(side) {
   const rand = mulberry32(side === "left" ? 5 : 9);
-  const x0 = side === "left" ? -60 : 640;
-  const x1 = side === "left" ? 860 : 1520;
-  const fills = ["#FFFFFF", "#F6C44A", "#E45462", "#8E78D8", "#7EBE5C", "#FFF8EF"];
-  const backing = [];
-  for (let y = -40; y <= 980; y += 50) {
-    for (let x = x0; x <= x1; x += 54) {
-      const cx = x + (rand() - 0.5) * 12;
-      const cy = y + (rand() - 0.5) * 10;
-      backing.push(`<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${(40 + rand() * 16).toFixed(1)}" ry="${(36 + rand() * 14).toFixed(1)}" fill="${fills[Math.floor(rand() * fills.length)]}"/>`);
-    }
+  const x0 = side === "left" ? -120 : 560;
+  const x1 = side === "left" ? 920 : 1600;
+  const span = x1 - x0;
+  const tints = ["#FFF6E4", "#F7C9C4", "#E4D4FA", "#F8E7A4", "#C6E4A8", "#FFFFFF"];
+  const wash = [];
+  for (let i = 0; i < 34; i += 1) {
+    const x = x0 + rand() * span;
+    const y = -30 + rand() * 980;
+    const tint = tints[Math.floor(rand() * tints.length)];
+    wash.push(
+      `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(70 + rand() * 110).toFixed(1)}" ry="${(54 + rand() * 80).toFixed(1)}" fill="${tint}" opacity="${(0.28 + rand() * 0.38).toFixed(2)}"/>`,
+    );
   }
-  const flowers = [];
-  let i = 0;
-  for (let y = -20; y <= 960; y += 92) {
-    for (let x = x0 + 20; x <= x1; x += 96) {
-      const type = KINDS[i % KINDS.length];
-      flowers.push(placeFlower({
+  const far = [];
+  const mid = [];
+  const near = [];
+  const cols = 7;
+  const rows = 9;
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const depth = rand();
+      const x = x0 + ((col + 0.18 + rand() * 0.64) / cols) * span;
+      const y = -30 + ((row + 0.12 + rand() * 0.7) / rows) * 1000;
+      const type = KINDS[Math.floor(rand() * KINDS.length)];
+      const flower = placeFlower({
         type,
-        x: x + (rand() - 0.5) * 18,
-        y: y + (rand() - 0.5) * 16,
-        scale: 0.95 + rand() * 0.45,
-        rotate: (rand() - 0.5) * 18,
-        stemLength: type === "lupin" ? 48 : 28,
-      }));
-      i += 1;
+        x,
+        y,
+        scale: depth < 0.34 ? 0.55 + rand() * 0.25 : depth < 0.7 ? 0.85 + rand() * 0.35 : 1.2 + rand() * 0.45,
+        rotate: (rand() - 0.5) * 28,
+        stemLength: 18 + rand() * 26,
+      });
+      if (depth < 0.34) far.push(flower);
+      else if (depth < 0.7) mid.push(flower);
+      else near.push(flower);
+      if (rand() > 0.62) {
+        const extra = placeFlower({
+          type: KINDS[Math.floor(rand() * KINDS.length)],
+          x: x + (rand() - 0.5) * 70,
+          y: y + (rand() - 0.5) * 54,
+          scale: 0.7 + rand() * 0.5,
+          rotate: (rand() - 0.5) * 24,
+          stemLength: 16 + rand() * 20,
+        });
+        mid.push(extra);
+      }
     }
   }
   return svgDoc(`
     <defs>
       ${PAINT}
-      <filter id="wall-soft" x="-8%" y="-8%" width="116%" height="116%">
-        <feGaussianBlur stdDeviation="2.4"/>
+      <linearGradient id="wall-wash" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F8E7C8"/>
+        <stop offset="46%" stop-color="#F0C2C4"/>
+        <stop offset="100%" stop-color="#8FBF78"/>
+      </linearGradient>
+      <filter id="wall-far" x="-25%" y="-25%" width="150%" height="150%">
+        <feGaussianBlur stdDeviation="4.2"/>
       </filter>
+      <filter id="wall-mid" x="-18%" y="-18%" width="136%" height="136%">
+        <feGaussianBlur stdDeviation="2.1"/>
+      </filter>
+      <filter id="wall-near" x="-12%" y="-12%" width="124%" height="124%">
+        <feGaussianBlur stdDeviation="0.45"/>
+      </filter>
+      <filter id="wall-wash-blur" x="-15%" y="-15%" width="130%" height="130%">
+        <feGaussianBlur stdDeviation="14"/>
+      </filter>
+      <linearGradient id="wall-edge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1440" y2="0">
+        ${side === "left"
+          ? `<stop offset="0%" stop-color="#fff"/><stop offset="58%" stop-color="#fff"/><stop offset="78%" stop-color="#fff" stop-opacity="0"/>`
+          : `<stop offset="22%" stop-color="#fff" stop-opacity="0"/><stop offset="42%" stop-color="#fff"/><stop offset="100%" stop-color="#fff"/>`}
+      </linearGradient>
+      <mask id="wall-fade">
+        <rect width="1440" height="900" fill="url(#wall-edge)"/>
+      </mask>
     </defs>
-    <g filter="url(#wall-soft)">${backing.join("")}</g>
-    ${flowers.join("")}
+    <g mask="url(#wall-fade)">
+      <rect width="1440" height="900" fill="url(#wall-wash)"/>
+      <g filter="url(#wall-wash-blur)">${wash.join("")}</g>
+      <g filter="url(#wall-far)" opacity="0.8">${far.join("")}</g>
+      <g filter="url(#wall-mid)" opacity="0.94">${mid.join("")}</g>
+      <g filter="url(#wall-near)">${near.join("")}</g>
+    </g>
   `);
 }
 
@@ -440,7 +554,7 @@ Painted plates for the Trailhead hero and the petal-wall curtain.
 The look-sign-off route is \`/prototype/path\`. The live homepage does not use these files.
 
 Every plate uses viewBox \`0 0 ${VB.w} ${VB.h}\` and \`preserveAspectRatio="xMidYMid slice"\`.
-Stack back to front. Scale each plate from the center: \`scale(1 + speed * walk)\`, where \`walk\` is 0 at the trailhead and 1 after the step forward. Higher speed is nearer, so it moves outward fastest.
+Stack back to front. Scale each plate from the horizon: \`scale(1 + speed * walk)\` with origin \`50% 49.8%\`, where \`walk\` is 0 at the trailhead and 1 after the step forward. Higher speed is nearer, so it moves outward fastest. Path and mid-flower speeds are high so the step reads as walking into the flowers.
 
 ## Depth order
 
@@ -455,11 +569,13 @@ ${rows}
 | \`transition/petal-wall-left.svg\` | Left half of the near-flower curtain |
 | \`transition/petal-wall-right.svg\` | Right half of the near-flower curtain |
 
-These sit in front of every chapter plate. Part them on X: left \`translateX(-open * 105%)\`, right \`translateX(open * 105%)\`. \`open\` 1 is fully parted. \`open\` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap.
+These sit in front of every chapter plate. Part them on X: left \`translateX(-open * 105%)\`, right \`translateX(open * 105%)\`. \`open\` 1 is fully parted. \`open\` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers.
+
+The wall closes over the approach, then parts onto a prototype-only Chapter 2 placeholder. That placeholder is HTML, not a depth plate. The centred Chapter 1 title fades with the closing wall and stays hidden.
 
 ## Title
 
-The wooden sign is gone. \`HackHive\`, \`Jan 29–31, 2027\`, Join (\`/apply\`), and Learn more are HTML centred on the prototype, above the plates and under the petal wall.
+The wooden sign is gone. \`HackHive\`, \`Jan 29–31, 2027\`, and Join (\`/apply\`) are HTML centred on the prototype, above the plates and under the petal wall. Learn more links to \`/#faq\`.
 
 ## Motion
 
@@ -490,12 +606,42 @@ export const midFlowersSvg = ${JSON.stringify(inline)};
 `;
 }
 
+function minifySvg(svg) {
+  const before = Buffer.byteLength(svg);
+  const result = optimize(svg, {
+    multipass: true,
+    plugins: [
+      {
+        name: "preset-default",
+        params: {
+          overrides: {
+            cleanupIds: false,
+            collapseGroups: false,
+            convertTransform: false,
+            minifyStyles: false,
+            moveElemsAttrsToGroup: false,
+            moveGroupAttrsToElems: false,
+          },
+        },
+      },
+    ],
+  });
+  const out = result.data.endsWith("\n") ? result.data : `${result.data}\n`;
+  console.log(`SVGO mid-flowers ${before} -> ${Buffer.byteLength(out)} bytes`);
+  return out;
+}
+
+const midSvg = minifySvg(midLayer());
+if (!midSvg.includes("hh-nod") || !midSvg.includes("hh-path-nod")) {
+  throw new Error("SVGO removed the mid-flower motion hooks");
+}
+
 const files = {
   "ch1/01-sky.svg": skyLayer(),
-  "ch1/02-far-trees.svg": hillsLayer(),
+  "ch1/02-hills.svg": hillsLayer(),
   "ch1/03-path.svg": pathLayer(),
-  "ch1/04-sign.svg": mistLayer(),
-  "ch1/05-mid-flowers.svg": midLayer(),
+  "ch1/04-mist.svg": mistLayer(),
+  "ch1/05-mid-flowers.svg": midSvg,
   "ch1/06-near-flowers.svg": nearLayer(),
   "ch1/07-foreground-stems.svg": foregroundLayer(),
   "transition/petal-wall-left.svg": wallLayer("left"),
@@ -508,6 +654,8 @@ await Promise.all(
   Object.entries(files).map(([file, svg]) => writeFile(path.join(publicRoot, file), svg)),
 );
 await writeFile(path.join(publicRoot, "README.md"), readme());
+await rm(path.join(publicRoot, "ch1/02-far-trees.svg"), { force: true });
+await rm(path.join(publicRoot, "ch1/04-sign.svg"), { force: true });
 await writeFile(
   path.join(root, "src/app/prototype/path/scene.ts"),
   sceneModule(files["ch1/05-mid-flowers.svg"]),

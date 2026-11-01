@@ -7,7 +7,12 @@ export function smoothstep(t: number) {
   return x * x * (3 - 2 * x);
 }
 
-/** walk scales layers outward; wallOpen 1 is parted, 0 is the closed petal wall. */
+/**
+ * walk scales layers outward.
+ * wallOpen 1 is parted, 0 is the closed petal wall.
+ * hero is the Chapter 1 title block; it fades with the closing wall and stays hidden.
+ * chapter fades in behind the closed wall so the parting reveals the next chapter.
+ */
 export function sceneMotion(progress: number) {
   const p = clamp(progress, 0, 1);
   const walk = smoothstep(clamp(p / 0.62, 0, 1));
@@ -15,7 +20,9 @@ export function sceneMotion(progress: number) {
   if (p < 0.46) wallOpen = 1;
   else if (p < 0.72) wallOpen = 1 - smoothstep((p - 0.46) / 0.26);
   else wallOpen = smoothstep((p - 0.72) / 0.28);
-  return { walk, wallOpen };
+  const hero = p < 0.46 ? 1 : p >= 0.64 ? 0 : 1 - smoothstep((p - 0.46) / 0.18);
+  const chapter = p <= 0.72 ? 0 : smoothstep((p - 0.72) / 0.2);
+  return { walk, wallOpen, hero, chapter };
 }
 
 export function placeRect(
