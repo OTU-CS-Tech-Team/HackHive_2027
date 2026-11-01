@@ -98,6 +98,7 @@ async function ApplyPageContent() {
     guardian_relationship: result.application.guardian_relationship || "",
     consent_coc: result.application.consent_coc || false,
     consent_privacy: result.application.consent_privacy || false,
+    consent_indemnification: result.application.consent_indemnification || false,
     consent_photo: result.application.consent_photo || false,
     share_resume_with_sponsors: result.application.share_resume_with_sponsors || false,
   } : null;
