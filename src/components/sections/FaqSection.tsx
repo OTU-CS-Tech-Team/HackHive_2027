@@ -186,7 +186,19 @@ function FaqItem({
             aria-controls={id}
             onClick={() => setOpen(!open)}
           >
-            {question}
+            {/* Like the answers: every other question, invisible, in the same spot,
+                so all the bars are as tall as the longest question. */}
+            <span className="faq-question-text">
+              {faqs.map(
+                (faq) =>
+                  faq.question !== question && (
+                    <span key={faq.question} className="faq-sizer" aria-hidden>
+                      {faq.question}
+                    </span>
+                  ),
+              )}
+              <span>{question}</span>
+            </span>
             <span className="faq-icon" aria-hidden>
               {open ? "−" : "+"}
             </span>
@@ -196,7 +208,19 @@ function FaqItem({
       <div id={id} className="faq-answer" role="region" aria-hidden={!open}>
         <div>
           <div className="faq-panel">
-            <p>{answer}</p>
+            <p>
+              {/* Every other answer, invisible, in the same spot as this one, so all
+                  the panels are as tall as the longest answer at any width. */}
+              {faqs.map(
+                (faq) =>
+                  faq.answer !== answer && (
+                    <span key={faq.question} className="faq-sizer" aria-hidden>
+                      {faq.answer}
+                    </span>
+                  ),
+              )}
+              <span>{answer}</span>
+            </p>
           </div>
         </div>
       </div>

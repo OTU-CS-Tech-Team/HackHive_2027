@@ -275,6 +275,29 @@
   line-height: 1.6;
   /* Slightly uneven corners, as if the card was cut out by hand. */
   clip-path: polygon(0.5% 2%, 99.2% 0, 100% 97%, 1.2% 100%);
+  /* The answer and the invisible copies of the others share one cell, so the card
+     is as tall as the longest of them. */
+  display: grid;
+}
+
+/* The same for the questions, so every bar is as tall as the longest. */
+.faq-question-text {
+  display: grid;
+  flex: 1;
+}
+
+.faq-panel p > span,
+.faq-question-text > span {
+  grid-area: 1 / 1;
+}
+
+/* A short question sits in the middle of its bar, not at the top. */
+.faq-question-text > span {
+  align-self: center;
+}
+
+.faq-sizer {
+  visibility: hidden;
 }
 
 /* Honey */
