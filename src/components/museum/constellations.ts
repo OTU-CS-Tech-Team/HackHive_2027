@@ -1,19 +1,24 @@
 export type StarPoint = { x: number; y: number };
 type SkyShape = { points: StarPoint[]; edges: [number, number][] };
 
-// A hive cell: every project lies on one continuous, clockwise honeycomb path.
-// Extra projects subdivide the sides, keeping the silhouette deliberate at any size.
+// Distinct silhouettes: a stellar burst, a long diamond, and a faceted comet.
+// Subdivide existing sides when a year has more projects than polygon corners.
+const SILHOUETTES: StarPoint[][] = [
+  [1, .52, .94, .58, 1, .62, .91, .5, .94].map((radius, i) => {
+    const angle = -Math.PI / 2 + i * Math.PI * 2 / 9;
+    return { x: 500 + Math.cos(angle) * 350 * radius, y: 400 + Math.sin(angle) * 315 * radius };
+  }),
+  [{ x: 520, y: 85 }, { x: 820, y: 355 }, { x: 445, y: 710 }, { x: 215, y: 450 }],
+  [{ x: 350, y: 90 }, { x: 810, y: 250 }, { x: 660, y: 635 }, { x: 220, y: 710 }, { x: 345, y: 415 }],
+];
+
 export function constellationFor(year: number, count: number): SkyShape {
-  const rotation = (year % 2) * Math.PI / 6;
-  const corners = Array.from({ length: 6 }, (_, i) => {
-    const angle = -Math.PI / 2 + rotation + i * Math.PI / 3;
-    return { x: 500 + Math.cos(angle) * 335, y: 400 + Math.sin(angle) * 310 };
-  });
+  const corners = SILHOUETTES[((2026 - year) % SILHOUETTES.length + SILHOUETTES.length) % SILHOUETTES.length];
   const points: StarPoint[] = [];
-  for (let side = 0; side < 6; side++) {
-    const segments = Math.floor(count / 6) + (side < count % 6 ? 1 : 0);
+  for (let side = 0; side < corners.length; side++) {
+    const segments = Math.floor(count / corners.length) + (side < count % corners.length ? 1 : 0);
     for (let step = 0; step < segments; step++) {
-      const start = corners[side], end = corners[(side + 1) % 6];
+      const start = corners[side], end = corners[(side + 1) % corners.length];
       points.push({ x: start.x + (end.x - start.x) * step / segments, y: start.y + (end.y - start.y) * step / segments });
     }
   }
