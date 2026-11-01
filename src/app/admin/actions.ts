@@ -134,9 +134,10 @@ export async function setDecision(id: string, decision: Decision | null): Promis
   const applicant = data[0];
   if (!applicant) return { ok: true, message: "Already saved. No email sent." };
   if (!decision) return { ok: true, message: "Moved back to pending. No email sent." };
-  return (await emailDecision(applicant.email, applicant.first_name, decision))
+  const { sent, error: emailError } = await emailDecision(applicant.email, applicant.first_name, decision);
+  return sent
     ? { ok: true, message: `Saved as ${decision} and emailed ${applicant.email}.` }
-    : { ok: false, message: `Saved as ${decision}, but the email to ${applicant.email} failed. Use Resend email to try again.` };
+    : { ok: false, message: `Saved as ${decision}, but the email to ${applicant.email} failed (${emailError}). Use Resend email to try again.` };
 }
 
 export async function resendDecisionEmail(id: string): Promise<ActionResult> {
@@ -144,9 +145,10 @@ export async function resendDecisionEmail(id: string): Promise<ActionResult> {
   if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
   const { data: applicant } = await supabase.from("applications").select("email, first_name, decision").eq("id", id).maybeSingle();
   if (!applicant?.decision) return { ok: false, message: "There's no decision to email yet." };
-  return (await emailDecision(applicant.email, applicant.first_name, applicant.decision))
+  const { sent, error } = await emailDecision(applicant.email, applicant.first_name, applicant.decision);
+  return sent
     ? { ok: true, message: `Emailed ${applicant.email} again.` }
-    : { ok: false, message: `The email to ${applicant.email} failed. Try again in a moment.` };
+    : { ok: false, message: `The email to ${applicant.email} failed (${error}). Try again in a moment.` };
 }
 
 // Creates an event, or updates one when the form carries an id.

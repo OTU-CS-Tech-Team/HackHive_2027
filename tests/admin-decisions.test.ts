@@ -62,7 +62,7 @@ beforeEach(() => {
   state.updates = [];
   state.filters = [];
   sendDecisionEmail.mockReset();
-  sendDecisionEmail.mockResolvedValue(true);
+  sendDecisionEmail.mockResolvedValue({ sent: true });
   revalidatePath.mockClear();
 });
 
@@ -118,13 +118,14 @@ describe('setDecision', () => {
   });
 
   it('keeps the decision but warns the admin when the email fails', async () => {
-    sendDecisionEmail.mockResolvedValue(false);
+    sendDecisionEmail.mockResolvedValue({ sent: false, error: 'RESEND_API_KEY is not set' });
     const { setDecision } = await actions();
 
     const result = await setDecision(ID, 'accepted');
 
     expect(result.ok).toBe(false);
-    expect(result.message).toMatch(/email/i);
+    expect(result.message).toContain('sam@test.com');
+    expect(result.message).toContain('RESEND_API_KEY is not set');
     expect(revalidatePath).toHaveBeenCalled();
   });
 
@@ -179,6 +180,16 @@ describe('resendDecisionEmail', () => {
       decision: 'accepted',
       siteUrl: 'https://hackhive.test',
     });
+  });
+
+  it('shows why the resend failed', async () => {
+    sendDecisionEmail.mockResolvedValue({ sent: false, error: 'domain not verified' });
+    const { resendDecisionEmail } = await actions();
+
+    const result = await resendDecisionEmail(ID);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('domain not verified');
   });
 
   it('has nothing to send for an undecided application', async () => {

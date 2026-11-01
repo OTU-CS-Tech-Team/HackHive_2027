@@ -61,12 +61,14 @@ export async function sendDecisionEmail({ to, firstName, decision, siteUrl }: {
   firstName: string | null;
   decision: Decision;
   siteUrl: string;
-}): Promise<boolean> {
+}): Promise<{ sent: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) {
-    console.error('RESEND_API_KEY and RESEND_FROM_EMAIL must both be set');
-    return false;
+  // Hosts keep quotes pasted from an env file, and Resend rejects them.
+  const from = process.env.RESEND_FROM_EMAIL?.trim().replace(/^["']|["']$/g, '');
+  const missing = !apiKey ? 'RESEND_API_KEY' : !from ? 'RESEND_FROM_EMAIL' : null;
+  if (missing) {
+    console.error(`${missing} is not set`);
+    return { sent: false, error: `${missing} is not set` };
   }
 
   try {
@@ -76,11 +78,20 @@ export async function sendDecisionEmail({ to, firstName, decision, siteUrl }: {
       body: JSON.stringify({ from, to: [to], ...decisionEmail(decision, firstName, siteUrl) }),
       signal: AbortSignal.timeout(10_000),
     });
-    if (response.ok) return true;
-    console.error('Decision email rejected:', response.status, await response.text());
-    return false;
+    if (response.ok) return { sent: true };
+    const body = await response.text();
+    console.error('Decision email rejected:', response.status, body);
+    return { sent: false, error: resendMessage(body) ?? `Resend returned status ${response.status}` };
   } catch (error) {
     console.error('Decision email failed:', error);
-    return false;
+    return { sent: false, error: error instanceof Error ? error.message : 'The request failed' };
+  }
+}
+
+function resendMessage(body: string): string | null {
+  try {
+    return JSON.parse(body).message ?? null;
+  } catch {
+    return null;
   }
 }
