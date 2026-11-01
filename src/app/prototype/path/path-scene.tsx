@@ -64,6 +64,11 @@ export function PathScene() {
   const [progress, setProgress] = useState(0);
   const [tall, setTall] = useState(false);
   const [reduce, setReduce] = useState(false);
+  const [showWalls, setShowWalls] = useState(false);
+  const commitProgress = useCallback((value: number) => {
+    setProgress(value);
+    if (value >= 0.35) setShowWalls(true);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -103,27 +108,27 @@ export function PathScene() {
     if (!tall) return;
     const onScroll = () => {
       if (playing.current) return;
-      setProgress(readProgress());
+      commitProgress(readProgress());
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [readProgress, tall]);
+  }, [commitProgress, readProgress, tall]);
 
   const scrollToProgress = useCallback(
     (value: number) => {
       const next = clamp(value, 0, 1);
       const track = trackRef.current;
       if (!track || !tall) {
-        setProgress(next);
+        commitProgress(next);
         return;
       }
       const total = track.offsetHeight - window.innerHeight;
       const start = window.scrollY + track.getBoundingClientRect().top;
       window.scrollTo({ top: start + total * next, behavior: "instant" });
-      setProgress(next);
+      commitProgress(next);
     },
-    [tall],
+    [commitProgress, tall],
   );
 
   const play = useCallback(() => {
@@ -231,12 +236,16 @@ export function PathScene() {
             </div>
           </div>
 
-          <div className={styles.wall} style={{ transform: `translate3d(${(-wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
-            <Image className={styles.plateImg} src={walls.left.src} alt="" fill unoptimized sizes="100vw" draggable={false} />
-          </div>
-          <div className={styles.wall} style={{ transform: `translate3d(${(wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
-            <Image className={styles.plateImg} src={walls.right.src} alt="" fill unoptimized sizes="100vw" draggable={false} />
-          </div>
+          {showWalls ? (
+            <>
+              <div className={styles.wall} style={{ transform: `translate3d(${(-wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
+                <Image className={styles.plateImg} src={walls.left.src} alt="" fill unoptimized sizes="100vw" draggable={false} />
+              </div>
+              <div className={styles.wall} style={{ transform: `translate3d(${(wallOpen * 105).toFixed(2)}%, 0, 0)`, zIndex: 20 }}>
+                <Image className={styles.plateImg} src={walls.right.src} alt="" fill unoptimized sizes="100vw" draggable={false} />
+              </div>
+            </>
+          ) : null}
 
           <div className={styles.vignette} />
 

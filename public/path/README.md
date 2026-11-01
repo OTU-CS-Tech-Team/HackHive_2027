@@ -25,7 +25,7 @@ Stack back to front. Scale each plate from the horizon: `scale(1 + speed * walk)
 | `transition/petal-wall-left.svg` | Left half of the near-flower curtain |
 | `transition/petal-wall-right.svg` | Right half of the near-flower curtain |
 
-These sit in front of every chapter plate. Part them on X: left `translateX(-open * 105%)`, right `translateX(open * 105%)`. `open` 1 is fully parted. `open` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers.
+These sit in front of every chapter plate. Part them on X: left `translateX(-open * 105%)`, right `translateX(open * 105%)`. `open` 1 is fully parted. `open` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers. The prototype mounts these two images only after scroll passes about 0.35, so they are not part of the first paint.
 
 The wall closes over the approach, then parts onto a prototype-only Chapter 2 placeholder. That placeholder is HTML, not a depth plate. The centred Chapter 1 title fades with the closing wall and stays hidden.
 

@@ -397,15 +397,42 @@ function horizonBed() {
   return marks.join("");
 }
 
+function buttonBed() {
+  const rand = mulberry32(91);
+  const marks = [];
+  for (let i = 0; i < 72; i += 1) {
+    const t = 0.045 + rand() * 0.18;
+    const side = i % 2 === 0 ? -1 : 1;
+    const p = pathPoint(t);
+    const x = 720 + side * (pathHalf(t) + 78 + rand() * 170);
+    const y = p.y + (rand() - 0.35) * 46;
+    const type = KINDS[Math.floor(rand() * KINDS.length)];
+    marks.push(placeFlower({
+      type,
+      x,
+      y,
+      scale: 0.5 + rand() * 0.42,
+      rotate: (rand() - 0.5) * 20,
+      nod: true,
+      dew: rand() > 0.84,
+      stemLength: 40,
+      delay: -rand() * 6,
+      symbol: true,
+    }));
+  }
+  return marks.join("");
+}
+
 function midLayer() {
   const grass = grassBed(11, 280);
   const horizon = horizonBed();
+  const buttons = buttonBed();
   const close = bed(21, 110, { nod: true, minScale: 0.34, maxScale: 1.35, reach: 150 });
   const outer = bed(44, 90, { nod: true, minScale: 0.28, maxScale: 1.15, reach: 520 });
   const symbols = ["daisy", "poppy", "buttercup", "lupin"]
     .map((type) => `<symbol id="bloom-${type}" overflow="visible">${bloom(type)}</symbol>`)
     .join("");
-  return svgDoc(`<defs>${PAINT}${symbols}</defs>${grass}${horizon}${outer}${close}`, { style: NOD_STYLE });
+  return svgDoc(`<defs>${PAINT}${symbols}</defs>${grass}${horizon}${buttons}${outer}${close}`, { style: NOD_STYLE });
 }
 
 function nearLayer() {
@@ -569,7 +596,7 @@ ${rows}
 | \`transition/petal-wall-left.svg\` | Left half of the near-flower curtain |
 | \`transition/petal-wall-right.svg\` | Right half of the near-flower curtain |
 
-These sit in front of every chapter plate. Part them on X: left \`translateX(-open * 105%)\`, right \`translateX(open * 105%)\`. \`open\` 1 is fully parted. \`open\` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers.
+These sit in front of every chapter plate. Part them on X: left \`translateX(-open * 105%)\`, right \`translateX(open * 105%)\`. \`open\` 1 is fully parted. \`open\` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers. The prototype mounts these two images only after scroll passes about 0.35, so they are not part of the first paint.
 
 The wall closes over the approach, then parts onto a prototype-only Chapter 2 placeholder. That placeholder is HTML, not a depth plate. The centred Chapter 1 title fades with the closing wall and stays hidden.
 
