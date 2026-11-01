@@ -1,0 +1,303 @@
+.hero {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  color: #f6edd8;
+  background: #140e09;
+  font-family: var(--font-grotesk), sans-serif;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.meadowIn,
+.meadow {
+  width: 100%;
+  height: 100%;
+}
+
+.meadow {
+  object-fit: cover;
+  object-position: center 42%;
+}
+
+.meadowIn {
+  height: 100%;
+  animation: world-in 1.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hiveSlot {
+  position: absolute;
+  top: 22%;
+  left: 71%;
+  width: min(23vw, 330px);
+  transform-origin: 50% 0%;
+  animation: hive-in 1.5s 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hiveSwing {
+  transform-origin: 50% 0%;
+  animation: hive-wind 6.4s 2s ease-in-out infinite;
+}
+
+.hive {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.28));
+}
+
+.spark {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffe7a8;
+  box-shadow: 0 0 10px 2px rgba(255, 214, 120, 0.85);
+  animation: twinkle 3.6s ease-in-out infinite;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(16, 9, 4, 0.78) 0%, rgba(16, 9, 4, 0.34) 38%, rgba(16, 9, 4, 0.08) 62%),
+    linear-gradient(to top, rgba(16, 9, 4, 0.55), transparent 34%);
+  pointer-events: none;
+}
+
+.copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 100svh;
+  max-width: 44rem;
+  flex-direction: column;
+  justify-content: center;
+  padding: 6.5rem 7vw 4.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 1.1rem;
+  color: #e7b15a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #f4ecdf;
+  font-size: clamp(4.4rem, 8vw, 7.4rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 0.86;
+}
+
+.title span {
+  display: block;
+}
+
+.when {
+  margin: 1.25rem 0 0;
+  color: rgba(246, 237, 216, 0.86);
+  font-size: 1.05rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.6rem;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.85rem 1.35rem;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.primary {
+  background: #e39b2b;
+  color: #2a1604;
+}
+
+.primary:hover {
+  background: #f0ad45;
+}
+
+.secondary {
+  border: 1px solid rgba(246, 237, 216, 0.55);
+  background: rgba(20, 14, 9, 0.28);
+  color: #f6edd8;
+}
+
+.secondary:hover {
+  background: rgba(246, 237, 216, 0.12);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid #f6edd8;
+  outline-offset: 3px;
+}
+
+.copy > * {
+  animation: rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.copy > *:nth-child(1) {
+  animation-delay: 0.65s;
+}
+
+.copy > *:nth-child(2) {
+  animation-delay: 0.85s;
+}
+
+.copy > *:nth-child(3) {
+  animation-delay: 1.05s;
+}
+
+.copy > *:nth-child(4) {
+  animation-delay: 1.25s;
+}
+
+:global(header[data-navbar-shell][data-over-scene="true"]) {
+  background-color: transparent;
+  background-image: linear-gradient(180deg, rgba(20, 12, 6, 0.62), rgba(20, 12, 6, 0));
+  color: #f6edd8;
+}
+
+:global(header[data-navbar-shell][data-over-scene="true"] nav a) {
+  color: #f6edd8;
+}
+
+@keyframes world-in {
+  from {
+    opacity: 0;
+    transform: scale(1.16);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hive-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-22%);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(1.5%);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hive-wind {
+  0%,
+  100% {
+    transform: rotate(-0.8deg);
+  }
+
+  50% {
+    transform: rotate(0.9deg);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.7);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 800px) {
+  .hero {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scene {
+    height: 56svh;
+  }
+
+  .hiveSlot {
+    top: 16%;
+    left: 42%;
+    width: min(48vw, 240px);
+  }
+
+  .copy {
+    min-height: 0;
+    max-width: none;
+    flex: 1;
+    justify-content: flex-start;
+    margin-top: 50svh;
+    padding: 1.4rem 1.15rem 1.6rem;
+    background: #140e09;
+  }
+
+  .title {
+    font-size: clamp(3.4rem, 16vw, 4.6rem);
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .primary,
+  .secondary {
+    width: 100%;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meadowIn,
+  .hiveSlot,
+  .hiveSwing,
+  .spark,
+  .copy > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
