@@ -1,5 +1,42 @@
 import type { PathChapter, PathLayer } from "@/components/path/types";
 
+const TRAILHEAD_LAYERS: PathLayer[] = [
+  { id: "trailhead-sky", slot: "sky", depth: 0.06, speed: 0.08, order: 1, src: "/path/ch1/01-sky.svg", alt: "" },
+  { id: "trailhead-hills", slot: "far", depth: 0.2, speed: 0.34, order: 2, src: "/path/ch1/02-hills.svg", alt: "" },
+  { id: "trailhead-path", slot: "mid", depth: 0.48, speed: 1.45, order: 3, src: "/path/ch1/03-path.svg", alt: "" },
+  { id: "trailhead-mist", slot: "mid", depth: 0.36, speed: 0.62, order: 4, src: "/path/ch1/04-mist.svg", alt: "" },
+  {
+    id: "trailhead-mid-flowers",
+    slot: "near",
+    depth: 0.7,
+    speed: 2.25,
+    order: 5,
+    src: "/path/ch1/05-mid-flowers.svg",
+    alt: "",
+    inline: true,
+  },
+  {
+    id: "trailhead-near-flowers",
+    slot: "near",
+    depth: 0.84,
+    speed: 3.15,
+    order: 6,
+    src: "/path/ch1/06-near-flowers.svg",
+    alt: "",
+    mobile: false,
+  },
+  {
+    id: "trailhead-foreground",
+    slot: "foreground",
+    depth: 0.98,
+    speed: 4.1,
+    order: 7,
+    src: "/path/ch1/07-foreground-stems.svg",
+    alt: "",
+    mobile: false,
+  },
+];
+
 function layersFor(id: string, foregroundOnMobile: boolean): PathLayer[] {
   return [
     {
@@ -52,7 +89,7 @@ export const PATH_CHAPTERS: PathChapter[] = [
     title: "Trailhead",
     light: "#ffe7a3",
     anchor: "trailhead",
-    layers: layersFor("trailhead", false),
+    layers: TRAILHEAD_LAYERS,
   },
   {
     id: "clearing",

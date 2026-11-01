@@ -8,7 +8,12 @@ import styles from "@/components/path/path.module.css";
 export function TrailheadPanel() {
   return (
     <div className={styles.hero}>
-      <h1 className={`${styles.heroTitle} ${styles.display}`}>HackHive</h1>
+      <h1 className={`${styles.heroTitle} ${styles.display}`}>
+        <span className={styles.heroFrost} aria-hidden="true">
+          HackHive
+        </span>
+        <span className={styles.heroFace}>HackHive</span>
+      </h1>
       <p className={styles.heroDate}>{EVENT_DATE_TEXT}</p>
       <p className={styles.heroMember}>
         <MLHWordmark /> Official Member
@@ -18,7 +23,7 @@ export function TrailheadPanel() {
         <Link href="/apply" className={styles.cta}>
           Join as a hacker
         </Link>
-        <Link href="#faq" className={styles.heroLearn}>
+        <Link href="/#faq" className={styles.heroLearn}>
           Learn more
         </Link>
       </div>

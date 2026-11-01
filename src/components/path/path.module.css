@@ -60,11 +60,7 @@
 
 .curtain {
   z-index: 3;
-  transform: scale(0.16);
-  transform-origin: 50% 88%;
-  opacity: 0;
   pointer-events: none;
-  will-change: transform;
 }
 
 .layer {
@@ -81,6 +77,7 @@
 .layer[data-slot="mid"] { z-index: 3; }
 .layer[data-slot="near"] { z-index: 4; }
 .layer[data-slot="foreground"] { z-index: 8; }
+.layer[data-painted="true"] { filter: none; }
 
 .scene,
 .art {
@@ -93,6 +90,17 @@
 
 .art {
   object-fit: cover;
+}
+
+.plate {
+  position: absolute;
+  inset: 0;
+}
+
+.plate > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .grain {
@@ -122,7 +130,7 @@
 .content {
   position: absolute;
   inset: 0;
-  z-index: 6;
+  z-index: 12;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -169,21 +177,9 @@
 
 .curtainHalf {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 52%;
+  inset: 0;
   overflow: hidden;
-  background: #6ea552;
   will-change: transform;
-}
-
-.curtainHalf[data-curtain-side="left"] { left: 0; }
-.curtainHalf[data-curtain-side="right"] { right: 0; }
-
-.petal {
-  position: absolute;
-  border-radius: 70% 30% 70% 30%;
-  box-shadow: inset 0 -6px 0 rgba(70, 40, 10, 0.08);
 }
 
 .dots {
@@ -264,30 +260,50 @@
 }
 
 .heroTitle {
+  display: grid;
   margin: 0;
-  color: #5a3814;
-  font-size: clamp(3.35rem, 15vw, 8.6rem);
-  font-weight: 700;
-  letter-spacing: -0.065em;
-  line-height: 0.86;
-  background-image: linear-gradient(
-    180deg,
-    rgba(255, 252, 246, 0.78) 0%,
-    rgba(255, 228, 176, 0.42) 48%,
-    rgba(255, 255, 255, 0.16) 100%
-  );
+  color: transparent;
+  font-size: clamp(3.15rem, 12vw, 8.6rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.88;
+  filter: drop-shadow(0 10px 16px rgba(24, 48, 28, 0.12));
+}
+
+.heroFrost,
+.heroFace {
+  grid-area: 1 / 1;
+}
+
+.heroFrost {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.08);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 0.018em rgba(62, 36, 14, 0.92);
-  paint-order: stroke fill;
-  filter: drop-shadow(0 12px 28px rgba(80, 40, 10, 0.16));
+  -webkit-mask-image: linear-gradient(#fff, #fff);
+  mask-image: linear-gradient(#fff, #fff);
+  -webkit-mask-clip: text;
+  mask-clip: text;
+  -webkit-backdrop-filter: blur(14px) saturate(1.45) brightness(1.08);
+  backdrop-filter: blur(14px) saturate(1.45) brightness(1.08);
+}
+
+.heroFace {
+  color: transparent;
+  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.94);
+}
+
+.heroDate,
+.heroLine,
+.heroMember {
+  color: #143224;
 }
 
 .heroDate,
 .heroLine {
   margin: 0;
-  color: #3c2916;
   line-height: 1.4;
 }
 
@@ -295,7 +311,7 @@
   margin-top: 0.85rem;
   font-size: clamp(1.02rem, 2vw, 1.22rem);
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: 0.04em;
 }
 
 .heroMember {
@@ -304,7 +320,6 @@
   justify-content: center;
   gap: 0.45rem;
   margin: 0.4rem 0 0;
-  color: #4a341c;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -331,9 +346,26 @@
   color: #23180e;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .layer[data-sway="true"] .art {
+    transform-origin: 50% 42%;
+    animation: hill-breeze 9s ease-in-out infinite;
+  }
+}
+
+@keyframes hill-breeze {
+  0%,
+  100% { transform: rotate(-0.35deg); }
+  50% { transform: rotate(0.45deg); }
+}
+
 @media (max-width: 767px) {
   .heroTitle {
     font-size: clamp(2.7rem, 11.2vw, 3.2rem);
+  }
+
+  .heroFace {
+    -webkit-text-stroke-width: 1.25px;
   }
 
   .heroDate {

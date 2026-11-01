@@ -30,6 +30,15 @@ export type PathLayer = {
   placeholder?: string;
   /** When false, the layer is omitted below the mobile breakpoint. */
   mobile?: boolean;
+  /**
+   * Horizon dolly for a painted plate. The layer scales to `1 + speed`
+   * from `50% 49.8%`. Omit it to keep the placeholder depth zoom.
+   */
+  speed?: number;
+  /** Paint order. Low is far. Overrides the slot stack when set. */
+  order?: number;
+  /** Render the SVGO plate inline so motion inside the file can run. */
+  inline?: boolean;
 };
 
 export type PathChapter = {

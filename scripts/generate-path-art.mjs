@@ -578,7 +578,8 @@ function readme() {
   return `# Walk the Path — Chapter 1 layers
 
 Painted plates for the Trailhead hero and the petal-wall curtain.
-The look-sign-off route is \`/prototype/path\`. The live homepage does not use these files.
+The homepage walk in \`src/components/path/chapters.ts\` points each plate at \`src\`.
+\`/prototype/path\` renders that same walk.
 
 Every plate uses viewBox \`0 0 ${VB.w} ${VB.h}\` and \`preserveAspectRatio="xMidYMid slice"\`.
 Stack back to front. Scale each plate from the horizon: \`scale(1 + speed * walk)\` with origin \`50% 49.8%\`, where \`walk\` is 0 at the trailhead and 1 after the step forward. Higher speed is nearer, so it moves outward fastest. Path and mid-flower speeds are high so the step reads as walking into the flowers.
@@ -596,13 +597,13 @@ ${rows}
 | \`transition/petal-wall-left.svg\` | Left half of the near-flower curtain |
 | \`transition/petal-wall-right.svg\` | Right half of the near-flower curtain |
 
-These sit in front of every chapter plate. Part them on X: left \`translateX(-open * 105%)\`, right \`translateX(open * 105%)\`. \`open\` 1 is fully parted. \`open\` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers. The prototype mounts these two images only after scroll passes about 0.35, so they are not part of the first paint.
+These sit in front of every chapter plate. Part them on X: left \`translateX(-open * 105%)\`, right \`translateX(open * 105%)\`. \`open\` 1 is fully parted. \`open\` 0 is the closed wall. The halves overlap through the center so the seam is flowers, not a gap. The curtain is soft: blurred depth bands, uneven clusters, and a gradient tint, in the same language as the near flowers. The homepage mounts these two images only after scroll passes 0.35, so they are not fetched at 0%.
 
-The wall closes over the approach, then parts onto a prototype-only Chapter 2 placeholder. That placeholder is HTML, not a depth plate. The centred Chapter 1 title fades with the closing wall and stays hidden.
+The wall closes over the approach, then parts onto Chapter 2 (About). The centred Chapter 1 title fades with the closing wall and stays hidden.
 
 ## Title
 
-The wooden sign is gone. \`HackHive\`, \`Jan 29–31, 2027\`, and Join (\`/apply\`) are HTML centred on the prototype, above the plates and under the petal wall. Learn more links to \`/#faq\`.
+The wooden sign is gone. \`HackHive\`, the shared event date, and Join as a hacker (\`/apply\`) are HTML centred above the plates and under the petal wall. Learn more links to \`/#faq\`. The navbar keeps the single logo.
 
 ## Motion
 

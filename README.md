@@ -23,12 +23,13 @@ and a `layers` list. Each layer has:
 | `mobile` | `false` hides the layer below 768px |
 
 Draw each plate as a full-bleed frame, centred, with spare bleed at the edges.
-The camera scales every layer from the centre. Keep type out of the art — copy
-stays in the chapter panels so it can stay readable. The trailhead placeholder
-is a path straight down the centre with flower beds on both sides. The HackHive
-wordmark is an HTML heading in that panel, not part of the plate. Sky is the
-furthest, sharp plane. Foreground is the closest and the softest. The petal
-curtain between chapters is part of the engine, not a layer.
+Placeholder chapters scale from the centre. Painted plates with a `speed` scale
+from the horizon (`50% 49.8%`) by `1 + speed`. Keep type out of the art — copy
+stays in the chapter panels so it can stay readable. Chapter 1 uses the plates
+in `public/path/ch1/` (sky, hills, path, mist, mid flowers, near flowers,
+foreground). The HackHive wordmark is an HTML heading, not part of a plate.
+The petal wall is `public/path/transition/` and mounts after the walk passes
+35% of the first chapter. Later chapters keep their placeholders.
 
 `prefers-reduced-motion` skips pinning, zoom, and the curtain. The same chapters
 stack as still scenes with the copy in normal document flow.

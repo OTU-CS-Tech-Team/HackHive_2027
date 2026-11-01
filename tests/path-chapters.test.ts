@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { layers } from "@/app/prototype/path/scene";
 import { PATH_CHAPTERS } from "@/components/path/chapters";
 import { blurPx, slotRank, zoomScale } from "@/components/path/math";
 import { CHAPTER_IDS, LAYER_SLOTS } from "@/components/path/types";
@@ -27,6 +28,14 @@ describe("path chapters", () => {
       const foreground = chapter.layers.find((layer) => layer.slot === "foreground");
       expect(sky && foreground && foreground.depth > sky.depth).toBe(true);
     }
+  });
+
+  it("maps chapter 1 onto the approved plates, in paint order", () => {
+    const trailhead = PATH_CHAPTERS[0];
+    expect(trailhead?.layers.map((layer) => layer.src)).toEqual(layers.map((layer) => layer.src));
+    expect(trailhead?.layers.map((layer) => layer.speed)).toEqual(layers.map((layer) => layer.speed));
+    expect(trailhead?.layers.find((layer) => layer.id === "trailhead-mid-flowers")?.inline).toBe(true);
+    expect(PATH_CHAPTERS.slice(1).every((chapter) => chapter.layers.every((layer) => !layer.src))).toBe(true);
   });
 
   it("keeps the mobile foreground lighter except at the hive", () => {

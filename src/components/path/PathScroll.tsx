@@ -1,8 +1,10 @@
 "use client";
 
-import { Children, useLayoutEffect, useRef, type ReactNode } from "react";
+import { Children, cloneElement, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { midFlowersSvg } from "@/app/prototype/path/scene";
+import { smoothstep, TRAIL_MOTION } from "@/app/prototype/path/motion";
 import { FINAL_WASH } from "@/components/path/chapters";
 import { Curtain } from "@/components/path/Curtain";
 import { blurPx, zoomScale } from "@/components/path/math";
@@ -27,9 +29,17 @@ function PathLayerView({
       data-depth={layer.depth}
       data-mobile={layer.mobile === false ? "off" : "on"}
       aria-hidden={layer.alt ? undefined : true}
-      style={{ ["--blur" as string]: `${blurPx(layer.depth, false)}px` }}
+      data-speed={layer.speed ?? undefined}
+      data-painted={layer.src ? "true" : undefined}
+      data-sway={layer.id.endsWith("hills") ? "true" : undefined}
+      style={{
+        ["--blur" as string]: layer.src ? "0px" : `${blurPx(layer.depth, false)}px`,
+        zIndex: layer.order,
+      }}
     >
-      {layer.src ? (
+      {layer.inline ? (
+        <div className={styles.plate} dangerouslySetInnerHTML={{ __html: midFlowersSvg }} />
+      ) : layer.src ? (
         // Drop-in art from any public path. next/image would need remote patterns Jiwoo has not set.
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -79,7 +89,15 @@ export function PathScroll({
   children: ReactNode;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const wallsReady = useRef(false);
+  const [showWalls, setShowWalls] = useState(false);
   const panels = Children.toArray(children);
+
+  const mountWalls = () => {
+    if (wallsReady.current) return;
+    wallsReady.current = true;
+    setShowWalls(true);
+  };
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -134,9 +152,18 @@ export function PathScroll({
             (layer) => (mobile ? layer.dataset.mobile !== "off" : true),
           );
           const isLast = index === chapterEls.length - 1;
-          const distance = isLast ? (mobile ? "+=70%" : "+=90%") : mobile ? "+=110%" : "+=160%";
-
-          gsap.set(layers, { force3d: true, transformOrigin: "50% 50%", scale: 1 });
+          const isTrailhead = el.dataset.pathChapter === "trailhead";
+          const distance = isLast
+            ? mobile
+              ? "+=70%"
+              : "+=90%"
+            : isTrailhead
+              ? mobile
+                ? "+=130%"
+                : "+=180%"
+              : mobile
+                ? "+=110%"
+                : "+=160%";
 
           const timeline = gsap.timeline({
             defaults: { ease: "none" },
@@ -153,38 +180,70 @@ export function PathScroll({
               onToggle: (self) => {
                 if (self.isActive) setDots(index);
               },
+              onUpdate: (self) => {
+                if (self.progress >= TRAIL_MOTION.mountAt) mountWalls();
+              },
               onRefresh: (self) => {
                 el.dataset.pinStart = String(Math.round(self.start));
                 el.dataset.pinEnd = String(Math.round(self.end));
+                if (self.progress >= TRAIL_MOTION.mountAt) mountWalls();
               },
             },
           });
 
-          if (layers.length > 0) {
+          layers.forEach((layer) => {
+            const speed = Number(layer.dataset.speed);
+            if (speed > 0) {
+              gsap.set(layer, { force3d: true, transformOrigin: "50% 49.8%", scale: 1 });
+              timeline.to(layer, { scale: 1 + speed, duration: TRAIL_MOTION.walkEnd, ease: smoothstep }, 0);
+              return;
+            }
+            gsap.set(layer, { force3d: true, transformOrigin: "50% 50%", scale: 1 });
             timeline.to(
-              layers,
+              layer,
               {
-                scale: (_i, target) => zoomScale(Number((target as HTMLElement).dataset.depth ?? 0), mobile),
-                duration: isLast ? 1 : 0.62,
+                scale: zoomScale(Number(layer.dataset.depth ?? 0), mobile),
+                duration: isLast ? 1 : TRAIL_MOTION.walkEnd,
               },
               0,
             );
-          }
+          });
 
-          if (wash) timeline.to(wash, { opacity: 0.5, duration: isLast ? 1 : 0.62 }, 0);
+          if (wash) timeline.to(wash, { opacity: 0.5, duration: isLast ? 1 : TRAIL_MOTION.walkEnd }, 0);
 
           if (!isLast && curtain && left && right && world) {
-            if (content) timeline.to(content, { autoAlpha: 0, duration: 0.12 }, 0.5);
-            timeline.fromTo(
-              curtain,
-              { scale: 0.16, opacity: 0 },
-              { scale: 1, opacity: 1, duration: 0.2 },
-              0.52,
+            const closeSpan = TRAIL_MOTION.closeEnd - TRAIL_MOTION.closeStart;
+            const heroSpan = TRAIL_MOTION.heroEnd - TRAIL_MOTION.closeStart;
+            if (content) {
+              timeline.to(content, { autoAlpha: 0, duration: heroSpan, ease: smoothstep }, TRAIL_MOTION.closeStart);
+            }
+            gsap.set(curtain, { scale: 1, opacity: 1 });
+            // A CSS percentage transform would be recorded as a pixel x and then stacked
+            // on xPercent, leaving the closed wall a full viewport off-screen.
+            left.style.transform = "";
+            right.style.transform = "";
+            gsap.set(left, { x: 0, xPercent: -TRAIL_MOTION.partPercent });
+            gsap.set(right, { x: 0, xPercent: TRAIL_MOTION.partPercent });
+            timeline.to(left, { xPercent: 0, duration: closeSpan, ease: smoothstep }, TRAIL_MOTION.closeStart);
+            timeline.to(right, { xPercent: 0, duration: closeSpan, ease: smoothstep }, TRAIL_MOTION.closeStart);
+            timeline.to(world, { autoAlpha: 0, duration: 0.02 }, TRAIL_MOTION.closeEnd);
+            if (preview) {
+              timeline.to(
+                preview,
+                { autoAlpha: 1, duration: TRAIL_MOTION.chapterSpan, ease: smoothstep },
+                TRAIL_MOTION.closeEnd,
+              );
+            }
+            timeline.to(
+              left,
+              { xPercent: -TRAIL_MOTION.partPercent, duration: TRAIL_MOTION.partSpan, ease: smoothstep },
+              TRAIL_MOTION.closeEnd,
             );
-            timeline.to(world, { autoAlpha: 0, duration: 0.04 }, 0.72);
-            if (preview) timeline.set(preview, { autoAlpha: 1 }, 0.73);
-            timeline.to(left, { xPercent: -108, duration: 0.26 }, 0.76);
-            timeline.to(right, { xPercent: 108, duration: 0.26 }, 0.76);
+            timeline.to(
+              right,
+              { xPercent: TRAIL_MOTION.partPercent, duration: TRAIL_MOTION.partSpan, ease: smoothstep },
+              TRAIL_MOTION.closeEnd,
+            );
           }
         });
 
@@ -253,6 +312,8 @@ export function PathScroll({
       {chapters.map((chapter, index) => {
         const next = chapters[index + 1];
         const wash = next?.light ?? FINAL_WASH;
+        const painted = chapter.layers.some((layer) => layer.src);
+        const nextPanel = panels[index + 1];
         return (
           <section
             key={chapter.id}
@@ -267,18 +328,27 @@ export function PathScroll({
               {next ? (
                 <div className={styles.preview} data-preview="" aria-hidden="true" inert>
                   <LayerStack chapter={next} kind="preview" />
-                  <div className={styles.light} style={{ background: next.light }} />
+                  {painted ? null : <div className={styles.light} style={{ background: next.light }} />}
+                  {index === 0 && nextPanel ? (
+                    <div className={styles.content} data-align={next.align ?? "center"}>
+                      {cloneElement(nextPanel as ReactElement)}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               <div className={styles.world} data-world="">
                 <LayerStack chapter={chapter} kind="world" />
-                <div className={styles.grain} aria-hidden="true" />
-                <div className={styles.light} style={{ background: chapter.light }} />
-                <div
-                  className={`${styles.light} ${styles.wash}`}
-                  data-light-wash=""
-                  style={{ background: wash }}
-                />
+                {painted ? null : (
+                  <>
+                    <div className={styles.grain} aria-hidden="true" />
+                    <div className={styles.light} style={{ background: chapter.light }} />
+                    <div
+                      className={`${styles.light} ${styles.wash}`}
+                      data-light-wash=""
+                      style={{ background: wash }}
+                    />
+                  </>
+                )}
                 <div
                   className={styles.content}
                   data-chapter-content=""
@@ -287,7 +357,7 @@ export function PathScroll({
                   {panels[index] ?? null}
                 </div>
               </div>
-              {next ? <Curtain /> : null}
+              {next ? <Curtain showArt={showWalls} /> : null}
             </div>
           </section>
         );
