@@ -392,7 +392,7 @@ export async function submitApplication(input: {
 
     if (draftError) {
       console.error('Draft row error:', draftError);
-      return { ok: false, code: 'server', error: 'Failed to submit application' };
+      return { ok: false, code: 'server', error: `Couldn't prepare application: ${draftError.message}` };
     }
 
     const { data: rpcResult, error: rpcError } = await serviceClient.rpc('reg_submit_application', {
@@ -436,7 +436,7 @@ export async function submitApplication(input: {
 
     if (rpcError) {
       console.error('Submit RPC error:', rpcError);
-      return { ok: false, code: 'server', error: 'Failed to submit application' };
+      return { ok: false, code: 'server', error: `Failed to submit application: ${rpcError.message}` };
     }
 
     const response = rpcResult as { ok?: boolean; error?: string; application_id?: string; submitted_at?: string };

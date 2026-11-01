@@ -4,6 +4,7 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const calls: string[] = [];
   const state = {
     rpcError: null as { message: string } | null,
+    upsertError: null as { message: string } | null,
     draftCreatedAt: null as string | null,
     selected: '',
   };
@@ -27,7 +28,7 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
       upsert: async (...args: unknown[]) => {
         calls.push('upsert');
         serviceClient.upsertArgs.push(args);
-        return { error: null };
+        return { error: state.upsertError };
       },
     }),
     rpc: async (name: string) => {
@@ -102,11 +103,29 @@ describe('submitApplication', () => {
     calls.length = 0;
     serviceClient.upsertArgs.length = 0;
     serviceClient.state.rpcError = null;
+    serviceClient.state.upsertError = null;
     serviceClient.state.draftCreatedAt = null;
     revalidatePath.mockClear();
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
     vi.stubEnv('RATE_LIMIT_HASH_SECRET', 'test-secret');
     vi.stubEnv('TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA');
+  });
+
+  it('reports the database reason when creating the draft row fails', async () => {
+    serviceClient.state.upsertError = { message: 'Invalid API key' };
+
+    const result = await submit();
+
+    expect(result).toMatchObject({ ok: false, code: 'server', error: "Couldn't prepare application: Invalid API key" });
+    expect(calls).toEqual(['upsert']);
+  });
+
+  it('reports the database reason when the submit call fails', async () => {
+    serviceClient.state.rpcError = { message: 'permission denied for function is_admin' };
+
+    const result = await submit();
+
+    expect(result).toMatchObject({ ok: false, code: 'server', error: 'Failed to submit application: permission denied for function is_admin' });
   });
 
   it('lets someone finish a saved draft right after reopening the page', async () => {
