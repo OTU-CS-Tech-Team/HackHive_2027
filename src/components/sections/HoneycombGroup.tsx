@@ -102,6 +102,21 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
   onFlipEnd: () => void;
 }) {
   const [touchMode, setTouchMode] = useState(false);
+  const [photoUnavailable, setPhotoUnavailable] = useState(false);
+  const photoSrc = `/Images/${encodeURIComponent(person.name.trim().replace(/\s+/g, "_"))}.png`;
+
+  const avatar = photoUnavailable ? (
+    <span className={styles.avatarFallback} aria-hidden="true">
+      {person.name.charAt(0)}
+    </span>
+  ) : (
+    <img
+      src={photoSrc}
+      alt=""
+      className={styles.avatar}
+      onError={() => setPhotoUnavailable(true)}
+    />
+  );
 
   useEffect(() => {
     const touchQuery = window.matchMedia("(hover: none), (pointer: coarse)");
@@ -123,13 +138,7 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
       }}
     >
       <div className={`${styles.face} ${styles.front}`} aria-hidden={revealed}>
-        {person.photo_url ? (
-          <img src={person.photo_url} alt="" className={styles.avatar} />
-        ) : (
-          <span className={styles.avatarFallback} aria-hidden="true">
-            {person.name.charAt(0)}
-          </span>
-        )}
+        {avatar}
         <span className={styles.name}>{person.name}</span>
       </div>
       <div
@@ -143,21 +152,12 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
           aria-expanded={expanded}
           onClick={onToggleExpanded}
         >
-          {person.photo_url ? (
-            <img src={person.photo_url} alt="" className={styles.avatar} />
-          ) : (
-            <span className={styles.avatarFallback} aria-hidden="true">
-              {person.name.charAt(0)}
-            </span>
-          )}
+          {avatar}
           <span className={styles.name}>{person.name}</span>
           {person.title && <span className={styles.details}>{person.title}</span>}
           {person.company && <span className={styles.details}>{person.company}</span>}
-          <span className={styles.rule} aria-hidden="true" />
-          {(person.linkedin_url || person.bio) && !expanded && (
-            <span className={styles.morePrompt}>More...</span>
-          )}
         </button>
+        {person.linkedin_url && <span className={styles.rule} aria-hidden="true" />}
         {person.linkedin_url && (
           <a
             href={person.linkedin_url}
