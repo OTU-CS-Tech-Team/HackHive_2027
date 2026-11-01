@@ -5,14 +5,14 @@ import { MegaphoneBanner } from "./Megaphone";
 import styles from "./SpeakersSection.module.css";
 
 
-
+// to add new people images to judges or speakers add them into public\Images\"FirstName_LastName.png"
 
 export async function SpeakersSection() {
   const people = await getPeople();
   const judges = people.filter((person) => person.role === "judge");
 
       return (
-    <section id="judges" className={`${styles.section} scroll-mt-16`}>
+    <section id="judges" className={`${styles.section} ${styles.judgesSection} scroll-mt-16`}>
       <GavelRain />
       <div className={styles.stage}>
         <MegaphoneBanner

@@ -58,8 +58,9 @@ export default function Home() {
           <HeroCTA />
         </Suspense>
       </section>
-      <SpeakersSection />
+      
       <SponsorsSection />
+      <SpeakersSection />
       <HackHive2025Section />
       <FaqSection />
     </main>
