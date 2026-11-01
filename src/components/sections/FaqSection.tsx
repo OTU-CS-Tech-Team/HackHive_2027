@@ -28,17 +28,16 @@ function ContactLine() {
   return (
     <div className="faq-contact">
       <p>
-        Have more questions? Email us at{" "}
-        <a href={GMAIL_URL} target="_blank" rel="noopener noreferrer">
-          {CLUB_EMAIL}
-        </a>
-        .
-      </p>
-      <div className="faq-contact-actions">
+        <span>
+          Have more questions? Email us at{" "}
+          <a href={GMAIL_URL} target="_blank" rel="noopener noreferrer">
+            {CLUB_EMAIL}
+          </a>
+        </span>
         <button type="button" onClick={copy}>
           {copied ? "Copied!" : "Copy email"}
         </button>
-      </div>
+      </p>
       <span className="sr-only" aria-live="polite">
         {copied ? "Email address copied" : ""}
       </span>
@@ -81,11 +80,11 @@ const faqs: Faq[] = [
   },
 ];
 
-// Where the amber hexes sit on each card, so no two cards look alike. Numbers are in
-// hex widths from the card's edge (negative hangs off it); strings are used as-is.
-// `size` scales a hex, and `melt` ones sit on the bottom edge and melt away when
-// the answer opens beneath them. Hexes stay off the question's left padding and the
-// +/- on the right.
+// The amber hexes clinging to the cards. There are only a couple for the whole
+// section, on opposite corners of the grid, so they don't compete with the questions.
+// Numbers are in hex widths from the card's edge (negative hangs off it); strings are
+// used as-is. `size` scales a hex, and `melt` ones sit on the bottom edge and melt
+// away when the answer opens beneath them.
 type HexSpot = {
   top?: number | string;
   bottom?: number | string;
@@ -95,41 +94,13 @@ type HexSpot = {
   melt?: boolean;
 };
 
-const HEX_LAYOUTS: HexSpot[][] = [
-  // Torn from the comb at the top-left corner.
-  [
-    { top: -0.45, left: -0.3 },
-    { top: 0.5, left: -0.8 },
-    { bottom: -0.4, right: -0.45, melt: true },
-  ],
-  // Torn at the top-right corner instead.
-  [
-    { top: -0.65, right: -0.25 },
-    { bottom: -0.45, left: -0.4, size: 0.85, melt: true },
-  ],
-  // A short strip of comb along the top edge.
-  [
-    { top: -0.6, left: "26%", size: 0.85 },
-    { top: -0.6, left: "calc(26% + var(--cell) * 0.9)", size: 0.85 },
-  ],
-  // One big hex on the corner and a straggler.
-  [
-    { top: -0.55, left: -0.45, size: 1.25 },
-    { bottom: -0.5, right: "28%", size: 0.8, melt: true },
-  ],
-  // Low on the bottom-left.
-  [
-    { top: -0.5, right: -0.3, size: 0.7 },
-    { bottom: -0.4, left: -0.35, melt: true },
-    { bottom: -0.65, left: 0.55, size: 0.8, melt: true },
-  ],
-  // A pair down the left side.
-  [
-    { top: -0.35, left: -0.6 },
-    { top: 0.6, left: -0.75, size: 0.8 },
-    { top: -0.6, left: "74%", size: 0.85 },
-  ],
-];
+// Keyed by the card's position in the list; cards not listed get none.
+const HEX_LAYOUTS: Record<number, HexSpot[]> = {
+  // One big hex on the first card's top-left corner.
+  0: [{ top: -0.55, left: -0.45, size: 1.25 }],
+  // And one on the last card's bottom-right corner.
+  5: [{ bottom: -0.45, right: -0.4, melt: true }],
+};
 
 // Numbers become multiples of the card's hex size.
 const cellOffset = (value?: number | string) =>
@@ -505,7 +476,7 @@ export function FaqSection() {
               <FaqItem
                 key={faq.question}
                 id={`faq-answer-${c}-${i}`}
-                hexes={HEX_LAYOUTS[(c * half + i) % HEX_LAYOUTS.length]}
+                hexes={HEX_LAYOUTS[c * half + i] ?? []}
                 drips={DRIP_LAYOUTS[(c * half + i) % DRIP_LAYOUTS.length]}
                 {...faq}
               />

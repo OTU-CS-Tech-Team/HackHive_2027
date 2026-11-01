@@ -135,6 +135,9 @@
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
+  /* Tall enough for two lines of question, so every bar is the same height
+     whether its question wraps or not. */
+  min-height: calc(2lh + 2.75rem + 2 * var(--line));
   /* Clears any hexes on the bar's left edge. */
   padding: 1.375rem 1.25rem 1.375rem 2.75rem;
   border: var(--line) solid var(--ink);
@@ -339,10 +342,16 @@
   line-height: 1.5;
 }
 
-/* On a pale card like the answers, so it reads clearly over the background. */
+/* On a pale card like the answers, so it reads clearly over the background, with
+   the copy button tucked in at its right end. */
 .faq-contact p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
   margin: 0;
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.25rem;
   border: var(--line) solid var(--ink);
   border-radius: 0.875rem;
   background: var(--grain), #fff8d6;
@@ -361,21 +370,16 @@
   color: var(--honey-deep);
 }
 
-/* "Copy email": a small chunky honey button like the FAQ bars. */
-.faq-contact-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.faq-contact-actions > * {
-  padding: 0.4rem 1rem;
+/* "Copy email": a small chunky honey button like the FAQ bars. Its shadow is
+   shallower than the pill's so it sits inside it. */
+.faq-contact button {
+  flex-shrink: 0;
+  margin-bottom: 3px;
+  padding: 0.35rem 1rem;
   border: var(--line) solid var(--ink);
-  border-radius: 9999px;
+  border-radius: 0.5rem;
   background: var(--grain), var(--honey);
-  box-shadow: 0 4px 0 var(--side);
+  box-shadow: 0 3px 0 var(--side);
   color: var(--ink);
   font-size: 0.9375rem;
   font-weight: 800;
@@ -383,12 +387,12 @@
   transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms;
 }
 
-.faq-contact-actions > *:hover {
+.faq-contact button:hover {
   background-color: var(--honey-light);
 }
 
-.faq-contact-actions > *:active {
-  transform: translateY(3px);
+.faq-contact button:active {
+  transform: translateY(2px);
   box-shadow: 0 1px 0 var(--side);
 }
 
@@ -419,6 +423,7 @@
   }
 
   .faq-question {
+    min-height: calc(2lh + 2.25rem + 2 * var(--line));
     padding: 1.125rem 1rem 1.125rem 2.25rem;
     font-size: 1rem;
   }
