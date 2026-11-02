@@ -1,7 +1,10 @@
 .section {
   box-sizing: border-box;
   width: 100%;
-  background: #14110b;
+  /* The banner meets the scalloped leaves. The top of this field stays
+     clear so the tips are not covered by a second dark veil. */
+  margin-top: clamp(-7.5rem, -9vw, -5rem);
+  background: linear-gradient(to bottom, transparent, #14110b 7rem);
   color: #fff6e0;
   padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;

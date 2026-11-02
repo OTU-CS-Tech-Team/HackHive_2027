@@ -11,6 +11,7 @@
   --sky: #ffe3a0;
   --haze: #fff8f2;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --art-w: 100vw;
   --comb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cpath fill='%23000' d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/svg%3E");
   position: relative;
   overflow-x: clip;
@@ -26,17 +27,16 @@
 
 /* Lifts the white hero into the honey-colored sky. Ends on the sky's first colour. */
 .dawn {
-  height: clamp(10rem, 30vh, 18rem);
+  height: clamp(3.25rem, 9vh, 6rem);
   background: linear-gradient(to bottom, #fff, #fff1cf 55%, #f5cc7c);
 }
 
 /* ---------- Sky and treeline ---------- */
 
 .sky {
-  --art-w: max(100vw, 72rem);
   --wall-h: calc(var(--art-w) * 0.3733);
   position: relative;
-  padding: clamp(3rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem) calc(var(--wall-h) * 0.84);
+  padding: clamp(0.75rem, 2vw, 1.5rem) clamp(1rem, 5vw, 4rem) calc(var(--wall-h) * 0.78);
   background:
     radial-gradient(min(38rem, 70vw) min(26rem, 40vw) at 72% calc(100% - var(--wall-h) * 0.62), rgb(255 247 205 / 0.95), rgb(255 226 140 / 0.55) 45%, transparent),
     linear-gradient(to bottom, #f5cc7c, var(--sky) 28%, #fbd98a 58%, #efb65a);
@@ -89,13 +89,15 @@
   display: flow-root;
   position: relative;
   z-index: 1;
-  padding: 0 clamp(1rem, 5vw, 4rem) clamp(12rem, 22vw, 20rem);
+  --ground-w: max(150vw, 88rem);
+  --ground-h: calc(var(--ground-w) * 0.1277);
+  padding: 0 clamp(1rem, 5vw, 4rem) var(--ground-h);
   background:
     linear-gradient(to bottom, #0b2419, transparent 16rem),
-    linear-gradient(to top, #14110b, transparent 14rem),
+    linear-gradient(to top, #14110b 0%, #14110b 8rem, transparent 28rem),
     #0b2419 url("/sponsors/depth.webp") center top / 1600px repeat-y;
-  /* Crowns may rise into the sky above, but nothing spills into the next section. */
-  clip-path: inset(-60rem 0 0);
+  /* Crowns may rise into the sky. The floor's own edge carries the fade below. */
+  clip-path: inset(-60rem 0 -1rem 0);
 }
 
 /* Shafts of late sun falling through the canopy. */
@@ -151,20 +153,31 @@
   position: absolute;
   z-index: 3;
   left: 50%;
-  width: max(100vw, 72rem);
-  margin-left: calc(max(100vw, 72rem) / -2);
+  width: var(--ground-w);
+  margin-left: calc(var(--ground-w) / -2);
   pointer-events: none;
 }
 
+/* Bitmap edge is the scalloped dissolve, so this band ends on the leaves. */
 .floor {
-  bottom: -3rem;
+  bottom: 0;
+  height: var(--ground-h);
+  overflow: hidden;
 }
 
-/* Undergrowth thins out so the dark speakers section can take over. */
+.floor img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: fill;
+}
+
 .mist {
-  bottom: -2px;
-  -webkit-mask: linear-gradient(to bottom, #000 35%, transparent 78%);
-  mask: linear-gradient(to bottom, #000 35%, transparent 78%);
+  bottom: clamp(3rem, 8vw, 7rem);
+  -webkit-mask: linear-gradient(to bottom, #000 0%, transparent 85%);
+  mask: linear-gradient(to bottom, #000 0%, transparent 85%);
 }
 
 .mote {
@@ -191,7 +204,20 @@
   }
 
   .woods {
-    background-size: auto, auto, 1000px;
+    background-color: #0b2419;
+    background-image:
+      linear-gradient(to bottom, #0b2419, transparent 16rem),
+      linear-gradient(to top, #14110b 0%, #14110b 6rem, transparent 22rem),
+      url("/sponsors/depth-800.webp");
+    background-repeat: no-repeat, no-repeat, repeat-y;
+    background-position: center top, center top, center top;
+    background-size: auto, auto, 800px;
+  }
+}
+
+@media (min-width: 56.25rem) {
+  .section {
+    --art-w: max(100vw, 72rem);
   }
 }
 
@@ -201,8 +227,8 @@
   position: relative;
   z-index: 2;
   display: grid;
-  gap: clamp(1rem, 3vw, 2rem);
-  padding: clamp(2rem, 6vw, 5rem) 0 clamp(2rem, 4vw, 3rem);
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  padding: clamp(0.25rem, 1vw, 0.75rem) 0 clamp(1.25rem, 3vw, 2.25rem);
   text-align: center;
 }
 
@@ -221,6 +247,7 @@
   margin: 0;
   font-size: clamp(1.1rem, 1.8vw, 1.4rem);
   font-weight: 500;
+  text-shadow: 0 0.1rem 0.45rem rgb(255 227 160 / 0.95);
 }
 
 .labelWrap {
@@ -233,11 +260,11 @@
 
 .boards {
   position: relative;
-  z-index: 2;
+  z-index: 5;
   display: grid;
-  gap: clamp(2.5rem, 4vw, 3.5rem);
-  max-width: 72rem;
-  margin: clamp(-16rem, -16vw, -5rem) auto 0;
+  gap: clamp(4.5rem, 9vw, 7.5rem);
+  max-width: 42rem;
+  margin: clamp(-12rem, -14vw, -4rem) auto 0;
 }
 
 .board {
@@ -391,8 +418,9 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  gap: clamp(0.75rem, 2vw, 1.5rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 12.5rem));
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  justify-content: center;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -564,6 +592,6 @@ a.tile:is(:hover, :focus-visible) .visit {
 
 @media (max-width: 40rem) {
   .tier {
-    --cols: 2;
+    --cols: 1;
   }
 }

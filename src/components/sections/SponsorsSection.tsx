@@ -10,7 +10,7 @@ import styles from "./SponsorsSection.module.css";
 const SPONSOR_EMAIL = "otu.csclub@gmail.com";
 const SPONSOR_CONTACT = `mailto:${SPONSOR_EMAIL}?subject=Sponsoring%20HackHive%202027`;
 
-// Wider tiles for the smaller tier. Rows are filled out with placeholder cells.
+// Wider rows for the smaller tier. A "Coming soon" row is only for a tier with nobody in it.
 function tierLayout(tier: Sponsor["tier"]): { columns: number; medal: string } {
   switch (tier) {
     case "gold":
@@ -78,6 +78,34 @@ const TREES: {
   { art: "oak-b", side: "left", top: "68%", x: "-17rem", w: "36rem", depth: -30 },
   { art: "pine-b", side: "right", top: "71%", x: "-7rem", w: "26rem", depth: 30 },
 ];
+
+const PANORAMA_SIZES = "(max-width: 56.25rem) 100vw, max(100vw, 72rem)";
+/* The ground is drawn wider than the viewport so the fade stays tall. Cap the
+   slot so a phone still takes the 1600w file, not the full painting. */
+const GROUND_SIZES = "(max-width: 64rem) 800px, 1200px";
+
+function Panorama({
+  name,
+  width,
+  height,
+}: {
+  name: "far" | "wall" | "floor" | "mist";
+  width: number;
+  height: number;
+}) {
+  return (
+    <img
+      src={`/sponsors/${name}.webp`}
+      srcSet={`/sponsors/${name}-960.webp 960w, /sponsors/${name}-1600.webp 1600w, /sponsors/${name}.webp ${width}w`}
+      sizes={name === "floor" || name === "mist" ? GROUND_SIZES : PANORAMA_SIZES}
+      alt=""
+      width={width}
+      height={height}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
 
 function Tree({ art, side, top, x, w, depth }: (typeof TREES)[number]) {
   return (
@@ -180,22 +208,10 @@ export async function SponsorsSection() {
         </header>
 
         <div className={styles.far} aria-hidden="true" data-depth="55">
-          <Image
-            src="/sponsors/far.webp"
-            alt=""
-            width={2600}
-            height={460}
-            sizes="max(100vw, 72rem)"
-          />
+          <Panorama name="far" width={2600} height={460} />
         </div>
         <div className={styles.wall} aria-hidden="true" data-depth="28">
-          <Image
-            src="/sponsors/wall.webp"
-            alt=""
-            width={3000}
-            height={1120}
-            sizes="max(100vw, 72rem)"
-          />
+          <Panorama name="wall" width={3000} height={1120} />
         </div>
       </div>
 
@@ -236,7 +252,7 @@ export async function SponsorsSection() {
             <div className={styles.frame}>
               <div className={styles.panel}>
                 {groups.map(({ tier, label, columns, medal, sponsors: inTier }) => {
-                  const open = (columns - (inTier.length % columns)) % columns;
+                  const open = inTier.length === 0 ? columns : 0;
                   return (
                     <div
                       key={tier}
@@ -272,22 +288,10 @@ export async function SponsorsSection() {
         </div>
 
         <div className={styles.floor} aria-hidden="true" data-depth="-36">
-          <Image
-            src="/sponsors/floor.webp"
-            alt=""
-            width={3000}
-            height={560}
-            sizes="max(100vw, 72rem)"
-          />
+          <Panorama name="floor" width={3000} height={383} />
         </div>
         <div className={styles.mist} aria-hidden="true">
-          <Image
-            src="/sponsors/mist.webp"
-            alt=""
-            width={3000}
-            height={380}
-            sizes="max(100vw, 72rem)"
-          />
+          <Panorama name="mist" width={3000} height={380} />
         </div>
       </div>
     </ForestMotion>
