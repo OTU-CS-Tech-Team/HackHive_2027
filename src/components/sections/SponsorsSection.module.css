@@ -266,12 +266,60 @@
     padding-bottom: calc(var(--wall-h) * 0.2);
   }
 
+  /* The short sky foot was a solid band across the opening. The wall's own
+     dark rows meet the woods, so the foot isn't needed at this width. */
+  .sky::after {
+    height: 0;
+  }
+
   .wall {
     bottom: -13rem;
   }
 
+  /* The bitmap's last fifth is a flat #0b2419 block. In the opening that
+     block is the dark slab under the trees: the woods have not arrived yet,
+     and below the sky the page is already ink. Dissolve the foot into it. */
+  .wall img {
+    -webkit-mask: linear-gradient(to bottom, #000 0%, #000 72%, transparent 98%);
+    mask: linear-gradient(to bottom, #000 0%, #000 72%, transparent 98%);
+  }
+
+  /* The 240vw crop is the middle of the painting. The wall's centre stays
+     clear until halfway down, and the far strip is only half as tall, with
+     a hard foot. That foot drew a full-width line and the sky behind it
+     showed through as a rectangle. Scale the hills (aspect kept) so their
+     opaque lower half fills the clearing, and dissolve the top and bottom.
+     The box clears the heading; parallax can still lift it by 55px. */
   .far {
-    bottom: calc(var(--wall-h) * 0.46);
+    bottom: calc(-13rem + var(--wall-h) * 0.46);
+    height: calc(var(--wall-h) * 0.46);
+    overflow: hidden;
+  }
+
+  .far img {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 190%;
+    max-width: none;
+    height: auto;
+    transform: translateX(-50%);
+    -webkit-mask: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 58%,
+      #000 70%,
+      #000 86%,
+      transparent 100%
+    );
+    mask: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 58%,
+      #000 70%,
+      #000 86%,
+      transparent 100%
+    );
   }
 
   .tree {
@@ -695,7 +743,13 @@ a.tile:is(:hover, :focus-visible) .visit {
     bottom: -11rem;
   }
 
+  /* The stuck sky ends higher on a phone, so the flat foot starts sooner. */
+  .wall img {
+    -webkit-mask: linear-gradient(to bottom, #000 0%, #000 54%, transparent 98%);
+    mask: linear-gradient(to bottom, #000 0%, #000 54%, transparent 98%);
+  }
+
   .far {
-    bottom: calc(var(--wall-h) * 0.42);
+    bottom: calc(-11rem + var(--wall-h) * 0.64);
   }
 }
