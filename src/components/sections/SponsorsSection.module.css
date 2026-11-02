@@ -1,7 +1,8 @@
-/* A white hero opens onto a honey-lit sky over a painted forest. Wax panels
-   in honeycomb frames stand in the woods, and the floor settles into the
-   dark section below. */
+/* A hive opens onto a honey-lit sky over a painted forest. Wax panels in
+   honeycomb frames stand in the woods, and the floor settles into the dark
+   section below. */
 .section {
+  --hold: 100svh;
   --honey: #f5b83d;
   --honey-deep: #c98a0b;
   --ink: #14110b;
@@ -31,12 +32,66 @@
   background: linear-gradient(to bottom, #fff, #fff1cf 55%, #f5cc7c);
 }
 
+/* ---------- Out of the hive ---------- */
+
+.stage {
+  position: relative;
+}
+
+.anchor {
+  position: absolute;
+  top: var(--hold);
+}
+
+.hold {
+  height: var(--hold);
+}
+
+/* Hidden until GSAP cuts the opening; without motion the sky just shows. */
+.hive {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100svh;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hiveWall,
+.hiveRim {
+  position: absolute;
+  inset: 0;
+}
+
+.hiveWall {
+  background: var(--ink);
+}
+
+.hiveWall::before {
+  position: absolute;
+  inset: 0;
+  background: rgb(245 184 61 / 0.07);
+  content: "";
+  -webkit-mask: var(--comb) center / 56px 98px;
+  mask: var(--comb) center / 56px 98px;
+}
+
+.hiveRim {
+  background: linear-gradient(160deg, #ffd978, var(--honey) 45%, #e3a21f);
+}
+
 /* ---------- Sky and treeline ---------- */
 
+/* Fills the screen, so nothing shows beneath it during the hold. */
 .sky {
+  --art-w: max(100vw, 72rem);
   --wall-h: calc(var(--art-w) * 0.3733);
-  position: relative;
-  padding: clamp(0.75rem, 2vw, 1.5rem) clamp(1rem, 5vw, 4rem) calc(var(--wall-h) * 0.78);
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
+  padding: clamp(3rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem) calc(var(--wall-h) * 0.84);
   background:
     radial-gradient(min(38rem, 70vw) min(26rem, 40vw) at 72% calc(100% - var(--wall-h) * 0.62), rgb(255 247 205 / 0.95), rgb(255 226 140 / 0.55) 45%, transparent),
     linear-gradient(to bottom, #f5cc7c, var(--sky) 28%, #fbd98a 58%, #efb65a);
@@ -75,7 +130,6 @@
 .far img,
 .wall img,
 .floor img,
-.mist img,
 .tree img {
   display: block;
   width: 100%;
@@ -148,21 +202,17 @@
   scale: -1 1;
 }
 
-.floor,
-.mist {
-  position: absolute;
-  z-index: 3;
-  left: 50%;
-  width: var(--ground-w);
-  margin-left: calc(var(--ground-w) / -2);
-  pointer-events: none;
-}
-
 /* Bitmap edge is the scalloped dissolve, so this band ends on the leaves. */
 .floor {
+  position: absolute;
+  z-index: 3;
   bottom: 0;
+  left: 50%;
+  width: var(--ground-w);
   height: var(--ground-h);
+  margin-left: calc(var(--ground-w) / -2);
   overflow: hidden;
+  pointer-events: none;
 }
 
 .floor img {
@@ -172,12 +222,6 @@
   height: 100%;
   max-width: none;
   object-fit: fill;
-}
-
-.mist {
-  bottom: clamp(3rem, 8vw, 7rem);
-  -webkit-mask: linear-gradient(to bottom, #000 0%, transparent 85%);
-  mask: linear-gradient(to bottom, #000 0%, transparent 85%);
 }
 
 .mote {
@@ -191,6 +235,10 @@
 }
 
 @media (max-width: 48rem) {
+  .section {
+    --hold: 60svh;
+  }
+
   .tree {
     width: calc(var(--w) * 0.62);
   }
@@ -549,6 +597,14 @@ a.tile:is(:hover, :focus-visible) .visit {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .section {
+    --hold: 0px;
+  }
+
+  .hive {
+    display: none;
+  }
+
   .tile,
   .visit,
   .cta {

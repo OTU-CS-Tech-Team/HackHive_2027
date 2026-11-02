@@ -6,7 +6,7 @@ export function HackHive2025Section() {
     <section
       id="hackhive-2025"
       aria-labelledby="museum-heading"
-      className="scroll-mt-16 border-y border-[#e3d7bb] bg-[#faf8f1] px-6 py-12 sm:px-12 sm:py-16"
+      className="scroll-mt-16 bg-[#faf8f1] px-6 py-12 sm:px-12 sm:py-16"
     >
       <div className="mx-auto w-full max-w-5xl">
         <div>

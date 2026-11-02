@@ -4,6 +4,7 @@ import { useRef, type ComponentProps } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { hexagon } from "./comb";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -19,6 +20,37 @@ export function ForestMotion(props: ComponentProps<"section">) {
       const list = gsap.utils.toArray<HTMLElement>;
 
       gsap.matchMedia().add("(prefers-reduced-motion: no-preference)", () => {
+        // The sky holds still while a hexagon grows in the hive wall until it's
+        // wider than the screen. Clips, not scale, to keep the rim's edge sharp.
+        const [wall] = list("[data-hive-wall]");
+        const [rim] = list("[data-hive-rim]");
+        const [hold] = list("[data-hold]");
+        const opening = { progress: 0 };
+        const cut = () => {
+          const { offsetWidth: w, offsetHeight: h } = wall;
+          const inner = 30 + opening.progress * Math.hypot(w, h) * 0.62;
+          const outer = inner + 10 + opening.progress * 26;
+          const hole = hexagon(w / 2, h / 2, inner);
+          wall.style.clipPath = `path(evenodd, "M0 0H${w}V${h}H0Z${hole}")`;
+          rim.style.clipPath = `path(evenodd, "${hexagon(w / 2, h / 2, outer)}${hole}")`;
+        };
+
+        cut();
+        gsap.set("[data-hive]", { autoAlpha: 1 });
+        gsap.to(opening, {
+          progress: 1,
+          ease: "power2.in",
+          onUpdate: cut,
+          scrollTrigger: {
+            trigger: "[data-hive-stage]",
+            start: "top 60%",
+            // Done just before the crowns of the woods rise over the sky.
+            end: () => `top ${-hold.offsetHeight * 0.85}px`,
+            scrub: true,
+            onRefresh: cut,
+          },
+        });
+
         // Each layer drifts by its own depth while it crosses the viewport.
         list("[data-depth]").forEach((el) => {
           const travel = Number(el.dataset.depth);
