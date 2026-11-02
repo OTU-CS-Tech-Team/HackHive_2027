@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import SplitText from "@/components/SplitText";
 import type { Sponsor } from "@/lib/content";
+import { rand } from "./comb";
 import { ForestMotion } from "./ForestMotion";
 import styles from "./SponsorsSection.module.css";
 
@@ -136,12 +137,6 @@ const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
     website_url: "https://adastracorp.com/",
   },
 ];
-
-// Deterministic noise so the server markup never changes between renders.
-const rand = (n: number) => {
-  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
-  return x - Math.floor(x);
-};
 
 // Painted by scripts/paint-forest.html; every layer is sunlit from the upper right.
 const ART = {
@@ -359,45 +354,56 @@ export function SponsorsSection() {
   const sponsors = PREVIOUS_SPONSORS;
 
   return (
-    <ForestMotion id="sponsors" className={`${styles.section} scroll-mt-16`}>
-      {/* Dusk from the section above brightens into the honey-lit sky. */}
-      <div className={styles.dawn} aria-hidden="true" />
+    <ForestMotion className={styles.section}>
+      {/* The sky sticks while .hold scrolls by, opening the hive in front of it. */}
+      <div className={styles.stage} data-hive-stage>
+        {/* Past the hold, so the nav link lands in the sky, not inside the hive. */}
+        <span id="sponsors" className={`${styles.anchor} scroll-mt-16`} />
 
-      {/* Evening sky over the treeline. */}
-      <div className={styles.sky}>
-        <FlightPaths />
+        {/* Evening sky over the treeline. */}
+        <div className={styles.sky}>
+          <FlightPaths />
 
-        <header className={styles.intro}>
-          <SplitText
-            tag="h2"
-            text="Sponsors"
-            className={styles.title}
-            delay={35}
-            duration={1}
-            threshold={0.2}
-            rootMargin="0px"
-          />
-          <p className={styles.lead}>The teams making HackHive possible.</p>
-        </header>
+          <header className={styles.intro}>
+            {/* Past 1, so it fires once the sky has stuck and the hive is opening. */}
+            <SplitText
+              tag="h2"
+              text="Sponsors"
+              className={styles.title}
+              delay={35}
+              duration={1}
+              threshold={1.45}
+              rootMargin="0px"
+            />
+            <p className={styles.lead}>The teams making HackHive possible.</p>
+          </header>
 
-        <div className={styles.far} aria-hidden="true" data-depth="55">
-          <Image
-            src="/sponsors/far.webp"
-            alt=""
-            width={2600}
-            height={460}
-            sizes="max(100vw, 72rem)"
-          />
+          <div className={styles.far} aria-hidden="true" data-depth="55">
+            <Image
+              src="/sponsors/far.webp"
+              alt=""
+              width={2600}
+              height={460}
+              sizes="max(100vw, 72rem)"
+            />
+          </div>
+          <div className={styles.wall} aria-hidden="true" data-depth="28">
+            <Image
+              src="/sponsors/wall.webp"
+              alt=""
+              width={3000}
+              height={1120}
+              sizes="max(100vw, 72rem)"
+            />
+          </div>
+
+          <div className={styles.hive} aria-hidden="true" data-hive>
+            <div className={styles.hiveWall} data-hive-wall />
+            <div className={styles.hiveRim} data-hive-rim />
+          </div>
         </div>
-        <div className={styles.wall} aria-hidden="true" data-depth="28">
-          <Image
-            src="/sponsors/wall.webp"
-            alt=""
-            width={3000}
-            height={1120}
-            sizes="max(100vw, 72rem)"
-          />
-        </div>
+
+        <div className={styles.hold} data-hold />
       </div>
 
       {/* In among the trees: wax panels in honeycomb frames. */}
@@ -474,15 +480,6 @@ export function SponsorsSection() {
             alt=""
             width={3000}
             height={560}
-            sizes="max(100vw, 72rem)"
-          />
-        </div>
-        <div className={styles.mist} aria-hidden="true">
-          <Image
-            src="/sponsors/mist.webp"
-            alt=""
-            width={3000}
-            height={380}
             sizes="max(100vw, 72rem)"
           />
         </div>

@@ -1,6 +1,7 @@
-/* Dusk opens onto a honey-lit sky over a painted forest. Bees loop along dotted
+/* A hive opens onto a honey-lit sky over a painted forest. Bees loop along dotted
    trails above the treeline; wax panels in honeycomb frames stand in the woods. */
 .section {
+  --hold: 100svh;
   --honey: #f5b83d;
   --honey-deep: #c98a0b;
   --ink: #14110b;
@@ -23,18 +24,75 @@
   color: var(--ink);
 }
 
-/* Picks up the dark section above and lifts it into the sky below. */
-.dawn {
-  height: clamp(10rem, 30vh, 18rem);
-  background: linear-gradient(to bottom, var(--ink), #4a3210 30%, #c08a2e 66%, #f5cc7c);
+/* ---------- Out of the hive ---------- */
+
+.stage {
+  position: relative;
+}
+
+.anchor {
+  position: absolute;
+  top: var(--hold);
+}
+
+.hold {
+  height: var(--hold);
+}
+
+/* Hidden until GSAP cuts the opening; without motion the sky just shows. Carries on
+   from the dark section above, so the page seems to stay inside until it opens. */
+.hive {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100svh;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hiveWall,
+.hiveRim {
+  position: absolute;
+  inset: 0;
+}
+
+.hiveWall {
+  background: var(--ink);
+}
+
+.hiveWall::before {
+  position: absolute;
+  inset: 0;
+  background: rgb(245 184 61 / 0.07);
+  content: "";
+  -webkit-mask: var(--comb) center / 56px 98px;
+  mask: var(--comb) center / 56px 98px;
+}
+
+/* Eases the comb in, so the dark section above runs into it without a line. */
+.hiveWall::after {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 16rem;
+  background: linear-gradient(to bottom, var(--ink), transparent);
+  content: "";
+}
+
+.hiveRim {
+  background: linear-gradient(160deg, #ffd978, var(--honey) 45%, #e3a21f);
 }
 
 /* ---------- Sky and treeline ---------- */
 
+/* Fills the screen, so nothing shows beneath it during the hold. */
 .sky {
   --art-w: max(100vw, 72rem);
   --wall-h: calc(var(--art-w) * 0.3733);
-  position: relative;
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
   padding: clamp(3rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem) calc(var(--wall-h) * 0.84);
   background:
     radial-gradient(min(38rem, 70vw) min(26rem, 40vw) at 72% calc(100% - var(--wall-h) * 0.62), rgb(255 247 205 / 0.95), rgb(255 226 140 / 0.55) 45%, transparent),
@@ -74,7 +132,6 @@
 .far img,
 .wall img,
 .floor img,
-.mist img,
 .tree img {
   display: block;
   width: 100%;
@@ -144,23 +201,14 @@
   scale: -1 1;
 }
 
-.floor,
-.mist {
+.floor {
   position: absolute;
   z-index: 3;
+  bottom: -3rem;
   left: 50%;
   width: max(100vw, 72rem);
   margin-left: calc(max(100vw, 72rem) / -2);
   pointer-events: none;
-}
-
-.floor {
-  bottom: -3rem;
-}
-
-/* The undergrowth dissolves into the cream of the next section. */
-.mist {
-  bottom: -2px;
 }
 
 .mote {
@@ -174,6 +222,10 @@
 }
 
 @media (max-width: 48rem) {
+  .section {
+    --hold: 60svh;
+  }
+
   .tree {
     width: calc(var(--w) * 0.62);
   }
@@ -613,6 +665,11 @@ a.tile:is(:hover, :focus-visible) .visit {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .section {
+    --hold: 0px;
+  }
+
+  .hive,
   .orbit {
     display: none;
   }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { SmoothScroll } from "@/components/SmoothScroll";
+import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
@@ -62,6 +63,7 @@ export default function Home() {
       </section>
       <SpeakersSection />
       <SponsorsSection />
+      <CombEdge colour="#faf8f1" seed={500} />
       <HackHive2025Section />
       <FaqSection />
     </main>

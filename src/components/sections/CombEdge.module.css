@@ -1,0 +1,19 @@
+/* Takes no space of its own; the art overlaps the section above the seam. */
+.edge {
+  position: relative;
+  z-index: 2;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Matches the art's aspect ratio on desktop, so its tips never get cropped. Past
+   the seam by a hair, so a fractional section height can't show a line. */
+.art {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: max(9rem, 16.667vw);
+  overflow: clip;
+}
