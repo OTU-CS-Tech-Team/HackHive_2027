@@ -415,7 +415,7 @@ export async function SponsorsSection() {
             </div>
           </div>
 
-          <div className={styles.board} data-rise>
+          {/* <div className={styles.board} data-rise>
             <Label>Holding up the hive</Label>
             <div className={styles.frame}>
               <div className={styles.panel}>
@@ -426,7 +426,7 @@ export async function SponsorsSection() {
                 <p className={styles.more}>and more to come…</p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className={styles.board} data-rise>
             <Label>Previous sponsors</Label>
