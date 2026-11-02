@@ -9,8 +9,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, MotionPathPlugin, DrawSVGPlugin);
 
-// Degrees of skew at full bend; the crown of a tall tree travels about 50px.
-const LEAN = 4;
+// Degrees of skew before falloff; the crown of a tall tree travels 15-20px.
+const LEAN = 2;
 
 // The sponsors <section>, wired up by data attributes so the markup stays on the server.
 export function ForestMotion(props: ComponentProps<"section">) {
@@ -107,12 +107,12 @@ export function ForestMotion(props: ComponentProps<"section">) {
         .add(
           "(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)",
           () => {
-            // Trees bend away from the cursor and spring back when it moves on.
+            // Trees ease away from the cursor and settle back when it moves on.
             const trees = list("[data-lean]").map((el) => ({
               el,
               lean: gsap.quickTo(el, "skewX", {
-                duration: 1.4,
-                ease: "elastic.out(1, 0.35)",
+                duration: 1.2,
+                ease: "power2.out",
               }),
             }));
 
@@ -124,7 +124,7 @@ export function ForestMotion(props: ComponentProps<"section">) {
                 const dx = event.clientX - box.left - offsetLeft - offsetWidth / 2;
                 const dy = event.clientY - box.top - offsetTop - offsetHeight * 0.4;
                 const near = Math.hypot(dx / offsetWidth, dy / (offsetHeight * 0.6));
-                const push = gsap.utils.clamp(-1, 1, dx / (offsetWidth * 0.12));
+                const push = gsap.utils.clamp(-1, 1, dx / (offsetWidth * 0.25));
                 lean(inPanel ? 0 : LEAN * push * Math.max(0, 1 - near));
               });
             };
