@@ -45,6 +45,131 @@ function sponsorGroups(sponsors: Sponsor[]) {
   }));
 }
 
+// Last HackHive's line-up, which has a diamond tier the /admin list doesn't.
+const PREVIOUS_TIERS = [
+  { tier: "diamond", label: "Diamond sponsors", columns: 3, medal: "#8fd3e8" },
+  { tier: "gold", label: "Gold sponsors", columns: 3, medal: "var(--honey)" },
+  { tier: "silver", label: "Silver sponsors", columns: 3, medal: "#c9ced4" },
+  { tier: "bronze", label: "Bronze sponsors", columns: 4, medal: "#b86c2c" },
+] as const;
+
+const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
+  tier: (typeof PREVIOUS_TIERS)[number]["tier"];
+})[] = [
+  {
+    id: "microsoft",
+    name: "Microsoft",
+    tier: "diamond",
+    logo_url: "/sponsors/previous/microsoft.webp",
+    website_url: "https://careers.microsoft.com/v2/global/en/home.html",
+  },
+  {
+    id: "kyndryl",
+    name: "Kyndryl",
+    tier: "diamond",
+    logo_url: "/sponsors/previous/kyndryl.webp",
+    website_url: "https://www.kyndryl.com/us/en",
+  },
+  {
+    id: "science-council",
+    name: "Ontario Tech Science Council",
+    tier: "diamond",
+    logo_url: "/sponsors/previous/science-council.webp",
+    website_url: null,
+  },
+  {
+    id: "nexos-ai",
+    name: "nexos.ai",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nexos-ai.webp",
+    website_url: "https://nexos.ai/",
+  },
+  {
+    id: "incogni",
+    name: "Incogni",
+    tier: "gold",
+    logo_url: "/sponsors/previous/incogni.webp",
+    website_url: "https://incogni.com/",
+  },
+  {
+    id: "saily",
+    name: "Saily",
+    tier: "gold",
+    logo_url: "/sponsors/previous/saily.webp",
+    website_url: "https://saily.com/",
+  },
+  {
+    id: "nordpass",
+    name: "NordPass",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nordpass.webp",
+    website_url: "https://nordpass.com/",
+  },
+  {
+    id: "nordvpn",
+    name: "NordVPN",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nordvpn.webp",
+    website_url: "https://nordvpn.com/hackathons",
+  },
+  {
+    id: "nordprotect",
+    name: "NordProtect",
+    tier: "gold",
+    logo_url: "/sponsors/previous/nordprotect.webp",
+    website_url: "https://nordprotect.com/",
+  },
+  {
+    id: "disabilities-at-microsoft",
+    name: "Disabilities @ Microsoft",
+    tier: "silver",
+    logo_url: "/sponsors/previous/disabilities-at-microsoft.webp",
+    website_url: "https://careers.microsoft.com/v2/global/en/home.html",
+  },
+  {
+    id: "fantuan",
+    name: "Fantuan",
+    tier: "silver",
+    logo_url: "/sponsors/previous/fantuan.webp",
+    website_url: "https://fantuan.ca/en/",
+  },
+  {
+    id: "fidelity",
+    name: "Fidelity Investments",
+    tier: "silver",
+    logo_url: "/sponsors/previous/fidelity.webp",
+    website_url: "https://www.fidelity.ca/en/",
+  },
+  {
+    id: "dayforce",
+    name: "Dayforce",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/dayforce.webp",
+    website_url: "https://www.dayforce.com/",
+  },
+  {
+    id: "brilliant-catalyst",
+    name: "Brilliant Catalyst",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/brilliant-catalyst.webp",
+    website_url: "https://www.ontariotechbrilliant.ca/",
+  },
+  {
+    id: "featherless",
+    name: "Featherless",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/featherless.webp",
+    website_url: "https://featherless.ai/",
+  },
+  {
+    id: "adastra",
+    name: "Adastra",
+    tier: "bronze",
+    logo_url: "/sponsors/previous/adastra.webp",
+    website_url: "https://adastracorp.com/",
+  },
+];
+
 // Painted by scripts/paint-forest.html; every layer is sunlit from the upper right.
 const ART = {
   "oak-a": { width: 1100, height: 1300 },
@@ -137,7 +262,7 @@ function Arrow() {
   );
 }
 
-function Tile({ sponsor }: { sponsor: Sponsor }) {
+function Tile({ sponsor }: { sponsor: Omit<Sponsor, "tier"> }) {
   const face = sponsor.logo_url ? (
     <img
       src={sponsor.logo_url}
@@ -174,6 +299,40 @@ function Label({ children }: { children: string }) {
   return (
     <div className={styles.labelWrap}>
       <h3 className={styles.label}>{children}</h3>
+    </div>
+  );
+}
+
+function TierGrid({
+  label,
+  columns,
+  medal,
+  sponsors,
+}: {
+  label: string;
+  columns: number;
+  medal: string;
+  sponsors: Omit<Sponsor, "tier">[];
+}) {
+  const open = sponsors.length === 0 ? columns : 0;
+  return (
+    <div
+      className={styles.tier}
+      style={{ "--medal": medal, "--cols-wide": columns } as CSSProperties}
+    >
+      <h4 className={styles.tierTitle}>{label}</h4>
+      <ul className={styles.grid}>
+        {sponsors.map((sponsor) => (
+          <li key={sponsor.id}>
+            <Tile sponsor={sponsor} />
+          </li>
+        ))}
+        {Array.from({ length: open }, (_, index) => (
+          <li key={`open-${index}`}>
+            <Placeholder />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -260,37 +419,30 @@ export async function SponsorsSection() {
             <Label>Holding up the hive</Label>
             <div className={styles.frame}>
               <div className={styles.panel}>
-                {groups.map(({ tier, label, columns, medal, sponsors: inTier }) => {
-                  const open = inTier.length === 0 ? columns : 0;
-                  return (
-                    <div
-                      key={tier}
-                      className={styles.tier}
-                      style={
-                        {
-                          "--medal": medal,
-                          "--cols-wide": columns,
-                        } as CSSProperties
-                      }
-                    >
-                      <h4 className={styles.tierTitle}>{label}</h4>
-                      <ul className={styles.grid}>
-                        {inTier.map((sponsor) => (
-                          <li key={sponsor.id}>
-                            <Tile sponsor={sponsor} />
-                          </li>
-                        ))}
-                        {Array.from({ length: open }, (_, index) => (
-                          <li key={`open-${index}`}>
-                            <Placeholder />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
+                {groups.map(({ tier, ...group }) => (
+                  <TierGrid key={tier} {...group} />
+                ))}
 
                 <p className={styles.more}>and more to come…</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.board} data-rise>
+            <Label>Previous sponsors</Label>
+            <div className={styles.frame}>
+              <div className={styles.panel}>
+                {PREVIOUS_TIERS.map(({ tier, label, columns, medal }) => (
+                  <TierGrid
+                    key={tier}
+                    label={label}
+                    columns={columns}
+                    medal={medal}
+                    sponsors={PREVIOUS_SPONSORS.filter(
+                      (sponsor) => sponsor.tier === tier,
+                    )}
+                  />
+                ))}
               </div>
             </div>
           </div>
