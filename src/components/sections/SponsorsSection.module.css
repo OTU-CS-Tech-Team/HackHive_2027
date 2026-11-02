@@ -1,5 +1,6 @@
-/* Dusk opens onto a honey-lit sky over a painted forest. Bees loop along dotted
-   trails above the treeline; wax panels in honeycomb frames stand in the woods. */
+/* A white hero opens onto a honey-lit sky over a painted forest. Wax panels
+   in honeycomb frames stand in the woods, and the floor settles into the
+   dark section below. */
 .section {
   --honey: #f5b83d;
   --honey-deep: #c98a0b;
@@ -13,7 +14,7 @@
   --comb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cpath fill='%23000' d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/svg%3E");
   position: relative;
   overflow-x: clip;
-  background: var(--haze);
+  background: #14110b;
   color: var(--ink-soft);
   font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
 }
@@ -23,10 +24,10 @@
   color: var(--ink);
 }
 
-/* Picks up the dark section above and lifts it into the sky below. */
+/* Lifts the white hero into the honey-colored sky. Ends on the sky's first colour. */
 .dawn {
   height: clamp(10rem, 30vh, 18rem);
-  background: linear-gradient(to bottom, var(--ink), #4a3210 30%, #c08a2e 66%, #f5cc7c);
+  background: linear-gradient(to bottom, #fff, #fff1cf 55%, #f5cc7c);
 }
 
 /* ---------- Sky and treeline ---------- */
@@ -91,6 +92,7 @@
   padding: 0 clamp(1rem, 5vw, 4rem) clamp(12rem, 22vw, 20rem);
   background:
     linear-gradient(to bottom, #0b2419, transparent 16rem),
+    linear-gradient(to top, #14110b, transparent 14rem),
     #0b2419 url("/sponsors/depth.webp") center top / 1600px repeat-y;
   /* Crowns may rise into the sky above, but nothing spills into the next section. */
   clip-path: inset(-60rem 0 0);
@@ -158,9 +160,11 @@
   bottom: -3rem;
 }
 
-/* The undergrowth dissolves into the cream of the next section. */
+/* Undergrowth thins out so the dark speakers section can take over. */
 .mist {
   bottom: -2px;
+  -webkit-mask: linear-gradient(to bottom, #000 35%, transparent 78%);
+  mask: linear-gradient(to bottom, #000 35%, transparent 78%);
 }
 
 .mote {
@@ -187,7 +191,7 @@
   }
 
   .woods {
-    background-size: 1000px;
+    background-size: auto, auto, 1000px;
   }
 }
 
@@ -219,75 +223,10 @@
   font-weight: 500;
 }
 
-/* ---------- Bees ---------- */
-
-.bee {
-  display: block;
-  width: 100%;
-  overflow: visible;
-}
-
-.wings {
-  fill: rgb(236 240 240 / 0.6);
-  stroke: rgb(70 48 22 / 0.4);
-  stroke-width: 0.6;
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-}
-
-.flights {
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: clamp(26rem, 62vh, 38rem);
-  overflow: visible;
-  pointer-events: none;
-}
-
-.trail {
-  fill: none;
-  stroke: rgb(20 17 11 / 0.28);
-  stroke-dasharray: 1 12;
-  stroke-linecap: round;
-  stroke-width: 3;
-}
-
-.trailReveal {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 14;
-}
-
-/* Hidden until GSAP puts it on its trail; with reduced motion it stays home. */
-.flightBee {
-  visibility: hidden;
-  filter: drop-shadow(0 4px 3px rgb(61 35 11 / 0.25));
-}
-
-/* A bee circling the end of each label. */
 .labelWrap {
   position: relative;
   z-index: 1;
   margin: 0 1rem -1.5rem;
-}
-
-.orbit {
-  position: absolute;
-  z-index: 2;
-  top: 50%;
-  right: 0.75rem;
-  width: 0;
-  height: 0;
-}
-
-.orbitBee {
-  position: absolute;
-  top: -0.9rem;
-  left: -1.2rem;
-  width: 2.4rem;
-  transform: rotate(90deg) translateY(-3.25rem);
 }
 
 /* ---------- Wax panels ---------- */
@@ -332,7 +271,7 @@
   content: "";
 }
 
-/* Honeycomb frame around a panel of pale beeswax. */
+/* Honeycomb frame around a panel of pale wax. */
 .frame {
   --comb-colour: rgb(160 100 0 / 0.28);
   position: relative;
@@ -444,24 +383,10 @@
   content: "";
 }
 
-.diamond {
-  --medal: #8fd3e8;
-  --cols: 3;
-}
-
-.gold {
+.tier {
   --medal: var(--honey);
-  --cols: 3;
-}
-
-.silver {
-  --medal: #c9ced4;
-  --cols: 3;
-}
-
-.bronze {
-  --medal: #b86c2c;
-  --cols: 4;
+  --cols-wide: 3;
+  --cols: var(--cols-wide);
 }
 
 .grid {
@@ -574,23 +499,6 @@ a.tile:is(:hover, :focus-visible) .visit {
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: no-preference) {
-  .wings {
-    animation: flap 90ms ease-in-out infinite alternate;
-  }
-
-  /* Dots drift along the trail, as if it's still being drawn. */
-  .trail {
-    animation: trail 3s linear infinite;
-  }
-
-  .orbit {
-    animation: orbit 5s linear infinite;
-  }
-
-  .orbitBee .bee {
-    animation: bob 600ms ease-in-out infinite alternate;
-  }
-
   .mote {
     animation: drift 9s ease-in-out infinite;
   }
@@ -613,38 +521,10 @@ a.tile:is(:hover, :focus-visible) .visit {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .orbit {
-    display: none;
-  }
-
   .tile,
   .visit,
   .cta {
     transition: none;
-  }
-}
-
-@keyframes flap {
-  to {
-    transform: scaleY(0.35);
-  }
-}
-
-@keyframes trail {
-  to {
-    stroke-dashoffset: -13;
-  }
-}
-
-@keyframes orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes bob {
-  to {
-    transform: translateY(-0.3rem);
   }
 }
 
@@ -683,10 +563,7 @@ a.tile:is(:hover, :focus-visible) .visit {
 }
 
 @media (max-width: 40rem) {
-  .diamond,
-  .gold,
-  .silver,
-  .bronze {
+  .tier {
     --cols: 2;
   }
 }
