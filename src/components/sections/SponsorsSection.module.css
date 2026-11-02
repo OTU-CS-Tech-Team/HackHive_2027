@@ -102,7 +102,9 @@
 
 /* Fills the screen, so nothing shows beneath it during the hold. */
 .sky {
-  --art-w: max(100vw, 72rem);
+  /* Sized off the height too: the art hangs from the bottom of a screen-tall sky,
+     so a width-only size drops the treeline further below the heading on taller screens. */
+  --art-w: max(100vw, 72rem, min(200svh, 125vw));
   --wall-h: calc(var(--art-w) * 0.3733);
   position: sticky;
   top: 0;
@@ -136,12 +138,14 @@
 }
 
 .far {
+  --depth: 55;
   bottom: calc(var(--wall-h) * 0.36);
 }
 
 /* The bitmap's last rows are already #0b2419. Keep them under .woods,
    including when parallax shifts the layer up by its depth. */
 .wall {
+  --depth: 28;
   bottom: -3rem;
 }
 
@@ -167,7 +171,7 @@
   background:
     linear-gradient(to bottom, #0b2419, transparent 16rem),
     linear-gradient(to top, #14110b 0%, #14110b 8rem, transparent 28rem),
-    #0b2419 url("/sponsors/depth-1600.webp") center top / 1600px repeat-y;
+    #0b2419 url("/sponsors/depth-1600.webp") center top / max(100%, 1600px) auto repeat-y;
   /* Crowns may rise into the sky. The floor's own edge carries the fade below. */
   clip-path: inset(-60rem 0 -1rem 0);
 }
@@ -222,6 +226,7 @@
 
 /* Bitmap edge is the scalloped dissolve, so this band ends on the leaves. */
 .floor {
+  --depth: -36;
   position: absolute;
   z-index: 3;
   bottom: 0;
@@ -393,8 +398,8 @@
   position: relative;
   z-index: 5;
   display: grid;
-  gap: clamp(4.5rem, 9vw, 7.5rem);
-  max-width: 42rem;
+  gap: clamp(6rem, 14vw, 13rem);
+  max-width: 36rem;
   margin: clamp(-12rem, -14vw, -4rem) auto 0;
 }
 
@@ -458,7 +463,7 @@
   position: relative;
   display: grid;
   gap: clamp(1.5rem, 2.5vw, 2rem);
-  padding: clamp(2.75rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 3rem) clamp(2rem, 4vw, 3rem);
+  padding: clamp(2.75rem, 5vw, 3.5rem) clamp(1.25rem, 3vw, 1.75rem) clamp(2rem, 4vw, 3rem);
   border-radius: 1.2rem;
   background: radial-gradient(120% 80% at 50% 0, var(--paper), #fff4d6 70%);
   box-shadow: inset 0 0.15rem 0.5rem rgb(201 138 11 / 0.25);
@@ -526,32 +531,33 @@
 .tierTitle {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 1rem;
   margin: 0 0 1rem;
   font-size: clamp(1.2rem, 2vw, 1.5rem);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.tierTitle::before {
-  width: 1.1em;
-  aspect-ratio: 1 / 1.1547;
-  background: var(--medal);
-  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-  content: "";
+/* The art is a coin 48% of the box wide and 60% down it, with room for wings and
+   halos, so every tier's coin matches. The margins leave only the 1.875rem coin in
+   the row. The shadow lifts the paler medals off the wax. */
+.medal {
+  width: 3.9375rem;
+  height: 3.9375rem;
+  flex: 0 0 auto;
+  margin: -1.425rem -1.03rem -0.64rem;
+  filter: drop-shadow(0 0.1rem 0.15rem rgb(59 44 8 / 0.45));
 }
 
 .tier {
-  --medal: var(--honey);
   --cols-wide: 3;
   --cols: var(--cols-wide);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 12.5rem));
-  gap: clamp(0.75rem, 2vw, 1.25rem);
-  justify-content: center;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.5vw, 1rem);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -570,11 +576,11 @@
   position: relative;
   display: flex;
   box-sizing: border-box;
-  height: clamp(5rem, 7.5vw, 6.25rem);
+  height: clamp(4.5rem, 6vw, 5.25rem);
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 0.75rem;
   border: 3px solid var(--wax);
   border-radius: 0.9rem;
   background: var(--paper);
@@ -589,7 +595,7 @@
 }
 
 .logo {
-  max-width: 75%;
+  max-width: 85%;
   max-height: 88%;
   object-fit: contain;
 }
@@ -676,6 +682,17 @@ a.tile:is(:hover, :focus-visible) .visit {
       animation-range: entry 0% entry 90%;
       animation-timeline: view();
     }
+
+    /* Scroll-linked in CSS so the layers track the scroll with the panels. `translate`
+       leaves `transform` to the GSAP lean on the trees.
+       ponytail: no parallax without view timelines, add a ScrollTrigger path if it's missed. */
+    .far,
+    .wall,
+    .tree,
+    .floor {
+      animation: parallax linear both;
+      animation-timeline: view();
+    }
   }
 }
 
@@ -701,6 +718,15 @@ a.tile:is(:hover, :focus-visible) .visit {
   }
   to {
     background-position: -100% 0;
+  }
+}
+
+@keyframes parallax {
+  from {
+    translate: 0 calc(var(--depth) * -1px);
+  }
+  to {
+    translate: 0 calc(var(--depth) * 1px);
   }
 }
 
@@ -731,7 +757,7 @@ a.tile:is(:hover, :focus-visible) .visit {
 
 @media (max-width: 40rem) {
   .tier {
-    --cols: 1;
+    --cols: 2;
   }
 
   .sky {

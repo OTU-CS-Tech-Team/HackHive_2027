@@ -51,25 +51,6 @@ export function ForestMotion(props: ComponentProps<"section">) {
           },
         });
 
-        // Each layer drifts by its own depth while it crosses the viewport.
-        list("[data-depth]").forEach((el) => {
-          const travel = Number(el.dataset.depth);
-          gsap.fromTo(
-            el,
-            { y: -travel },
-            {
-              y: travel,
-              ease: "none",
-              scrollTrigger: {
-                trigger: el,
-                start: "top bottom",
-                end: "bottom top",
-                scrub: true,
-              },
-            },
-          );
-        });
-
         // Wind in the branches, paused while a tree is off screen.
         list("[data-sway]").forEach((el, i) => {
           gsap.fromTo(

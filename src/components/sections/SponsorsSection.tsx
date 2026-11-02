@@ -15,11 +15,11 @@ const SPONSOR_CONTACT = `mailto:${SPONSOR_EMAIL}?subject=Sponsoring%20HackHive%2
 function tierLayout(tier: Sponsor["tier"]): { columns: number; medal: string } {
   switch (tier) {
     case "gold":
-      return { columns: 3, medal: "var(--honey)" };
+      return { columns: 3, medal: "/sponsors/tiers/gold.webp" };
     case "silver":
-      return { columns: 3, medal: "#c9ced4" };
+      return { columns: 3, medal: "/sponsors/tiers/silver.webp" };
     case "bronze":
-      return { columns: 4, medal: "#b86c2c" };
+      return { columns: 4, medal: "/sponsors/tiers/bronze.webp" };
     default: {
       const exhaustive: never = tier;
       return exhaustive;
@@ -47,10 +47,10 @@ function sponsorGroups(sponsors: Sponsor[]) {
 
 // Last HackHive's line-up, which has a diamond tier the /admin list doesn't.
 const PREVIOUS_TIERS = [
-  { tier: "diamond", label: "Diamond sponsors", columns: 3, medal: "#8fd3e8" },
-  { tier: "gold", label: "Gold sponsors", columns: 3, medal: "var(--honey)" },
-  { tier: "silver", label: "Silver sponsors", columns: 3, medal: "#c9ced4" },
-  { tier: "bronze", label: "Bronze sponsors", columns: 4, medal: "#b86c2c" },
+  { tier: "diamond", label: "Diamond sponsors", columns: 3, medal: "/sponsors/tiers/diamond.webp" },
+  { tier: "gold", label: "Gold sponsors", columns: 3, medal: "/sponsors/tiers/gold.webp" },
+  { tier: "silver", label: "Silver sponsors", columns: 3, medal: "/sponsors/tiers/silver.webp" },
+  { tier: "bronze", label: "Bronze sponsors", columns: 4, medal: "/sponsors/tiers/bronze.webp" },
 ] as const;
 
 const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
@@ -179,8 +179,8 @@ const ART = {
 };
 
 // Framing trees, overlapping up into the tree wall; `depth` is parallax travel in
-// px, negative for trees nearer than the panels. Right-hand trees are mirrored so
-// the light always falls toward the clearing.
+// px. All of them stand behind the panels, so the further back, the bigger the
+// depth. Right-hand trees are mirrored so the light always falls toward the clearing.
 const TREES: {
   art: keyof typeof ART;
   side: "left" | "right";
@@ -189,17 +189,17 @@ const TREES: {
   w: string;
   depth: number;
 }[] = [
-  { art: "oak-b", side: "right", top: "-13%", x: "-15rem", w: "38rem", depth: 30 },
-  { art: "pine-a", side: "left", top: "-17%", x: "-9rem", w: "34rem", depth: 40 },
-  { art: "oak-a", side: "left", top: "18%", x: "-19rem", w: "40rem", depth: -40 },
-  { art: "pine-a", side: "right", top: "15%", x: "-10rem", w: "32rem", depth: 30 },
-  { art: "pine-b", side: "left", top: "48%", x: "-8rem", w: "26rem", depth: 30 },
-  { art: "oak-a", side: "right", top: "44%", x: "-19rem", w: "40rem", depth: -50 },
-  { art: "oak-b", side: "left", top: "68%", x: "-17rem", w: "36rem", depth: -30 },
-  { art: "pine-b", side: "right", top: "71%", x: "-7rem", w: "26rem", depth: 30 },
+  { art: "oak-b", side: "right", top: "-13%", x: "-15rem", w: "38rem", depth: 90 },
+  { art: "pine-a", side: "left", top: "-17%", x: "-9rem", w: "34rem", depth: 70 },
+  { art: "oak-a", side: "left", top: "18%", x: "-19rem", w: "40rem", depth: 60 },
+  { art: "pine-a", side: "right", top: "15%", x: "-10rem", w: "32rem", depth: 110 },
+  { art: "pine-b", side: "left", top: "48%", x: "-8rem", w: "26rem", depth: 130 },
+  { art: "oak-a", side: "right", top: "44%", x: "-19rem", w: "40rem", depth: 60 },
+  { art: "oak-b", side: "left", top: "68%", x: "-17rem", w: "36rem", depth: 100 },
+  { art: "pine-b", side: "right", top: "71%", x: "-7rem", w: "26rem", depth: 130 },
 ];
 
-const PANORAMA_SIZES = "(max-width: 56.25rem) 100vw, max(100vw, 72rem)";
+const PANORAMA_SIZES = "(max-width: 56.25rem) 100vw, max(100vw, 72rem, 200vh)";
 /* The ground is drawn wider than the viewport so the fade stays tall. Cap the
    slot so a phone still takes the 1600w file, not the full painting. */
 const GROUND_SIZES = "(max-width: 64rem) 800px, 1200px";
@@ -231,8 +231,7 @@ function Tree({ art, side, top, x, w, depth }: (typeof TREES)[number]) {
   return (
     <div
       className={`${styles.tree} ${styles[side]}`}
-      style={{ "--top": top, "--x": x, "--w": w } as CSSProperties}
-      data-depth={depth}
+      style={{ "--top": top, "--x": x, "--w": w, "--depth": depth } as CSSProperties}
       data-lean
     >
       <Image
@@ -318,9 +317,12 @@ function TierGrid({
   return (
     <div
       className={styles.tier}
-      style={{ "--medal": medal, "--cols-wide": columns } as CSSProperties}
+      style={{ "--cols-wide": columns } as CSSProperties}
     >
-      <h4 className={styles.tierTitle}>{label}</h4>
+      <h4 className={styles.tierTitle}>
+        <img src={medal} alt="" className={styles.medal} />
+        {label}
+      </h4>
       <ul className={styles.grid}>
         {sponsors.map((sponsor) => (
           <li key={sponsor.id}>
@@ -367,10 +369,10 @@ export async function SponsorsSection() {
             <p className={styles.lead}>The teams making HackHive possible.</p>
           </header>
 
-          <div className={styles.far} aria-hidden="true" data-depth="55">
+          <div className={styles.far} aria-hidden="true">
             <Panorama name="far" width={2600} height={460} />
           </div>
-          <div className={styles.wall} aria-hidden="true" data-depth="28">
+          <div className={styles.wall} aria-hidden="true">
             <Panorama name="wall" width={3000} height={1120} />
           </div>
 
@@ -448,7 +450,7 @@ export async function SponsorsSection() {
           </div>
         </div>
 
-        <div className={styles.floor} aria-hidden="true" data-depth="-36">
+        <div className={styles.floor} aria-hidden="true">
           <Panorama name="floor" width={3000} height={383} />
         </div>
       </div>

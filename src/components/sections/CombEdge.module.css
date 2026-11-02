@@ -16,4 +16,6 @@
   width: 100%;
   height: max(9rem, 16.667vw);
   overflow: clip;
+  /* Takes the vector edge off the cells, so they sit in the painted art. */
+  filter: blur(1.5px);
 }
