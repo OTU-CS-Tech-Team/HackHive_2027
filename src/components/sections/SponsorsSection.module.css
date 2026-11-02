@@ -1,6 +1,6 @@
-/* A hive opens onto a honey-lit sky over a painted forest. Wax panels in
-   honeycomb frames stand in the woods, and the floor settles into the dark
-   section below. */
+/* A hive opens onto a honey-lit sky over a painted forest. Bees loop along
+   dotted trails above the treeline; wax panels in honeycomb frames stand in the
+   woods, and the floor settles into the dark section below. */
 .section {
   --hold: 100svh;
   --honey: #f5b83d;
@@ -263,10 +263,75 @@
   font-weight: 500;
 }
 
+/* ---------- Bees ---------- */
+
+.bee {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.wings {
+  fill: rgb(236 240 240 / 0.6);
+  stroke: rgb(70 48 22 / 0.4);
+  stroke-width: 0.6;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.flights {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: clamp(26rem, 62vh, 38rem);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.trail {
+  fill: none;
+  stroke: rgb(20 17 11 / 0.28);
+  stroke-dasharray: 1 12;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.trailReveal {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 14;
+}
+
+/* Hidden until GSAP puts it on its trail; with reduced motion it stays home. */
+.flightBee {
+  visibility: hidden;
+  filter: drop-shadow(0 4px 3px rgb(61 35 11 / 0.25));
+}
+
+/* A bee circling the end of each label. */
 .labelWrap {
   position: relative;
   z-index: 1;
   margin: 0 1rem -1.5rem;
+}
+
+.orbit {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 0.75rem;
+  width: 0;
+  height: 0;
+}
+
+.orbitBee {
+  position: absolute;
+  top: -0.9rem;
+  left: -1.2rem;
+  width: 2.4rem;
+  transform: rotate(90deg) translateY(-3.25rem);
 }
 
 /* ---------- Wax panels ---------- */
@@ -539,6 +604,23 @@ a.tile:is(:hover, :focus-visible) .visit {
 /* ---------- Motion ---------- */
 
 @media (prefers-reduced-motion: no-preference) {
+  .wings {
+    animation: flap 90ms ease-in-out infinite alternate;
+  }
+
+  /* Dots drift along the trail, as if it's still being drawn. */
+  .trail {
+    animation: trail 3s linear infinite;
+  }
+
+  .orbit {
+    animation: orbit 5s linear infinite;
+  }
+
+  .orbitBee .bee {
+    animation: bob 600ms ease-in-out infinite alternate;
+  }
+
   .mote {
     animation: drift 9s ease-in-out infinite;
   }
@@ -565,7 +647,8 @@ a.tile:is(:hover, :focus-visible) .visit {
     --hold: 0px;
   }
 
-  .hive {
+  .hive,
+  .orbit {
     display: none;
   }
 
@@ -573,6 +656,30 @@ a.tile:is(:hover, :focus-visible) .visit {
   .visit,
   .cta {
     transition: none;
+  }
+}
+
+@keyframes flap {
+  to {
+    transform: scaleY(0.35);
+  }
+}
+
+@keyframes trail {
+  to {
+    stroke-dashoffset: -13;
+  }
+}
+
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bob {
+  to {
+    transform: translateY(-0.3rem);
   }
 }
 

@@ -3,10 +3,12 @@
 import { useRef, type ComponentProps } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
+import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
+import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { hexagon } from "./comb";
 
-gsap.registerPlugin(useGSAP, ScrollTrigger);
+gsap.registerPlugin(useGSAP, ScrollTrigger, MotionPathPlugin, DrawSVGPlugin);
 
 // Degrees of skew before falloff; the crown of a tall tree travels 15-20px.
 const LEAN = 2;
@@ -98,6 +100,37 @@ export function ForestMotion(props: ComponentProps<"section">) {
             ease: "power3.out",
             scrollTrigger: { trigger: el, start: "top 88%", once: true },
           });
+        });
+
+        // Trails sketch themselves across the sky once the hive has opened on it.
+        gsap.from(list("[data-draw]"), {
+          drawSVG: "0%",
+          ease: "none",
+          stagger: 0.2,
+          scrollTrigger: {
+            trigger: hold,
+            start: "top 40%",
+            end: "bottom 40%",
+            scrub: 1,
+          },
+        });
+
+        list("[data-bee]").forEach((bee) => {
+          const path = `#sponsor-trail-${bee.dataset.bee}`;
+          gsap.set(bee, { visibility: "visible" });
+          gsap
+            .to(bee, {
+              duration: Number(bee.dataset.dur),
+              ease: "none",
+              repeat: -1,
+              motionPath: {
+                path,
+                align: path,
+                alignOrigin: [0.5, 0.5],
+                autoRotate: true,
+              },
+            })
+            .progress(Number(bee.dataset.start));
         });
       });
 
