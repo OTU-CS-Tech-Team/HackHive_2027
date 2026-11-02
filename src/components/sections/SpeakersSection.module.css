@@ -1,10 +1,11 @@
 .section {
   box-sizing: border-box;
   width: 100%;
-  /* The banner meets the scalloped leaves. The top of this field stays
-     clear so the tips are not covered by a second dark veil. */
-  margin-top: clamp(-7.5rem, -9vw, -5rem);
-  background: linear-gradient(to bottom, transparent, #14110b 7rem);
+  /* The comb hangs into the forest above this section. The card starts
+     below that seam, on the same ink, so the icon and title stay clear. */
+  margin-top: 0;
+  z-index: 3;
+  background: #14110b;
   color: #fff6e0;
   padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;

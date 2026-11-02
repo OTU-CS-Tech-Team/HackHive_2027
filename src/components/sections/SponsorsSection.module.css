@@ -65,17 +65,33 @@
   inset: 0;
 }
 
+/* The comb grows out of the honey sky. The top stays clear so the dawn
+   doesn't stop on a dark slab. */
 .hiveWall {
-  background: var(--ink);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgb(245 204 124 / 0.2) 10%,
+    rgb(20 17 11 / 0.45) 28%,
+    #14110b 52%
+  );
 }
 
 .hiveWall::before {
   position: absolute;
   inset: 0;
-  background: rgb(245 184 61 / 0.07);
+  background: rgb(245 184 61 / 0.16);
   content: "";
-  -webkit-mask: var(--comb) center / 56px 98px;
-  mask: var(--comb) center / 56px 98px;
+  -webkit-mask-image: var(--comb), linear-gradient(to bottom, transparent, #000 46%);
+  -webkit-mask-size: 56px 98px, 100% 100%;
+  -webkit-mask-position: center, center;
+  -webkit-mask-repeat: repeat, no-repeat;
+  -webkit-mask-composite: source-in;
+  mask-image: var(--comb), linear-gradient(to bottom, transparent, #000 46%);
+  mask-size: 56px 98px, 100% 100%;
+  mask-position: center, center;
+  mask-repeat: repeat, no-repeat;
+  mask-composite: intersect;
 }
 
 .hiveRim {
@@ -149,7 +165,7 @@
   background:
     linear-gradient(to bottom, #0b2419, transparent 16rem),
     linear-gradient(to top, #14110b 0%, #14110b 8rem, transparent 28rem),
-    #0b2419 url("/sponsors/depth.webp") center top / 1600px repeat-y;
+    #0b2419 url("/sponsors/depth-1600.webp") center top / 1600px repeat-y;
   /* Crowns may rise into the sky. The floor's own edge carries the fade below. */
   clip-path: inset(-60rem 0 -1rem 0);
 }
@@ -237,6 +253,22 @@
 @media (max-width: 48rem) {
   .section {
     --hold: 60svh;
+  }
+
+  /* The sticky sky is shorter here, and the treeline sits up in it. */
+  .sky {
+    --art-w: 148vw;
+    min-height: 78svh;
+    padding-top: clamp(1rem, 3vw, 1.75rem);
+    padding-bottom: calc(var(--wall-h) * 0.62);
+  }
+
+  .wall {
+    bottom: 14%;
+  }
+
+  .far {
+    bottom: calc(var(--wall-h) * 0.28 + 14%);
   }
 
   .tree {
@@ -649,5 +681,19 @@ a.tile:is(:hover, :focus-visible) .visit {
 @media (max-width: 40rem) {
   .tier {
     --cols: 1;
+  }
+
+  /* A phone's panorama is short, so lift it until it sits under the heading. */
+  .sky {
+    --art-w: 210vw;
+    min-height: 70svh;
+  }
+
+  .wall {
+    bottom: 30%;
+  }
+
+  .far {
+    bottom: calc(var(--wall-h) * 0.2 + 30%);
   }
 }
