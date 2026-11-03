@@ -128,17 +128,15 @@ export async function setDecision(formData: FormData): Promise<string> {
   return "Saved.";
 }
 
-const CATEGORIES = ["hackhive", "workshop", "fun", "food", "ceremony"];
-
 // Creates an event, or updates one when the form carries an id.
 export async function saveEvent(formData: FormData): Promise<string> {
   const supabase = await requireAdmin();
   const get = (key: string) => String(formData.get(key) ?? "").trim();
   const id = get("id");
   const title = get("title");
-  const category = get("category");
+  const category_id = get("category_id");
   const points = Number(get("points") || 0);
-  if (!title || !CATEGORIES.includes(category)) return "Title and category are required.";
+  if (!title || !UUID.test(category_id)) return "Title and category are required.";
   if (!Number.isInteger(points) || points < 0) return "Points must be a whole number, 0 or more.";
 
   let starts_at: string, ends_at: string;
@@ -152,7 +150,7 @@ export async function saveEvent(formData: FormData): Promise<string> {
 
   const row = {
     title,
-    category,
+    category_id,
     starts_at,
     ends_at,
     points,
@@ -161,6 +159,8 @@ export async function saveEvent(formData: FormData): Promise<string> {
     description: get("description") || null,
   };
   const { error } = id ? await supabase.from("events").update(row).eq("id", id) : await supabase.from("events").insert(row);
+  // 23503: the category was deleted while this form was open.
+  if (error?.code === "23503") return "That category no longer exists. Reload and pick another.";
   if (error) return error.message;
   updateTag("events");
   revalidatePath("/admin");
@@ -302,10 +302,10 @@ export async function deleteRow(table: TableName, id: string): Promise<string> {
   if (!Object.hasOwn(TABLES, table)) return "Unknown table.";
   const supabase = await requireAdmin();
   const { error } = await supabase.from(table).delete().eq("id", id);
-  // 23503: a shop item someone already redeemed is still referenced by the points ledger.
-  if (error?.code === "23503") return "Someone already redeemed this, so it can't be deleted. Untick \"Show in shop\" to hide it instead.";
-  if (error) return error.message;
   const config = TABLES[table];
+  // 23503: still referenced, e.g. a redeemed shop item or a category events use.
+  if (error?.code === "23503" && "inUse" in config) return config.inUse;
+  if (error) return error.message;
   if ("cacheTag" in config) updateTag(config.cacheTag);
   revalidatePath("/admin");
   return "Deleted.";

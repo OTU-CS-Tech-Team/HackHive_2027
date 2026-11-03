@@ -4,7 +4,6 @@ import { FaqSection } from "@/components/sections/FaqSection";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
-import { TeamSection } from "@/components/sections/teamSection";
 import { createClient } from "@/lib/supabase/server";
 
 async function HeroCTA() {
@@ -48,7 +47,7 @@ export default function Home() {
   return (
     <main>
       <section className="flex min-h-[80vh] flex-col items-center justify-center px-4 pt-16 text-center">
-        <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+        <h1 className="mb-6 text-[clamp(3rem,9vw,8.5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
           HackHive 2027
         </h1>
         <p className="mb-8 max-w-2xl text-lg text-neutral-600">
@@ -63,7 +62,6 @@ export default function Home() {
       <SponsorsSection />
       <HackHive2025Section />
       <FaqSection />
-      <TeamSection />
     </main>
   );
 }
