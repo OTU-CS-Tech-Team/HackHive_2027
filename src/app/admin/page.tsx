@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
 import type { Application } from "@/lib/application/schema";
-import type { HackEvent } from "@/lib/content";
+import type { EventCategory, HackEvent } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
 import { setDecision } from "./actions";
 import { EventsAdmin } from "./EventsAdmin";
@@ -147,7 +147,10 @@ async function AdminContent() {
           ))}
         </ol>
       </section>
-      <EventsAdmin events={(events ?? []) as HackEvent[]} />
+      <EventsAdmin
+        events={(events ?? []) as HackEvent[]}
+        categories={(rows[tables.indexOf("event_categories")].data ?? []) as EventCategory[]}
+      />
       {tables.map((table, i) => (
         <TableAdmin key={table} table={table} rows={(rows[i].data ?? []) as Row[]} />
       ))}
