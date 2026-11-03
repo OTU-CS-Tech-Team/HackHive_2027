@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Geist } from "next/font/google";
 import { Suspense } from "react";
 import Link from "next/link";
 import Script from "next/script";
@@ -8,13 +7,6 @@ import MobileNavMenu from "@/components/navbar/MobileNavMenu";
 import NavbarShell from "@/components/navbar/NavbarShell";
 import { links } from "@/components/navbar/links";
 import "./globals.css";
-import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
-
-// Used by the section CSS modules as var(--font-grotesk).
-const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
 
 export const metadata: Metadata = {
   title: "HackHive 2027",
@@ -45,7 +37,7 @@ function NavbarFallback() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={cn("font-sans", geist.variable, grotesk.variable)}>
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <NavbarShell>
           <Suspense fallback={<NavbarFallback />}>

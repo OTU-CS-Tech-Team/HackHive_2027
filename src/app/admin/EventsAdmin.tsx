@@ -2,16 +2,16 @@
 
 import { useTransition } from "react";
 import { ActionForm } from "@/components/ActionForm";
-import type { EventCategory, HackEvent } from "@/lib/content";
-import { colorOf } from "@/lib/schedule";
+import type { HackEvent } from "@/lib/content";
 import { formatDateTime, formatTime, toLocalInput } from "@/lib/time";
+import { CATEGORIES } from "@/components/sections/Schedule";
 import { deleteEvent, saveEvent } from "./actions";
 
 const card = "rounded-lg border border-neutral-200 p-5";
 const input = "w-full rounded border border-neutral-300 px-3 py-2";
 
 // Times are typed as Toronto time, whatever timezone the admin's laptop is in.
-function EventFields({ event, categories }: { event?: HackEvent; categories: EventCategory[] }) {
+function EventFields({ event }: { event?: HackEvent }) {
   return (
     <>
       {event && <input type="hidden" name="id" value={event.id} />}
@@ -21,14 +21,14 @@ function EventFields({ event, categories }: { event?: HackEvent; categories: Eve
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label>
-          Category (sets the colour and column)
-          <select name="category_id" required defaultValue={event?.category_id ?? ""} className={input}>
+          Category
+          <select name="category" required defaultValue={event?.category ?? ""} className={input}>
             <option value="" disabled>
               Pick one
             </option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
+            {Object.entries(CATEGORIES).map(([value, { label }]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </select>
@@ -82,21 +82,13 @@ function DeleteButton({ event }: { event: HackEvent }) {
   );
 }
 
-export function EventsAdmin({ events, categories }: { events: HackEvent[]; categories: EventCategory[] }) {
-  const byId = new Map(categories.map((category) => [category.id, category]));
+export function EventsAdmin({ events }: { events: HackEvent[] }) {
   return (
     <div id="events" className="flex scroll-mt-20 flex-col gap-6">
       <section className={card}>
-        <h2 className="mb-1 text-lg font-semibold">Add an event</h2>
-        <p className="mb-4 text-sm text-neutral-600">
-          Need a new kind of event (e.g. Networking) or a different colour? Add or edit it under{" "}
-          <a href="#event_categories" className="underline">
-            Schedule categories
-          </a>
-          .
-        </p>
+        <h2 className="mb-4 text-lg font-semibold">Add an event</h2>
         <ActionForm action={saveEvent} submitLabel="Add event">
-          <EventFields categories={categories} />
+          <EventFields />
         </ActionForm>
       </section>
 
@@ -112,9 +104,8 @@ export function EventsAdmin({ events, categories }: { events: HackEvent[]; categ
                   {formatDateTime(event.starts_at)} – {formatTime(event.ends_at)}
                 </span>
               </div>
-              <p className="flex items-center gap-1.5 text-sm text-neutral-600">
-                <span className={`size-2.5 shrink-0 rounded-full ${colorOf(byId.get(event.category_id)?.color).bar}`} aria-hidden />
-                {byId.get(event.category_id)?.name}
+              <p className="text-sm text-neutral-600">
+                {CATEGORIES[event.category].label}
                 {event.location && ` · ${event.location}`}
                 {event.points > 0 && ` · ${event.points} pts`}
               </p>
@@ -122,7 +113,7 @@ export function EventsAdmin({ events, categories }: { events: HackEvent[]; categ
                 <summary className="cursor-pointer text-sm underline">Edit</summary>
                 <div className="mt-3 flex flex-col gap-3">
                   <ActionForm action={saveEvent} submitLabel="Save changes">
-                    <EventFields event={event} categories={categories} />
+                    <EventFields event={event} />
                   </ActionForm>
                   <DeleteButton event={event} />
                 </div>

@@ -11,13 +11,7 @@ import { RadioGroupField } from "./RadioGroupField";
 import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
-import {
-  saveDraft,
-  submitApplication,
-  previewIndemnification,
-  ERROR_MESSAGES,
-  type ErrorCode,
-} from "@/lib/application/api";
+import { saveDraft, submitApplication, ERROR_MESSAGES, type ErrorCode } from "@/lib/application/api";
 import {
   saveDraftToLocalStorage,
   loadDraftFromLocalStorage,
@@ -99,38 +93,6 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isDeadlinePassed] = useState<boolean>(deadlinePassed);
-  const [isLoadingIndemnification, setIsLoadingIndemnification] = useState(false);
-  const [indemnificationError, setIndemnificationError] = useState<string | null>(null);
-
-  const viewIndemnification = async () => {
-    setIsLoadingIndemnification(true);
-    setIndemnificationError(null);
-    try {
-      const result = await previewIndemnification({
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        university: formData.university,
-        linkedin_url: formData.linkedin_url,
-        github_url: formData.github_url,
-        portfolio_url: formData.portfolio_url,
-      });
-      if (!result.ok) {
-        setIndemnificationError("Couldn't open the form. Please try again.");
-        return;
-      }
-      const bytes = Uint8Array.from(atob(result.pdfBase64), (c) => c.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-      const opened = window.open(url, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        setIndemnificationError("Allow pop-ups to view the form.");
-      }
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch {
-      setIndemnificationError("Couldn't open the form. Please try again.");
-    } finally {
-      setIsLoadingIndemnification(false);
-    }
-  };
 
   useEffect(() => {
     if (localDraftMergedRef.current) return;
@@ -239,10 +201,8 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
       newErrors.q_anything_else = `Maximum ${WORD_LIMITS.q_anything_else} words`;
     if (!formData.team_status) newErrors.team_status = "Please select your team status";
     if (!formData.tshirt_size) newErrors.tshirt_size = "T-shirt size is required";
-    if (!formData.consent_coc || !formData.consent_privacy)
-      newErrors.consent_coc = "You must agree to the Code of Conduct and Privacy Policy";
-    if (!formData.consent_indemnification)
-      newErrors.consent_indemnification = "You must accept the indemnification form";
+    if (!formData.consent_coc) newErrors.consent_coc = "You must agree to the Code of Conduct";
+    if (!formData.consent_privacy) newErrors.consent_privacy = "You must agree to the Privacy Policy";
 
     if (isUnder18) {
       if (!formData.guardian_name.trim()) newErrors.guardian_name = "Guardian name is required";
@@ -321,7 +281,6 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           guardian_relationship: isUnder18 ? formData.guardian_relationship : null,
           consent_coc: formData.consent_coc,
           consent_privacy: formData.consent_privacy,
-          consent_indemnification: formData.consent_indemnification,
           consent_photo: formData.consent_photo || null,
           share_resume_with_sponsors: formData.share_resume_with_sponsors || null,
         },
@@ -753,48 +712,33 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
 
       <FormSection title="Consent">
         <CheckboxField
-          label="I agree to the HackHive Code of Conduct and Privacy Policy"
+          label="I agree to the HackHive Code of Conduct"
           name="consent_coc"
-          checked={formData.consent_coc && formData.consent_privacy}
-          onChange={(v) => {
-            updateField("consent_coc", v);
-            updateField("consent_privacy", v);
-          }}
+          checked={formData.consent_coc}
+          onChange={(v) => updateField("consent_coc", v)}
           required
-          error={errors.consent_coc || errors.consent_privacy}
+          error={errors.consent_coc}
         />
-        <div className="space-y-2">
-          <CheckboxField
-            label="I accept the external guest indemnification form"
-            name="consent_indemnification"
-            checked={formData.consent_indemnification}
-            onChange={(v) => updateField("consent_indemnification", v)}
-            required
-            error={errors.consent_indemnification}
-          />
-          {formData.consent_indemnification && (
-            <div className="ml-7 text-sm">
-              <button
-                type="button"
-                onClick={() => void viewIndemnification()}
-                disabled={isLoadingIndemnification}
-                className="font-medium text-neutral-900 underline disabled:opacity-50"
-              >
-                {isLoadingIndemnification ? "Opening form..." : "View form"}
-              </button>
-              {indemnificationError && (
-                <p className="mt-1 text-red-600" role="alert">
-                  {indemnificationError}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        <CheckboxField
+          label="I agree to the HackHive Privacy Policy"
+          name="consent_privacy"
+          checked={formData.consent_privacy}
+          onChange={(v) => updateField("consent_privacy", v)}
+          required
+          error={errors.consent_privacy}
+        />
+        <CheckboxField
+          label="I consent to being photographed/recorded at the event"
+          name="consent_photo"
+          checked={formData.consent_photo}
+          onChange={(v) => updateField("consent_photo", v)}
+        />
         <CheckboxField
           label="I'd like to share my resume with event sponsors"
           name="share_resume_with_sponsors"
           checked={formData.share_resume_with_sponsors}
           onChange={(v) => updateField("share_resume_with_sponsors", v)}
+          description="Sponsors may contact you about internship and job opportunities"
         />
       </FormSection>
 

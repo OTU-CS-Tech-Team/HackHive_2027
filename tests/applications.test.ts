@@ -288,10 +288,6 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Service-Role Only Functions', ()
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
-      p_consent_indemnification: true,
-      p_indemnification_path: `${testUser.id}/indemnification.pdf`,
-      p_stamped_at: new Date().toISOString(),
-      p_email: testUser.email.toLowerCase(),
       p_user_id: testUser.id,
     });
 
@@ -363,10 +359,6 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Service-Role Only Functions', ()
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
-      p_consent_indemnification: true,
-      p_indemnification_path: `${testUser.id}/indemnification.pdf`,
-      p_stamped_at: new Date().toISOString(),
-      p_email: testUser.email.toLowerCase(),
       p_user_id: testUser.id,
     });
 
@@ -436,10 +428,6 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service R
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
-      p_consent_indemnification: true,
-      p_indemnification_path: `${testUser.id}/indemnification.pdf`,
-      p_stamped_at: new Date().toISOString(),
-      p_email: testUser.email.toLowerCase(),
       p_user_id: testUser.id,
     });
 
@@ -482,10 +470,6 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service R
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
-      p_consent_indemnification: true,
-      p_indemnification_path: `${testUser.id}/indemnification.pdf`,
-      p_stamped_at: new Date().toISOString(),
-      p_email: testUser.email.toLowerCase(),
       p_user_id: testUser.id,
     });
 
@@ -545,10 +529,6 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service R
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
-      p_consent_indemnification: true,
-      p_indemnification_path: `${testUser.id}/indemnification.pdf`,
-      p_stamped_at: new Date().toISOString(),
-      p_email: testUser.email.toLowerCase(),
       p_user_id: testUser.id,
     });
 
@@ -616,10 +596,6 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Deadline Lock', () => {
       p_consent_privacy: true,
       p_consent_photo: null,
       p_share_resume_with_sponsors: null,
-      p_consent_indemnification: true,
-      p_indemnification_path: `${testUser.id}/indemnification.pdf`,
-      p_stamped_at: new Date().toISOString(),
-      p_email: testUser.email.toLowerCase(),
       p_user_id: testUser.id,
     });
 
@@ -797,7 +773,6 @@ describe('Schema Validation', () => {
       tshirt_size: 'M',
       consent_coc: true,
       consent_privacy: true,
-      consent_indemnification: true,
       guardian_name: 'Parent Name',
       guardian_phone: '9876543210',
       guardian_relationship: 'Parent',
@@ -806,7 +781,7 @@ describe('Schema Validation', () => {
     expect(withFullGuardian.success).toBe(true);
   });
 
-  it('requires consent_coc, consent_privacy and consent_indemnification on submit', async () => {
+  it('requires consent_coc and consent_privacy on submit', async () => {
     const { applicationSubmitSchema } = await import('../src/lib/application/schema');
     
     const noCoc = applicationSubmitSchema.safeParse({
@@ -847,32 +822,9 @@ describe('Schema Validation', () => {
       tshirt_size: 'M',
       consent_coc: true,
       consent_privacy: false,
-      consent_indemnification: true,
     });
 
     expect(noPrivacy.success).toBe(false);
-
-    const noIndemnification = applicationSubmitSchema.safeParse({
-      first_name: 'Test',
-      last_name: 'User',
-      phone: '1234567890',
-      age: 21,
-      city: 'TestCity',
-      country: 'TestCountry',
-      university: 'Test University',
-      program: 'CS',
-      year_of_study: '3rd',
-      resume_path: 'user-id/resume.pdf',
-      q_proud: 'Test answer',
-      q_hack: 'Test answer',
-      team_status: 'solo',
-      tshirt_size: 'M',
-      consent_coc: true,
-      consent_privacy: true,
-      consent_indemnification: false,
-    });
-
-    expect(noIndemnification.success).toBe(false);
   });
 
   it('validates URL fields', async () => {
@@ -930,7 +882,6 @@ describe('Schema Validation', () => {
       tshirt_size: 'M',
       consent_coc: true,
       consent_privacy: true,
-      consent_indemnification: true,
     };
 
     // Test empty string for q_anything_else (the reported bug)

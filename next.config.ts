@@ -8,9 +8,6 @@ const nextConfig: NextConfig = {
   ...(process.env.NODE_ENV === "development" && {
     experimental: { serverActions: { allowedOrigins: ["*.trycloudflare.com"] } },
   }),
-  outputFileTracingIncludes: {
-    "/apply": ["./src/lib/indemnification/template.pdf"],
-  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
