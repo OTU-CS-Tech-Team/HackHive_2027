@@ -154,8 +154,11 @@
 }
 
 /* Pressing it squashes it down onto its shadow, like a chunky toy button. */
-.faq-question:hover {
-  background-color: var(--honey-light);
+/* Only where there's a real hover, or a tap leaves the bar stuck lightened. */
+@media (hover: hover) {
+  .faq-question:hover {
+    background-color: var(--honey-light);
+  }
 }
 
 .faq-question:active {
@@ -410,8 +413,10 @@
   transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms;
 }
 
-.faq-contact button:hover {
-  background-color: var(--honey-light);
+@media (hover: hover) {
+  .faq-contact button:hover {
+    background-color: var(--honey-light);
+  }
 }
 
 .faq-contact button:active {
@@ -463,8 +468,69 @@
     padding: 0.875rem 1rem 1rem;
   }
 
+  /* In one column there's nothing to line up with, and the longest question and
+     answer wrap so far that every card would be mostly empty. Each card fits its own. */
+  .faq-sizer {
+    display: none;
+  }
+
   .faq-contact {
     margin-top: 2.5rem;
+  }
+}
+
+/* Phones: less stacked padding, so the questions and answers get the width. The
+   panel keeps its 1.25rem sides so the drips stay clear of the text box. */
+@media (max-width: 480px) {
+  .faq-page {
+    --cell: 2rem;
+    padding: 5rem 0.75rem 4rem;
+  }
+
+  .faq-page h1 {
+    margin-bottom: 2rem;
+    font-size: 1.625rem;
+    -webkit-text-stroke-width: 5px;
+    text-shadow: 0 4px 0 var(--ink);
+  }
+
+  .faq-grid,
+  .faq-column {
+    gap: 2rem;
+  }
+
+  .faq-grid {
+    padding: 0 0.75rem;
+  }
+
+  .faq-question {
+    gap: 0.75rem;
+    padding-left: 2rem;
+    font-size: 0.9375rem;
+  }
+
+  .faq-icon {
+    width: 1.875rem;
+    height: calc(1.875rem * 1.1547);
+    font-size: 1.25rem;
+  }
+
+  .faq-panel {
+    padding-block: 1rem;
+  }
+
+  .faq-panel p {
+    padding: 0.75rem 0.875rem 0.875rem;
+    font-size: 0.9375rem;
+  }
+
+  .faq-contact {
+    font-size: 1rem;
+  }
+
+  /* The copy button drops below the address, so pad the card evenly. */
+  .faq-contact p {
+    padding: 0.875rem 1rem;
   }
 }
 
