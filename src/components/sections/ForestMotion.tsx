@@ -11,6 +11,14 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
 // Degrees of skew before falloff; the crown of a tall tree travels 15-20px.
 const LEAN = 2;
 
+// One cell of the hive wall's comb: the 28×49 --comb tile drawn at 2×, with its
+// middle cell centred on the wall. Outer edge, then the inside of the wax ring.
+const CELL = 30;
+const WAX = 25.4;
+// Share of the opening spent before its flanks reach the screen edges.
+const FLANKS = 0.85;
+const widen = gsap.parseEase("power2.in");
+
 // The sponsors <section>, wired up by data attributes so the markup stays on the server.
 export function ForestMotion(props: ComponentProps<"section">) {
   const root = useRef<HTMLElement>(null);
@@ -20,30 +28,57 @@ export function ForestMotion(props: ComponentProps<"section">) {
       const list = gsap.utils.toArray<HTMLElement>;
 
       gsap.matchMedia().add("(prefers-reduced-motion: no-preference)", () => {
-        // The sky holds still while a hexagon grows in the hive wall until it's
-        // wider than the screen. Clips, not scale, to keep the rim's edge sharp.
+        // The middle cell of the hive wall lights up as it reaches the centre of
+        // the screen. Once the sky sticks, it opens and grows until it's wider
+        // than the screen. Clips, not scale, to keep the rim's edge sharp.
         const [wall] = list("[data-hive-wall]");
         const [rim] = list("[data-hive-rim]");
         const [hold] = list("[data-hold]");
-        const opening = { progress: 0 };
+        const opening = { glow: 0, open: 0 };
         const cut = () => {
           const { offsetWidth: w, offsetHeight: h } = wall;
-          const inner = 30 + opening.progress * Math.hypot(w, h) * 0.62;
-          const outer = inner + 10 + opening.progress * 26;
-          const hole = hexagon(w / 2, h / 2, inner);
-          wall.style.clipPath = `path(evenodd, "M0 0H${w}V${h}H0Z${hole}")`;
-          rim.style.clipPath = `path(evenodd, "${hexagon(w / 2, h / 2, outer)}${hole}")`;
+          const { glow, open } = opening;
+          const x = w / 2;
+          const y = h / 2 - 0.5;
+          // The flanks meet the screen edges at w/√3, long before the tips clear
+          // the corners on a tall phone. Spend the scroll on the flanks, where
+          // the hexagon is still visible, and let the tips go quickly.
+          const flanks = w / Math.sqrt(3);
+          const corners = h / 2 + flanks / 2 + 4;
+          const inner =
+            open < FLANKS
+              ? flanks * widen(open / FLANKS)
+              : flanks + ((corners - flanks) * (open - FLANKS)) / (1 - FLANKS);
+          const outer = Math.max(CELL, inner + CELL - WAX + open * 30);
+          const hole = inner > 0.5 ? hexagon(x, y, inner) : "";
+          wall.style.clipPath = hole
+            ? `path(evenodd, "M0 0H${w}V${h}H0Z${hole}")`
+            : "";
+          rim.style.clipPath = `path(evenodd, "${hexagon(x, y, outer)}${hexagon(x, y, Math.max(WAX, inner))}")`;
+          // At 0 the comb's own ring shows through, so the cell matches its neighbours.
+          rim.style.opacity = `${glow}`;
         };
 
         cut();
         gsap.set("[data-hive]", { autoAlpha: 1 });
         gsap.to(opening, {
-          progress: 1,
-          ease: "power2.in",
+          glow: 1,
+          ease: "none",
           onUpdate: cut,
           scrollTrigger: {
             trigger: "[data-hive-stage]",
-            start: "top 60%",
+            start: "top 35%",
+            end: "top top",
+            scrub: true,
+          },
+        });
+        gsap.to(opening, {
+          open: 1,
+          ease: "none",
+          onUpdate: cut,
+          scrollTrigger: {
+            trigger: "[data-hive-stage]",
+            start: "top top",
             // Done just before the crowns of the woods rise over the sky.
             end: () => `top ${-hold.offsetHeight * 0.85}px`,
             scrub: true,

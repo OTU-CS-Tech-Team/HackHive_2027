@@ -259,72 +259,14 @@
 
 @media (max-width: 48rem) {
   .section {
-    --hold: 60svh;
+    --hold: 80svh;
   }
 
-  /* The painting goes flat dark in its last fifth. Scale it up and hang
-     that foot under the woods, so the trees continue to the first card. */
+  /* The sky stays screen-tall, as on desktop, so the hive opens onto light
+     all the way down. Size the art off the height, so the treeline climbs to
+     meet the heading rather than leaving the bottom of a tall phone dark. */
   .sky {
-    --art-w: 240vw;
-    min-height: 56svh;
-    padding-top: clamp(0.75rem, 2vw, 1.25rem);
-    padding-bottom: calc(var(--wall-h) * 0.2);
-  }
-
-  /* The short sky foot was a solid band across the opening. The wall's own
-     dark rows meet the woods, so the foot isn't needed at this width. */
-  .sky::after {
-    height: 0;
-  }
-
-  .wall {
-    bottom: -13rem;
-  }
-
-  /* The bitmap's last fifth is a flat #0b2419 block. In the opening that
-     block is the dark slab under the trees: the woods have not arrived yet,
-     and below the sky the page is already ink. Dissolve the foot into it. */
-  .wall img {
-    -webkit-mask: linear-gradient(to bottom, #000 0%, #000 72%, transparent 98%);
-    mask: linear-gradient(to bottom, #000 0%, #000 72%, transparent 98%);
-  }
-
-  /* The 240vw crop is the middle of the painting. The wall's centre stays
-     clear until halfway down, and the far strip is only half as tall, with
-     a hard foot. That foot drew a full-width line and the sky behind it
-     showed through as a rectangle. Scale the hills (aspect kept) so their
-     opaque lower half fills the clearing, and dissolve the top and bottom.
-     The box clears the heading; parallax can still lift it by 55px. */
-  .far {
-    bottom: calc(-13rem + var(--wall-h) * 0.46);
-    height: calc(var(--wall-h) * 0.46);
-    overflow: hidden;
-  }
-
-  .far img {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: 190%;
-    max-width: none;
-    height: auto;
-    transform: translateX(-50%);
-    -webkit-mask: linear-gradient(
-      to bottom,
-      transparent 0%,
-      transparent 58%,
-      #000 70%,
-      #000 86%,
-      transparent 100%
-    );
-    mask: linear-gradient(
-      to bottom,
-      transparent 0%,
-      transparent 58%,
-      #000 70%,
-      #000 86%,
-      transparent 100%
-    );
+    --art-w: max(72rem, 190svh);
   }
 
   .tree {
@@ -399,13 +341,20 @@
   z-index: 5;
   display: grid;
   gap: clamp(6rem, 14vw, 13rem);
-  max-width: 36rem;
+  max-width: 64rem;
   margin: clamp(-12rem, -14vw, -4rem) auto 0;
 }
 
 .board {
   display: grid;
   justify-items: center;
+}
+
+/* The pitch is a few lines of text, so it stays narrower than the logo wall. */
+.board:has(.pitch) {
+  width: 100%;
+  max-width: 44rem;
+  justify-self: center;
 }
 
 .label {
@@ -463,7 +412,7 @@
   position: relative;
   display: grid;
   gap: clamp(1.5rem, 2.5vw, 2rem);
-  padding: clamp(2.75rem, 5vw, 3.5rem) clamp(1.25rem, 3vw, 1.75rem) clamp(2rem, 4vw, 3rem);
+  padding: clamp(2.75rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 3rem) clamp(2rem, 4vw, 3rem);
   border-radius: 1.2rem;
   background: radial-gradient(120% 80% at 50% 0, var(--paper), #fff4d6 70%);
   box-shadow: inset 0 0.15rem 0.5rem rgb(201 138 11 / 0.25);
@@ -576,7 +525,7 @@
   position: relative;
   display: flex;
   box-sizing: border-box;
-  height: clamp(4.5rem, 6vw, 5.25rem);
+  height: clamp(5rem, 7.5vw, 6.25rem);
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -759,23 +708,15 @@ a.tile:is(:hover, :focus-visible) .visit {
   .tier {
     --cols: 2;
   }
+}
 
-  .sky {
-    --art-w: 270vw;
-    min-height: 36svh;
+/* A phone gets one logo per row, so wide wordmarks aren't squeezed. */
+@media (max-width: 30rem) {
+  .tier {
+    --cols: 1;
   }
 
-  .wall {
-    bottom: -11rem;
-  }
-
-  /* The stuck sky ends higher on a phone, so the flat foot starts sooner. */
-  .wall img {
-    -webkit-mask: linear-gradient(to bottom, #000 0%, #000 54%, transparent 98%);
-    mask: linear-gradient(to bottom, #000 0%, #000 54%, transparent 98%);
-  }
-
-  .far {
-    bottom: calc(-11rem + var(--wall-h) * 0.64);
+  .logo {
+    max-width: 60%;
   }
 }
