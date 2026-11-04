@@ -15,8 +15,8 @@ const LEAN = 2;
 // middle cell centred on the wall. Outer edge, then the inside of the wax ring.
 const CELL = 30;
 const WAX = 25.4;
-// Share of the opening spent before its flanks reach the screen edges.
-const FLANKS = 0.85;
+// Share of the opening done before the hive starts to dissolve.
+const FADE = 0.75;
 const widen = gsap.parseEase("power2.in");
 
 // The sponsors <section>, wired up by data attributes so the markup stays on the server.
@@ -31,6 +31,7 @@ export function ForestMotion(props: ComponentProps<"section">) {
         // The middle cell of the hive wall lights up as it reaches the centre of
         // the screen. Once the sky sticks, it opens and grows until it's wider
         // than the screen. Clips, not scale, to keep the rim's edge sharp.
+        const [hive] = list("[data-hive]");
         const [wall] = list("[data-hive-wall]");
         const [rim] = list("[data-hive-rim]");
         const [hold] = list("[data-hold]");
@@ -41,14 +42,9 @@ export function ForestMotion(props: ComponentProps<"section">) {
           const x = w / 2;
           const y = h / 2 - 0.5;
           // The flanks meet the screen edges at w/√3, long before the tips clear
-          // the corners on a tall phone. Spend the scroll on the flanks, where
-          // the hexagon is still visible, and let the tips go quickly.
-          const flanks = w / Math.sqrt(3);
-          const corners = h / 2 + flanks / 2 + 4;
-          const inner =
-            open < FLANKS
-              ? flanks * widen(open / FLANKS)
-              : flanks + ((corners - flanks) * (open - FLANKS)) / (1 - FLANKS);
+          // the corners on a tall phone, and a flank parked at the edge reads as
+          // a stripe. So grow toward the edges and dissolve the hive on the way.
+          const inner = (w / Math.sqrt(3)) * widen(open);
           const outer = Math.max(CELL, inner + CELL - WAX + open * 30);
           const hole = inner > 0.5 ? hexagon(x, y, inner) : "";
           wall.style.clipPath = hole
@@ -57,6 +53,7 @@ export function ForestMotion(props: ComponentProps<"section">) {
           rim.style.clipPath = `path(evenodd, "${hexagon(x, y, outer)}${hexagon(x, y, Math.max(WAX, inner))}")`;
           // At 0 the comb's own ring shows through, so the cell matches its neighbours.
           rim.style.opacity = `${glow}`;
+          hive.style.opacity = `${1 - gsap.utils.clamp(0, 1, (open - FADE) / (1 - FADE))}`;
         };
 
         cut();

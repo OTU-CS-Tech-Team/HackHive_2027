@@ -65,15 +65,15 @@
   inset: 0;
 }
 
-/* The comb grows out of the honey sky. The top stays clear so the dawn
-   doesn't stop on a dark slab. */
+/* Solid, so nothing behind shows until the middle cell opens. It starts on the
+   dawn's last colour and darkens into the comb, so the dawn doesn't stop on a slab. */
 .hiveWall {
   background: linear-gradient(
     to bottom,
-    transparent 0%,
-    rgb(245 204 124 / 0.2) 10%,
-    rgb(20 17 11 / 0.45) 28%,
-    #14110b 52%
+    #f5cc7c 0%,
+    #a87628 12%,
+    #3b2c08 24%,
+    #14110b 36%
   );
 }
 
@@ -82,12 +82,12 @@
   inset: 0;
   background: rgb(245 184 61 / 0.16);
   content: "";
-  -webkit-mask-image: var(--comb), linear-gradient(to bottom, transparent, #000 46%);
+  -webkit-mask-image: var(--comb), linear-gradient(to bottom, transparent 6%, #000 30%);
   -webkit-mask-size: 56px 98px, 100% 100%;
   -webkit-mask-position: center, center;
   -webkit-mask-repeat: repeat, no-repeat;
   -webkit-mask-composite: source-in;
-  mask-image: var(--comb), linear-gradient(to bottom, transparent, #000 46%);
+  mask-image: var(--comb), linear-gradient(to bottom, transparent 6%, #000 30%);
   mask-size: 56px 98px, 100% 100%;
   mask-position: center, center;
   mask-repeat: repeat, no-repeat;
