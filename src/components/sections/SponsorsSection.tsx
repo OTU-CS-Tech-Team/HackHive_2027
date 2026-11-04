@@ -355,7 +355,7 @@ export async function SponsorsSection() {
 
         {/* Evening sky over the treeline. */}
         <div className={styles.sky}>
-          <header className={styles.intro}>
+          <header className={styles.intro} data-drift>
             {/* Past 1, so it fires once the sky has stuck and the hive is opening. */}
             <SplitText
               tag="h2"

@@ -18,6 +18,8 @@ const WAX = 25.4;
 // Share of the opening done before the hive starts to dissolve.
 const FADE = 0.75;
 const widen = gsap.parseEase("power2.in");
+// How much of the treeline's band stays below the heading once it settles.
+const SETTLE = 0.8;
 
 // The sponsors <section>, wired up by data attributes so the markup stays on the server.
 export function ForestMotion(props: ComponentProps<"section">) {
@@ -80,6 +82,30 @@ export function ForestMotion(props: ComponentProps<"section">) {
             end: () => `top ${-hold.offsetHeight * 0.85}px`,
             scrub: true,
             onRefresh: cut,
+          },
+        });
+
+        // The heading settles down the sky through the hold, so the hive opens
+        // onto it already lowered, and it ends a little into the tree tips. The
+        // sky's bottom padding is the treeline's band; SETTLE of it stays below.
+        const [intro] = list("[data-drift]");
+        const sky = intro.offsetParent as HTMLElement;
+        gsap.to(intro, {
+          y: () =>
+            Math.max(
+              0,
+              sky.clientHeight -
+                parseFloat(getComputedStyle(sky).paddingBottom) * SETTLE -
+                intro.offsetTop -
+                intro.offsetHeight,
+            ),
+          ease: "none",
+          scrollTrigger: {
+            trigger: "[data-hive-stage]",
+            start: "top top",
+            end: () => `top ${-hold.offsetHeight}px`,
+            scrub: true,
+            invalidateOnRefresh: true,
           },
         });
 

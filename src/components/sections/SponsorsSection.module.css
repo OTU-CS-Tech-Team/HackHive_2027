@@ -106,12 +106,15 @@
      so a width-only size drops the treeline further below the heading on taller screens. */
   --art-w: max(100vw, 72rem, min(200svh, 125vw));
   --wall-h: calc(var(--art-w) * 0.3733);
+  /* The treeline sits this far below the padding band, so the settled heading
+     reads clear of the tree tips. */
+  --sink: calc(var(--wall-h) * 0.15);
   position: sticky;
   top: 0;
   min-height: 100svh;
   padding: clamp(3rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem) calc(var(--wall-h) * 0.84);
   background:
-    radial-gradient(min(38rem, 70vw) min(26rem, 40vw) at 72% calc(100% - var(--wall-h) * 0.62), rgb(255 247 205 / 0.95), rgb(255 226 140 / 0.55) 45%, transparent),
+    radial-gradient(min(38rem, 70vw) min(26rem, 40vw) at 72% calc(100% - var(--wall-h) * 0.62 + var(--sink)), rgb(255 247 205 / 0.95), rgb(255 226 140 / 0.55) 45%, transparent),
     linear-gradient(to bottom, #f5cc7c, var(--sky) 28%, #fbd98a 58%, #efb65a);
 }
 
@@ -139,14 +142,14 @@
 
 .far {
   --depth: 55;
-  bottom: calc(var(--wall-h) * 0.36);
+  bottom: calc(var(--wall-h) * 0.36 - var(--sink));
 }
 
 /* The bitmap's last rows are already #0b2419. Keep them under .woods,
    including when parallax shifts the layer up by its depth. */
 .wall {
   --depth: 28;
-  bottom: -3rem;
+  bottom: calc(-3rem - var(--sink));
 }
 
 .far img,
