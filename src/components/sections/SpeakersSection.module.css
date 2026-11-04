@@ -463,6 +463,11 @@
   font-size: clamp(0.8rem, 4.2cqw, 0.9rem);
   }
 
+  .prioritizeLinkedIn .company,
+  .prioritizeLinkedIn .rule {
+    display: none;
+  }
+
   .face {
   gap: 0.2em;
   padding: 25px;

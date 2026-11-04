@@ -140,7 +140,11 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
         <span className={styles.name}>{person.name}</span>
       </div>
       <div
-        className={`${styles.face} ${styles.back}`}
+        className={`${styles.face} ${styles.back} ${
+          person.role === "judge" && person.company && person.linkedin_url
+            ? styles.prioritizeLinkedIn
+            : ""
+        }`}
         aria-hidden={!revealed}
         inert={!revealed}
       >
@@ -148,7 +152,9 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
           {avatar}
           <span className={styles.name}>{person.name}</span>
           {person.title && <span className={styles.details}>{person.title}</span>}
-          {person.company && <span className={styles.details}>{person.company}</span>}
+          {person.company && (
+            <span className={`${styles.details} ${styles.company}`}>{person.company}</span>
+          )}
         </div>
         {person.linkedin_url && <span className={styles.rule} aria-hidden="true" />}
         {person.linkedin_url && (
