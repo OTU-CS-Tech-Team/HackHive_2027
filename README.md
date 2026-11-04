@@ -4,10 +4,8 @@ HackHive 2027 website
 ## Walk the path
 
 The homepage is a scroll-driven walk. Chapters and their art live in
-`src/components/path/chapters.ts`. Jiwoo's SVG, PNG, or WebP files replace a
-placeholder by setting `src` — nothing else in the engine needs to change.
-Put files in `public/path/` and point `src` at them, for example
-`/path/trailhead-sky.webp`.
+`src/components/path/chapters.ts`. Display plates are WebP in `public/path/`
+so the blur is already in the pixels. The SVG sources sit beside them.
 
 Each chapter has an `id`, a `title`, a `light` colour (morning through sunset),
 and a `layers` list. Each layer has:
@@ -16,20 +14,19 @@ and a `layers` list. Each layer has:
 | --- | --- |
 | `id` | Stable name, unique across the path |
 | `slot` | `sky`, `far`, `mid`, `near`, or `foreground` |
-| `depth` | `0` at the horizon to `1` at the camera. Nearer layers scale faster and blur more |
-| `src` | Optional image URL. When set, it replaces the placeholder |
+| `depth` | `0` at the horizon to `1` at the camera. Nearer layers scale faster |
+| `src` | WebP URL for the plate |
 | `alt` | Image description. Use `""` for decorative plates |
-| `placeholder` | Name of the built-in stand-in used while `src` is empty |
 | `mobile` | `false` hides the layer below 768px |
 
 Draw each plate as a full-bleed frame, centred, with spare bleed at the edges.
-Placeholder chapters scale from the centre. Painted plates with a `speed` scale
-from the horizon (`50% 49.8%`) by `1 + speed`. Keep type out of the art — copy
-stays in the chapter panels so it can stay readable. Chapter 1 uses the plates
-in `public/path/ch1/` (sky, hills, path, mist, mid flowers, near flowers,
-foreground). The HackHive wordmark is an HTML heading, not part of a plate.
-The petal wall is `public/path/transition/` and mounts after the walk passes
-35% of the first chapter. Later chapters keep their placeholders.
+Plates with a `speed` scale from the horizon (`50% 49.8%`) by `1 + speed`.
+Keep type out of the art — copy stays in the chapter panels so it can stay
+readable. Chapter 1 uses `public/path/ch1/`. Chapters 2–7 use `ch2` through
+`ch7` (clearing, fork, oak, stream, fence, hive entrance). The HackHive
+wordmark is an HTML heading, not part of a plate. The petal wall is
+`public/path/transition/` and mounts after the walk passes 35% of the first
+chapter. Layers after the trailhead load as their pin approaches.
 
 `prefers-reduced-motion` skips pinning, zoom, and the curtain. The same chapters
 stack as still scenes with the copy in normal document flow.
@@ -142,10 +139,21 @@ to work as before.
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
 open `/hackhive/archive`. The route is defined by
 `src/app/hackhive/archive/page.tsx`, which imports the museum component and archive
-data. A sticky year menu lets visitors jump straight to any collection on mobile
-and desktop. The museum includes
-all 21 projects from 2026, 2025, and 2024, click-to-play videos, project thumbnails,
-and the scroll-driven puzzle navigation.
+data. Each year is a constellation on a black star field. The Museum keeps the
+site navigation, honey-amber accents, warm text, and restrained typography. A clockwise tour highlights
+project stars and updates the featured thumbnail and demo player. Choose any
+star, use previous/next, or pause the tour. Playing a demo holds the selection;
+leaving the year, hiding the tab, or navigating away removes the player.
+
+The first project and its polygon constellation appear immediately. Each year has
+a distinct silhouette: a stellar burst, a long diamond, or a faceted comet. The project
+preview has generous space beside the map, with a compact stacked layout on
+smaller screens. A persistent star travels smoothly from node to node in two
+seconds without restarting at each project. The year marker writes each year,
+then scribbles over and replaces it in one slot. Year links stay fixed at the
+bottom for direct navigation at any scroll position. Hovering a line highlights
+it. Reduced-motion mode uses manual selection and immediate position updates.
+Existing shared project data and thumbnails remain the source of truth.
 
 ### Shared content, independent design
 
@@ -165,7 +173,7 @@ the build rather than silently publishing stale data.
 `src/data/generated/hackhive.json` and `public/museum/projects/` are generated and
 gitignored. The JSON records its source commit. Do not edit generated files.
 `src/data/hackhive.ts` groups the generated projects into local archive collections.
-HackHive's components, CSS, puzzle animation, year menu, and homepage section live
+HackHive's components, CSS, constellation animation, year menu, and homepage section live
 in this repository. CS Club's presentation fields (rotation, pins, annotations)
 are excluded from the shared content.
 

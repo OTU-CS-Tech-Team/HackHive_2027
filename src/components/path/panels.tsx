@@ -14,18 +14,20 @@ export function TrailheadPanel() {
         </span>
         <span className={styles.heroFace}>HackHive</span>
       </h1>
-      <p className={styles.heroDate}>{EVENT_DATE_TEXT}</p>
-      <p className={styles.heroMember}>
-        <MLHWordmark /> Official Member
-      </p>
-      <p className={styles.heroLine}>{HERO_APPLY_LINE}</p>
-      <div className={styles.actions}>
-        <Link href="/apply" className={styles.cta}>
-          Join as a hacker
-        </Link>
-        <Link href="/#faq" className={styles.heroLearn}>
-          Learn more
-        </Link>
+      <div className={styles.heroCopy}>
+        <p className={styles.heroDate}>{EVENT_DATE_TEXT}</p>
+        <p className={styles.heroMember}>
+          <MLHWordmark /> Official Member
+        </p>
+        <p className={styles.heroLine}>{HERO_APPLY_LINE}</p>
+        <div className={styles.actions}>
+          <Link href="/apply" className={styles.cta}>
+            Join as a hacker
+          </Link>
+          <Link href="/#faq" className={styles.heroLearn}>
+            Learn more
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -62,12 +64,7 @@ export function AboutPanel() {
   );
 }
 
-const TRACKS = [
-  { name: "AI", direction: "right" },
-  { name: "Web", direction: "left" },
-  { name: "Hardware", direction: "right" },
-  { name: "Social", direction: "left" },
-] as const;
+const TRACKS = ["AI", "Web", "Hardware", "Social"] as const;
 
 export function TracksPanel() {
   return (
@@ -76,15 +73,11 @@ export function TracksPanel() {
         <p className={styles.kicker}>Tracks</p>
         <h2 className={`${styles.cardTitle} ${styles.display}`}>The path splits</h2>
       </div>
-      <ul className={styles.signs}>
+      <ul className={styles.forks}>
         {TRACKS.map((track) => (
-          <li
-            key={track.name}
-            className={`${styles.signpost} ${track.direction === "right" ? styles.pointRight : styles.pointLeft}`}
-          >
-            {track.direction === "left" ? "← " : ""}
-            {track.name}
-            {track.direction === "right" ? " →" : ""}
+          <li key={track} className={styles.forkName}>
+            <span className={styles.bloom} aria-hidden="true" />
+            {track}
           </li>
         ))}
       </ul>

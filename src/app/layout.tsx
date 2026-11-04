@@ -49,14 +49,14 @@ function NavbarFallback() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={cn("font-sans", geist.variable, grotesk.variable)}>
+    <html lang="en" className={cn("font-sans", geist.variable, grotesk.variable)}>
       <body>
         <NavbarShell>
           <Suspense fallback={<NavbarFallback />}>
             <Navbar />
           </Suspense>
         </NavbarShell>
-        <Script src="/navbar-interactions.js?v=7" strategy="beforeInteractive" />
+        <Script src="/navbar-interactions.js?v=7" strategy="afterInteractive" />
         {children}
       </body>
     </html>

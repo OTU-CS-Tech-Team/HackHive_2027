@@ -8,11 +8,13 @@ import { ApplicationView } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { signOut } from "@/app/actions/auth";
 import { getMyApplication } from "@/lib/application/api";
+import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
 import { formatDateTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "./AvatarUpload";
 import { CheckinQr } from "./CheckinQr";
+import { ItemRequestForm } from "./ItemRequestForm";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -100,7 +102,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
         <div>
           {tab === "schedule" && <ScheduleSection />}
           {tab === "application" && <ApplicationTab />}
-          {tab === "checkout" && <CheckoutTab supabase={supabase} />}
+          {tab === "checkout" && <CheckoutTab supabase={supabase} userId={user.id} />}
           {tab === "hunt" && <HuntTab supabase={supabase} />}
           {tab === "shop" && <ShopTab supabase={supabase} userId={user.id} />}
           {tab === "profile" && <ProfileTab supabase={supabase} userId={user.id} email={user.email} />}
@@ -129,7 +131,7 @@ async function ApplicationTab() {
   );
 }
 
-async function CheckoutTab({ supabase }: { supabase: Supabase }) {
+async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: string }) {
   const { data: hardware } = await supabase.from("hardware_items").select("*").order("sort_order").order("name");
   return (
     <section>
@@ -148,6 +150,77 @@ async function CheckoutTab({ supabase }: { supabase: Supabase }) {
         </ul>
       ) : (
         <p className={muted}>Hardware list coming soon.</p>
+      )}
+      <ItemRequests supabase={supabase} userId={userId} />
+    </section>
+  );
+}
+
+// The badge on each of the hacker's item requests.
+const statusStyles = {
+  pending: { label: "Pending", badge: "bg-amber-100 text-amber-800" },
+  accepted: { label: "Accepted", badge: "bg-green-100 text-green-800" },
+  rejected: { label: "Rejected", badge: "bg-red-100 text-red-800" },
+};
+
+// The hacker's item requests (pending ones with their place in the queue, then
+// reviewed ones) and the form to send another, up to MAX_PENDING_REQUESTS waiting.
+async function ItemRequests({ supabase, userId }: { supabase: Supabase; userId: string }) {
+  const [{ data: itemRequests }, { data: queuePositions }] = await Promise.all([
+    supabase.from("item_requests").select("id, items, created_at, status, reviewed_at, admin_note").eq("user_id", userId).order("queue_number"),
+    supabase.rpc("my_item_request_positions"),
+  ]);
+
+  // Pending requests in queue order, then reviewed ones, most recently reviewed first.
+  const pending = (itemRequests ?? []).filter((request) => request.status === "pending");
+  const reviewed = (itemRequests ?? [])
+    .filter((request) => request.status !== "pending")
+    .sort((a, b) => (b.reviewed_at ?? "").localeCompare(a.reviewed_at ?? ""));
+  const positionOf = new Map(
+    ((queuePositions ?? []) as { id: string; queue_position: number }[]).map((row) => [row.id, row.queue_position]),
+  );
+
+  return (
+    <section className={`${card} mt-8`}>
+      <h3 className="mb-1 text-lg font-semibold">Request items</h3>
+      {pending.length + reviewed.length > 0 && (
+        <ul className="mb-6 mt-3 flex flex-col gap-3">
+          {[...pending, ...reviewed].map((request) => {
+            const position = positionOf.get(request.id);
+            const status = statusStyles[request.status as keyof typeof statusStyles];
+            return (
+              <li key={request.id} className="rounded border border-neutral-200 p-4 [overflow-wrap:anywhere]">
+                <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600">
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${status.badge}`}>{status.label}</span>
+                  {request.status === "pending" && (
+                    <span className="font-semibold text-neutral-900">{position ? `#${position} in the queue` : "In the queue"}</span>
+                  )}
+                  <span>· sent {formatDateTime(request.created_at)}</span>
+                  {request.reviewed_at && <span>· reviewed {formatDateTime(request.reviewed_at)}</span>}
+                </p>
+                <ul className="list-inside list-disc text-sm">
+                  {(request.items as { name: string; quantity: number }[]).map((item, i) => (
+                    <li key={i}>
+                      {item.quantity} × {item.name}
+                    </li>
+                  ))}
+                </ul>
+                {request.admin_note && (
+                  <p className="mt-2 text-sm">
+                    <span className="font-medium">Note from the organizers:</span> {request.admin_note}
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {pending.length < MAX_PENDING_REQUESTS ? (
+        <ItemRequestForm pendingCount={pending.length} />
+      ) : (
+        <p className={muted}>
+          You have {MAX_PENDING_REQUESTS} requests in the queue. You can send another once an organizer has reviewed one of them.
+        </p>
       )}
     </section>
   );

@@ -9,6 +9,15 @@ describe("path chapters", () => {
     expect(PATH_CHAPTERS.map((chapter) => chapter.id)).toEqual([...CHAPTER_IDS]);
     expect(PATH_CHAPTERS[0]?.light).toBe("#ffe7a3");
     expect(PATH_CHAPTERS.at(-1)?.light).toBe("#d24a32");
+    expect(PATH_CHAPTERS.map((chapter) => chapter.anchor)).toEqual([
+      "trailhead",
+      "about",
+      "tracks",
+      "schedule",
+      "faq",
+      "sponsors",
+      "apply",
+    ]);
   });
 
   it("gives every layer a slot, a depth, and art to swap", () => {
@@ -32,10 +41,14 @@ describe("path chapters", () => {
 
   it("maps chapter 1 onto the approved plates, in paint order", () => {
     const trailhead = PATH_CHAPTERS[0];
-    expect(trailhead?.layers.map((layer) => layer.src)).toEqual(layers.map((layer) => layer.src));
+    expect(trailhead?.layers.map((layer) => layer.src)).toEqual(
+      layers.map((layer) => layer.src.replace(/\.svg$/, ".webp")),
+    );
     expect(trailhead?.layers.map((layer) => layer.speed)).toEqual(layers.map((layer) => layer.speed));
-    expect(trailhead?.layers.find((layer) => layer.id === "trailhead-mid-flowers")?.inline).toBe(true);
-    expect(PATH_CHAPTERS.slice(1).every((chapter) => chapter.layers.every((layer) => !layer.src))).toBe(true);
+    expect(trailhead?.layers.some((layer) => layer.inline)).toBe(false);
+    expect(
+      PATH_CHAPTERS.slice(1).every((chapter) => chapter.layers.every((layer) => layer.src?.endsWith(".webp"))),
+    ).toBe(true);
   });
 
   it("keeps the mobile foreground lighter except at the hive", () => {

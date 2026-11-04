@@ -1,5 +1,9 @@
-import { walls } from "@/app/prototype/path/scene";
 import styles from "@/components/path/path.module.css";
+
+const PETAL_WALLS = {
+  left: "/path/transition/petal-wall-left.webp",
+  right: "/path/transition/petal-wall-right.webp",
+} as const;
 
 export function Curtain({ showArt }: { showArt: boolean }) {
   return (
@@ -9,7 +13,7 @@ export function Curtain({ showArt }: { showArt: boolean }) {
           {showArt ? (
             // The wall files stay out of the document until the walk passes the trailhead.
             // eslint-disable-next-line @next/next/no-img-element
-            <img className={styles.art} src={walls[side].src} alt="" decoding="async" draggable={false} />
+            <img className={styles.art} src={PETAL_WALLS[side]} alt="" decoding="async" draggable={false} />
           ) : null}
         </div>
       ))}

@@ -3,14 +3,31 @@
 import { Children, cloneElement, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { midFlowersSvg } from "@/app/prototype/path/scene";
 import { smoothstep, TRAIL_MOTION } from "@/app/prototype/path/motion";
 import { FINAL_WASH } from "@/components/path/chapters";
 import { Curtain } from "@/components/path/Curtain";
-import { blurPx, zoomScale } from "@/components/path/math";
-import { SceneArt } from "@/components/path/SceneArt";
+import { zoomScale } from "@/components/path/math";
 import type { PathChapter, PathLayer } from "@/components/path/types";
 import styles from "@/components/path/path.module.css";
+
+const HASH_CHAPTER: Record<string, string> = {
+  faq: "stream",
+  sponsors: "fence",
+  schedule: "oak",
+  about: "clearing",
+  tracks: "fork",
+  trailhead: "trailhead",
+  apply: "hive",
+};
+
+function armArt(root: HTMLElement, chapterId: string, includeHeavy: boolean) {
+  root.querySelectorAll<HTMLImageElement>(`img[data-art-for="${chapterId}"]`).forEach((img) => {
+    if (!includeHeavy && img.closest("[data-layer]")?.getAttribute("data-mobile") === "off") return;
+    const next = img.dataset.src;
+    if (!next || img.getAttribute("src") === next) return;
+    img.src = next;
+  });
+}
 
 function PathLayerView({
   chapter,
@@ -21,6 +38,7 @@ function PathLayerView({
   layer: PathLayer;
   prefix: string;
 }) {
+  const eager = prefix === "world-trailhead" && layer.mobile !== false;
   return (
     <div
       className={styles.layer}
@@ -30,29 +48,21 @@ function PathLayerView({
       data-mobile={layer.mobile === false ? "off" : "on"}
       aria-hidden={layer.alt ? undefined : true}
       data-speed={layer.speed ?? undefined}
-      data-painted={layer.src ? "true" : undefined}
+      data-painted="true"
       data-sway={layer.id.endsWith("hills") ? "true" : undefined}
-      style={{
-        ["--blur" as string]: layer.src ? "0px" : `${blurPx(layer.depth, false)}px`,
-        zIndex: layer.order,
-      }}
+      style={{ zIndex: layer.order }}
     >
-      {layer.inline ? (
-        <div className={styles.plate} dangerouslySetInnerHTML={{ __html: midFlowersSvg }} />
-      ) : layer.src ? (
-        // Drop-in art from any public path. next/image would need remote patterns Jiwoo has not set.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className={styles.art}
-          src={layer.src}
-          alt={layer.alt}
-          loading={prefix.startsWith("world-trailhead") ? "eager" : "lazy"}
-          decoding="async"
-          draggable={false}
-        />
-      ) : (
-        <SceneArt chapterId={chapter.id} slot={layer.slot} prefix={`${prefix}-${layer.id}`} />
-      )}
+      {/* Drop-in art from public/path. next/image would need sizes Jiwoo has not set. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className={styles.art}
+        src={eager ? layer.src : undefined}
+        data-src={layer.src}
+        data-art-for={chapter.id}
+        alt={layer.alt}
+        decoding="async"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -79,6 +89,12 @@ function markRange(el: HTMLElement) {
   if (!trigger) return;
   el.dataset.pinStart = String(Math.round(trigger.start));
   el.dataset.pinEnd = String(Math.round(trigger.end));
+}
+
+function paintSpacer(el: HTMLElement) {
+  const spacer = el.parentElement;
+  if (!spacer?.classList.contains("pin-spacer")) return;
+  spacer.style.background = getComputedStyle(el).backgroundColor;
 }
 
 export function PathScroll({
@@ -110,6 +126,11 @@ export function PathScroll({
       });
     };
 
+    const applyVh = () => {
+      root.style.setProperty("--path-vh", `${window.innerHeight}px`);
+    };
+    applyVh();
+
     const mm = gsap.matchMedia();
     mm.add(
       {
@@ -118,9 +139,62 @@ export function PathScroll({
         desktop: "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
       },
       (context) => {
-        if (context.conditions?.reduce) {
+        const reduce = Boolean(context.conditions?.reduce);
+        const mobile = Boolean(context.conditions?.mobile);
+        const chapterEls = [...root.querySelectorAll<HTMLElement>("[data-path-chapter]")];
+
+        const scrollToChapter = (chapterId: string, hash: string) => {
+          const el = chapterEls.find((item) => item.dataset.pathChapter === chapterId);
+          if (!el) return;
+          const index = chapterEls.indexOf(el);
+          if (index >= 0) setDots(index);
+          armArt(root, chapterId, !mobile);
+          const next = chapterEls[index + 1]?.dataset.pathChapter;
+          if (next) armArt(root, next, !mobile);
+          const url = `#${hash}`;
+          if (window.location.hash !== url) history.pushState(null, "", url);
+          if (reduce || !el.dataset.pinStart) {
+            el.scrollIntoView({ block: "start" });
+            return;
+          }
+          window.scrollTo({ top: Number(el.dataset.pinStart) + 1, behavior: "auto" });
+        };
+
+        const onClick = (event: MouseEvent) => {
+          if (event.defaultPrevented || event.button !== 0) return;
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const link = target.closest("a");
+          if (!link) return;
+          const href = link.getAttribute("href");
+          if (!href) return;
+          let url: URL;
+          try {
+            url = new URL(href, window.location.href);
+          } catch {
+            return;
+          }
+          if (url.origin !== window.location.origin || url.pathname !== window.location.pathname) return;
+          const hash = url.hash.replace("#", "");
+          const chapterId = HASH_CHAPTER[hash];
+          if (!chapterId) return;
+          event.preventDefault();
+          event.stopPropagation();
+          scrollToChapter(chapterId, hash);
+        };
+
+        const onHash = () => {
+          const hash = window.location.hash.replace("#", "");
+          const chapterId = HASH_CHAPTER[hash];
+          if (chapterId) scrollToChapter(chapterId, hash);
+        };
+
+        document.addEventListener("click", onClick, true);
+        window.addEventListener("hashchange", onHash);
+
+        if (reduce) {
           root.dataset.motion = "reduce";
-          const chapterEls = [...root.querySelectorAll<HTMLElement>("[data-path-chapter]")];
           const observer = new IntersectionObserver(
             (entries) => {
               const visible = entries
@@ -129,16 +203,26 @@ export function PathScroll({
               if (!visible) return;
               const index = chapterEls.indexOf(visible.target as HTMLElement);
               if (index >= 0) setDots(index);
+              const id = (visible.target as HTMLElement).dataset.pathChapter;
+              if (id) armArt(root, id, true);
             },
-            { threshold: [0.45, 0.7] },
+            { rootMargin: "50% 0px", threshold: [0.2, 0.45, 0.7] },
           );
           chapterEls.forEach((el) => observer.observe(el));
           root.dataset.pathReady = "true";
-          return () => observer.disconnect();
+          const hash = window.location.hash.replace("#", "");
+          const chapterId = HASH_CHAPTER[hash];
+          if (chapterId) scrollToChapter(chapterId, hash);
+          return () => {
+            observer.disconnect();
+            document.removeEventListener("click", onClick, true);
+            window.removeEventListener("hashchange", onHash);
+            root.dataset.pathReady = "false";
+          };
         }
-        const mobile = Boolean(context.conditions?.mobile);
+
         root.dataset.motion = mobile ? "mobile" : "full";
-        const chapterEls = [...root.querySelectorAll<HTMLElement>("[data-path-chapter]")];
+        if (!mobile) armArt(root, "trailhead", true);
 
         chapterEls.forEach((el, index) => {
           const world = el.querySelector<HTMLElement>("[data-world]");
@@ -153,39 +237,45 @@ export function PathScroll({
           );
           const isLast = index === chapterEls.length - 1;
           const isTrailhead = el.dataset.pathChapter === "trailhead";
-          const distance = isLast
+          const pinScreens = isLast
             ? mobile
-              ? "+=70%"
-              : "+=90%"
+              ? 1.7
+              : 1.9
             : isTrailhead
               ? mobile
-                ? "+=130%"
-                : "+=180%"
+                ? 2.3
+                : 2.8
               : mobile
-                ? "+=110%"
-                : "+=160%";
+                ? 2.1
+                : 2.6;
+          el.style.setProperty("--pin-screens", String(pinScreens));
+
+          const shownIndex = (progress: number) =>
+            !isLast && progress >= TRAIL_MOTION.closeEnd ? index + 1 : index;
 
           const timeline = gsap.timeline({
             defaults: { ease: "none" },
             scrollTrigger: {
               trigger: el,
               start: "top top",
-              end: distance,
-              pin: true,
-              pinSpacing: true,
-              pinType: mobile ? "transform" : "fixed",
+              end: "bottom bottom",
               scrub: true,
-              anticipatePin: 1,
               invalidateOnRefresh: true,
               onToggle: (self) => {
-                if (self.isActive) setDots(index);
+                if (self.isActive) setDots(shownIndex(self.progress));
               },
               onUpdate: (self) => {
                 if (self.progress >= TRAIL_MOTION.mountAt) mountWalls();
+                const id = el.dataset.pathChapter;
+                if (id && (self.isActive || self.progress > 0)) armArt(root, id, !mobile);
+                const nextId = chapterEls[index + 1]?.dataset.pathChapter;
+                if (nextId && self.progress > 0.18) armArt(root, nextId, !mobile);
+                if (self.isActive) setDots(shownIndex(self.progress));
               },
               onRefresh: (self) => {
                 el.dataset.pinStart = String(Math.round(self.start));
                 el.dataset.pinEnd = String(Math.round(self.end));
+                paintSpacer(el);
                 if (self.progress >= TRAIL_MOTION.mountAt) mountWalls();
               },
             },
@@ -194,11 +284,11 @@ export function PathScroll({
           layers.forEach((layer) => {
             const speed = Number(layer.dataset.speed);
             if (speed > 0) {
-              gsap.set(layer, { force3d: true, transformOrigin: "50% 49.8%", scale: 1 });
+              gsap.set(layer, { force3D: true, transformOrigin: "50% 49.8%", scale: 1 });
               timeline.to(layer, { scale: 1 + speed, duration: TRAIL_MOTION.walkEnd, ease: smoothstep }, 0);
               return;
             }
-            gsap.set(layer, { force3d: true, transformOrigin: "50% 50%", scale: 1 });
+            gsap.set(layer, { force3D: true, transformOrigin: "50% 50%", scale: 1 });
             timeline.to(
               layer,
               {
@@ -209,7 +299,7 @@ export function PathScroll({
             );
           });
 
-          if (wash) timeline.to(wash, { opacity: 0.5, duration: isLast ? 1 : TRAIL_MOTION.walkEnd }, 0);
+          if (wash) timeline.to(wash, { opacity: 0.62, duration: isLast ? 1 : TRAIL_MOTION.walkEnd }, 0);
 
           if (!isLast && curtain && left && right && world) {
             const closeSpan = TRAIL_MOTION.closeEnd - TRAIL_MOTION.closeStart;
@@ -222,8 +312,8 @@ export function PathScroll({
             // on xPercent, leaving the closed wall a full viewport off-screen.
             left.style.transform = "";
             right.style.transform = "";
-            gsap.set(left, { x: 0, xPercent: -TRAIL_MOTION.partPercent });
-            gsap.set(right, { x: 0, xPercent: TRAIL_MOTION.partPercent });
+            gsap.set(left, { x: 0, xPercent: -TRAIL_MOTION.partPercent, force3D: true });
+            gsap.set(right, { x: 0, xPercent: TRAIL_MOTION.partPercent, force3D: true });
             timeline.to(left, { xPercent: 0, duration: closeSpan, ease: smoothstep }, TRAIL_MOTION.closeStart);
             timeline.to(right, { xPercent: 0, duration: closeSpan, ease: smoothstep }, TRAIL_MOTION.closeStart);
             timeline.to(world, { autoAlpha: 0, duration: 0.02 }, TRAIL_MOTION.closeEnd);
@@ -268,21 +358,30 @@ export function PathScroll({
         const publish = () => {
           ScrollTrigger.refresh();
           chapterEls.forEach(markRange);
+          chapterEls.forEach(paintSpacer);
           root.dataset.pathReady = "true";
-          const hash = window.location.hash;
-          if (hash.length > 1) {
-            document.getElementById(hash.slice(1))?.scrollIntoView();
-          }
+          const hash = window.location.hash.replace("#", "");
+          const chapterId = HASH_CHAPTER[hash];
+          if (chapterId) scrollToChapter(chapterId, hash);
         };
         requestAnimationFrame(publish);
 
         return () => {
+          document.removeEventListener("click", onClick, true);
+          window.removeEventListener("hashchange", onHash);
           root.dataset.pathReady = "false";
         };
       },
     );
 
+    const onResize = () => {
+      applyVh();
+      ScrollTrigger.refresh();
+    };
+    window.addEventListener("resize", onResize);
+
     return () => {
+      window.removeEventListener("resize", onResize);
       mm.revert();
     };
   }, []);
@@ -292,11 +391,16 @@ export function PathScroll({
     if (!root) return;
     const el = root.querySelectorAll<HTMLElement>("[data-path-chapter]")[index];
     if (!el) return;
+    const mobile = window.matchMedia("(max-width: 767px)").matches;
+    const id = el.dataset.pathChapter;
+    if (id) armArt(root, id, !mobile);
     root.querySelectorAll<HTMLButtonElement>("[data-path-dot]").forEach((dot) => {
       dot.setAttribute("aria-current", dot.dataset.index === String(index) ? "true" : "false");
     });
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const start = el.dataset.pinStart;
+    const anchor = el.id;
+    if (anchor) history.pushState(null, "", `#${anchor}`);
     if (reduce || !start) {
       el.scrollIntoView({ block: "start" });
       return;
@@ -312,7 +416,6 @@ export function PathScroll({
       {chapters.map((chapter, index) => {
         const next = chapters[index + 1];
         const wash = next?.light ?? FINAL_WASH;
-        const painted = chapter.layers.some((layer) => layer.src);
         const nextPanel = panels[index + 1];
         return (
           <section
@@ -328,7 +431,6 @@ export function PathScroll({
               {next ? (
                 <div className={styles.preview} data-preview="" aria-hidden="true" inert>
                   <LayerStack chapter={next} kind="preview" />
-                  {painted ? null : <div className={styles.light} style={{ background: next.light }} />}
                   {index === 0 && nextPanel ? (
                     <div className={styles.content} data-align={next.align ?? "center"}>
                       {cloneElement(nextPanel as ReactElement)}
@@ -338,17 +440,7 @@ export function PathScroll({
               ) : null}
               <div className={styles.world} data-world="">
                 <LayerStack chapter={chapter} kind="world" />
-                {painted ? null : (
-                  <>
-                    <div className={styles.grain} aria-hidden="true" />
-                    <div className={styles.light} style={{ background: chapter.light }} />
-                    <div
-                      className={`${styles.light} ${styles.wash}`}
-                      data-light-wash=""
-                      style={{ background: wash }}
-                    />
-                  </>
-                )}
+                <div className={styles.veil} data-light-wash="" style={{ background: wash }} />
                 <div
                   className={styles.content}
                   data-chapter-content=""

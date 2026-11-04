@@ -4,8 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
-html {
-  scroll-behavior: smooth;
+/* Tailwind v4 dropped the pointer cursor on buttons; bring it back (and add it to checkboxes) everywhere except disabled ones. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  input[type="checkbox"]:not(:disabled),
+  label:has(> input[type="checkbox"]:not(:disabled)) {
+    cursor: pointer;
+  }
 }
 
 body {
@@ -135,12 +141,6 @@ body {
   }
   html {
     @apply font-sans;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
   }
 }
 

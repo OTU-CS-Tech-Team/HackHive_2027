@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" overflow="hidden" aria-hidden="true" focusable="false">
+<defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F2C98A"/><stop offset="34%" stop-color="#F8E2B0"/><stop offset="64%" stop-color="#FFF6D8"/><stop offset="100%" stop-color="#E4E8B0"/></linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E4F0B4"/>
+      <stop offset="55%" stop-color="#8EBE58"/>
+      <stop offset="100%" stop-color="#4A9444"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFF3C0"/>
+      <stop offset="45%" stop-color="#FFD48A" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#FFD48A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1440" height="900" fill="url(#sky)"/>
+  <ellipse cx="1040" cy="250" rx="187.2" ry="117" fill="url(#sun)"/>
+  <path d="M0 500 C 240 460, 520 530, 760 488 C 1040 440, 1240 510, 1440 468 L1440 900 L0 900 Z" fill="url(#ground)"/>
+</svg>

@@ -1,19 +1,18 @@
 import type { PathChapter, PathLayer } from "@/components/path/types";
 
 const TRAILHEAD_LAYERS: PathLayer[] = [
-  { id: "trailhead-sky", slot: "sky", depth: 0.06, speed: 0.08, order: 1, src: "/path/ch1/01-sky.svg", alt: "" },
-  { id: "trailhead-hills", slot: "far", depth: 0.2, speed: 0.34, order: 2, src: "/path/ch1/02-hills.svg", alt: "" },
-  { id: "trailhead-path", slot: "mid", depth: 0.48, speed: 1.45, order: 3, src: "/path/ch1/03-path.svg", alt: "" },
-  { id: "trailhead-mist", slot: "mid", depth: 0.36, speed: 0.62, order: 4, src: "/path/ch1/04-mist.svg", alt: "" },
+  { id: "trailhead-sky", slot: "sky", depth: 0.06, speed: 0.08, order: 1, src: "/path/ch1/01-sky.webp", alt: "" },
+  { id: "trailhead-hills", slot: "far", depth: 0.2, speed: 0.34, order: 2, src: "/path/ch1/02-hills.webp", alt: "" },
+  { id: "trailhead-path", slot: "mid", depth: 0.48, speed: 1.45, order: 3, src: "/path/ch1/03-path.webp", alt: "" },
+  { id: "trailhead-mist", slot: "mid", depth: 0.36, speed: 0.62, order: 4, src: "/path/ch1/04-mist.webp", alt: "" },
   {
     id: "trailhead-mid-flowers",
     slot: "near",
     depth: 0.7,
     speed: 2.25,
     order: 5,
-    src: "/path/ch1/05-mid-flowers.svg",
+    src: "/path/ch1/05-mid-flowers.webp",
     alt: "",
-    inline: true,
   },
   {
     id: "trailhead-near-flowers",
@@ -21,7 +20,7 @@ const TRAILHEAD_LAYERS: PathLayer[] = [
     depth: 0.84,
     speed: 3.15,
     order: 6,
-    src: "/path/ch1/06-near-flowers.svg",
+    src: "/path/ch1/06-near-flowers.webp",
     alt: "",
     mobile: false,
   },
@@ -31,57 +30,57 @@ const TRAILHEAD_LAYERS: PathLayer[] = [
     depth: 0.98,
     speed: 4.1,
     order: 7,
-    src: "/path/ch1/07-foreground-stems.svg",
+    src: "/path/ch1/07-foreground-stems.webp",
     alt: "",
     mobile: false,
   },
 ];
 
-function layersFor(id: string, foregroundOnMobile: boolean): PathLayer[] {
+function painted(id: string, folder: string, foregroundOnMobile: boolean): PathLayer[] {
   return [
     {
       id: `${id}-sky`,
       slot: "sky",
       depth: 0.06,
+      speed: 0.08,
+      order: 1,
+      src: `/path/${folder}/01-sky.webp`,
       alt: "",
-      placeholder: `${id}-sky`,
     },
     {
       id: `${id}-far`,
       slot: "far",
       depth: 0.22,
+      speed: 0.36,
+      order: 2,
+      src: `/path/${folder}/02-far.webp`,
       alt: "",
-      placeholder: `${id}-far`,
     },
     {
-      id: `${id}-mid`,
+      id: `${id}-path`,
       slot: "mid",
-      depth: 0.48,
+      depth: 0.5,
+      speed: 1.25,
+      order: 3,
+      src: `/path/${folder}/03-path.webp`,
       alt: "",
-      placeholder: `${id}-mid`,
     },
     {
       id: `${id}-near`,
-      slot: "near",
-      depth: 0.74,
-      alt: "",
-      placeholder: `${id}-near`,
-    },
-    {
-      id: `${id}-foreground`,
       slot: "foreground",
-      depth: 0.98,
+      depth: 0.9,
+      speed: 2.4,
+      order: 4,
+      src: `/path/${folder}/04-near.webp`,
       alt: "",
-      placeholder: `${id}-foreground`,
       mobile: foregroundOnMobile,
     },
   ];
 }
 
 /**
- * Walk the path. Swap any layer's `src` for Jiwoo's SVG, PNG, or WebP
- * (for example `/path/trailhead-sky.webp`). Omit `src` to keep the placeholder.
- * See the README section "Walk the path".
+ * Walk the path. Display plates are WebP so blur is already in the pixels.
+ * The SVG sources stay in public/path for the paintings themselves.
  */
 export const PATH_CHAPTERS: PathChapter[] = [
   {
@@ -94,43 +93,46 @@ export const PATH_CHAPTERS: PathChapter[] = [
   {
     id: "clearing",
     title: "Clearing",
-    light: "#ffd98a",
+    light: "#ffd27a",
     anchor: "about",
-    layers: layersFor("clearing", false),
+    layers: painted("clearing", "ch2", false),
   },
   {
     id: "fork",
     title: "Fork",
-    light: "#f6c56e",
+    light: "#f6b85a",
     anchor: "tracks",
-    layers: layersFor("fork", false),
+    layers: painted("fork", "ch3", false),
   },
   {
     id: "oak",
     title: "Old oak",
-    light: "#f0a84a",
+    light: "#ee8d3e",
+    anchor: "schedule",
     align: "end",
-    layers: layersFor("oak", false),
+    layers: painted("oak", "ch4", false),
   },
   {
     id: "stream",
-    title: "Stream",
-    light: "#e8884a",
+    title: "FAQ",
+    light: "#e36a32",
+    anchor: "faq",
     align: "bottom",
-    layers: layersFor("stream", false),
+    layers: painted("stream", "ch5", false),
   },
   {
     id: "fence",
     title: "Fence",
-    light: "#e06a3c",
-    layers: layersFor("fence", false),
+    light: "#d4522c",
+    anchor: "sponsors",
+    layers: painted("fence", "ch6", false),
   },
   {
     id: "hive",
     title: "Hive",
     light: "#d24a32",
     anchor: "apply",
-    layers: layersFor("hive", true),
+    layers: painted("hive", "ch7", true),
   },
 ];
 

@@ -14,149 +14,11 @@ const TIERS = [
   { tier: "bronze", label: "Bronze sponsors", columns: 3 },
 ] as const;
 
-// Deterministic noise so the server markup never changes between renders.
+// Deterministic noise so the mote positions never change between renders.
 const rand = (n: number) => {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
 };
-
-const svgUrl = (w: number, h: number, body: string) =>
-  `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>${body}</svg>`,
-  )}")`;
-
-// Draw a shape a tile over on both sides too, so the row repeats seamlessly.
-const wrap = (w: number, x: number, draw: (cx: number) => string) =>
-  [x - w, x, x + w].map(draw).join("");
-
-function pines(
-  w: number,
-  h: number,
-  count: number,
-  fill: string,
-  seed: number,
-) {
-  let body = "";
-  for (let i = 0; i < count; i++) {
-    const x = (i + rand(seed + i)) * (w / count);
-    const tall = h * (0.45 + rand(seed + i + 50) * 0.5);
-    body += wrap(w, x, (cx) => {
-      let d = "";
-      for (let t = 0; t < 3; t++) {
-        const top = h - tall + t * tall * 0.22;
-        const spread = tall * 0.22 * (0.6 + t * 0.25);
-        d += `M${cx} ${top}L${cx + spread} ${top + tall * 0.45}L${cx - spread} ${top + tall * 0.45}Z`;
-      }
-      return `<path d='${d}M${cx - 3} ${h - tall * 0.12}h6V${h}h-6Z'/>`;
-    });
-  }
-  return svgUrl(
-    w,
-    h,
-    `<g fill='${fill}'>${body}<rect y='${h - 6}' width='${w}' height='6'/></g>`,
-  );
-}
-
-function oaks(
-  w: number,
-  h: number,
-  count: number,
-  [fill, light]: [string, string],
-  seed: number,
-) {
-  let body = "";
-  for (let i = 0; i < count; i++) {
-    const x = (i + rand(seed + i)) * (w / count);
-    const tall = h * (0.55 + rand(seed + i + 50) * 0.4);
-    const r = tall * 0.26;
-    const top = h - tall;
-    body += wrap(
-      w,
-      x,
-      (cx) =>
-        `<path d='M${cx - 7} ${h}L${cx - 3} ${top + r}h6L${cx + 7} ${h}Z'/>` +
-        `<circle cx='${cx}' cy='${top + r}' r='${r}'/>` +
-        `<circle cx='${cx - r * 0.85}' cy='${top + r * 1.5}' r='${r * 0.8}'/>` +
-        `<circle cx='${cx + r * 0.8}' cy='${top + r * 1.45}' r='${r * 0.85}'/>` +
-        `<circle cx='${cx - r * 0.25}' cy='${top + r * 0.75}' r='${r * 0.55}' fill='${light}'/>` +
-        `<circle cx='${cx - r * 1.05}' cy='${top + r * 1.3}' r='${r * 0.4}' fill='${light}'/>`,
-    );
-  }
-  return svgUrl(
-    w,
-    h,
-    `<g fill='${fill}'>${body}<rect y='${h - 8}' width='${w}' height='8'/></g>`,
-  );
-}
-
-function meadow(w: number, h: number, seed: number) {
-  let grass = "";
-  let flowers = "";
-  for (let i = 0; i < 90; i++) {
-    const x = rand(seed + i) * w;
-    const tall = 14 + rand(seed + i + 200) * 26;
-    grass += wrap(
-      w,
-      x,
-      (cx) =>
-        `M${cx} ${h - 24}q2 -${tall * 0.6} ${5 + rand(i) * 4} -${tall}q-1 ${tall * 0.5} 1 ${tall}Z`,
-    );
-  }
-  for (let i = 0; i < 14; i++) {
-    const x = rand(seed + i + 400) * w;
-    const y = h - 40 - rand(seed + i + 500) * 40;
-    const colour = ["#f5b83d", "#ffffff", "#f59fb8"][i % 3];
-    flowers += wrap(
-      w,
-      x,
-      (cx) =>
-        `<path d='M${cx} ${h - 24}V${y}' stroke='#2f6e34' stroke-width='2'/>` +
-        [0, 72, 144, 216, 288]
-          .map((a) => {
-            const rad = (a * Math.PI) / 180;
-            return `<circle cx='${cx + Math.cos(rad) * 4}' cy='${y + Math.sin(rad) * 4}' r='3.4' fill='${colour}'/>`;
-          })
-          .join("") +
-        `<circle cx='${cx}' cy='${y}' r='2.4' fill='#c98a0b'/>`,
-    );
-  }
-  const ground = `<path d='M0 ${h - 30}Q${w / 4} ${h - 55} ${w / 2} ${h - 32}T${w} ${h - 30}V${h}H0Z'/>`;
-  return svgUrl(
-    w,
-    h,
-    `<path fill='#3f8a3c' d='${grass}'/><g fill='#2f6e34'>${ground}</g>${flowers}`,
-  );
-}
-
-// Leafy edge of the woods, tiling downwards; flipped for the right side.
-function canopy(w: number, h: number, seed: number, flip: boolean) {
-  const shades = ["#2c6b31", "#3d8a40", "#5aa64f", "#7cc063"];
-  let body = `<path d='M${w * 0.16} 0V${h}' stroke='#7a4b22' stroke-width='22'/>`;
-  shades.forEach((shade, s) => {
-    for (let i = 0; i < 12; i++) {
-      const n = seed + s * 100 + i;
-      const x = rand(n) ** 1.4 * w * (0.85 - s * 0.1);
-      const y = rand(n + 50) * h;
-      const r = 26 + rand(n + 70) * 38 - s * 6;
-      body += [y - h, y, y + h]
-        .map((cy) => `<circle cx='${x}' cy='${cy}' r='${r}' fill='${shade}'/>`)
-        .join("");
-    }
-  });
-  return svgUrl(
-    w,
-    h,
-    flip ? `<g transform='translate(${w} 0) scale(-1 1)'>${body}</g>` : body,
-  );
-}
-
-const FOREST = {
-  "--far": pines(520, 240, 9, "#9fcf97", 1),
-  "--mid": oaks(820, 360, 6, ["#4f9a4a", "#72b862"], 20),
-  "--near": meadow(1100, 140, 40),
-  "--left": canopy(260, 560, 60, false),
-  "--right": canopy(260, 560, 90, true),
-} as CSSProperties;
 
 const MOTES = Array.from({ length: 16 }, (_, i) => ({
   left: `${rand(i + 700) * 100}%`,
@@ -168,7 +30,7 @@ const MOTES = Array.from({ length: 16 }, (_, i) => ({
 
 function Forest() {
   return (
-    <div className={styles.forest} style={FOREST} aria-hidden="true">
+    <div className={styles.forest} aria-hidden="true">
       {MOTES.map((style, i) => (
         <span key={i} className={styles.mote} style={style} />
       ))}
@@ -300,7 +162,7 @@ export async function SponsorsSection() {
   const sponsors = await getSponsors();
 
   return (
-    <section id="sponsors" className={`${styles.section} scroll-mt-16`}>
+    <section data-sponsors-yard="" className={styles.section}>
       {/* Dusk from the section above brightens into the honey-lit sky. */}
       <div className={styles.dawn} aria-hidden="true" />
 
