@@ -42,11 +42,11 @@
   overflow: hidden;
   background-color: #14110b;
   background-image:
-    var(--left),
-    var(--right),
-    var(--near),
-    var(--mid),
-    var(--far),
+    url("/sponsors/forest-left.svg"),
+    url("/sponsors/forest-right.svg"),
+    url("/sponsors/forest-near.svg"),
+    url("/sponsors/forest-mid.svg"),
+    url("/sponsors/forest-far.svg"),
     radial-gradient(circle at 82% 8%, rgb(255 251 225 / 0.95), rgb(255 236 170 / 0.5) 12rem, transparent 30rem),
     linear-gradient(to bottom, var(--sky), #fff1cf 55%, #14110b);
   background-position: 0 0, 100% 0, 0 100%, 40% 100%, 15% 100%, 0 0, 0 0;

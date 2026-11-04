@@ -489,7 +489,7 @@ export function FaqSection() {
   const half = Math.ceil(faqs.length / 2);
 
   return (
-    <section id="faq" aria-label="FAQ" className="faq-page scroll-mt-16">
+    <section aria-label="FAQ" className="faq-page">
       <HexStream />
       <h1>Frequently asked questions</h1>
       {/* Two independent columns, so opening one question doesn't push the other column around. */}

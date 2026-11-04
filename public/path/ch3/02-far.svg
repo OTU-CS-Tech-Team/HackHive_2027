@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" overflow="hidden" aria-hidden="true" focusable="false">
+<defs>
+    <linearGradient id="ridge" x1="0" y1="420" x2="0" y2="690" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D5E8A8"/>
+      <stop offset="100%" stop-color="#D5E8A8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M-20 490 C 180 444, 360 498, 560 462 C 780 426, 980 482, 1180 450 C 1300 434, 1380 472, 1460 484 L1460 700 L-20 700 Z" fill="url(#ridge)"/>
+</svg>

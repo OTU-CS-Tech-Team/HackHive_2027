@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" overflow="hidden" aria-hidden="true" focusable="false">
+<defs>
+<linearGradient id="petal-white" x1="0" y1="1" x2="0" y2="0">
+  <stop offset="0%" stop-color="#F3F6EA"/><stop offset="100%" stop-color="#FFFFFF"/>
+</linearGradient>
+<radialGradient id="daisy-heart" cx="38%" cy="34%" r="68%">
+  <stop offset="0%" stop-color="#FFF3C4"/><stop offset="52%" stop-color="#F0C14A"/><stop offset="100%" stop-color="#E09622"/>
+</radialGradient>
+<radialGradient id="poppy-petal" cx="40%" cy="35%" r="70%">
+  <stop offset="0%" stop-color="#FF8B86"/><stop offset="55%" stop-color="#E45462"/><stop offset="100%" stop-color="#C43B55"/>
+</radialGradient>
+<radialGradient id="butter-petal" cx="40%" cy="35%" r="70%">
+  <stop offset="0%" stop-color="#FFF4B0"/><stop offset="60%" stop-color="#F6C53A"/><stop offset="100%" stop-color="#E2A41E"/>
+</radialGradient>
+<radialGradient id="lupin-bloom" cx="40%" cy="30%" r="75%">
+  <stop offset="0%" stop-color="#E4D9FF"/><stop offset="55%" stop-color="#8E78D8"/><stop offset="100%" stop-color="#6A52B8"/>
+</radialGradient>
+<linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0%" stop-color="#8ED56A"/><stop offset="100%" stop-color="#2F8A46"/>
+</linearGradient>
+<linearGradient id="stem" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#7BC85A"/><stop offset="100%" stop-color="#2E7A3E"/>
+</linearGradient>
+<linearGradient id="dirt" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#F3E2BC"/><stop offset="45%" stop-color="#D2B07A"/><stop offset="100%" stop-color="#A87A48"/>
+</linearGradient>
+<linearGradient id="dirt-light" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#FFF4D8"/><stop offset="100%" stop-color="#E7C992"/>
+</linearGradient>
+<symbol id="bloom-daisy" overflow="visible"><g><ellipse cx="0" cy="-14" rx="5.2" ry="12.4" fill="url(#petal-white)" transform="rotate(0)"/><ellipse cx="0" cy="-14" rx="5.2" ry="11.2" fill="url(#petal-white)" transform="rotate(36)"/><ellipse cx="0" cy="-14" rx="5.2" ry="12.4" fill="url(#petal-white)" transform="rotate(72)"/><ellipse cx="0" cy="-14" rx="5.2" ry="11.2" fill="url(#petal-white)" transform="rotate(108)"/><ellipse cx="0" cy="-14" rx="5.2" ry="12.4" fill="url(#petal-white)" transform="rotate(144)"/><ellipse cx="0" cy="-14" rx="5.2" ry="11.2" fill="url(#petal-white)" transform="rotate(180)"/><ellipse cx="0" cy="-14" rx="5.2" ry="12.4" fill="url(#petal-white)" transform="rotate(216)"/><ellipse cx="0" cy="-14" rx="5.2" ry="11.2" fill="url(#petal-white)" transform="rotate(252)"/><ellipse cx="0" cy="-14" rx="5.2" ry="12.4" fill="url(#petal-white)" transform="rotate(288)"/><ellipse cx="0" cy="-14" rx="5.2" ry="11.2" fill="url(#petal-white)" transform="rotate(324)"/><circle r="6" fill="url(#daisy-heart)"/><circle cx="-1.6" cy="-2" r="1.8" fill="#FFF8DC" opacity="0.9"/></g></symbol><symbol id="bloom-poppy" overflow="visible"><g><ellipse cx="0" cy="-10" rx="9" ry="12" fill="url(#poppy-petal)" transform="rotate(-90)"/><ellipse cx="0" cy="-10" rx="9" ry="12" fill="url(#poppy-petal)" transform="rotate(-18)"/><ellipse cx="0" cy="-10" rx="9" ry="12" fill="url(#poppy-petal)" transform="rotate(54)"/><ellipse cx="0" cy="-10" rx="9" ry="12" fill="url(#poppy-petal)" transform="rotate(126)"/><ellipse cx="0" cy="-10" rx="9" ry="12" fill="url(#poppy-petal)" transform="rotate(198)"/><circle r="4.6" fill="#5C2430"/><circle cx="-1" cy="-1.2" r="1.3" fill="#F6C56A" opacity="0.85"/></g></symbol><symbol id="bloom-buttercup" overflow="visible"><g><circle cx="0" cy="-9" r="7.4" fill="url(#butter-petal)" transform="rotate(-90)"/><circle cx="0" cy="-9" r="7.4" fill="url(#butter-petal)" transform="rotate(-18)"/><circle cx="0" cy="-9" r="7.4" fill="url(#butter-petal)" transform="rotate(54)"/><circle cx="0" cy="-9" r="7.4" fill="url(#butter-petal)" transform="rotate(126)"/><circle cx="0" cy="-9" r="7.4" fill="url(#butter-petal)" transform="rotate(198)"/><circle r="3.8" fill="#E89A16"/></g></symbol><symbol id="bloom-lupin" overflow="visible"><g><ellipse cx="0" cy="-6.0" rx="6.6" ry="4.6" fill="url(#lupin-bloom)" opacity="0.80"/><ellipse cx="0" cy="-11.6" rx="6.2" ry="4.6" fill="url(#lupin-bloom)" opacity="0.86"/><ellipse cx="0" cy="-17.2" rx="5.8" ry="4.6" fill="url(#lupin-bloom)" opacity="0.92"/><ellipse cx="0" cy="-22.8" rx="5.5" ry="4.6" fill="url(#lupin-bloom)" opacity="0.80"/><ellipse cx="0" cy="-28.4" rx="5.1" ry="4.6" fill="url(#lupin-bloom)" opacity="0.86"/><ellipse cx="0" cy="-34.0" rx="4.7" ry="4.6" fill="url(#lupin-bloom)" opacity="0.92"/><ellipse cx="0" cy="-39.6" rx="4.3" ry="4.6" fill="url(#lupin-bloom)" opacity="0.80"/><ellipse cx="0" cy="-45.2" rx="3.9" ry="4.6" fill="url(#lupin-bloom)" opacity="0.86"/></g></symbol></defs><g transform="translate(180.0 560.0)">
+    <ellipse cx="0" cy="6" rx="34.5" ry="9.2" fill="rgba(50,32,12,0.16)"/>
+    <rect x="-10.3" y="-32.2" width="20.7" height="32.2" rx="10.3" fill="#8C5A34"/>
+    <g transform="translate(0 -41.4)"><ellipse cx="0.5" cy="-16.8" rx="53.3" ry="36.1" fill="#9ED17A"/><ellipse cx="-19.9" cy="5.4" rx="58.4" ry="46.2" fill="#6EAE56"/><ellipse cx="-48.2" cy="15.5" rx="39.6" ry="25.8" fill="#4E9240"/><ellipse cx="-6.8" cy="20.7" rx="38.3" ry="25.4" fill="#B7DFA0"/><ellipse cx="26.8" cy="-2.9" rx="35.6" ry="24.4" fill="#3C7834"/><ellipse cx="22.0" cy="9.0" rx="44.6" ry="35.8" fill="#87C46C"/><ellipse cx="47.7" cy="-12.8" rx="67.3" ry="45.8" fill="#9ED17A"/><ellipse cx="11.9" cy="17.0" rx="39.1" ry="26.1" fill="#6EAE56"/><ellipse cx="-19.9" cy="-1.2" rx="36.4" ry="23.3" fill="#4E9240"/></g>
+  </g><g transform="translate(1260.0 590.0)">
+    <ellipse cx="0" cy="6" rx="34.5" ry="9.2" fill="rgba(50,32,12,0.16)"/>
+    <rect x="-10.3" y="-32.2" width="20.7" height="32.2" rx="10.3" fill="#8C5A34"/>
+    <g transform="translate(0 -41.4)"><ellipse cx="-30.4" cy="7.6" rx="41.0" ry="28.5" fill="#9ED17A"/><ellipse cx="-52.2" cy="4.2" rx="63.9" ry="44.1" fill="#6EAE56"/><ellipse cx="-44.7" cy="9.2" rx="37.3" ry="25.7" fill="#4E9240"/><ellipse cx="-21.7" cy="-10.3" rx="33.7" ry="27.1" fill="#B7DFA0"/><ellipse cx="10.3" cy="20.1" rx="62.1" ry="39.1" fill="#3C7834"/><ellipse cx="-23.8" cy="0.9" rx="51.4" ry="36.6" fill="#87C46C"/><ellipse cx="35.2" cy="13.6" rx="61.4" ry="49.1" fill="#9ED17A"/><ellipse cx="-23.5" cy="-17.5" rx="37.1" ry="25.5" fill="#6EAE56"/><ellipse cx="-20.2" cy="10.2" rx="54.8" ry="38.6" fill="#4E9240"/></g>
+  </g><g transform="translate(80.0 560.0)">
+    <ellipse cx="0" cy="6" rx="34.5" ry="9.2" fill="rgba(50,32,12,0.16)"/>
+    <rect x="-10.3" y="-32.2" width="20.7" height="32.2" rx="10.3" fill="#8C5A34"/>
+    <g transform="translate(0 -41.4)"><ellipse cx="-17.4" cy="-9.2" rx="38.7" ry="25.6" fill="#9ED17A"/><ellipse cx="-34.9" cy="21.9" rx="47.3" ry="35.7" fill="#6EAE56"/><ellipse cx="-0.5" cy="-8.0" rx="34.1" ry="22.1" fill="#4E9240"/><ellipse cx="14.6" cy="17.8" rx="35.9" ry="26.2" fill="#B7DFA0"/><ellipse cx="6.2" cy="20.8" rx="60.5" ry="45.5" fill="#3C7834"/><ellipse cx="2.8" cy="-9.9" rx="55.8" ry="39.3" fill="#87C46C"/><ellipse cx="15.9" cy="0.3" rx="54.5" ry="38.9" fill="#9ED17A"/><ellipse cx="12.0" cy="12.3" rx="61.8" ry="39.7" fill="#6EAE56"/><ellipse cx="-4.4" cy="8.3" rx="41.4" ry="28.1" fill="#4E9240"/></g>
+  </g><g transform="translate(1360.0 590.0)">
+    <ellipse cx="0" cy="6" rx="34.5" ry="9.2" fill="rgba(50,32,12,0.16)"/>
+    <rect x="-10.3" y="-32.2" width="20.7" height="32.2" rx="10.3" fill="#8C5A34"/>
+    <g transform="translate(0 -41.4)"><ellipse cx="14.0" cy="5.1" rx="54.6" ry="37.2" fill="#9ED17A"/><ellipse cx="-10.4" cy="11.4" rx="49.9" ry="40.5" fill="#6EAE56"/><ellipse cx="6.5" cy="-6.9" rx="57.6" ry="38.1" fill="#4E9240"/><ellipse cx="48.7" cy="16.1" rx="62.7" ry="44.8" fill="#B7DFA0"/><ellipse cx="-0.9" cy="-8.9" rx="47.6" ry="35.7" fill="#3C7834"/><ellipse cx="23.0" cy="-1.1" rx="63.0" ry="41.9" fill="#87C46C"/><ellipse cx="17.5" cy="24.6" rx="36.0" ry="27.5" fill="#9ED17A"/><ellipse cx="-24.9" cy="14.3" rx="66.9" ry="51.7" fill="#6EAE56"/><ellipse cx="42.4" cy="-18.1" rx="55.1" ry="43.1" fill="#4E9240"/></g>
+  </g>
+     <g transform="translate(543.6 627.5) rotate(6.7) scale(0.672)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(253.3 840.9) rotate(-2.9) scale(1.022)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(1344.1 533.3) rotate(5.8) scale(0.438)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(116.7 710.2) rotate(7.2) scale(0.820)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g><g transform="translate(468.9 578.9) rotate(2.4) scale(0.485)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(552.9 692.4) rotate(4.6) scale(0.737)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1267.1 642.0) rotate(2.5) scale(0.684)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(122.3 511.9) rotate(5.1) scale(0.379)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g><g transform="translate(291.7 625.8) rotate(-8.4) scale(0.660)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(152.1 489.8) rotate(4.5) scale(0.363)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1426.1 622.6) rotate(8.5) scale(0.664)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(337.9 614.2) rotate(4.7) scale(0.506)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1052.9 859.2) rotate(-5.0) scale(0.965)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(1149.4 712.0) rotate(-6.1) scale(0.728)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(564.6 750.1) rotate(7.4) scale(0.838)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(592.9 662.9) rotate(-5.5) scale(0.633)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g><g transform="translate(1222.6 808.5) rotate(-0.7) scale(1.051)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(995.1 505.7) rotate(-8.5) scale(0.401)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(941.5 812.6) rotate(6.2) scale(0.940)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(858.4 599.3) rotate(2.3) scale(0.545)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(-5.3 894.8) rotate(4.3) scale(1.056)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g><g transform="translate(1179.5 771.1) rotate(6.0) scale(0.902)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(1249.0 711.7) rotate(-5.5) scale(0.654)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(951.4 607.8) rotate(-1.7) scale(0.605)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(414.2 915.4) rotate(-7.1) scale(1.098)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(612.0 596.5) rotate(6.7) scale(0.494)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(426.0 737.5) rotate(-3.7) scale(0.716)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(33.1 772.0) rotate(-1.3) scale(0.915)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g><g transform="translate(1176.0 838.8) rotate(0.6) scale(0.942)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1292.8 839.9) rotate(4.1) scale(1.011)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1022.1 792.5) rotate(4.8) scale(0.962)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(901.2 585.6) rotate(4.7) scale(0.557)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1397.4 725.3) rotate(4.6) scale(0.689)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(235.3 876.0) rotate(2.2) scale(0.941)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1232.1 754.0) rotate(-6.8) scale(0.850)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(481.2 866.2) rotate(5.5) scale(1.160)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(940.2 744.4) rotate(5.0) scale(0.825)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(970.5 850.7) rotate(-6.0) scale(1.039)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g><g transform="translate(233.5 708.1) rotate(-4.9) scale(0.727)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(330.2 754.3) rotate(2.1) scale(0.933)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1283.9 759.7) rotate(-3.4) scale(0.815)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-poppy" y="-8"/>
+  </g><g transform="translate(1273.2 528.8) rotate(-6.6) scale(0.418)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(435.7 486.3) rotate(-1.5) scale(0.302)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(529.6 663.7) rotate(-4.8) scale(0.590)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1448.5 514.9) rotate(-1.1) scale(0.419)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(402.5 694.6) rotate(5.0) scale(0.817)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1006.1 811.0) rotate(5.1) scale(0.867)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(864.7 550.6) rotate(5.8) scale(0.448)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(1270.9 926.3) rotate(3.1) scale(0.985)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(1088.7 645.0) rotate(-1.1) scale(0.669)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-buttercup" y="-8"/>
+  </g><g transform="translate(594.0 678.3) rotate(-8.2) scale(0.615)">
+    <path d="M0 4 C -1.2 21.6 1.4 34.56 0 48" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="23.0" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 23.0)"/>
+    <ellipse cx="11" cy="29.8" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 29.8)"/>
+    <use href="#bloom-daisy" y="-8"/>
+  </g><g transform="translate(136.5 732.8) rotate(0.2) scale(0.806)">
+    <path d="M0 4 C -1.2 28.8 1.4 46.08 0 64" fill="none" stroke="url(#stem)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="-10" cy="30.7" rx="11" ry="4.2" fill="url(#leaf)" transform="rotate(-38 -10 30.7)"/>
+    <ellipse cx="11" cy="39.7" rx="10" ry="3.8" fill="url(#leaf)" transform="rotate(32 11 39.7)"/>
+    <use href="#bloom-lupin" y="-8"/>
+  </g>
+</svg>

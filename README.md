@@ -1,6 +1,36 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Walk the path
+
+The homepage is a scroll-driven walk. Chapters and their art live in
+`src/components/path/chapters.ts`. Display plates are WebP in `public/path/`
+so the blur is already in the pixels. The SVG sources sit beside them.
+
+Each chapter has an `id`, a `title`, a `light` colour (morning through sunset),
+and a `layers` list. Each layer has:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable name, unique across the path |
+| `slot` | `sky`, `far`, `mid`, `near`, or `foreground` |
+| `depth` | `0` at the horizon to `1` at the camera. Nearer layers scale faster |
+| `src` | WebP URL for the plate |
+| `alt` | Image description. Use `""` for decorative plates |
+| `mobile` | `false` hides the layer below 768px |
+
+Draw each plate as a full-bleed frame, centred, with spare bleed at the edges.
+Plates with a `speed` scale from the horizon (`50% 49.8%`) by `1 + speed`.
+Keep type out of the art — copy stays in the chapter panels so it can stay
+readable. Chapter 1 uses `public/path/ch1/`. Chapters 2–7 use `ch2` through
+`ch7` (clearing, fork, oak, stream, fence, hive entrance). The HackHive
+wordmark is an HTML heading, not part of a plate. The petal wall is
+`public/path/transition/` and mounts after the walk passes 35% of the first
+chapter. Layers after the trailhead load as their pin approaches.
+
+`prefers-reduced-motion` skips pinning, zoom, and the curtain. The same chapters
+stack as still scenes with the copy in normal document flow.
+
 ## Schedule deployment
 
 Apply the schedule migrations before deploying PR #15:

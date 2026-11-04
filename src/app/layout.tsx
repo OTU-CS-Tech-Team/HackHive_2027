@@ -14,7 +14,11 @@ const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 
 // Used by the section CSS modules as var(--font-grotesk).
-const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
+const grotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-grotesk",
+});
 
 export const metadata: Metadata = {
   title: "HackHive 2027",
@@ -45,7 +49,7 @@ function NavbarFallback() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={cn("font-sans", geist.variable, grotesk.variable)}>
+    <html lang="en" className={cn("font-sans", geist.variable, grotesk.variable)}>
       <body>
         <NavbarShell>
           <Suspense fallback={<NavbarFallback />}>
