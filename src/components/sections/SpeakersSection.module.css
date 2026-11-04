@@ -1,6 +1,10 @@
 .section {
   box-sizing: border-box;
   width: 100%;
+  /* The comb hangs into the forest above this section. The card starts
+     below that seam, on the same ink, so the icon and title stay clear. */
+  margin-top: 0;
+  z-index: 3;
   background: #14110b;
   color: #fff6e0;
   padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
