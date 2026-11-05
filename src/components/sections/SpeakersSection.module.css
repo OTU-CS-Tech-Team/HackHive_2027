@@ -464,6 +464,7 @@
   }
 
   .prioritizeLinkedIn .company,
+  /* hides elements so that linkedin link is always visible */
   .prioritizeLinkedIn .rule {
     display: none;
   }

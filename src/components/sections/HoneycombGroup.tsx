@@ -102,7 +102,7 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
   const [touchMode, setTouchMode] = useState(false);
   const [photoUnavailable, setPhotoUnavailable] = useState(false);
   const photoSrc = `/Images/${encodeURIComponent(person.name.trim().replace(/\s+/g, "_"))}.png`;
-  const firstNameInitial = person.name.trim().split(/\s+/)[0]?.charAt(0).toUpperCase() ?? "";
+  const firstNameInitial = person.name.trim().charAt(0).toUpperCase(); 
 
   const avatar = photoUnavailable ? (
     <span className={styles.avatarFallback} aria-hidden="true">
