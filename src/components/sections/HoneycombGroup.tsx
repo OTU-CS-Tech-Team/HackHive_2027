@@ -100,11 +100,13 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
   onFlipEnd: () => void;
 }) {
   const [touchMode, setTouchMode] = useState(false);
-  const [photoUnavailable, setPhotoUnavailable] = useState(false);
-  const photoSrc = `/Images/${encodeURIComponent(person.name.trim().replace(/\s+/g, "_"))}.png`;
-  const firstNameInitial = person.name.trim().charAt(0).toUpperCase(); 
+  const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
+  const normalizedName = person.name.trim().replace(/\s+/g, "_");
+  const photoSrc = `/Images/${encodeURIComponent(normalizedName)}.png`;
+  const firstNameInitial = person.name.trim().match(/\p{L}/u)?.[0]?.toUpperCase() ?? "?";
+  const photoUnavailable = photoSrc !== null && failedPhotoSrc === photoSrc;
 
-  const avatar = photoUnavailable ? (
+  const avatar = !photoSrc || photoUnavailable ? (
     <span className={styles.avatarFallback} aria-hidden="true">
       {firstNameInitial}
     </span>
@@ -113,7 +115,7 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
       src={photoSrc}
       alt=""
       className={styles.avatar}
-      onError={() => setPhotoUnavailable(true)}
+      onError={() => setFailedPhotoSrc(photoSrc)}
     />
   );
 
