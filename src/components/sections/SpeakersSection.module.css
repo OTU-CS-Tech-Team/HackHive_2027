@@ -296,6 +296,36 @@
   object-fit: cover;
 }
 
+.avatarFrame {
+  position: relative;
+  display: flex;
+  width: calc(var(--tile-width) * 0.3);
+  height: calc(var(--tile-width) * 0.3);
+  flex: 0 0 auto;
+  margin-bottom: 0.4em;
+}
+
+.avatarFrame .avatarFallback,
+.avatarFrame .avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.avatarFrame .avatar {
+  visibility: hidden;
+}
+
+.avatarFrame .avatarLoaded {
+  visibility: visible;
+}
+
+.avatarFallbackHidden {
+  visibility: hidden;
+}
+
 .bio {
   display: block;
   max-width: 100%;
@@ -461,6 +491,12 @@
 @container (max-width: 839px) {
   .cell {
   font-size: clamp(0.8rem, 4.2cqw, 0.9rem);
+  }
+
+  .prioritizeLinkedIn .company,
+  /* hides elements so that linkedin link is always visible */
+  .prioritizeLinkedIn .rule {
+    display: none;
   }
 
   .face {
