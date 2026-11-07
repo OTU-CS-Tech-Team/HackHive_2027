@@ -101,22 +101,32 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
 }) {
   const [touchMode, setTouchMode] = useState(false);
   const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
+  const [loadedPhotoSrc, setLoadedPhotoSrc] = useState<string | null>(null);
   const normalizedName = person.name.trim().replace(/\s+/g, "_");
-  const photoSrc = `/Images/${encodeURIComponent(normalizedName)}.png`;
+  const localPhotoSrc = `/Images/${encodeURIComponent(normalizedName)}.png`;
+  const photoSrc = localPhotoSrc;
   const firstNameInitial = person.name.trim().match(/\p{L}/u)?.[0]?.toUpperCase() ?? "?";
   const photoUnavailable = photoSrc !== null && failedPhotoSrc === photoSrc;
+  const photoLoaded = loadedPhotoSrc === photoSrc;
 
-  const avatar = !photoSrc || photoUnavailable ? (
-    <span className={styles.avatarFallback} aria-hidden="true">
-      {firstNameInitial}
+  const avatar = (
+    <span className={styles.avatarFrame}>
+      <span
+        className={`${styles.avatarFallback}${photoLoaded ? ` ${styles.avatarFallbackHidden}` : ""}`}
+        aria-hidden="true"
+      >
+        {firstNameInitial}
+      </span>
+      {!photoUnavailable && (
+        <img
+          src={photoSrc}
+          alt=""
+          className={`${styles.avatar}${photoLoaded ? ` ${styles.avatarLoaded}` : ""}`}
+          onLoad={() => setLoadedPhotoSrc(photoSrc)}
+          onError={() => setFailedPhotoSrc(photoSrc)}
+        />
+      )}
     </span>
-  ) : (
-    <img
-      src={photoSrc}
-      alt=""
-      className={styles.avatar}
-      onError={() => setFailedPhotoSrc(photoSrc)}
-    />
   );
 
   useEffect(() => {
