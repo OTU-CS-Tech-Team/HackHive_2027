@@ -272,7 +272,12 @@
     --art-w: max(72rem, 190svh);
   }
 
+  /* Percent tops follow the woods' height, which grows with every sponsor row, and
+     a phone has no room beside the heading. So cap the rise: the heading settles
+     0.8 × 0.84 of the treeline band (0.3733 × --art-w) above the woods, and the
+     crowns stop 6rem under it. */
   .tree {
+    top: max(var(--top), 6rem - 0.2508 * max(72rem, 190svh));
     width: calc(var(--w) * 0.62);
   }
 
