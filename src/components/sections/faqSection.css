@@ -16,8 +16,10 @@
   --line: 3px;
   --cell: 2.75rem;
   --hex-clip: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-  /* How tall the fade from the cream section above into the purple is. */
-  --fade: clamp(12rem, 35vh, 20rem);
+  /* How tall the fade from the cream section above into the purple is, and how much
+     plain purple follows it before the heading. */
+  --fade: clamp(16rem, 45vh, 26rem);
+  --lead: 6rem;
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .23 0 0 0 0 .12 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
 
   /* Its own stacking context, so the stream and grain behind the questions
@@ -31,11 +33,13 @@
   /* Tucks up over the section above's bottom border, so its cream runs straight
      into the fade with no line between them. */
   margin-top: -1px;
-  padding: calc(var(--fade) + 2rem) 1rem 5rem;
+  padding: calc(var(--fade) + var(--lead)) 1rem 5rem;
   /* Jumping to #faq skips the fade and lands just above the heading, under the navbar. */
-  scroll-margin-top: calc(4rem - var(--fade));
-  /* The hexes hang off the bars' edges, so never let them cause a sideways scroll. */
-  overflow-x: clip;
+  scroll-margin-top: calc(6rem - var(--fade) - var(--lead));
+  /* The hexes hang off the bars' edges, and the stream's layer reaches a screen past
+     the top and bottom (see .faq-stream), so never let either show outside or make
+     the page scroll further. Clip, not hidden, so the stream's view can still pin. */
+  overflow: clip;
   /* Deep hive purple into cornflower blue, with a warm honey glow rising from the
      bottom and soft blue and honey light off the upper corners. Kept dark in the
      middle so the honey bars stand out. */
@@ -48,15 +52,29 @@
 }
 
 /* The stream of light (HexStream), over the gradient. Its canvases sit in a
-   screen-sized view that stays pinned while the section scrolls past, so the
-   stream stays behind the questions in view. The view uses the largest screen
-   height, so it doesn't resize as a phone's address bar shows and hides. */
+   screen-sized view that stays pinned to the screen the whole time any of the
+   section is showing, so they never need resizing as the section changes height;
+   HexStream draws the stream through the middle of the questions wherever they've
+   scrolled to. The view uses the largest screen height, so it doesn't resize as a
+   phone's address bar shows and hides. */
 .faq-stream {
+  --reach: 100vh;
+  --reach: 100lvh;
   position: absolute;
   /* Under the fade, so the stream rises out of it rather than over the cream. */
-  z-index: -2;
-  inset: 0;
+  z-index: -3;
+  /* A sticky view only pins while there's room for it inside its parent, so on its
+     own it would ride in with the section's top and out with its bottom. This
+     reaches a screen past both, so it's pinned throughout; the section clips off
+     what's outside it. */
+  inset: calc(-1 * var(--reach)) 0;
   pointer-events: none;
+}
+
+/* The light falling out of the fade into the stream (HexStream's drawFalling): over
+   the fade, so it shows as the fade turns purple, and under the grain. */
+.faq-falling {
+  z-index: -1;
 }
 
 .faq-stream-view {
@@ -85,7 +103,7 @@
 .faq-page::before {
   content: "";
   position: absolute;
-  z-index: -1;
+  z-index: -2;
   inset: 0 0 auto;
   height: var(--fade);
   background: linear-gradient(
@@ -517,8 +535,9 @@
 @media (max-width: 480px) {
   .faq-page {
     --cell: 2rem;
-    --fade: clamp(10rem, 30vh, 14rem);
-    padding: calc(var(--fade) + 1.5rem) 0.75rem 4rem;
+    --fade: clamp(13rem, 40vh, 19rem);
+    --lead: 4rem;
+    padding: calc(var(--fade) + var(--lead)) 0.75rem 4rem;
   }
 
   .faq-page h1 {
@@ -569,50 +588,68 @@
 }
 
 /* Boot-up */
-/* Like a PS3 starting: the stream swells up out of a thin band of light, the
-   heading comes into focus, then the questions slide in one after another like the
-   menu's icons, and the contact card last. FaqSection sets data-boot, "asleep" until
-   the section scrolls into view and then "awake"; without it everything just shows. */
+/* Like a PS3 starting, in two stages that FaqSection sets on data-boot as the
+   section scrolls in. At "dawn", as the fade comes up, the stream swells up out of a
+   thin band of light and light starts falling into it out of the fade. At "awake",
+   once the fade is mostly past, the heading comes into focus, then the questions
+   slide in one after another like the menu's icons, and the contact card last.
+   "asleep" is before all that. Without data-boot everything just shows. */
 .faq-page[data-boot="asleep"] .faq-stream-view {
+  opacity: 0;
+}
+
+/* The main stream waits for the cards. */
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-stream:not(.faq-falling) .faq-stream-view {
   opacity: 0;
   transform: scaleY(0.15);
 }
 
-.faq-page[data-boot="asleep"] h1 {
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) h1 {
   opacity: 0;
   filter: blur(8px);
   transform: scale(1.06);
 }
 
-.faq-page[data-boot="asleep"] .faq-item {
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-item {
   opacity: 0;
   transform: translateX(2.5rem);
 }
 
-.faq-page[data-boot="asleep"] .faq-contact {
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-contact {
   opacity: 0;
   transform: translateY(1rem);
 }
 
-/* Powering down, when scrolled back up: quicker than booting, all at once, with the
-   stream sinking back into its band last. */
-.faq-page[data-boot="asleep"] :is(h1, .faq-item, .faq-contact) {
+/* Powering down, when scrolled back up: quicker than booting, all at once, then the
+   stream sinking back into its band and the falling light going out once scrolled
+   back up past the fade. */
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) :is(h1, .faq-item, .faq-contact) {
   transition:
     opacity 0.4s ease,
     filter 0.4s ease,
     transform 0.5s ease-in;
 }
 
-.faq-page[data-boot="asleep"] .faq-stream-view {
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-stream:not(.faq-falling) .faq-stream-view {
   transition:
-    opacity 0.8s ease 0.1s,
-    transform 0.9s ease-in 0.1s;
+    opacity 0.8s ease,
+    transform 0.9s ease-in;
 }
 
-.faq-page[data-boot="awake"] .faq-stream-view {
+.faq-page[data-boot="awake"] .faq-stream:not(.faq-falling) .faq-stream-view {
   transition:
     opacity 2.2s ease,
     transform 2.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The falling light comes on ahead of the stream, as the fade comes up, and goes
+   out once scrolled back up past it. */
+.faq-page[data-boot="asleep"] .faq-falling .faq-stream-view {
+  transition: opacity 0.8s ease;
+}
+
+.faq-page:is([data-boot="dawn"], [data-boot="awake"]) .faq-falling .faq-stream-view {
+  transition: opacity 1.2s ease;
 }
 
 .faq-page[data-boot="awake"] h1 {
