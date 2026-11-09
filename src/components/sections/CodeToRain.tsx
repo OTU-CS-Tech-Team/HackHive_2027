@@ -267,7 +267,7 @@ export function CodeToRain() {
       sp = reduced ? target : sp + (target - sp) * Math.min(1, dt * 10);
       const p = sp;
       ctx!.clearRect(0, 0, W, H);
-      ctx!.fillStyle = "#050502";
+      ctx!.fillStyle = "#14110b";
       ctx!.fillRect(0, 0, W, H);
       if (hint) hint.style.opacity = p < 0.02 ? "0.7" : "0";
 
