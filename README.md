@@ -115,8 +115,10 @@ project stars and updates the featured thumbnail and demo player. Choose any
 star, use previous/next, or pause the tour. Playing a demo holds the selection;
 leaving the year, hiding the tab, or navigating away removes the player.
 
-The first project and its polygon constellation appear immediately. The shapes
-stay quiet and unfilled so the projects remain prominent. A black canvas sky
+The first project and its polygon constellation appear immediately. The stylized zodiac figures are Cancer (2026), Taurus (2025), and Capricornus
+(2024), with branching claws, horns, and a sea-goat tail. The lines stay unfilled
+so the projects remain prominent. Additional projects subdivide existing lines
+to preserve the silhouette. These are illustrative layouts, not sky coordinates. A black canvas sky
 opens with a brief flight through distant stars, then continues a visible forward flight with depth-scaled star streaks.
 Scrolling briefly accelerates the flight. It pauses when the tab is hidden and renders a still sky for reduced motion.
 There is no comet or moving pointer on the constellations. The year marker writes
