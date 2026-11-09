@@ -348,8 +348,8 @@
   position: relative;
   z-index: 5;
   display: grid;
-  gap: clamp(6rem, 14vw, 13rem);
-  max-width: 64rem;
+  gap: clamp(3.5rem, 8vw, 7rem);
+  max-width: 80rem;
   margin: clamp(-12rem, -14vw, -4rem) auto 0;
 }
 
@@ -361,7 +361,7 @@
 /* The pitch is a few lines of text, so it stays narrower than the logo wall. */
 .board:has(.pitch) {
   width: 100%;
-  max-width: 44rem;
+  max-width: 50rem;
   justify-self: center;
 }
 
@@ -437,6 +437,7 @@
   margin: 0;
   font-size: clamp(1.05rem, 1.5vw, 1.25rem);
   line-height: 1.6;
+  text-wrap: balance;
 }
 
 .reach {
@@ -520,20 +521,13 @@
   list-style: none;
 }
 
-.more {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  text-align: center;
-}
-
 /* ---------- Tiles ---------- */
 
 .tile {
   position: relative;
   display: flex;
   box-sizing: border-box;
-  height: clamp(5rem, 7.5vw, 6.25rem);
+  height: clamp(6rem, 10vw, 8.5rem);
   align-items: center;
   justify-content: center;
   overflow: hidden;

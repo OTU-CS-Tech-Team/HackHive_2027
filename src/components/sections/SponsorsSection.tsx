@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import SplitText from "@/components/SplitText";
-import { getSponsors, type Sponsor } from "@/lib/content";
+import type { Sponsor } from "@/lib/content";
 import { rand } from "./comb";
 import { ForestMotion } from "./ForestMotion";
 import styles from "./SponsorsSection.module.css";
@@ -11,46 +11,32 @@ import styles from "./SponsorsSection.module.css";
 const SPONSOR_EMAIL = "otu.csclub@gmail.com";
 const SPONSOR_CONTACT = `mailto:${SPONSOR_EMAIL}?subject=Sponsoring%20HackHive%202027`;
 
-// Wider rows for the smaller tier. A "Coming soon" row is only for a tier with nobody in it.
-function tierLayout(tier: Sponsor["tier"]): { columns: number; medal: string } {
-  switch (tier) {
-    case "gold":
-      return { columns: 3, medal: "/sponsors/tiers/gold.webp" };
-    case "silver":
-      return { columns: 3, medal: "/sponsors/tiers/silver.webp" };
-    case "bronze":
-      return { columns: 4, medal: "/sponsors/tiers/bronze.webp" };
-    default: {
-      const exhaustive: never = tier;
-      return exhaustive;
-    }
-  }
-}
-
-const TIER_RANK: Record<Sponsor["tier"], number> = {
-  gold: 0,
-  silver: 1,
-  bronze: 2,
-};
-
-function sponsorGroups(sponsors: Sponsor[]) {
-  const tiers = [...new Set(sponsors.map((sponsor) => sponsor.tier))].sort(
-    (a, b) => TIER_RANK[a] - TIER_RANK[b],
-  );
-  return tiers.map((tier) => ({
-    tier,
-    label: `${tier[0].toUpperCase()}${tier.slice(1)} sponsors`,
-    ...tierLayout(tier),
-    sponsors: sponsors.filter((sponsor) => sponsor.tier === tier),
-  }));
-}
-
 // Last HackHive's line-up, which has a diamond tier the /admin list doesn't.
 const PREVIOUS_TIERS = [
-  { tier: "diamond", label: "Diamond sponsors", columns: 3, medal: "/sponsors/tiers/diamond.webp" },
-  { tier: "gold", label: "Gold sponsors", columns: 3, medal: "/sponsors/tiers/gold.webp" },
-  { tier: "silver", label: "Silver sponsors", columns: 3, medal: "/sponsors/tiers/silver.webp" },
-  { tier: "bronze", label: "Bronze sponsors", columns: 4, medal: "/sponsors/tiers/bronze.webp" },
+  {
+    tier: "diamond",
+    label: "Diamond sponsors",
+    columns: 3,
+    medal: "/sponsors/tiers/diamond.webp",
+  },
+  {
+    tier: "gold",
+    label: "Gold sponsors",
+    columns: 3,
+    medal: "/sponsors/tiers/gold.webp",
+  },
+  {
+    tier: "silver",
+    label: "Silver sponsors",
+    columns: 3,
+    medal: "/sponsors/tiers/silver.webp",
+  },
+  {
+    tier: "bronze",
+    label: "Bronze sponsors",
+    columns: 4,
+    medal: "/sponsors/tiers/bronze.webp",
+  },
 ] as const;
 
 const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
@@ -189,14 +175,70 @@ const TREES: {
   w: string;
   depth: number;
 }[] = [
-  { art: "oak-b", side: "right", top: "-13%", x: "-15rem", w: "38rem", depth: 90 },
-  { art: "pine-a", side: "left", top: "-17%", x: "-9rem", w: "34rem", depth: 70 },
-  { art: "oak-a", side: "left", top: "18%", x: "-19rem", w: "40rem", depth: 60 },
-  { art: "pine-a", side: "right", top: "15%", x: "-10rem", w: "32rem", depth: 110 },
-  { art: "pine-b", side: "left", top: "48%", x: "-8rem", w: "26rem", depth: 130 },
-  { art: "oak-a", side: "right", top: "44%", x: "-19rem", w: "40rem", depth: 60 },
-  { art: "oak-b", side: "left", top: "68%", x: "-17rem", w: "36rem", depth: 100 },
-  { art: "pine-b", side: "right", top: "71%", x: "-7rem", w: "26rem", depth: 130 },
+  {
+    art: "oak-b",
+    side: "right",
+    top: "-13%",
+    x: "-15rem",
+    w: "38rem",
+    depth: 90,
+  },
+  {
+    art: "pine-a",
+    side: "left",
+    top: "-17%",
+    x: "-9rem",
+    w: "34rem",
+    depth: 70,
+  },
+  {
+    art: "oak-a",
+    side: "left",
+    top: "18%",
+    x: "-19rem",
+    w: "40rem",
+    depth: 60,
+  },
+  {
+    art: "pine-a",
+    side: "right",
+    top: "15%",
+    x: "-10rem",
+    w: "32rem",
+    depth: 110,
+  },
+  {
+    art: "pine-b",
+    side: "left",
+    top: "48%",
+    x: "-8rem",
+    w: "26rem",
+    depth: 130,
+  },
+  {
+    art: "oak-a",
+    side: "right",
+    top: "44%",
+    x: "-19rem",
+    w: "40rem",
+    depth: 60,
+  },
+  {
+    art: "oak-b",
+    side: "left",
+    top: "68%",
+    x: "-17rem",
+    w: "36rem",
+    depth: 100,
+  },
+  {
+    art: "pine-b",
+    side: "right",
+    top: "71%",
+    x: "-7rem",
+    w: "26rem",
+    depth: 130,
+  },
 ];
 
 const PANORAMA_SIZES = "(max-width: 56.25rem) 100vw, max(100vw, 72rem, 200vh)";
@@ -231,7 +273,9 @@ function Tree({ art, side, top, x, w, depth }: (typeof TREES)[number]) {
   return (
     <div
       className={`${styles.tree} ${styles[side]}`}
-      style={{ "--top": top, "--x": x, "--w": w, "--depth": depth } as CSSProperties}
+      style={
+        { "--top": top, "--x": x, "--w": w, "--depth": depth } as CSSProperties
+      }
       data-lean
     >
       <Image
@@ -339,10 +383,7 @@ function TierGrid({
   );
 }
 
-export async function SponsorsSection() {
-  const sponsors = await getSponsors();
-  const groups = sponsorGroups(sponsors);
-
+export function SponsorsSection() {
   return (
     <ForestMotion className={styles.section}>
       {/* White hero lifts into the honey-lit sky. */}
@@ -402,9 +443,9 @@ export async function SponsorsSection() {
             <div className={styles.frame}>
               <div className={`${styles.panel} ${styles.pitch}`}>
                 <p>
-                  Our sponsors make it possible to bring hackers together at
-                  Ontario Tech for a weekend of building. Put your team in front
-                  of them, run a workshop, or meet your next intern.
+                  Put your team in front of hackers, host a workshop, or meet
+                  your next intern while helping bring Ontario Tech’s builders
+                  together.
                 </p>
                 <p className={styles.reach}>
                   Interested in partnering with us? Reach out at{" "}
@@ -416,19 +457,6 @@ export async function SponsorsSection() {
               </div>
             </div>
           </div>
-
-          {/* <div className={styles.board} data-rise>
-            <Label>Holding up the hive</Label>
-            <div className={styles.frame}>
-              <div className={styles.panel}>
-                {groups.map(({ tier, ...group }) => (
-                  <TierGrid key={tier} {...group} />
-                ))}
-
-                <p className={styles.more}>and more to come…</p>
-              </div>
-            </div>
-          </div> */}
 
           <div className={styles.board} data-rise>
             <Label>Previous sponsors</Label>
