@@ -4,6 +4,12 @@ import { MegaphoneBanner, MegaphoneRain } from "@/components/sections/Megaphone"
 import styles from "@/components/sections/SpeakersSection.module.css";
 import { getPeople } from "@/lib/content";
 
+// Same values as the judges section on the home page.
+// Extra rain-only height (px) added under the speakers. Raise for a taller rain area.
+const RAIN_EXTRA = 100;
+// Pushes the banner + honeycomb down. Any CSS length.
+const CONTENT_SHIFT = "15vh";
+
 export default async function SpeakersPage() {
   const speakers = (await getPeople()).filter((person) => person.role === "speaker");
 
@@ -14,6 +20,8 @@ export default async function SpeakersPage() {
         <Link className={styles.backToHome} href="/#judges">
           ← Judges
         </Link>
+        {/* spacer: shifts the banner and honeycomb down */}
+        <div aria-hidden="true" style={{ height: CONTENT_SHIFT }} />
         <MegaphoneBanner
           title="Meet the speakers"
           subtitle="Get to know the people opening and closing the weekend."
@@ -25,6 +33,8 @@ export default async function SpeakersPage() {
           blurb=""
           people={speakers}
         />
+        {/* spacer: gives the rain canvas more height */}
+        <div aria-hidden="true" style={{ height: RAIN_EXTRA }} />
       </div>
     </main>
   );

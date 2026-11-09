@@ -125,7 +125,7 @@ export function MegaphoneRain({ x = 0.5, y = 0.5, dim = 0.6 }: MegaphoneRainProp
 
       // megaphone, drawn along its own axis then rotated to point up and right
       g.save();
-      g.translate(cx - 8 * u, cy + 4 * u);
+      g.translate(cx - 15 * u, cy + 33 * u);
       g.rotate(-Math.PI / 9);
 
       const shade = (y0: number, y1: number) => {

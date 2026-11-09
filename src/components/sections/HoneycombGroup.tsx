@@ -100,20 +100,33 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
   onFlipEnd: () => void;
 }) {
   const [touchMode, setTouchMode] = useState(false);
-  const [photoUnavailable, setPhotoUnavailable] = useState(false);
-  const photoSrc = `/Images/${encodeURIComponent(person.name.trim().replace(/\s+/g, "_"))}.png`;
+  const [failedPhotoSrc, setFailedPhotoSrc] = useState<string | null>(null);
+  const [loadedPhotoSrc, setLoadedPhotoSrc] = useState<string | null>(null);
+  const normalizedName = person.name.trim().replace(/\s+/g, "_");
+  const localPhotoSrc = `/Images/${encodeURIComponent(normalizedName)}.png`;
+  const photoSrc = localPhotoSrc;
+  const firstNameInitial = person.name.trim().match(/\p{L}/u)?.[0]?.toUpperCase() ?? "?";
+  const photoUnavailable = photoSrc !== null && failedPhotoSrc === photoSrc;
+  const photoLoaded = loadedPhotoSrc === photoSrc;
 
-  const avatar = photoUnavailable ? (
-    <span className={styles.avatarFallback} aria-hidden="true">
-      {person.name.charAt(0)}
+  const avatar = (
+    <span className={styles.avatarFrame}>
+      <span
+        className={`${styles.avatarFallback}${photoLoaded ? ` ${styles.avatarFallbackHidden}` : ""}`}
+        aria-hidden="true"
+      >
+        {firstNameInitial}
+      </span>
+      {!photoUnavailable && (
+        <img
+          src={photoSrc}
+          alt=""
+          className={`${styles.avatar}${photoLoaded ? ` ${styles.avatarLoaded}` : ""}`}
+          onLoad={() => setLoadedPhotoSrc(photoSrc)}
+          onError={() => setFailedPhotoSrc(photoSrc)}
+        />
+      )}
     </span>
-  ) : (
-    <img
-      src={photoSrc}
-      alt=""
-      className={styles.avatar}
-      onError={() => setPhotoUnavailable(true)}
-    />
   );
 
   useEffect(() => {
@@ -140,7 +153,11 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
         <span className={styles.name}>{person.name}</span>
       </div>
       <div
-        className={`${styles.face} ${styles.back}`}
+        className={`${styles.face} ${styles.back} ${
+          person.role === "judge" && person.company && person.linkedin_url
+            ? styles.prioritizeLinkedIn
+            : ""
+        }`}
         aria-hidden={!revealed}
         inert={!revealed}
       >
@@ -148,7 +165,9 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
           {avatar}
           <span className={styles.name}>{person.name}</span>
           {person.title && <span className={styles.details}>{person.title}</span>}
-          {person.company && <span className={styles.details}>{person.company}</span>}
+          {person.company && (
+            <span className={`${styles.details} ${styles.company}`}>{person.company}</span>
+          )}
         </div>
         {person.linkedin_url && <span className={styles.rule} aria-hidden="true" />}
         {person.linkedin_url && (
