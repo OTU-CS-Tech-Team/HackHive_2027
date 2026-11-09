@@ -12,9 +12,12 @@ type GavelRainProps = {
   y?: number;
   /** Overall brightness, lower is calmer behind the content */
   dim?: number;
+  /** Extra height (px) added to the bottom of the section just to give the rain more room.
+      The gavel is placed against the section height WITHOUT it, so it doesn't move or stretch. */
+  extend?: number;
 };
 
-export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6 }: GavelRainProps) {
+export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6, extend = 0 }: GavelRainProps) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6 }: GavelRainProps) {
 
       const u = Math.min(W * 0.8, 900) / 110;
       const cx = W * x;
-      const cy = H * y;
+      const cy = Math.max(0, H - extend) * y;
 
       // sound block
       const bx = cx + 29 * u;
@@ -232,7 +235,7 @@ export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6 }: GavelRainProps) {
       resizeObserver.disconnect();
       visibilityObserver.disconnect();
     };
-  }, [x, y, dim]);
+  }, [x, y, dim, extend]);
 
   return <canvas ref={ref} className={styles.gavelRain} aria-hidden="true" />;
 }
