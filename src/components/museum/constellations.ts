@@ -1,15 +1,21 @@
 export type StarPoint = { x: number; y: number };
 type SkyShape = { points: StarPoint[]; edges: [number, number][] };
 
-// Distinct silhouettes: a stellar burst, a long diamond, and a faceted comet.
-// Subdivide existing sides when a year has more projects than polygon corners.
+// Clear space-inspired silhouettes, without extra mesh lines or filled faces.
+// Extra projects subdivide the sides rather than changing the silhouette.
 const SILHOUETTES: StarPoint[][] = [
-  [1, .52, .94, .58, 1, .62, .91, .5, .94].map((radius, i) => {
-    const angle = -Math.PI / 2 + i * Math.PI * 2 / 9;
-    return { x: 500 + Math.cos(angle) * 350 * radius, y: 400 + Math.sin(angle) * 315 * radius };
+  // A four-point nova.
+  Array.from({ length: 8 }, (_, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI / 4;
+    const radius = index % 2 === 0 ? 1 : .32;
+    return { x: 500 + Math.cos(angle) * 355 * radius, y: 400 + Math.sin(angle) * 330 * radius };
   }),
-  [{ x: 520, y: 85 }, { x: 820, y: 355 }, { x: 445, y: 710 }, { x: 215, y: 450 }],
-  [{ x: 350, y: 90 }, { x: 810, y: 250 }, { x: 660, y: 635 }, { x: 220, y: 710 }, { x: 345, y: 415 }],
+  // An angular crescent, open toward the project preview.
+  [{ x: 660, y: 80 }, { x: 405, y: 310 }, { x: 420, y: 485 },
+    { x: 690, y: 720 }, { x: 245, y: 590 }, { x: 180, y: 250 }],
+  // A sharp lightning silhouette.
+  [{ x: 570, y: 70 }, { x: 240, y: 420 }, { x: 475, y: 420 },
+    { x: 385, y: 730 }, { x: 790, y: 315 }, { x: 555, y: 315 }],
 ];
 
 export function constellationFor(year: number, count: number): SkyShape {
