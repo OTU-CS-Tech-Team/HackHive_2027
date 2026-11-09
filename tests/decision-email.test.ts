@@ -58,6 +58,7 @@ describe('sendDecisionEmail', () => {
     vi.stubGlobal('fetch', fetchMock);
     vi.stubEnv('RESEND_API_KEY', 'test-key');
     vi.stubEnv('RESEND_FROM_EMAIL', 'HackHive <hello@test.dev>');
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', `${SITE}/`);
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -71,7 +72,7 @@ describe('sendDecisionEmail', () => {
     fetchMock.mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));
     const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
 
-    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', siteUrl: SITE });
+    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
 
     expect(sent).toEqual({ sent: true });
     const [url, init] = fetchMock.mock.calls[0];
@@ -89,7 +90,7 @@ describe('sendDecisionEmail', () => {
     fetchMock.mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));
     const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
 
-    await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', siteUrl: SITE });
+    await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).from).toBe('HackHive <hello@test.dev>');
   });
@@ -98,7 +99,7 @@ describe('sendDecisionEmail', () => {
     fetchMock.mockResolvedValue(new Response('{"message":"domain not verified"}', { status: 403 }));
     const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
 
-    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', siteUrl: SITE });
+    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
 
     expect(sent).toEqual({ sent: false, error: 'domain not verified' });
   });
@@ -107,7 +108,7 @@ describe('sendDecisionEmail', () => {
     fetchMock.mockResolvedValue(new Response('<html>bad gateway</html>', { status: 502 }));
     const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
 
-    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', siteUrl: SITE });
+    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
 
     expect(sent).toEqual({ sent: false, error: 'Resend returned status 502' });
   });
@@ -116,16 +117,16 @@ describe('sendDecisionEmail', () => {
     fetchMock.mockRejectedValue(new Error('network down'));
     const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
 
-    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', siteUrl: SITE });
+    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
 
     expect(sent).toEqual({ sent: false, error: 'network down' });
   });
 
-  it.each(['RESEND_API_KEY', 'RESEND_FROM_EMAIL'])('names %s without calling Resend when it is missing', async (name) => {
+  it.each(['RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'NEXT_PUBLIC_SITE_URL'])('names %s without calling Resend when it is missing', async (name) => {
     vi.stubEnv(name, '');
     const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
 
-    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', siteUrl: SITE });
+    const sent = await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
 
     expect(sent).toEqual({ sent: false, error: `${name} is not set` });
     expect(fetchMock).not.toHaveBeenCalled();

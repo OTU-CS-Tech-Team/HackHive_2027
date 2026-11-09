@@ -94,14 +94,27 @@ function positionForIndex(
   };
 }
 
-function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd }: {
+function PersonHexCard({ person, revealed, onFlipEnd }: {
   person: Person;
   revealed: boolean;
-  expanded: boolean;
-  onToggleExpanded: () => void;
   onFlipEnd: () => void;
 }) {
   const [touchMode, setTouchMode] = useState(false);
+  const [photoUnavailable, setPhotoUnavailable] = useState(false);
+  const photoSrc = `/Images/${encodeURIComponent(person.name.trim().replace(/\s+/g, "_"))}.png`;
+
+  const avatar = photoUnavailable ? (
+    <span className={styles.avatarFallback} aria-hidden="true">
+      {person.name.charAt(0)}
+    </span>
+  ) : (
+    <img
+      src={photoSrc}
+      alt=""
+      className={styles.avatar}
+      onError={() => setPhotoUnavailable(true)}
+    />
+  );
 
   useEffect(() => {
     const touchQuery = window.matchMedia("(hover: none), (pointer: coarse)");
@@ -114,7 +127,7 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
 
   return (
     <div
-      className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${revealed ? styles.isFlipped : ""} ${expanded ? styles.isExpanded : ""}`}
+      className={`${styles.card} ${touchMode ? styles.touchMode : ""} ${revealed ? styles.isFlipped : ""}`}
       style={{ transitionDuration: `${FLIP_DURATION_MS}ms` }}
       onTransitionEnd={(event) => {
         if (event.target === event.currentTarget && event.propertyName === "transform") {
@@ -123,13 +136,7 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
       }}
     >
       <div className={`${styles.face} ${styles.front}`} aria-hidden={revealed}>
-        {person.photo_url ? (
-          <img src={person.photo_url} alt="" className={styles.avatar} />
-        ) : (
-          <span className={styles.avatarFallback} aria-hidden="true">
-            {person.name.charAt(0)}
-          </span>
-        )}
+        {avatar}
         <span className={styles.name}>{person.name}</span>
       </div>
       <div
@@ -137,27 +144,13 @@ function PersonHexCard({ person, revealed, expanded, onToggleExpanded, onFlipEnd
         aria-hidden={!revealed}
         inert={!revealed}
       >
-        <button
-          type="button"
-          className={styles.backToggle}
-          aria-expanded={expanded}
-          onClick={onToggleExpanded}
-        >
-          {person.photo_url ? (
-            <img src={person.photo_url} alt="" className={styles.avatar} />
-          ) : (
-            <span className={styles.avatarFallback} aria-hidden="true">
-              {person.name.charAt(0)}
-            </span>
-          )}
+        <div className={styles.backToggle}>
+          {avatar}
           <span className={styles.name}>{person.name}</span>
           {person.title && <span className={styles.details}>{person.title}</span>}
           {person.company && <span className={styles.details}>{person.company}</span>}
-          <span className={styles.rule} aria-hidden="true" />
-          {(person.linkedin_url || person.bio) && !expanded && (
-            <span className={styles.morePrompt}>More...</span>
-          )}
-        </button>
+        </div>
+        {person.linkedin_url && <span className={styles.rule} aria-hidden="true" />}
         {person.linkedin_url && (
           <a
             href={person.linkedin_url}
@@ -188,7 +181,6 @@ export function HoneycombGroup({
   const roleClass = role === "speaker" ? styles.speaker : styles.judge;
 
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
-  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
   const revealedRef = useRef(revealed);
   const desiredRef = useRef<ReadonlySet<string>>(new Set());
   const onFlipEndRef = useRef<() => void>(() => {});
@@ -355,8 +347,6 @@ export function HoneycombGroup({
                 <PersonHexCard
                   person={person}
                   revealed={revealed.has(person.id)}
-                  expanded={expandedPersonId === person.id}
-                  onToggleExpanded={() => setExpandedPersonId((current) => current === person.id ? null : person.id)}
                   onFlipEnd={() => onFlipEndRef.current()}
                 />
               </div>

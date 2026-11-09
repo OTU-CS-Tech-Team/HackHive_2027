@@ -83,9 +83,9 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
 });
 
 vi.mock('next/cache', () => ({ revalidatePath, updateTag: vi.fn() }));
-vi.mock('next/headers', () => ({ headers: async () => new Headers({ origin: 'https://hackhive.test' }) }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => client, createServiceClient: () => service }));
 vi.mock('@/lib/application/decision-email', () => ({ sendDecisionEmail }));
+vi.mock('@/lib/email', () => ({ sendItemRequestReviewedEmail: vi.fn() }));
 
 async function actions() {
   return import('../src/app/admin/actions');
@@ -121,7 +121,6 @@ describe('setDecision', () => {
       to: 'sam@test.com',
       firstName: 'Sam',
       decision: 'accepted',
-      siteUrl: 'https://hackhive.test',
     });
   });
 
@@ -221,7 +220,6 @@ describe('resendDecisionEmail', () => {
       to: 'sam@test.com',
       firstName: 'Sam',
       decision: 'accepted',
-      siteUrl: 'https://hackhive.test',
     });
   });
 
@@ -255,8 +253,12 @@ describe('resendDecisionEmail', () => {
 });
 
 describe('deleteApplicant', () => {
-  it('deletes the account, then their files from both buckets', async () => {
-    service.files = { resumes: [{ name: 'resume-1.pdf' }], avatars: [{ name: 'me.png' }] };
+  it('deletes the account, then their files from every bucket', async () => {
+    service.files = {
+      resumes: [{ name: 'resume-1.pdf' }],
+      avatars: [{ name: 'me.png' }],
+      indemnifications: [{ name: 'sub-1.pdf' }],
+    };
     const { deleteApplicant } = await actions();
 
     const result = await deleteApplicant(ID);
@@ -266,6 +268,7 @@ describe('deleteApplicant', () => {
       'delete user target-user',
       'remove resumes target-user/resume-1.pdf',
       'remove avatars target-user/me.png',
+      'remove indemnifications target-user/sub-1.pdf',
     ]);
     expect(revalidatePath).toHaveBeenCalled();
   });

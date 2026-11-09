@@ -29,6 +29,9 @@ export default function AdminPage() {
           <Link href="/admin/applicants" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
             Review applicants
           </Link>
+          <Link href="/admin/requests" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+            Item requests
+          </Link>
           <Link href="/admin/scan" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
             Open scanner
           </Link>

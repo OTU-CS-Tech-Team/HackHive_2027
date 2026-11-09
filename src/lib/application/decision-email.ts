@@ -56,17 +56,18 @@ export function decisionEmail(decision: Decision, firstName: string | null, site
   return { subject, text, html };
 }
 
-export async function sendDecisionEmail({ to, firstName, decision, siteUrl }: {
+export async function sendDecisionEmail({ to, firstName, decision }: {
   to: string;
   firstName: string | null;
   decision: Decision;
-  siteUrl: string;
 }): Promise<{ sent: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   // Hosts keep quotes pasted from an env file, and Resend rejects them.
   const from = process.env.RESEND_FROM_EMAIL?.trim().replace(/^["']|["']$/g, '');
-  const missing = !apiKey ? 'RESEND_API_KEY' : !from ? 'RESEND_FROM_EMAIL' : null;
-  if (missing) {
+  // Fixed rather than read from the request, so a spoofed Host can't change the link.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '');
+  if (!apiKey || !from || !siteUrl) {
+    const missing = !apiKey ? 'RESEND_API_KEY' : !from ? 'RESEND_FROM_EMAIL' : 'NEXT_PUBLIC_SITE_URL';
     console.error(`${missing} is not set`);
     return { sent: false, error: `${missing} is not set` };
   }

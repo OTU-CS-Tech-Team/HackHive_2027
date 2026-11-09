@@ -4,7 +4,6 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const calls: string[] = [];
   const state = {
     rpcError: null as { message: string } | null,
-    upsertError: null as { message: string } | null,
     draftCreatedAt: null as string | null,
     selected: '',
   };
@@ -23,6 +22,7 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const serviceClient = {
     state,
     from: () => lookup,
+    storage: { from: () => ({ upload: async () => ({ error: null }) }) },
     rpc: async (name: string) => {
       if (name === 'reg_check_rate_limit') return { data: true, error: null };
       calls.push(name);
@@ -39,15 +39,7 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   };
 
   const userClient = {
-    upsertArgs: [] as unknown[][],
-    from: () => ({
-      ...settings,
-      upsert: async (...args: unknown[]) => {
-        calls.push('upsert');
-        userClient.upsertArgs.push(args);
-        return { error: state.upsertError };
-      },
-    }),
+    from: () => settings,
     storage: {
       from: () => ({
         list: async () => ({ data: [{ name: 'resume-1.pdf', metadata: { mimetype: 'application/pdf', size: 100 } }], error: null }),
@@ -67,6 +59,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => userClient,
   createServiceClient: () => serviceClient,
 }));
+vi.mock('@/lib/indemnification', () => ({ previewFilledForm: async () => new Uint8Array() }));
 
 const validFields = {
   first_name: 'Test',
@@ -86,6 +79,7 @@ const validFields = {
   tshirt_size: 'M',
   consent_coc: true,
   consent_privacy: true,
+  consent_indemnification: true,
 };
 
 async function submit(startedAt = Date.now() - 60_000) {
@@ -94,16 +88,14 @@ async function submit(startedAt = Date.now() - 60_000) {
     fields: validFields,
     turnstileToken: 'token',
     startedAt,
-    submissionId: 'submission-1',
+    submissionId: '22222222-2222-4222-8222-222222222222',
   });
 }
 
 describe('submitApplication', () => {
   beforeEach(() => {
     calls.length = 0;
-    userClient.upsertArgs.length = 0;
     serviceClient.state.rpcError = null;
-    serviceClient.state.upsertError = null;
     serviceClient.state.draftCreatedAt = null;
     revalidatePath.mockClear();
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
@@ -111,21 +103,22 @@ describe('submitApplication', () => {
     vi.stubEnv('TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA');
   });
 
-  it('reports the database reason when creating the draft row fails', async () => {
-    serviceClient.state.upsertError = { message: 'Invalid API key' };
-
-    const result = await submit();
-
-    expect(result).toMatchObject({ ok: false, code: 'server', error: "Couldn't prepare application: Invalid API key" });
-    expect(calls).toEqual(['upsert']);
-  });
-
-  it('reports the database reason when the submit call fails', async () => {
+  // The reason is logged server-side; the browser only gets a generic message.
+  it('keeps the database reason out of the response when the submit call fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     serviceClient.state.rpcError = { message: 'permission denied for function is_admin' };
 
     const result = await submit();
 
-    expect(result).toMatchObject({ ok: false, code: 'server', error: 'Failed to submit application: permission denied for function is_admin' });
+    expect(result).toEqual({ ok: false, code: 'server', error: 'Failed to submit application' });
+  });
+
+  // The RPC inserts the row itself (on conflict, draft only), so no saved draft is needed.
+  it('submits when autosave never saved a draft', async () => {
+    const result = await submit();
+
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual(['reg_submit_application']);
   });
 
   it('lets someone finish a saved draft right after reopening the page', async () => {
@@ -163,18 +156,6 @@ describe('submitApplication', () => {
       expect(calls).toEqual([]);
     },
   );
-
-  // The RPC updates `where status = 'draft'`, so with no row it returns no_draft_found.
-  it('creates the draft row before the RPC when autosave never saved one', async () => {
-    const result = await submit();
-
-    expect(result.ok).toBe(true);
-    expect(calls).toEqual(['upsert', 'reg_submit_application']);
-    expect(userClient.upsertArgs[0]).toEqual([
-      { user_id: 'user-1', email: 'hacker@test.com' },
-      { onConflict: 'user_id', ignoreDuplicates: true },
-    ]);
-  });
 
   it('refreshes every page that shows the status once submitted', async () => {
     await submit();

@@ -3,7 +3,7 @@ import { getArchiveCollections } from '@/data/hackhive';
 
 export const metadata = {
   title: 'HackHive Museum',
-  description: 'Museum archive of HackHive projects, year by year.',
+  description: 'Explore the HackHive universe. Project constellations from 2026, 2025, and 2024.',
 };
 
 export default function HackHiveArchivePage() {

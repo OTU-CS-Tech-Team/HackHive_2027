@@ -7,14 +7,18 @@ import { getVerifiedUser } from '@/lib/auth/helpers';
 import {
   applicationDraftSchema,
   applicationSubmitSchema,
+  indemnificationPreviewSchema,
   type ApplicationDraft,
   type SaveDraftResult,
   type GetResumeUploadUrlResult,
   type SubmitApplicationResult,
+  type PreviewIndemnificationResult,
   type GetMyApplicationResult,
   type Application,
 } from '@/lib/application/schema';
+import { previewFilledForm, type IndemnificationApplicant } from '@/lib/indemnification';
 import crypto from 'crypto';
+import { z } from 'zod';
 
 const REQUIRED_SUBMIT_ENV = ['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_HASH_SECRET', 'TURNSTILE_SECRET_KEY'];
 const MIN_SUBMIT_TIME_MS = 3000;
@@ -254,6 +258,53 @@ async function verifyResumeExists(supabase: Awaited<ReturnType<typeof createClie
   return { exists: true };
 }
 
+function toIndemnificationApplicant(fields: {
+  first_name: string;
+  last_name: string;
+  university: string;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
+}): IndemnificationApplicant {
+  return {
+    firstName: fields.first_name,
+    lastName: fields.last_name,
+    university: fields.university,
+    linkedinUrl: fields.linkedin_url ?? '',
+    githubUrl: fields.github_url ?? '',
+    portfolioUrl: fields.portfolio_url ?? '',
+  };
+}
+
+export async function previewIndemnification(input: {
+  first_name: string;
+  last_name: string;
+  university: string;
+  linkedin_url: string;
+  github_url: string;
+  portfolio_url: string;
+}): Promise<PreviewIndemnificationResult> {
+  try {
+    const user = await getVerifiedUser();
+
+    if (!user) {
+      return { ok: false, code: 'not_verified', error: 'Email not verified' };
+    }
+
+    const result = indemnificationPreviewSchema.safeParse(input);
+    if (!result.success) {
+      return { ok: false, code: 'validation', error: 'Validation failed' };
+    }
+
+    const pdf = await previewFilledForm(toIndemnificationApplicant(result.data), new Date());
+
+    return { ok: true, pdfBase64: Buffer.from(pdf).toString('base64') };
+  } catch (error) {
+    console.error('previewIndemnification error:', error);
+    return { ok: false, code: 'server', error: 'An unexpected error occurred' };
+  }
+}
+
 export async function submitApplication(input: {
   fields: Record<string, unknown>;
   turnstileToken: string;
@@ -325,6 +376,10 @@ export async function submitApplication(input: {
       }
     }
 
+    if (!z.uuid().safeParse(input.submissionId).success) {
+      return { ok: false, code: 'validation', error: 'Invalid submission' };
+    }
+
     const result = applicationSubmitSchema.safeParse(input.fields);
     
     if (!result.success) {
@@ -381,19 +436,16 @@ export async function submitApplication(input: {
       };
     }
 
-    // The RPC only updates an existing draft, and autosave may not have saved
-    // one (debounce still pending, or every save failed). Same write and same
-    // session as autosave, so it needs no elevated access.
-    const { error: draftError } = await supabase
-      .from('applications')
-      .upsert(
-        { user_id: user.id, email: user.email.toLowerCase() },
-        { onConflict: 'user_id', ignoreDuplicates: true }
-      );
+    const stampedAt = new Date();
+    const indemnificationPath = `${user.id}/${input.submissionId}.pdf`;
+    const indemnificationPdf = await previewFilledForm(toIndemnificationApplicant(data), stampedAt);
+    const { error: uploadError } = await serviceClient.storage
+      .from('indemnifications')
+      .upload(indemnificationPath, indemnificationPdf, { contentType: 'application/pdf', upsert: true });
 
-    if (draftError) {
-      console.error('Draft row error:', draftError);
-      return { ok: false, code: 'server', error: `Couldn't prepare application: ${draftError.message}` };
+    if (uploadError) {
+      console.error('Indemnification upload error:', uploadError);
+      return { ok: false, code: 'server', error: 'Failed to store the indemnification form' };
     }
 
     const { data: rpcResult, error: rpcError } = await serviceClient.rpc('reg_submit_application', {
@@ -432,12 +484,16 @@ export async function submitApplication(input: {
       p_consent_privacy: data.consent_privacy,
       p_consent_photo: data.consent_photo ?? null,
       p_share_resume_with_sponsors: data.share_resume_with_sponsors ?? null,
+      p_consent_indemnification: data.consent_indemnification,
+      p_indemnification_path: indemnificationPath,
+      p_stamped_at: stampedAt.toISOString(),
+      p_email: user.email.toLowerCase(),
       p_user_id: user.id,
     });
 
     if (rpcError) {
       console.error('Submit RPC error:', rpcError);
-      return { ok: false, code: 'server', error: `Failed to submit application: ${rpcError.message}` };
+      return { ok: false, code: 'server', error: 'Failed to submit application' };
     }
 
     const response = rpcResult as { ok?: boolean; error?: string; application_id?: string; submitted_at?: string };
@@ -449,8 +505,13 @@ export async function submitApplication(input: {
       if (response.error === 'applications_closed') {
         return { ok: false, code: 'locked', error: 'Applications are closed' };
       }
-      if (response.error === 'no_draft_found') {
-        return { ok: false, code: 'server', error: 'No draft application found. Please save a draft first.' };
+      if (response.error === 'indemnification_required') {
+        return {
+          ok: false,
+          code: 'validation',
+          error: 'You must accept the indemnification form',
+          fieldErrors: { consent_indemnification: ['You must accept the indemnification form'] },
+        };
       }
       return { ok: false, code: 'server', error: response.error };
     }
