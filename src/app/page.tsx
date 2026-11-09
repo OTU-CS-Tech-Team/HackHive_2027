@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
@@ -58,8 +59,9 @@ export default function Home() {
           <HeroCTA />
         </Suspense>
       </section>
-      
+
       <SponsorsSection />
+      <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
       <SpeakersSection />
       <HackHive2025Section />
       <FaqSection />
