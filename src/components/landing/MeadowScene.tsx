@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { Component, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { Canvas } from "@react-three/fiber";
+import { LinearSRGBColorSpace, NoToneMapping } from "three";
+import MeadowWorld from "@/components/landing/meadow/World";
+import { countsFor, detectQuality, webglAvailable, type Quality } from "@/components/landing/meadow/quality";
 
-/**
- * STUB for Jiwoo's Three.js meadow. This file must not import three.
- * Replace the whole component; keep the props. One warm light, no sunset shift.
- * `progress` is only the hero walk and is 1 at the hand-off into chapter 2.
- * The scene pauses while it is off screen so a later render loop can stop with it.
- */
+const FALLBACK =
+  "linear-gradient(180deg, #e2f2f8 0%, #d7eef8 20%, #f4e4b4 48%, #c5de8a 70%, #78a84a 100%)";
+const EYE = 1.62;
+const START = 4.6;
+
 export type MeadowSceneProps = {
   progress: RefObject<number>;
   pointer: RefObject<{ x: number; y: number }>;
@@ -17,38 +20,154 @@ export type MeadowSceneProps = {
   className?: string;
 };
 
+type BoundaryProps = { children: ReactNode; onFail: () => void };
+type BoundaryState = { failed: boolean };
+
+class SceneBoundary extends Component<BoundaryProps, BoundaryState> {
+  state: BoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): BoundaryState {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    this.props.onFail();
+  }
+
+  render() {
+    if (this.state.failed) return null;
+    return this.props.children;
+  }
+}
+
+function Fallback() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      aria-hidden
+      style={{
+        backgroundColor: "#e2f2f8",
+        backgroundImage: `url(/path/poster.webp), ${FALLBACK}`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    />
+  );
+}
+
+function subscribeReduced(onStoreChange: () => void) {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  query.addEventListener("change", onStoreChange);
+  return () => query.removeEventListener("change", onStoreChange);
+}
+
+function reducedSnapshot() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function useSystemReducedMotion(override: boolean | undefined) {
+  const system = useSyncExternalStore(subscribeReduced, reducedSnapshot, () => false);
+  return override ?? system;
+}
+
 export default function MeadowScene({
   progress,
   pointer,
-  reducedMotion = false,
-  quality = "high",
+  reducedMotion,
+  quality,
   onReady,
   className,
 }: MeadowSceneProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const pausedRef = useRef(true);
+  const readyRef = useRef(false);
+  const [supported] = useState(webglAvailable);
+  const [lost, setLost] = useState(false);
+  const [running, setRunning] = useState(true);
+  const [tier] = useState<Quality>(() => quality ?? detectQuality());
+  const reduced = useSystemReducedMotion(reducedMotion);
+  const counts = countsFor(quality ?? tier);
+
+  const onReadyRef = useRef(onReady);
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
+  const markReady = useCallback(() => {
+    if (readyRef.current) return;
+    readyRef.current = true;
+    onReadyRef.current?.();
+  }, []);
+
+  useEffect(() => {
+    if (!supported) markReady();
+  }, [markReady, supported]);
 
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+    let onScreen = true;
+    let visible = document.visibilityState !== "hidden";
+    const sync = () => setRunning(onScreen && visible);
     const observer = new IntersectionObserver(([entry]) => {
-      pausedRef.current = entry ? !entry.isIntersecting : true;
-    });
+      onScreen = Boolean(entry?.isIntersecting);
+      sync();
+    }, { threshold: 0.01 });
     observer.observe(el);
-    onReady?.();
-    return () => observer.disconnect();
-  }, [onReady, pointer, progress]);
+    const onVisibility = () => {
+      visible = document.visibilityState !== "hidden";
+      sync();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  const frameLoop = !running ? "never" : reduced ? "demand" : "always";
 
   return (
     <div
       ref={rootRef}
-      className={`absolute inset-0 ${className ?? ""}`}
-      data-meadow-stub=""
-      data-quality={quality}
-      data-reduced={reducedMotion ? "true" : "false"}
+      className={`pointer-events-none absolute inset-0 overflow-hidden ${className ?? ""}`}
       aria-hidden
     >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,#d7eef8_0%,#f4e4b4_40%,#b7d57a_72%,#8fbe58_100%)]" />
+      {supported ? (
+        <SceneBoundary onFail={() => { setLost(true); markReady(); }}>
+          <Canvas
+            className="pointer-events-none"
+            style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+            dpr={[1, counts.dpr]}
+            frameloop={lost ? "never" : frameLoop}
+            gl={{
+              antialias: counts.antialias,
+              alpha: false,
+              stencil: false,
+              powerPreference: "high-performance",
+              failIfMajorPerformanceCaveat: false,
+            }}
+            camera={{ fov: 42, near: 0.08, far: 160, position: [0, EYE, START] }}
+            onCreated={({ gl }) => {
+              gl.outputColorSpace = LinearSRGBColorSpace;
+              gl.toneMapping = NoToneMapping;
+              gl.domElement.style.pointerEvents = "none";
+              gl.domElement.addEventListener("webglcontextlost", (event) => {
+                event.preventDefault();
+                setLost(true);
+                markReady();
+              });
+            }}
+          >
+            <MeadowWorld
+              quality={quality ?? tier}
+              progress={progress}
+              pointer={pointer}
+              reduced={reduced}
+              onReady={markReady}
+            />
+          </Canvas>
+        </SceneBoundary>
+      ) : null}
+      {!supported || lost ? <Fallback /> : null}
     </div>
   );
 }
