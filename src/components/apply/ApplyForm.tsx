@@ -84,6 +84,21 @@ function mergeLocalDraft(baseData: FormData, localData: Record<string, unknown>)
   } as FormData;
 }
 
+// Server keys are paths like "teammate_emails.0"; each input shows one message.
+function firstErrors(fieldErrors: Record<string, string[]>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(fieldErrors).map(([path, messages]) => [path.split(".")[0], messages[0]])
+  );
+}
+
+function focusField(name: string) {
+  const element = document.querySelector(`[name="${name}"]`);
+  if (element instanceof HTMLElement) {
+    element.focus();
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
 export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, serverNow, deadlinePassed }: ApplyFormProps) {
   const router = useRouter();
   const formStartedAt = useRef<number>(serverNow);
@@ -155,13 +170,20 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
 
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const performSaveDraft = useCallback(async (data: FormData) => {
-    const draftFields = buildDraftPayload(data);
-    const result = await saveDraft(draftFields);
-    if (result.ok) {
-      setLastSaved(new Date(result.savedAt));
-      setSaveError(null);
-    } else {
+  const persistDraft = useCallback(async (fields: Record<string, unknown>) => {
+    try {
+      const result = await saveDraft(fields);
+      if (result.ok) {
+        setLastSaved(new Date(result.savedAt));
+        setSaveError(null);
+        return;
+      }
+      const { fieldErrors } = result;
+      if (fieldErrors) {
+        setErrors((prev) => ({ ...prev, ...firstErrors(fieldErrors) }));
+      }
+      setSaveError(fieldErrors ? "Couldn't save draft. Check the highlighted fields." : "Couldn't save draft");
+    } catch {
       setSaveError("Couldn't save draft");
     }
   }, []);
@@ -174,24 +196,16 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current, userId);
 
     saveTimeoutRef.current = setTimeout(() => {
-      enqueueSaveDraft(() => performSaveDraft(data));
+      enqueueSaveDraft(() => persistDraft(buildDraftPayload(data)));
     }, 2000);
-  }, [performSaveDraft, userId]);
+  }, [persistDraft, userId]);
 
   const saveResumePath = useCallback((path: string | null, currentData: FormData) => {
     const updatedData = { ...currentData, resume_path: path };
     saveDraftToLocalStorage(updatedData as unknown as Record<string, unknown>, submissionIdRef.current, userId);
-    
-    enqueueSaveDraft(async () => {
-      const result = await saveDraft({ resume_path: path });
-      if (result.ok) {
-        setLastSaved(new Date(result.savedAt));
-        setSaveError(null);
-      } else {
-        setSaveError("Couldn't save draft");
-      }
-    });
-  }, [userId]);
+
+    enqueueSaveDraft(() => persistDraft({ resume_path: path }));
+  }, [persistDraft, userId]);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => {
@@ -254,20 +268,17 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      const firstErrorField = Object.keys(newErrors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element instanceof HTMLElement) {
-        element.focus();
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      focusField(Object.keys(newErrors)[0]);
       return false;
     }
 
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Read now: currentTarget is gone once this handler awaits.
+    const website = String(new FormData(e.currentTarget).get("website") ?? "");
 
     if (isSubmitting) return;
 
@@ -327,7 +338,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         },
         turnstileToken,
         startedAt: formStartedAt.current || Date.now(),
-        website: "",
+        website,
         submissionId: submissionIdRef.current,
       });
 
@@ -336,14 +347,15 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         router.push("/apply/confirmation");
       } else {
         const errorCode = result.code as ErrorCode;
-        setSubmitError(ERROR_MESSAGES[errorCode] || result.error);
+        const fieldErrors = result.fieldErrors ? firstErrors(result.fieldErrors) : null;
+        const [firstField, firstMessage] = Object.entries(fieldErrors ?? {})[0] ?? [];
+        // "server" covers several failures, so keep the reason visible in reports.
+        const summary = errorCode === "server" ? `${ERROR_MESSAGES.server} (${result.error})` : ERROR_MESSAGES[errorCode] || result.error;
+        setSubmitError([summary, firstMessage].filter(Boolean).join(" "));
 
-        if (result.fieldErrors) {
-          setErrors(
-            Object.fromEntries(
-              Object.entries(result.fieldErrors).map(([k, v]) => [k, v[0]])
-            )
-          );
+        if (fieldErrors) {
+          setErrors(fieldErrors);
+          focusField(firstField);
         }
 
         setTurnstileToken(null);
@@ -356,8 +368,9 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           router.push("/apply/status");
         }
       }
-    } catch {
-      setSubmitError(ERROR_MESSAGES.server);
+    } catch (error) {
+      console.error("submitApplication failed:", error);
+      setSubmitError(ERROR_MESSAGES.network);
       setTurnstileToken(null);
       turnstileRef.current?.reset();
     } finally {
@@ -551,6 +564,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           min={0}
           max={100}
           description="Including this one, if accepted"
+          error={errors.hackathons_count}
         />
         <FormField
           label="LinkedIn URL"
@@ -560,6 +574,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("linkedin_url", v)}
           maxLength={FIELD_LIMITS.linkedin_url}
           placeholder="https://linkedin.com/in/..."
+          error={errors.linkedin_url}
         />
         <FormField
           label="GitHub URL"
@@ -569,6 +584,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("github_url", v)}
           maxLength={FIELD_LIMITS.github_url}
           placeholder="https://github.com/..."
+          error={errors.github_url}
         />
         <FormField
           label="Portfolio URL"
@@ -578,6 +594,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("portfolio_url", v)}
           maxLength={FIELD_LIMITS.portfolio_url}
           placeholder="https://..."
+          error={errors.portfolio_url}
         />
         <ResumeUpload
           value={formData.resume_path}
@@ -632,6 +649,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           <TeammateEmails
             value={formData.teammate_emails}
             onChange={(v) => updateField("teammate_emails", v)}
+            error={errors.teammate_emails}
           />
         )}
       </FormSection>

@@ -359,6 +359,8 @@ The `createServiceClient()` function creates a sessionless Supabase client:
 | `RATE_LIMIT_HASH_SECRET` | Yes | Secret for hashing IPs/emails |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Yes | Turnstile site key |
 | `TURNSTILE_SECRET_KEY` | Yes | Turnstile secret key |
+| `RESEND_API_KEY` | Yes | Resend API key for admission decision emails |
+| `RESEND_FROM_EMAIL` | Yes | Sender for decision emails, e.g. `HackHive <hello@example.com>` |
 
 ## Field Renames from Original Spec
 

@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   }),
   outputFileTracingIncludes: {
     "/apply": ["./src/lib/indemnification/template.pdf"],
+    // Email logos are attached to every email, and emails go out from several routes.
+    "/**": ["./public/email/*.png"],
   },
   cacheComponents: true,
   partialPrefetching: true,

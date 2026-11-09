@@ -4,6 +4,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Tailwind v4 leaves controls on the default arrow. In the base layer so
+   utilities like disabled:cursor-not-allowed still win. */
+@layer base {
+  button:enabled,
+  [role="button"],
+  summary,
+  select:enabled,
+  input[type="checkbox"]:enabled,
+  input[type="radio"]:enabled,
+  input[type="file"]:enabled,
+  input[type="file"]:enabled::file-selector-button,
+  input[type="checkbox"]:enabled + label,
+  input[type="radio"]:enabled + label,
+  label:has(input[type="checkbox"]:enabled, input[type="radio"]:enabled) {
+    cursor: pointer;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }

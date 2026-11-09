@@ -1,6 +1,8 @@
+import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import ts from 'typescript';
 import { z } from 'zod';
 
@@ -75,18 +77,32 @@ export function parseMuseumSource(source) {
   return { years: years.sort((a, b) => b - a), projects };
 }
 
-export async function syncMuseum({ root = fileURLToPath(new URL('../', import.meta.url)), fetcher = fetch } = {}) {
+// Asks git, not the GitHub REST API: unauthenticated API calls are capped at 60 an hour
+// per IP, and Vercel's shared build machines hit that cap (403) and fail the build.
+async function latestCommit() {
+  const { stdout } = await promisify(execFile)(
+    'git',
+    ['ls-remote', `https://github.com/${SOURCE_REPOSITORY}.git`, 'refs/heads/main'],
+    { timeout: 30_000 },
+  );
+  return stdout.split(/\s/)[0];
+}
+
+export async function syncMuseum({
+  root = fileURLToPath(new URL('../', import.meta.url)),
+  fetcher = fetch,
+  resolveCommit = latestCommit,
+} = {}) {
   async function request(url) {
     const response = await fetcher(url, {
       signal: AbortSignal.timeout(30_000),
-      headers: { 'User-Agent': 'HackHive-museum-sync', Accept: 'application/vnd.github+json' },
+      headers: { 'User-Agent': 'HackHive-museum-sync' },
     });
     if (!response.ok) throw new Error(`Museum sync failed (${response.status}): ${url}`);
     return response;
   }
 
-  const revision = await (await request(`https://api.github.com/repos/${SOURCE_REPOSITORY}/commits/main`)).json();
-  const commit = z.string().regex(/^[a-f0-9]{40}$/).parse(revision.sha);
+  const commit = z.string().regex(/^[a-f0-9]{40}$/).parse(await resolveCommit());
   const dataUrl = `${RAW_ROOT}/${commit}/${SOURCE_PATH}`;
   const { years, projects } = parseMuseumSource(await (await request(dataUrl)).text());
   const thumbnails = [...new Set(projects.flatMap((project) => project.thumbnail ? [project.thumbnail] : []))];

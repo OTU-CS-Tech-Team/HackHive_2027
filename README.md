@@ -1,6 +1,28 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Reviewing applicants
+
+Open **Review applicants** from `/admin`, or visit `/admin/applicants`. Pending
+applicants are listed oldest first. Use the tabs to switch status, and search by
+name, email or school. **View application** shows the full application and resume.
+
+**Accept**, **Waitlist** and **Reject** save straight away and email the applicant
+through Resend, so they ask for confirmation first. Only accepted applicants (and
+admins) get the full `/dashboard`; the email to accepted applicants links to it.
+**Move to pending** emails nobody. If an email fails the decision stays saved and
+the page says so; use **Resend email** to try again.
+
+**Delete** permanently removes someone's account, application, profile, points,
+team posts and uploaded files, after you type `DELETE` to confirm. It can't be
+undone, and admin accounts are refused. Accounts with no application don't appear
+here, so remove those in Supabase.
+
+Decision emails need `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `NEXT_PUBLIC_SITE_URL`
+(the live site's origin; the accepted email's dashboard link is built
+from it) on the host, and resume links need `SUPABASE_SERVICE_ROLE_KEY`. See
+`.env.example` for the full list.
+
 ## Schedule deployment
 
 Apply the schedule migrations before deploying PR #15:

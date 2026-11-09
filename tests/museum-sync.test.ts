@@ -71,17 +71,16 @@ describe('CS Club museum content', () => {
     const root = await testDirectory();
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.endsWith('/commits/main')) return Response.json({ sha: commit });
       if (url.endsWith('/src/data/hackhive.ts')) return new Response(source());
       if (url.endsWith('/public/projects/shared-project.png')) return new Response('test-image');
       throw new Error(`Unexpected URL: ${url}`);
     });
-    await syncMuseum({ root, fetcher });
+    await syncMuseum({ root, fetcher, resolveCommit: async () => commit });
     const content = JSON.parse(await readFile(path.join(root, 'src/data/generated/hackhive.json'), 'utf8'));
     expect(content.source).toEqual({ repository: SOURCE_REPOSITORY, commit, path: 'src/data/hackhive.ts' });
     expect(content.projects[0].thumbnail).toBe('/museum/projects/shared-project.png');
     expect(await readFile(path.join(root, 'public/museum/projects/shared-project.png'), 'utf8')).toBe('test-image');
-    expect(fetcher.mock.calls.slice(1).map(([url]) => String(url)))
+    expect(fetcher.mock.calls.map(([url]) => String(url)))
       .toEqual([
         `https://raw.githubusercontent.com/${SOURCE_REPOSITORY}/${commit}/src/data/hackhive.ts`,
         `https://raw.githubusercontent.com/${SOURCE_REPOSITORY}/${commit}/public/projects/shared-project.png`,
@@ -95,11 +94,10 @@ describe('CS Club museum content', () => {
     await writeFile(path.join(generated, 'hackhive.json'), 'last good dataset');
     const fetcher = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.endsWith('/commits/main')) return Response.json({ sha: commit });
       if (url.endsWith('/src/data/hackhive.ts')) return new Response(source());
       return new Response('missing', { status: 404 });
     });
-    await expect(syncMuseum({ root, fetcher })).rejects.toThrow(/404/);
+    await expect(syncMuseum({ root, fetcher, resolveCommit: async () => commit })).rejects.toThrow(/404/);
     expect(await readFile(path.join(generated, 'hackhive.json'), 'utf8')).toBe('last good dataset');
   });
 });
