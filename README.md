@@ -117,8 +117,8 @@ leaving the year, hiding the tab, or navigating away removes the player.
 
 The first project and its polygon constellation appear immediately. The shapes
 stay quiet and unfilled so the projects remain prominent. A black canvas sky
-opens with a brief flight through distant stars, then settles into a slow depth
-drift. It pauses when the tab is hidden and renders a still sky for reduced motion.
+opens with a brief flight through distant stars, then continues a visible forward flight with depth-scaled star streaks.
+Scrolling briefly accelerates the flight. It pauses when the tab is hidden and renders a still sky for reduced motion.
 There is no comet or moving pointer on the constellations. The year marker writes
 each year, then scribbles over and replaces it in one slot. Year links stay fixed
 at the bottom for direct navigation. Existing project controls and video cleanup
