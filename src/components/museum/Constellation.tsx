@@ -18,7 +18,8 @@ export default function Constellation({ collection, active, revealed, reducedMot
 }) {
   const { projects, year } = collection;
   const shape = useMemo(() => constellationFor(year, projects.length), [year, projects.length]);
-  const order = useMemo(() => clockwiseOrder(shape.points), [shape]);
+  const hosts = useMemo(() => shape.points.slice(0, projects.length), [shape, projects.length]);
+  const order = useMemo(() => clockwiseOrder(hosts), [hosts]);
   const [selected, setSelected] = useState(0);
   const [paused, setPaused] = useState(false);
   const [watching, setWatching] = useState(false);
@@ -28,7 +29,7 @@ export default function Constellation({ collection, active, revealed, reducedMot
   const touring = active && !paused && !watching && !focused && !reducedMotion && projects.length > 1;
   const to = shape.points[selected];
   // Keep neighboring star targets from intercepting each other on small maps.
-  const hitSizes = shape.points.map((point, index) => Math.min(100, ...shape.points
+  const hitSizes = hosts.map((point, index) => Math.min(100, ...hosts
     .filter((_, other) => other !== index)
     .map(other => Math.hypot((point.x - other.x) / 10, (point.y - other.y) / 8) * .85)));
 
@@ -62,6 +63,8 @@ export default function Constellation({ collection, active, revealed, reducedMot
             <span className={styles.star} aria-hidden="true" />
             <span className={styles.nodeText}>{item.title}</span>
           </button>)}
+          {shape.points.slice(projects.length).map((point, index) => <span key={index} className={styles.faintStar} aria-hidden="true"
+            style={{ left: `${point.x / 10}%`, top: `${point.y / 8}%` }} />)}
         </div>
       </div>
       <article className={styles.preview} aria-label={`${year} featured project`}>
