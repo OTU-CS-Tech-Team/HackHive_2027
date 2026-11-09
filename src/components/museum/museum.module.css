@@ -3,6 +3,7 @@
   --ink: #fff6e0;
   --muted: #b0a48d;
   --signal: #f5b83d;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   position: relative;
   isolation: isolate;
   display: grid;
@@ -39,25 +40,36 @@
 .scene[data-revealed='true'] { opacity: 1; transform: none; }
 .starMap { position: absolute; left: -2%; right: 47%; top: 50%; aspect-ratio: 5 / 4; transform: translateY(-50%); }
 .mapLines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.starPath { fill: none; stroke: #e8d9b5; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: .6; stroke-dasharray: 0 1; }
-/* Grow the dash to a gap-free "1 0" so the line always ends solid, even where non-scaling-stroke dashes misbehave. */
-.scene[data-revealed='true'] .starPath { animation: draw 2.5s cubic-bezier(.25,.1,.25,1) both; }
+.starPath { fill: none; stroke: #e8d9b5; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: .6; stroke-dasharray: 0 1; transition: stroke .3s ease, opacity .3s ease; }
+/* revealPlan times each line to grow from the star it leaves; the dash ends gap-free ("1 0") so lines finish solid
+   even where non-scaling-stroke dashes misbehave. Tethers share their star's flight, so the tip rides the star. */
+.scene[data-revealed='true'] .starPath { animation: draw var(--dur) var(--ease-out) var(--delay) both; }
+.line[data-lit] .starPath { stroke: var(--signal); opacity: .9; }
+.tether { fill: none; stroke: #e8d9b5; stroke-width: 1px; vector-effect: non-scaling-stroke; opacity: 0; stroke-dasharray: 0 1; }
+.scene[data-revealed='true'] .tether { animation: draw var(--dur) var(--ease-out) var(--delay) both, tetherFade .8s ease var(--fade) both; }
 .lineHit { fill: none; stroke: transparent; stroke-width: 20; pointer-events: stroke; }
 .line:hover .starPath { stroke: var(--signal); stroke-width: 1.5px; opacity: 1; filter: drop-shadow(0 0 5px #f5b83d80); }
-.nodes { position: absolute; inset: 0; pointer-events: none; }
-.node { pointer-events: auto; position: absolute; z-index: 2; display: grid; place-items: center; width: 48px; height: 48px; transform: translate(-50%,-50%); padding: 0; border: 0; background: transparent; color: #c6b99e; }
-.star { position: relative; display: block; width: 4px; height: 4px; border-radius: 50%; background: #fff1d0; box-shadow: 0 0 9px #fff0cc4d; transition: background .5s, box-shadow .5s; }
+.nodes { position: absolute; inset: 0; pointer-events: none; container-type: size; }
+.origin { position: absolute; width: 18px; height: 18px; border: 1px solid var(--signal); border-radius: 50%; translate: -50% -50%; opacity: 0; }
+.scene[data-revealed='true'] .origin { animation: origin 1.2s var(--ease-out) both; }
+/* Centred with `translate` so the fly-in `transform` scales about the star itself. */
+.node { pointer-events: auto; position: absolute; z-index: 2; display: grid; place-items: center; width: 48px; height: 48px; translate: -50% -50%; padding: 0; border: 0; background: transparent; color: #c6b99e; }
+.scene[data-revealed='true'] :is(.node, .faintStar) { animation: fly var(--dur) var(--ease-out) var(--delay) both; }
+.star { position: relative; display: block; width: 4px; height: 4px; border-radius: 50%; background: #fff1d0; box-shadow: 0 0 9px #fff0cc4d; transition: background .5s, box-shadow .5s, scale .3s var(--ease-out); }
 .star::before, .star::after { content: ''; position: absolute; top: 50%; left: 50%; width: 15px; height: 1px; background: #fff2d040; transform: translate(-50%,-50%); }
 .star::after { transform: translate(-50%,-50%) rotate(90deg); }
-.node[aria-pressed='true'] .star, .node:hover .star { background: #ffdf8a; box-shadow: 0 0 4px #ffe9b7, 0 0 18px #f5b83d7a, 0 0 34px #f5b83d24; }
+.node[data-near] .star { background: #ffe7a8; box-shadow: 0 0 10px #f5b83d59; }
+.node[aria-pressed='true'] .star, .node:hover .star { background: #ffdf8a; box-shadow: 0 0 4px #ffe9b7, 0 0 18px #f5b83d7a, 0 0 34px #f5b83d24; scale: 1.25; }
 .node[aria-pressed='true'] .star::before, .node[aria-pressed='true'] .star::after { width: 23px; background: #f5b83d80; }
-.faintStar { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff1d0; opacity: .6; box-shadow: 0 0 6px #fff0cc40; transform: translate(-50%,-50%); }
+.faintStar { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff1d09c; box-shadow: 0 0 6px #fff0cc26; translate: -50% -50%; transition: background .3s ease, box-shadow .3s ease; }
+.faintStar[data-lit] { background: #ffdf8a; box-shadow: 0 0 8px #f5b83d99; }
 .nodeText { position: absolute; top: 43px; left: 50%; width: 145px; transform: translate(-50%, 3px); font-size: 11px; line-height: 1.4; text-align: center; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; }
 .node[aria-pressed='true'] .nodeText, .node:hover .nodeText, .node:focus-visible .nodeText { opacity: 1; transform: translate(-50%, 0); }
 .node[data-label-align='start'] .nodeText { left: 0; transform: translateY(3px); }
 .node[data-label-align='end'] .nodeText { left: auto; right: 0; transform: translateY(3px); }
 .node:is([data-label-align='start'], [data-label-align='end']):is([aria-pressed='true'], :hover, :focus-visible) .nodeText { transform: none; }
 .preview { position: absolute; right: 1%; top: 50%; z-index: 3; width: clamp(310px, 36vw, 560px); transform: translateY(-50%); }
+.scene[data-revealed='true'] .preview { animation: slideIn .9s var(--ease-out) .3s both; }
 .media { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: #0b0905; }
 .poster { width: 100%; height: 100%; object-fit: cover; }
 .facade { position: absolute; inset: 0; display: block; width: 100%; border: 0; background: #0b0905; color: #fff; padding: 0; }
@@ -82,6 +94,10 @@
 @keyframes scribble { to { stroke-dashoffset: 0; } }
 @keyframes trace { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes draw { to { stroke-dasharray: 1 0; } }
+@keyframes fly { from { transform: translate(var(--dx), var(--dy)) scale(.4); opacity: 0; } }
+@keyframes tetherFade { from { opacity: .45; } to { opacity: 0; } }
+@keyframes origin { 0% { opacity: 0; scale: .3; } 20% { opacity: .9; scale: 1; } 100% { opacity: 0; scale: 2.4; } }
+@keyframes slideIn { from { translate: 40px 0; opacity: 0; } }
 @keyframes arrive { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (max-width: 1100px) {
   .museum { grid-template-columns: 125px minmax(0,1fr); padding-inline: 22px; }
