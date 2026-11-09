@@ -1,9 +1,10 @@
 "use client";
 
-import { Children, cloneElement, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode, type RefObject } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { smoothstep, TRAIL_MOTION } from "@/app/prototype/path/motion";
+import { HeroMeadow } from "@/components/landing/HeroMeadow";
 import { FINAL_WASH } from "@/components/path/chapters";
 import { Curtain } from "@/components/path/Curtain";
 import { zoomScale } from "@/components/path/math";
@@ -84,6 +85,81 @@ function LayerStack({
   );
 }
 
+function trackPointer(
+  root: HTMLElement,
+  pointerRef: RefObject<{ x: number; y: number }>,
+  mobile: boolean,
+) {
+  const target = { x: 0, y: 0 };
+  const current = pointerRef.current;
+  let gyro = false;
+  let hovering = false;
+  const hero = root.querySelector<HTMLElement>("[data-hero-parallax]");
+
+  const onPointer = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    hovering = true;
+    const width = window.innerWidth || 1;
+    const height = window.innerHeight || 1;
+    target.x = Math.max(-1, Math.min(1, (event.clientX / width) * 2 - 1));
+    target.y = Math.max(-1, Math.min(1, (event.clientY / height) * 2 - 1));
+  };
+  const onLeave = () => {
+    hovering = false;
+    target.x = 0;
+    target.y = 0;
+  };
+  window.addEventListener("pointermove", onPointer, { passive: true });
+  document.documentElement.addEventListener("pointerleave", onLeave);
+
+  const onOrient = (event: DeviceOrientationEvent) => {
+    if (event.gamma == null) return;
+    gyro = true;
+    target.x = Math.max(-1, Math.min(1, event.gamma / 28));
+    target.y = Math.max(-1, Math.min(1, ((event.beta ?? 0) - 40) / 35));
+  };
+  const askGyro = () => {
+    const orientation = DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<string>;
+    };
+    if (typeof orientation.requestPermission !== "function") return;
+    orientation.requestPermission().then((state) => {
+      if (state === "granted") window.addEventListener("deviceorientation", onOrient, { passive: true });
+    }).catch(() => {});
+  };
+  if (mobile) {
+    window.addEventListener("deviceorientation", onOrient, { passive: true });
+    window.addEventListener("pointerdown", askGyro, { once: true, passive: true });
+  }
+
+  const tick = () => {
+    if (mobile && !gyro && !hovering) {
+      const time = gsap.ticker.time;
+      target.x = Math.sin(time * 0.32) * 0.16;
+      target.y = Math.cos(time * 0.24) * 0.1;
+    }
+    if (!current) return;
+    const dx = target.x - current.x;
+    const dy = target.y - current.y;
+    if (Math.abs(dx) < 0.0015 && Math.abs(dy) < 0.0015) return;
+    current.x += dx * 0.35;
+    current.y += dy * 0.35;
+    if (hero) {
+      hero.style.transform = `translate3d(${(current.x * 14).toFixed(2)}px, ${(current.y * 8).toFixed(2)}px, 0)`;
+    }
+  };
+  gsap.ticker.add(tick);
+
+  return () => {
+    gsap.ticker.remove(tick);
+    window.removeEventListener("pointermove", onPointer);
+    document.documentElement.removeEventListener("pointerleave", onLeave);
+    window.removeEventListener("deviceorientation", onOrient);
+    window.removeEventListener("pointerdown", askGyro);
+    if (hero) hero.style.transform = "";
+  };
+}
+
 function markRange(el: HTMLElement) {
   const trigger = ScrollTrigger.getAll().find((item) => item.trigger === el);
   if (!trigger) return;
@@ -100,12 +176,16 @@ function paintSpacer(el: HTMLElement) {
 export function PathScroll({
   chapters,
   children,
+  poster = false,
 }: {
   chapters: PathChapter[];
   children: ReactNode;
+  poster?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const wallsReady = useRef(false);
+  const progressRef = useRef(0);
+  const pointerRef = useRef({ x: 0, y: 0 });
   const [showWalls, setShowWalls] = useState(false);
   const panels = Children.toArray(children);
 
@@ -265,6 +345,7 @@ export function PathScroll({
                 if (self.isActive) setDots(shownIndex(self.progress));
               },
               onUpdate: (self) => {
+                if (isTrailhead) progressRef.current = self.progress;
                 if (self.progress >= TRAIL_MOTION.mountAt) mountWalls();
                 const id = el.dataset.pathChapter;
                 if (id && (self.isActive || self.progress > 0)) armArt(root, id, !mobile);
@@ -299,7 +380,9 @@ export function PathScroll({
             );
           });
 
-          if (wash) timeline.to(wash, { opacity: 0.62, duration: isLast ? 1 : TRAIL_MOTION.walkEnd }, 0);
+          if (wash && !isTrailhead) {
+            timeline.to(wash, { opacity: 0.62, duration: isLast ? 1 : TRAIL_MOTION.walkEnd }, 0);
+          }
 
           if (!isLast && curtain && left && right && world) {
             const closeSpan = TRAIL_MOTION.closeEnd - TRAIL_MOTION.closeStart;
@@ -355,6 +438,8 @@ export function PathScroll({
           );
         }
 
+        const stopPointer = reduce ? () => {} : trackPointer(root, pointerRef, mobile);
+
         const publish = () => {
           ScrollTrigger.refresh();
           chapterEls.forEach(markRange);
@@ -367,6 +452,7 @@ export function PathScroll({
         requestAnimationFrame(publish);
 
         return () => {
+          stopPointer();
           document.removeEventListener("click", onClick, true);
           window.removeEventListener("hashchange", onHash);
           root.dataset.pathReady = "false";
@@ -439,8 +525,14 @@ export function PathScroll({
                 </div>
               ) : null}
               <div className={styles.world} data-world="">
-                <LayerStack chapter={chapter} kind="world" />
-                <div className={styles.veil} data-light-wash="" style={{ background: wash }} />
+                {chapter.id === "trailhead" ? (
+                  <HeroMeadow progress={progressRef} pointer={pointerRef} poster={poster} />
+                ) : (
+                  <LayerStack chapter={chapter} kind="world" />
+                )}
+                {chapter.id === "trailhead" ? null : (
+                  <div className={styles.veil} data-light-wash="" style={{ background: wash }} />
+                )}
                 <div
                   className={styles.content}
                   data-chapter-content=""

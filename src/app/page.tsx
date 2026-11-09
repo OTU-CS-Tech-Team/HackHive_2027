@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
@@ -13,10 +15,12 @@ import {
   TrailheadPanel,
 } from "@/components/path/panels";
 
+const HAS_POSTER = existsSync(path.join(process.cwd(), "public/path/poster.webp"));
+
 export default function Home() {
   return (
     <main>
-      <PathScroll chapters={PATH_CHAPTERS}>
+      <PathScroll chapters={PATH_CHAPTERS} poster={HAS_POSTER}>
         <TrailheadPanel />
         <AboutPanel />
         <TracksPanel />
