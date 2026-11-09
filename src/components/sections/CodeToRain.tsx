@@ -52,10 +52,10 @@ namespace SysCore {
 }`.split("\n");
 
 const EXPLODE_AT = 0.58; // scroll progress where the shatter starts
-const EXPLODE_LEN = 0.1; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
-const FADE_LEN = 0.05 // extra scroll after the travel before the shards are gone
-const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.2; // judges section starts sliding up here
-const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.65; // shards begin fading here
+const EXPLODE_LEN = 0.3; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
+const FADE_LEN = 0.06; // extra scroll after the travel before the shards are gone
+const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.55; // judges section starts sliding up here
+const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.7; // shards begin fading here
 const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges section cuts in
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
 const ANIM_VH = 6; // scroll distance (in screen heights) the whole sequence is scrubbed over
@@ -126,7 +126,7 @@ export function CodeToRain() {
 
     // Glass shards: jittered grid, each cell split into two triangles.
     function makeChunks() {
-      const gx = 7, gy = 5;
+      const gx = 9, gy = 6;
       const V: Pt[][] = [];
       for (let j = 0; j <= gy; j++) {
         V.push([]);
@@ -232,7 +232,7 @@ export function CodeToRain() {
       sp = reduced ? target : sp + (target - sp) * Math.min(1, dt * 10);
       const p = sp;
       ctx!.clearRect(0, 0, W, H);
-      ctx!.fillStyle = "#14110b";
+      ctx!.fillStyle = "#020503";
       ctx!.fillRect(0, 0, W, H);
       if (hint) hint.style.opacity = p < 0.02 ? "0.7" : "0";
 
@@ -244,7 +244,7 @@ export function CodeToRain() {
       // The judges section (with its own gavel rain) slides up over the pinned stage and fades in.
       // 0 = parked one screen below, 1 = in place. CSS on the section reads --judges-in.
       const slide = reduced ? (p >= FADE_END ? 1 : 0) : ss(SLIDE_START, FADE_END, p);
-      host.style.setProperty("--judges-in", slide.toFixed(4));
+      host!.style.setProperty("--judges-in", slide.toFixed(4));
       const reveal = p >= FADE_END ? 1 : 0; // shards are gone: stop drawing them
       const total = glyphs.length;
       const shown = Math.floor(typeP * total);
@@ -267,7 +267,7 @@ export function CodeToRain() {
             else ctx!.moveTo(cx + w[0], cy + w[1]);
           });
           ctx!.closePath();
-          ctx!.fillStyle = "#090a03";
+          ctx!.fillStyle = "#030a05";
           ctx!.fill();
           ctx!.shadowColor = `rgba(80,255,140,${0.2 + d * 0.6})`;
           ctx!.shadowBlur = 14 + d * 40;
@@ -292,9 +292,9 @@ export function CodeToRain() {
               else ctx!.moveTo(w[0] - wc[0], w[1] - wc[1]);
             });
             ctx!.closePath();
-            ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#090a03";
+            ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#030a05";
             ctx!.fill();
-            ctx!.shadowColor = "rgba(235, 255, 80, 0.9)";
+            ctx!.shadowColor = "rgba(80,255,140,.9)";
             ctx!.shadowBlur = 10 + d * 30 + e * 10;
             ctx!.strokeStyle = `rgba(150,255,185,${0.3 + d * 0.3 + e * 0.4})`;
             ctx!.lineWidth = 1.5 + e * 1.5;
@@ -328,7 +328,7 @@ export function CodeToRain() {
           ctx!.rotate(rot);
           ctx!.scale(s, s);
           ctx!.fillStyle = `rgb(${(110 * sh) | 0},${(255 * sh) | 0},${(150 * sh) | 0})`;
-          ctx!.shadowColor = "rgba(239, 255, 100, 0.8)";
+          ctx!.shadowColor = "rgba(100,255,150,.8)";
           ctx!.shadowBlur = d * 10 + e * 14;
           ctx!.fillText(o.ch, 0, 0);
           ctx!.restore();
@@ -337,7 +337,7 @@ export function CodeToRain() {
         // typing cursor
         if (typeP < 1 && shown > 0 && d < 0.05 && Math.floor(now / 450) % 2) {
           const o = glyphs[shown - 1];
-          ctx!.fillStyle = "#ebff7d";
+          ctx!.fillStyle = "#7dffa0";
           ctx!.fillRect(o.x + cw, o.y - fs * 0.85, cw * 0.8, fs);
         }
       }
