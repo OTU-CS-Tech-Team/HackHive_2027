@@ -1,7 +1,7 @@
 import 'server-only';
 import { Resend } from 'resend';
 
-// Sends HackHive's own emails (item request updates) through Resend, the same way
+// Sends HackHive's own emails (application and item request updates) through Resend, the same way
 // the CS Club website does. Supabase only sends its fixed sign-in emails, not these.
 // Needs RESEND_API_KEY and RESEND_FROM_EMAIL in the environment; without a key,
 // emails are skipped and logged so nothing else breaks.
@@ -67,7 +67,13 @@ function itemsText(items: Item[]) {
   return itemLines(items).join('\n');
 }
 
-async function sendEmail(to: string, subject: string, html: string, text: string): Promise<{ sent: boolean; error?: string }> {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  attachments?: { filename: string; content: Uint8Array }[],
+): Promise<{ sent: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.error('RESEND_API_KEY not set — skipping email:', subject);
@@ -76,7 +82,7 @@ async function sendEmail(to: string, subject: string, html: string, text: string
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: resolveFrom(), to, subject, html: emailShell(html), text });
+    const { error } = await resend.emails.send({ from: resolveFrom(), to, subject, html: emailShell(html), text, attachments });
     if (error) {
       console.error('Resend error:', error);
       return { sent: false, error: error.message || 'Resend rejected the email.' };
@@ -86,6 +92,21 @@ async function sendEmail(to: string, subject: string, html: string, text: string
     console.error('Failed to send email:', error);
     return { sent: false, error: error instanceof Error ? error.message : 'Failed to send email.' };
   }
+}
+
+// Sent when a hacker submits their application, with the indemnification form they signed attached.
+export function sendApplicationReceivedEmail(to: string, { firstName, pdf }: { firstName: string; pdf: Uint8Array }) {
+  const body = "Thanks for applying to HackHive 2027! Your application is in, and we'll email you once a decision has been made.";
+  const attached = 'A copy of the indemnification form you signed is attached for your records.';
+  return sendEmail(
+    to,
+    'We got your HackHive application',
+    `<p style="margin:0 0 12px;">Hi ${escapeHtml(firstName)},</p>
+<p style="margin:0 0 12px;">${body}</p>
+<p style="margin:0;">${attached}</p>`,
+    `Hi ${firstName},\n\n${body}\n\n${attached}`,
+    [{ filename: 'HackHive-2027-Indemnification-Form.pdf', content: pdf }],
+  );
 }
 
 // Sent when a hacker submits an item request.

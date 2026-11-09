@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { sendApplicationReceivedEmail } from '@/lib/email';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getVerifiedUser } from '@/lib/auth/helpers';
 import {
@@ -521,6 +523,13 @@ export async function submitApplication(input: {
       // button reopens the editable form for an application that's already in.
       for (const path of ['/apply', '/apply/status', '/dashboard']) {
         revalidatePath(path);
+      }
+      // The RPC hands back the original submitted_at when this was a repeat submit, so
+      // only a fresh submission (stamped with our time) gets the email. Sent after the
+      // response, so a slow or failed email never holds up the form.
+      if (response.submitted_at && new Date(response.submitted_at).getTime() === stampedAt.getTime()) {
+        const to = user.email;
+        after(() => sendApplicationReceivedEmail(to, { firstName: data.first_name, pdf: indemnificationPdf }));
       }
       return {
         ok: true,

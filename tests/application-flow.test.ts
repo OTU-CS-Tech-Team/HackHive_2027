@@ -52,6 +52,8 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
 
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 vi.mock('next/cache', () => ({ revalidatePath }));
+vi.mock('next/server', () => ({ after: vi.fn() }));
+vi.mock('@/lib/email', () => ({ sendApplicationReceivedEmail: vi.fn() }));
 vi.mock('@/lib/auth/helpers', () => ({
   getVerifiedUser: async () => ({ id: 'user-1', email: 'Hacker@Test.com' }),
 }));
