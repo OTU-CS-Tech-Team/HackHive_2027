@@ -82,6 +82,11 @@ describe('sendDecisionEmail', () => {
     expect(body.to).toEqual(['sam@test.com']);
     expect(body.from).toBe('HackHive <hello@test.dev>');
     expect(body.text).toContain('https://hackhive.test/dashboard');
+    // Logos ride along as inline attachments that the HTML points at with cid: links.
+    expect(body.attachments.map((a: { content_id: string }) => a.content_id)).toEqual(['hackhive-logo', 'cs-club-logo']);
+    expect(body.attachments.every((a: { content: string }) => a.content.length > 0)).toBe(true);
+    expect(body.html).toContain('src="cid:hackhive-logo"');
+    expect(body.html).toContain('src="cid:cs-club-logo"');
   });
 
   // Hosts keep quotes pasted from an env file, and Resend rejects them.

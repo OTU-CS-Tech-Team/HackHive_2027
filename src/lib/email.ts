@@ -1,4 +1,6 @@
 import 'server-only';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Resend } from 'resend';
 
 // Sends HackHive's own emails (application and item request updates) through Resend, the same way
@@ -42,9 +44,28 @@ export function emailButton(href: string, label: string) {
 </table>`;
 }
 
+// The logos travel inside each email as inline attachments, which the shell shows with
+// cid: links, so they appear without the site being deployed. next.config.ts bundles
+// public/email/ into the server build so readFile finds them.
+const LOGOS = [
+  { filename: 'hackhive.png', contentId: 'hackhive-logo' },
+  { filename: 'cs-club.png', contentId: 'cs-club-logo' },
+];
+
+let logos: Promise<{ filename: string; contentId: string; content: Buffer }[]> | null = null;
+
+// A missing logo should never stop an email going out, so on failure send without them (alt text shows).
+export function emailLogos() {
+  logos ??= Promise.all(
+    LOGOS.map(async (logo) => ({ ...logo, content: await readFile(path.join(process.cwd(), 'public/email', logo.filename)) })),
+  ).catch((error) => {
+    console.error('Email logos could not be read, sending without them:', error);
+    return [];
+  });
+  return logos;
+}
+
 // The one place the branded shell lives, so every HackHive email looks the same.
-// Logos load from the deployed site (public/email/), so they need NEXT_PUBLIC_SITE_URL;
-// without it the alt text shows instead.
 export function emailShell(bodyHtml: string) {
   const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') ?? '';
   return `
@@ -52,8 +73,8 @@ export function emailShell(bodyHtml: string) {
   <tr><td style="padding:32px 12px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;">
       <tr><td bgcolor="${CREAM}" style="padding:28px 24px 24px;background:${CREAM};border-radius:12px;text-align:center;">
-        <img src="${site}/email/hackhive.png" width="56" height="64" alt="HackHive" style="display:inline-block;vertical-align:middle;margin:0 10px;border:0;">
-        <img src="${site}/email/cs-club.png" width="80" height="64" alt="OTU Computer Science Club" style="display:inline-block;vertical-align:middle;margin:0 10px;border:0;">
+        <img src="cid:hackhive-logo" width="56" height="64" alt="HackHive" style="display:inline-block;vertical-align:middle;margin:0 10px;border:0;">
+        <img src="cid:cs-club-logo" width="80" height="64" alt="OTU Computer Science Club" style="display:inline-block;vertical-align:middle;margin:0 10px;border:0;">
         <p style="margin:16px 0 0;font-size:26px;line-height:1.2;font-weight:800;color:${INK};">HackHive 2027</p>
         <p style="margin:6px 0 0;font-size:13px;font-weight:600;color:#7a6040;">Hosted by the OTU Computer Science Club</p>
       </td></tr>
@@ -112,7 +133,14 @@ async function sendEmail(
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: resolveFrom(), to, subject, html: emailShell(html), text, attachments });
+    const { error } = await resend.emails.send({
+      from: resolveFrom(),
+      to,
+      subject,
+      html: emailShell(html),
+      text,
+      attachments: [...(await emailLogos()), ...(attachments ?? [])],
+    });
     if (error) {
       console.error('Resend error:', error);
       return { sent: false, error: error.message || 'Resend rejected the email.' };

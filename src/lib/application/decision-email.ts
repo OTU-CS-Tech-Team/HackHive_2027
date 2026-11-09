@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Application } from '@/lib/application/schema';
-import { emailButton, emailDivider, emailHeading, emailHighlight, emailParagraph, emailShell, escapeHtml } from '@/lib/email';
+import { emailButton, emailDivider, emailHeading, emailHighlight, emailLogos, emailParagraph, emailShell, escapeHtml } from '@/lib/email';
 
 export type Decision = NonNullable<Application['decision']>;
 
@@ -77,11 +77,17 @@ export async function sendDecisionEmail({ to, firstName, decision }: {
   }
 
   const { subject, text, html } = decisionEmail(decision, firstName, siteUrl);
+  // The REST API takes attachment bytes as base64 and the inline id as content_id.
+  const attachments = (await emailLogos()).map((logo) => ({
+    filename: logo.filename,
+    content: logo.content.toString('base64'),
+    content_id: logo.contentId,
+  }));
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], subject, text, html: emailShell(html) }),
+      body: JSON.stringify({ from, to: [to], subject, text, html: emailShell(html), attachments }),
       signal: AbortSignal.timeout(10_000),
     });
     if (response.ok) return { sent: true };
