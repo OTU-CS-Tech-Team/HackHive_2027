@@ -167,11 +167,12 @@ function FaqItem({
   id,
   hexes,
   drips,
-}: Faq & { id: string; hexes: HexSpot[]; drips: DripSpot[] }) {
+  boot,
+}: Faq & { id: string; hexes: HexSpot[]; drips: DripSpot[]; boot: CSSProperties }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="faq-item" data-open={open}>
+    <div className="faq-item" data-open={open} style={boot}>
       <div className="faq-bar">
         <span className="faq-hexes" aria-hidden>
           {hexes.map((spot, i) => (
@@ -262,6 +263,8 @@ const SHEETS: Sheet[] = [
 ];
 
 const DUST = 70;
+const STREAKS = 16; // the streaks of light falling out of the fade into the stream
+const DROPS = 28; // and the little hexes falling with them
 const STEP = 8;
 const SOFT_SCALE = 0.5; // the veils are drawn at half size, then blurred up
 
@@ -280,16 +283,20 @@ const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i +
 function HexStream() {
   const softRef = useRef<HTMLCanvasElement>(null);
   const sharpRef = useRef<HTMLCanvasElement>(null);
+  const fallingRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const softCanvas = softRef.current;
     const sharpCanvas = sharpRef.current;
+    const fallingCanvas = fallingRef.current;
     const view = viewRef.current;
     const section = view?.closest("section");
+    const grid = section?.querySelector<HTMLElement>(".faq-grid");
     const soft = softCanvas?.getContext("2d");
     const sharp = sharpCanvas?.getContext("2d");
-    if (!softCanvas || !sharpCanvas || !view || !section || !soft || !sharp) return;
+    const falling = fallingCanvas?.getContext("2d");
+    if (!softCanvas || !sharpCanvas || !fallingCanvas || !view || !section || !grid || !soft || !sharp || !falling) return;
 
     // The cards' colours, from the section's custom properties.
     const css = getComputedStyle(section);
@@ -315,6 +322,30 @@ function HexStream() {
       twinkle: Math.random() * Math.PI * 2,
     }));
 
+    // What falls out of the fade above the section into the stream: each starts at
+    // `x` (a fraction of the width), falls to one sheet's centre line, and bends into
+    // its flow by `bend` pixels as it joins. `offset` staggers them, `speed` is in
+    // trips a second, and a streak trails `len` of its trip behind it.
+    const faller = () => ({
+      sheet: Math.floor(Math.random() * SHEETS.length),
+      x: Math.random(),
+      bend: 60 + Math.random() * 160,
+      offset: Math.random(),
+      speed: 0.09 + Math.random() * 0.08,
+    });
+    const streaks = Array.from({ length: STREAKS }, () => ({
+      ...faller(),
+      len: 0.2 + Math.random() * 0.25,
+      width: 0.8 + Math.random() * 1.1,
+    }));
+    const drops = Array.from({ length: DROPS }, () => ({
+      ...faller(),
+      size: 1.6 + Math.random() * 2.6,
+      sway: (Math.random() - 0.5) * 30,
+      spin: (Math.random() - 0.5) * 2,
+    }));
+    let fadeHeight = 0;
+
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const pointer = { x: 0, y: 0, tx: 0, ty: 0, strength: 0, target: 0 };
     let width = 0;
@@ -322,11 +353,17 @@ function HexStream() {
     let frame = 0;
     let onScreen = false;
     let lastT = 0;
+    // The stream runs through the middle of the questions and scrolls with them,
+    // though its canvases stay pinned to the screen: `anchor` is where the middle
+    // of the grid is on them this frame. `gridMiddle` is measured with every
+    // question closed, so opening one doesn't shift the stream.
+    let anchor = 0;
+    let gridMiddle = 0;
 
     // The sheet's centre line at x, leaning toward the cursor nearby.
     const centre = (s: Sheet, x: number, t: number) => {
       const a = x * s.k + t * s.speed + s.phase;
-      const y = s.y * height + s.amp * Math.sin(a) + s.amp * 0.4 * Math.sin(a * 2.1 - t * 0.17 + s.phase);
+      const y = anchor + (s.y - 0.5) * height + s.amp * Math.sin(a) + s.amp * 0.4 * Math.sin(a * 2.1 - t * 0.17 + s.phase);
       const pull = pointer.strength * Math.exp(-((x - pointer.x) ** 2) / (2 * 260 * 260));
       return y + Math.max(-120, Math.min(120, pointer.y - y)) * pull * 0.35;
     };
@@ -404,9 +441,78 @@ function HexStream() {
       sharp.globalCompositeOperation = "source-over";
     };
 
+    // Where a faller is `q` of the way along its trip: falling fast out of the fade,
+    // slowing as it reaches the stream, and swinging along with the flow at the end
+    // so it joins it side-on rather than crashing in.
+    const fall = (f: { sheet: number; x: number; bend: number }, q: number, top: number, t: number) => {
+      const s = SHEETS[f.sheet];
+      const x = f.x * width + Math.sign(s.speed) * f.bend * q * q;
+      const ease = 1 - (1 - q) ** 2;
+      return [x, top + (centre(s, x, t) - top) * ease] as const;
+    };
+
+    // The streaks and hexes, only while the fade above the section is in view: they
+    // thin out as it scrolls away, leaving the stream as it always is. Each fades in
+    // out of the fade and melts away into the stream.
+    const drawFalling = (t: number) => {
+      falling.clearRect(0, 0, width, height);
+      // Held still, they'd be frozen mid-fall and stay there as the page scrolls on.
+      if (still) return;
+      const fadeTop = section.getBoundingClientRect().top - fallingCanvas.getBoundingClientRect().top;
+      const presence = Math.max(0, Math.min(1, (fadeTop + fadeHeight) / (height * 0.3)));
+      if (presence < 0.01) return;
+      // They start where the fade has turned purple, and only come up to full
+      // brightness as it deepens, so none of the light shows over its paler top.
+      const top = fadeTop + fadeHeight * 0.55;
+      const depth = (y: number) => Math.max(0, Math.min(1, (y - top) / (fadeHeight * 0.25)));
+
+      falling.globalCompositeOperation = "lighter";
+      falling.lineCap = "round";
+      for (const f of streaks) {
+        const head = ((f.offset + t * f.speed) % 1) * (1 + f.len);
+        const from = Math.max(0, head - f.len);
+        const to = Math.min(1, head);
+        if (to <= from) continue;
+        falling.lineWidth = f.width;
+        let prev = fall(f, from, top, t);
+        for (let i = 1; i <= 14; i++) {
+          const q = from + ((to - from) * i) / 14;
+          const p = fall(f, q, top, t);
+          // Brightest at its head, and only partway along its trip.
+          const along = (q - (head - f.len)) / f.len;
+          const a = presence * 0.55 * along * Math.sin(Math.PI * q) * depth(p[1]);
+          falling.strokeStyle = `rgba(${rgb.honeyLight}, ${a})`;
+          falling.beginPath();
+          falling.moveTo(prev[0], prev[1]);
+          falling.lineTo(p[0], p[1]);
+          falling.stroke();
+          prev = p;
+        }
+      }
+
+      falling.fillStyle = palette.hiveYellow;
+      for (const d of drops) {
+        const q = (d.offset + t * d.speed) % 1;
+        const [x, y] = fall(d, q, top, t);
+        falling.globalAlpha = presence * 0.75 * Math.sin(Math.PI * q) * depth(y);
+        hexPath(falling, x + d.sway * Math.sin(t * 0.8 + d.offset * 9) * (1 - q), y, d.size, t * d.spin);
+        falling.fill();
+      }
+
+      falling.globalAlpha = 1;
+      falling.globalCompositeOperation = "source-over";
+    };
+
+    // Positions on the canvases are measured off the falling light's canvas, pinned
+    // in the same place as the stream's but never squashed by the boot-up, which
+    // would throw off anything measured from the stream's own view.
     const draw = (t: number) => {
+      anchor = grid.getBoundingClientRect().top - fallingCanvas.getBoundingClientRect().top + gridMiddle;
+      // So the boot-up swells it out from its own line (see faqSection.css).
+      view.style.transformOrigin = `50% ${anchor}px`;
       drawSoft(t);
       drawSharp(t);
+      drawFalling(t);
     };
 
     const tick = (ms: number) => {
@@ -426,6 +532,10 @@ function HexStream() {
     // scrolls past, so opening or closing a question (which changes the section's
     // height) never resizes them; resizing a canvas can show it blank for a frame.
     const resize = () => {
+      // The fade's height (faqSection.css's --fade), read off the fade itself.
+      fadeHeight = parseFloat(getComputedStyle(section, "::before").height) || 0;
+      // Only while every question is closed; otherwise keep the last measure.
+      if (!section.querySelector('.faq-item[data-open="true"]')) gridMiddle = grid.offsetHeight / 2;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = view.clientWidth;
       height = view.clientHeight;
@@ -435,11 +545,14 @@ function HexStream() {
       sharpCanvas.width = width * dpr;
       sharpCanvas.height = height * dpr;
       sharp.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fallingCanvas.width = width * dpr;
+      fallingCanvas.height = height * dpr;
+      falling.setTransform(dpr, 0, 0, dpr, 0, 0);
       draw(lastT);
     };
 
     const onMove = (e: PointerEvent) => {
-      const rect = view.getBoundingClientRect();
+      const rect = fallingCanvas.getBoundingClientRect();
       pointer.tx = e.clientX - rect.left;
       pointer.ty = e.clientY - rect.top;
       // Start leaning at the cursor when it comes in, rather than sweeping from where it left.
@@ -461,13 +574,29 @@ function HexStream() {
     });
     viewObserver.observe(section);
 
-    if (!still) {
+    // Held still there are no frames, so redraw on scroll to keep the stream with
+    // the questions.
+    let scrollFrame = 0;
+    const onScroll = () => {
+      if (!scrollFrame) {
+        scrollFrame = requestAnimationFrame(() => {
+          scrollFrame = 0;
+          draw(lastT);
+        });
+      }
+    };
+
+    if (still) {
+      window.addEventListener("scroll", onScroll, { passive: true });
+    } else {
       section.addEventListener("pointermove", onMove);
       section.addEventListener("pointerleave", onLeave);
     }
 
     return () => {
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(scrollFrame);
+      window.removeEventListener("scroll", onScroll);
       sizeObserver.disconnect();
       viewObserver.disconnect();
       section.removeEventListener("pointermove", onMove);
@@ -476,20 +605,66 @@ function HexStream() {
   }, []);
 
   return (
-    <div className="faq-stream" aria-hidden>
-      <div ref={viewRef} className="faq-stream-view">
-        <canvas ref={softRef} className="is-soft" />
-        <canvas ref={sharpRef} />
+    <>
+      <div className="faq-stream" aria-hidden>
+        <div ref={viewRef} className="faq-stream-view">
+          <canvas ref={softRef} className="is-soft" />
+          <canvas ref={sharpRef} />
+        </div>
       </div>
-    </div>
+      {/* The falling light, in a view of its own pinned in the same place, since it
+          goes over the fade while the stream goes under it. */}
+      <div className="faq-stream faq-falling" aria-hidden>
+        <div className="faq-stream-view">
+          <canvas ref={fallingRef} />
+        </div>
+      </div>
+    </>
   );
 }
 
 export function FaqSection() {
   const half = Math.ceil(faqs.length / 2);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Boots up like a PS3 as it scrolls into view, in two stages (see faqSection.css):
+  // "dawn" as the fade comes up, when light starts falling out of it, then "awake"
+  // once the fade is mostly past, when the stream swells in along with the heading
+  // and the questions. Scrolling back up powers it down a stage at a time, so it
+  // boots afresh next time. Opening the page at or past the FAQ starts it awake.
+  // Everything stays showing for reduced motion, and before this runs.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      // Where the section's top is, as a fraction of the screen's height.
+      const top = section.getBoundingClientRect().top / window.innerHeight;
+      const stage = section.dataset.boot;
+      // Each stage comes on at one line and goes off only back past a lower one, so
+      // it doesn't flicker when the scroll sits right at the line.
+      if (top <= 0.12 || (stage === "awake" && top <= 0.28)) section.dataset.boot = "awake";
+      else if (top <= 0.65 || (stage !== "asleep" && top <= 0.8)) section.dataset.boot = "dawn";
+      else section.dataset.boot = "asleep";
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, []);
 
   return (
-    <section id="faq" aria-label="FAQ" className="faq-page scroll-mt-16">
+    <section ref={sectionRef} id="faq" aria-label="FAQ" className="faq-page scroll-mt-16">
       <HexStream />
       <h1>Frequently asked questions</h1>
       {/* Two independent columns, so opening one question doesn't push the other column around. */}
@@ -502,6 +677,9 @@ export function FaqSection() {
                 id={`faq-answer-${c}-${i}`}
                 hexes={HEX_LAYOUTS[c * half + i] ?? []}
                 drips={DRIP_LAYOUTS[(c * half + i) % DRIP_LAYOUTS.length]}
+                // Its turn in the boot-up: row by row across both columns, or straight
+                // down the list once they stack into one.
+                boot={{ "--step": i * 2 + c, "--step-narrow": c * half + i } as CSSProperties}
                 {...faq}
               />
             ))}
