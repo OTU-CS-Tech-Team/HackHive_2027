@@ -54,7 +54,6 @@ export default function Constellation({ collection, active, revealed, reducedMot
             <path className={styles.lineHit} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
           </g>)}
         </svg>
-        {active && <span className={styles.traveler} aria-hidden="true" style={{ left: `${to.x / 10}%`, top: `${to.y / 8}%` }} />}
         <div className={styles.nodes} aria-label={`${year} constellation`}>
           {projects.map((item, index) => <button key={item.id} type="button" className={styles.node}
             data-label-align={shape.points[index].x < 220 ? "start" : shape.points[index].x > 780 ? "end" : undefined}

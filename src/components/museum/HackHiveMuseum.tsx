@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ArchiveCollection } from "@/data/hackhive";
 import Constellation from "./Constellation";
 import YearIdentity from "./YearIdentity";
+import SpaceBackground from "./SpaceBackground";
 import styles from "./museum.module.css";
 
 type SceneState = { year: number; revealed: number[] };
@@ -54,7 +55,7 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
   }, [ordered, firstYear]);
 
   return <div ref={museum} className={styles.museum}>
-    <div className={styles.starfield} aria-hidden="true" />
+    <SpaceBackground />
     <aside className={styles.sidebar}>
       <YearIdentity year={scene.year} reducedMotion={reducedMotion} />
     </aside>
