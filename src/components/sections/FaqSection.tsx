@@ -167,11 +167,12 @@ function FaqItem({
   id,
   hexes,
   drips,
-}: Faq & { id: string; hexes: HexSpot[]; drips: DripSpot[] }) {
+  boot,
+}: Faq & { id: string; hexes: HexSpot[]; drips: DripSpot[]; boot: CSSProperties }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="faq-item" data-open={open}>
+    <div className="faq-item" data-open={open} style={boot}>
       <div className="faq-bar">
         <span className="faq-hexes" aria-hidden>
           {hexes.map((spot, i) => (
@@ -487,9 +488,46 @@ function HexStream() {
 
 export function FaqSection() {
   const half = Math.ceil(faqs.length / 2);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Boots up like a PS3 as it scrolls into view: the stream swells in, then the
+  // heading, then the questions slide in one by one (see faqSection.css). Scrolling
+  // back up above it powers it down again, so it boots afresh next time.
+  // Everything stays showing for reduced motion, and before this runs.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Opening the page already at or past the FAQ starts it awake, with no boot,
+    // but scrolling back up still powers it down.
+    const past = section.getBoundingClientRect().top < window.innerHeight * 0.3;
+    section.dataset.boot = past ? "awake" : "asleep";
+    // Wakes once the fade into purple is mostly past, so the boot plays in view, and
+    // sleeps only once it's scrolled back a bit further, so it doesn't flicker
+    // between the two at the line.
+    const waker = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) section.dataset.boot = "awake";
+      },
+      { rootMargin: "0px 0px -70% 0px" },
+    );
+    const sleeper = new IntersectionObserver(
+      ([entry]) => {
+        // Out of view below the line, not scrolled past above the top.
+        if (!entry.isIntersecting && entry.boundingClientRect.top > 0) section.dataset.boot = "asleep";
+      },
+      { rootMargin: "0px 0px -55% 0px" },
+    );
+    waker.observe(section);
+    sleeper.observe(section);
+    return () => {
+      waker.disconnect();
+      sleeper.disconnect();
+    };
+  }, []);
 
   return (
-    <section id="faq" aria-label="FAQ" className="faq-page scroll-mt-16">
+    <section ref={sectionRef} id="faq" aria-label="FAQ" className="faq-page scroll-mt-16">
       <HexStream />
       <h1>Frequently asked questions</h1>
       {/* Two independent columns, so opening one question doesn't push the other column around. */}
@@ -502,6 +540,9 @@ export function FaqSection() {
                 id={`faq-answer-${c}-${i}`}
                 hexes={HEX_LAYOUTS[c * half + i] ?? []}
                 drips={DRIP_LAYOUTS[(c * half + i) % DRIP_LAYOUTS.length]}
+                // Its turn in the boot-up: row by row across both columns, or straight
+                // down the list once they stack into one.
+                boot={{ "--step": i * 2 + c, "--step-narrow": c * half + i } as CSSProperties}
                 {...faq}
               />
             ))}
