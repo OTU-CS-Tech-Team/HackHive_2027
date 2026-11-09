@@ -101,34 +101,13 @@ uniform vec3 uGrassNear;
 uniform vec3 uGrassFar;
 uniform vec3 uPath;
 
-float hash(vec2 p) {
-  vec3 q = fract(vec3(p.xyx) * 0.1031);
-  q += dot(q, q.yzx + 33.33);
-  return fract((q.x + q.y) * q.z);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
-
 void main() {
   float dist = distance(vWorld, uCamPos);
-  float grain = noise(vWorld.xz * 0.42);
-  vec3 grass = mix(uGrassNear, uGrassFar, smoothstep(3.0, 22.0, dist));
-  grass *= 0.95 + 0.08 * grain;
-  float pathMask = 1.0 - smoothstep(0.92, 1.85, abs(vWorld.x));
-  vec3 dirt = uPath * (0.96 + 0.06 * grain);
-  vec3 albedo = mix(grass, dirt, pathMask);
-  vec2 shadeAt = vec2(-4.6, -2.6) + vec2(-uSunDir.x, -uSunDir.z) * 1.6;
-  vec2 shadowUv = (vWorld.xz - shadeAt) * vec2(0.42, 0.7);
-  float shadow = exp(-dot(shadowUv, shadowUv)) * (1.0 - smoothstep(8.0, 22.0, dist));
-  albedo *= mix(1.0, 0.78, shadow);
-  vec3 n = normalize(vNormal);
-  float wrap = saturate(dot(n, normalize(uSunDir)) * 0.35 + 0.72);
-  vec3 lit = albedo * (uAmbient * 0.74 + uSunColor * wrap * 0.42);
+  vec3 grass = mix(uGrassNear, uGrassFar, smoothstep(4.0, 24.0, dist));
+  float pathMask = 1.0 - smoothstep(0.16, 0.4, abs(vWorld.x));
+  vec3 albedo = mix(grass, uPath, pathMask);
+  float wrap = saturate(dot(normalize(vNormal), normalize(uSunDir)) * 0.35 + 0.72);
+  vec3 lit = albedo * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   gl_FragColor = vec4(atmospheric(lit, dist), 1.0);
 }
 `;
@@ -161,43 +140,46 @@ void main() {
 `;
 
 export const CLOUD_VERT = /* glsl */ `
+varying vec2 vUv;
 varying vec3 vWorld;
-varying vec3 vNormal;
 uniform float uTime;
 uniform float uWind;
+attribute float aPhase;
 
 void main() {
+  vUv = uv;
   #ifdef USE_INSTANCING
-    vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
-    vec3 n = mat3(instanceMatrix) * normal;
+    vec3 center = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec2 size = vec2(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz));
   #else
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vec3 n = normal;
+    vec3 center = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec2 size = vec2(1.0);
   #endif
-  float drift = sin(uTime * 0.15 + world.z * 0.05) * uWind * 0.35;
-  world.x += drift;
-  vWorld = world.xyz;
-  vNormal = normalize(mat3(modelMatrix) * n);
-  gl_Position = projectionMatrix * viewMatrix * world;
+  vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  vec3 world = center + (right * position.x * size.x + up * position.y * size.y);
+  world.x += sin(uTime * 0.12 + aPhase) * uWind * 0.22;
+  vWorld = world;
+  gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `;
 
 export const CLOUD_FRAG = COMMON + /* glsl */ `
+varying vec2 vUv;
 varying vec3 vWorld;
-varying vec3 vNormal;
 
 void main() {
-  vec3 viewDir = normalize(uCamPos - vWorld);
-  float facing = abs(dot(normalize(vNormal), viewDir));
-  float alpha = smoothstep(0.08, 0.62, facing);
+  vec2 p = vUv - 0.5;
+  float a = smoothstep(0.5, 0.14, length(p * vec2(1.02, 1.45)));
+  float b = smoothstep(0.36, 0.1, length((p - vec2(0.14, 0.02)) * vec2(1.45, 1.7)));
+  float c = smoothstep(0.32, 0.08, length((p + vec2(0.16, 0.03)) * vec2(1.55, 1.85)));
+  float alpha = max(a, max(b * 0.92, c * 0.78));
   float dist = distance(vWorld, uCamPos);
   float fog = saturate(1.0 - exp(-dist * uFogDensity));
-  alpha *= (1.0 - fog) * (1.0 - uVeil) * 0.78;
-  float ndl = saturate(dot(normalize(vNormal), normalize(uSunDir)) * 0.5 + 0.55);
-  vec3 col = mix(vec3(1.0, 0.995, 0.98), uHorizon, fog * 0.85 + uVeil);
-  col *= 0.86 + 0.22 * ndl;
-  if (alpha < 0.02) discard;
-  gl_FragColor = vec4(atmospheric(col, dist * 0.35), alpha);
+  alpha *= (1.0 - fog) * (1.0 - uVeil);
+  if (alpha < 0.03) discard;
+  vec3 col = mix(vec3(1.0, 0.995, 0.985), uHorizon, fog * 0.65 + uVeil);
+  gl_FragColor = vec4(col, alpha * 0.72);
 }
 `;
 
@@ -232,6 +214,7 @@ varying vec3 vWorld;
 void main() {
   float radius = length(vUv * 2.0 - 1.0);
   float alpha = pow(saturate(1.0 - radius), 1.8);
+  if (alpha < 0.08) discard;
   float dist = distance(vWorld, uCamPos);
   float fade = exp(-dist * uFogDensity) * (1.0 - uVeil);
   vec3 glow = vec3(0.28, 0.25, 0.18) * alpha * fade;

@@ -2,9 +2,10 @@ import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import type { Quality } from "@/components/landing/meadow/quality";
 import { countsFor } from "@/components/landing/meadow/quality";
 
-export const FLOWER_CLEAR = 1.15;
-export const GRASS_CLEAR = 0.72;
-export const TREE_AT: readonly [number, number, number] = [-4.2, 0, -3.2];
+/** Flowers stay off the calm centre. Grass may grow closer to the path edge. */
+export const FLOWER_CLEAR = 0.32;
+export const GRASS_CLEAR = 0.18;
+export const PATCH_BANDS = [2.4, -3.2] as const;
 
 export type Scatter = {
   count: number;
@@ -53,6 +54,17 @@ function writeMatrix(target: Float32Array, index: number, item: Item) {
   matrix.toArray(target, index * 16);
 }
 
+function shuffle(items: Item[], seed: number) {
+  const rng = mulberry32(seed);
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
+    const swap = items[i];
+    items[i] = items[j] ?? swap;
+    items[j] = swap ?? items[j];
+  }
+  return items;
+}
+
 function toScatter(items: Item[]): Scatter {
   const count = items.length;
   const matrices = new Float32Array(count * 16);
@@ -68,133 +80,157 @@ function toScatter(items: Item[]): Scatter {
   return { count, matrices, colors, phases };
 }
 
+function emptyScatter(): Scatter {
+  return { count: 0, matrices: new Float32Array(), colors: new Float32Array(), phases: new Float32Array() };
+}
+
+/** Prefix of a shuffled scatter is an even sample, not the nearest instances. */
+export function splitPatches(items: Item[], seed: number): Scatter[] {
+  const bins: Item[][] = [[], [], []];
+  for (const item of items) {
+    const band = item.z > PATCH_BANDS[0] ? 0 : item.z > PATCH_BANDS[1] ? 1 : 2;
+    bins[band]?.push(item);
+  }
+  return bins.map((bin, index) => (bin.length === 0 ? emptyScatter() : toScatter(shuffle(bin, seed + index * 97))));
+}
+
 const LUPINS: RGB[] = [
-  [0.84, 0.3, 0.28],
-  [0.91, 0.72, 0.22],
-  [0.5, 0.34, 0.68],
+  [0.82, 0.28, 0.32],
+  [0.92, 0.72, 0.22],
+  [0.48, 0.32, 0.7],
 ];
 
-function flowerBed(count: number, seed: number, scaleRange: [number, number], tint: (rng: () => number, x: number, z: number) => RGB) {
+export type Patch = {
+  grass: Scatter;
+  lilies: Scatter;
+  daisies: Scatter;
+  lupins: Scatter;
+};
+
+export type SceneLayout = {
+  patches: Patch[];
+  clouds: Scatter;
+  glows: Scatter;
+  leaves: Scatter;
+};
+
+function flowerBed(
+  count: number,
+  seed: number,
+  scaleRange: [number, number],
+  tint: (rng: () => number) => RGB,
+) {
   const rng = mulberry32(seed);
   const items: Item[] = [];
-  let guard = 0;
-  while (items.length < count && guard < count * 50) {
-    guard += 1;
+  for (let i = 0; i < count; i += 1) {
+    const fringe = i < Math.ceil(count * 0.42);
+    const depth = Math.pow(rng(), 0.62);
+    const z = fringe ? 2.55 + rng() * 1.2 : 4.4 - depth * 14;
     const side = rng() < 0.5 ? -1 : 1;
-    const near = Math.pow(rng(), 0.85);
-    const z = 4.4 - near * 22;
-    const gutter = z > 1.6 ? 2.15 : FLOWER_CLEAR;
-    const x = side * (gutter + Math.pow(rng(), 0.65) * (z > 1.6 ? 2.8 : 5.4));
-    if (Math.abs(x) < FLOWER_CLEAR) continue;
-    const size = (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * (1 - near * 0.22);
+    const near = z > 2.4;
+    const spread = fringe ? 0.85 : near ? 2.2 : 4.6;
+    const x = side * (FLOWER_CLEAR + Math.pow(rng(), fringe ? 0.85 : 0.6) * spread);
+    const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
     items.push({
       x,
       y: 0,
       z,
       yaw: rng() * Math.PI * 2,
-      pitch: (rng() - 0.5) * 0.16,
+      pitch: (rng() - 0.5) * 0.08,
       sx: size,
       sy: size,
       sz: size,
-      color: tint(rng, x, z),
+      color: tint(rng),
       phase: rng() * Math.PI * 2,
     });
   }
-  items.sort((a, b) => b.z - a.z);
   return items;
 }
 
-export type SceneLayout = {
-  grass: Scatter;
-  lilies: Scatter;
-  daisies: Scatter;
-  lupins: Scatter;
-  glows: Scatter;
-  clouds: Scatter;
-};
-
 export function buildLayout(quality: Quality): SceneLayout {
   const counts = countsFor(quality);
-  const lilies = flowerBed(counts.lilies, 11, [0.72, 1.18], (rng) => [
-    0.97 + rng() * 0.03,
-    0.96 + rng() * 0.03,
-    0.93 + rng() * 0.05,
-  ]);
-  const daisies = flowerBed(counts.daisies, 29, [0.55, 0.92], () => [1, 0.99, 0.97]);
-  const lupins = flowerBed(counts.lupins, 47, [0.85, 1.35], (rng, x, z) => {
-    const band = Math.floor((3.6 - z) / 3.2);
-    const hue = LUPINS[Math.abs(band + (x < 0 ? 0 : 1)) % LUPINS.length] ?? LUPINS[0];
-    const shade = 0.9 + rng() * 0.15;
-    return [hue[0] * shade, hue[1] * shade, hue[2] * shade];
+  const lilies = flowerBed(counts.lilies, 11, [0.46, 0.72], (rng) => {
+    const warm = rng() * 0.04;
+    return [0.97 - warm, 0.96 - warm * 0.4, 0.93];
   });
-  const glows = lilies.map((lily) => ({
-    ...lily,
-    y: 0.42 * lily.sy,
-    sx: lily.sx * 1.7,
-    sy: lily.sy * 1.7,
-    sz: 1,
-    pitch: 0,
-    color: [1, 1, 1] as RGB,
-  }));
+  const daisies = flowerBed(counts.daisies, 29, [0.28, 0.46], () => [1, 1, 1]);
+  const lupinItems = flowerBed(counts.lupins, 47, [0.55, 0.86], (rng) => {
+    const base = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
+    return base;
+  });
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
-  let guard = 0;
-  while (grass.length < counts.grass && guard < counts.grass * 20) {
-    guard += 1;
-    const z = 4.9 - Math.pow(grassRng(), 1.7) * 28;
-    const x = (grassRng() * 2 - 1) * 13;
-    if (Math.abs(x) < GRASS_CLEAR) continue;
-    const height = 0.62 + grassRng() * 0.7;
-    const width = 0.75 + grassRng() * 0.7;
-    const green = 0.82 + grassRng() * 0.28;
+  for (let i = 0; i < counts.grass; i += 1) {
+    const fringe = i < Math.ceil(counts.grass * 0.28);
+    const depth = Math.pow(grassRng(), 0.85);
+    const z = fringe ? 2.4 + grassRng() * 1.5 : 5.4 - depth * 18;
+    const side = grassRng() < 0.5 ? -1 : 1;
+    const near = z > 2.4;
+    const spread = fringe ? 1.15 : near ? 2.8 : 6.2;
+    const x = side * (GRASS_CLEAR + Math.pow(grassRng(), fringe ? 0.7 : 0.5) * spread);
+    const height = 0.34 + grassRng() * 0.4;
+    const shade = 0.75 + grassRng() * 0.4;
     grass.push({
       x,
       y: 0,
       z,
       yaw: grassRng() * Math.PI * 2,
-      pitch: (grassRng() - 0.35) * 0.35,
-      sx: width,
+      pitch: 0,
+      sx: 0.7 + grassRng() * 0.8,
       sy: height,
-      sz: width,
-      color: [0.72 * green, green, 0.46 * green],
+      sz: 0.8 + grassRng() * 0.5,
+      color: [shade * 0.85, shade, shade * 0.55],
       phase: grassRng() * Math.PI * 2,
     });
   }
-  grass.sort((a, b) => b.z - a.z);
 
+  const glowItems: Item[] = [];
+  const glowLilies = [...lilies].sort((a, b) => b.z - a.z).slice(0, 20);
+  for (const flower of glowLilies) {
+    glowItems.push({
+      ...flower,
+      y: 0.28 * flower.sy,
+      sx: flower.sx * 0.9,
+      sy: flower.sy * 0.9,
+      sz: 1,
+      color: [1, 0.96, 0.86],
+    });
+  }
   const cloudRng = mulberry32(7);
   const clouds: Item[] = [];
-  const anchors: Array<[number, number, number]> = [
-    [-7.5, 6.6, -4],
-    [6.2, 5.8, -9],
-    [-1.5, 7.4, -16],
-    [9.5, 6.2, -20],
-    [-11, 5.6, -12],
-  ];
   for (let i = 0; i < counts.clouds; i += 1) {
-    const anchor = anchors[i % anchors.length] ?? anchors[0];
-    const puff = 2.2 + cloudRng() * 1.5;
+    const side = i % 2 === 0 ? -1 : 1;
     clouds.push({
-      x: anchor[0] + (cloudRng() - 0.5) * 1.4,
-      y: anchor[1],
-      z: anchor[2],
-      yaw: cloudRng() * Math.PI,
+      x: side * (1.2 + cloudRng() * 4.5),
+      y: 3.4 + cloudRng() * 1.1,
+      z: 4.5 - cloudRng() * 14,
+      yaw: 0,
       pitch: 0,
-      sx: puff,
-      sy: puff * 0.58,
-      sz: puff * 0.85,
+      sx: 3.4 + cloudRng() * 2.2,
+      sy: 1.35 + cloudRng() * 0.7,
+      sz: 1,
       color: [1, 1, 1],
       phase: cloudRng() * Math.PI * 2,
     });
   }
 
+  const leaves: Item[] = [];
+
+  const grassPatches = splitPatches(grass, 501);
+  const lilyPatches = splitPatches(lilies, 511);
+  const daisyPatches = splitPatches(daisies, 521);
+  const lupinPatches = splitPatches(lupinItems, 531);
+
   return {
-    grass: toScatter(grass),
-    lilies: toScatter(lilies),
-    daisies: toScatter(daisies),
-    lupins: toScatter(lupins),
-    glows: toScatter(glows),
-    clouds: toScatter(clouds),
+    patches: [0, 1, 2].map((index) => ({
+      grass: grassPatches[index] ?? emptyScatter(),
+      lilies: lilyPatches[index] ?? emptyScatter(),
+      daisies: daisyPatches[index] ?? emptyScatter(),
+      lupins: lupinPatches[index] ?? emptyScatter(),
+    })),
+    clouds: toScatter(shuffle(clouds, 13)),
+    glows: toScatter(shuffle(glowItems, 17)),
+    leaves: toScatter(leaves),
   };
 }

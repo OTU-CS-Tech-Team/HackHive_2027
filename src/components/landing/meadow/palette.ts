@@ -15,6 +15,16 @@ export const SUN_DIR: readonly [number, number, number] = [0.46, 0.62, 0.34];
 
 export const FOG_DENSITY = 0.028;
 
+/** Shared by the canvas and the frame driver so the first frame matches the walk. */
+export const VIEW = {
+  fov: 50,
+  eye: 1.42,
+  startZ: 7.15,
+  endZ: 2.1,
+  lookAhead: 8.2,
+  lookLift: 0.38,
+} as const;
+
 export function clamp01(value: number) {
   if (value <= 0) return 0;
   if (value >= 1) return 1;

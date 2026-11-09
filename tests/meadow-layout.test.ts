@@ -1,22 +1,48 @@
 import { describe, expect, it } from "vitest";
 import { FLOWER_CLEAR, GRASS_CLEAR, buildLayout } from "@/components/landing/meadow/layout";
 import { HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
+import { sceneBudget } from "@/components/landing/meadow/stats";
+
+function column(matrices: Float32Array, count: number, offset: number) {
+  const values: number[] = [];
+  for (let index = 0; index < count; index += 1) values.push(matrices[index * 16 + offset] ?? 0);
+  return values;
+}
 
 describe("meadow layout", () => {
-  it("keeps flowers beside a wide path and grass off the centre", () => {
+  it("keeps flowers beside the path and grass off the centre", () => {
     const layout = buildLayout("high");
-    for (const group of [layout.lilies, layout.daisies, layout.lupins]) {
-      expect(group.count).toBeGreaterThan(0);
-      for (let index = 0; index < group.count; index += 1) {
-        const x = group.matrices[index * 16 + 12] ?? 0;
-        expect(Math.abs(x)).toBeGreaterThan(FLOWER_CLEAR - 0.05);
+    let flowers = 0;
+    let grass = 0;
+    for (const patch of layout.patches) {
+      for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+        flowers += group.count;
+        for (const x of column(group.matrices, group.count, 12)) {
+          expect(Math.abs(x)).toBeGreaterThan(FLOWER_CLEAR - 0.05);
+        }
+      }
+      grass += patch.grass.count;
+      for (const x of column(patch.grass.matrices, patch.grass.count, 12)) {
+        expect(Math.abs(x)).toBeGreaterThan(GRASS_CLEAR - 0.05);
       }
     }
-    for (let index = 0; index < layout.grass.count; index += 1) {
-      const x = layout.grass.matrices[index * 16 + 12] ?? 0;
-      expect(Math.abs(x)).toBeGreaterThan(GRASS_CLEAR - 0.05);
+    expect(grass).toBeGreaterThan(flowers);
+    expect(layout.clouds.count).toBeGreaterThan(0);
+    expect(layout.leaves.count).toBe(0);
+  });
+
+  it("thins a shuffled prefix across the depth of every patch", () => {
+    const layout = buildLayout("high");
+    for (const patch of layout.patches) {
+      const scatter = patch.grass;
+      expect(scatter.count).toBeGreaterThan(12);
+      const full = column(scatter.matrices, scatter.count, 14);
+      const keep = Math.floor(scatter.count * 0.45);
+      const prefix = column(scatter.matrices, keep, 14);
+      const span = Math.max(...full) - Math.min(...full);
+      const kept = Math.max(...prefix) - Math.min(...prefix);
+      expect(kept).toBeGreaterThan(span * 0.5);
     }
-    expect(layout.grass.count).toBeGreaterThan(layout.lilies.count);
   });
 
   it("shares one horizon colour and only veils at the hand-off", () => {
@@ -26,5 +52,14 @@ describe("meadow layout", () => {
     expect(handoffVeil(0.5)).toBe(0);
     expect(handoffVeil(1)).toBeGreaterThan(0.3);
     expect(handoffVeil(1)).toBeLessThan(0.5);
+  });
+
+  it("keeps both quality levels on a small draw budget", () => {
+    const high = sceneBudget("high");
+    const low = sceneBudget("low");
+    expect(high.draws).toBeLessThan(24);
+    expect(low.draws).toBeLessThanOrEqual(high.draws);
+    expect(low.triangles).toBeLessThan(high.triangles);
+    expect(low.instances.lilies).toBeLessThan(high.instances.lilies);
   });
 });

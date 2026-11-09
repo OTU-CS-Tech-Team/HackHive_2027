@@ -6,13 +6,15 @@ import {
   AdditiveBlending,
   BackSide,
   DoubleSide,
+  FrontSide,
   InstancedMesh,
   Mesh,
-  PlaneGeometry,
   ShaderMaterial,
   Vector3,
+  type Side,
   type BufferGeometry,
 } from "three";
+import { createCardGeometry, createDaisyGeometry, createGrassGeometry, createHillsGeometry, createLilyGeometry, createLupinGeometry } from "@/components/landing/meadow/geometry";
 import {
   CLOUD_FRAG,
   CLOUD_VERT,
@@ -25,16 +27,7 @@ import {
   SKY_FRAG,
   SKY_VERT,
 } from "@/components/landing/meadow/glsl";
-import {
-  createCloudGeometry,
-  createDaisyGeometry,
-  createGrassGeometry,
-  createHillsGeometry,
-  createLilyGeometry,
-  createLupinGeometry,
-  createTreeGeometry,
-} from "@/components/landing/meadow/geometry";
-import { buildLayout, TREE_AT, type Scatter, type SceneLayout } from "@/components/landing/meadow/layout";
+import { buildLayout, type Scatter, type SceneLayout } from "@/components/landing/meadow/layout";
 import {
   AMBIENT,
   FOG_DENSITY,
@@ -46,13 +39,25 @@ import {
   SKY_TOP,
   SUN,
   SUN_DIR,
+  VIEW,
   fogDensityFor,
   handoffVeil,
   hexToRgb,
   walkBlend,
   windScale,
 } from "@/components/landing/meadow/palette";
+import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
 import type { Quality } from "@/components/landing/meadow/quality";
+
+const FULL_COUNT = "fullCount";
+const liveMeshes: InstancedMesh[] = [];
+
+function thinEvenly() {
+  for (const mesh of liveMeshes) {
+    const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
+    mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.5)));
+  }
+}
 
 function writeUniforms(
   materials: ShaderMaterial[] | null,
@@ -74,11 +79,6 @@ function writeUniforms(
   }
 }
 
-const START_Z = 4.6;
-const END_Z = -1.4;
-const EYE_Y = 1.62;
-const LOOK_AHEAD = 7.4;
-
 function colorOf(hex: string) {
   return new Vector3(...hexToRgb(hex));
 }
@@ -99,7 +99,7 @@ function baseUniforms() {
   };
 }
 
-function plantMaterial(sss: number, emissive: [number, number, number]) {
+function plantMaterial(sss: number, emissive: [number, number, number], side: Side = DoubleSide) {
   return new ShaderMaterial({
     uniforms: {
       ...baseUniforms(),
@@ -109,7 +109,7 @@ function plantMaterial(sss: number, emissive: [number, number, number]) {
     vertexShader: PLANT_VERT,
     fragmentShader: PLANT_FRAG,
     vertexColors: true,
-    side: DoubleSide,
+    side,
   });
 }
 
@@ -118,7 +118,6 @@ type Materials = {
   sky: ShaderMaterial;
   ground: ShaderMaterial;
   hill: ShaderMaterial;
-  tree: ShaderMaterial;
   grass: ShaderMaterial;
   lily: ShaderMaterial;
   daisy: ShaderMaterial;
@@ -145,12 +144,11 @@ function buildMaterials(): Materials {
     vertexShader: GROUND_VERT,
     fragmentShader: GROUND_FRAG,
   });
-  const hill = plantMaterial(0.04, [0, 0, 0]);
-  const tree = plantMaterial(0.12, [0, 0, 0]);
-  const grass = plantMaterial(0.16, [0, 0, 0]);
-  const lily = plantMaterial(0.62, [0.16, 0.14, 0.1]);
-  const daisy = plantMaterial(0.4, [0.08, 0.07, 0.04]);
-  const lupin = plantMaterial(0.48, [0.06, 0.04, 0.05]);
+  const hill = plantMaterial(0.02, [0, 0, 0], FrontSide);
+  const grass = plantMaterial(0.12, [0, 0, 0], FrontSide);
+  const lily = plantMaterial(0.7, [0.18, 0.16, 0.1]);
+  const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
+  const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({
     uniforms: baseUniforms(),
     vertexShader: CLOUD_VERT,
@@ -170,27 +168,27 @@ function buildMaterials(): Materials {
     sky,
     ground,
     hill,
-    tree,
     grass,
     lily,
     daisy,
     lupin,
     cloud,
     glow,
-    all: [sky, ground, hill, tree, grass, lily, daisy, lupin, cloud, glow],
+    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow],
   };
 }
 
 function buildGeometries(layout: SceneLayout) {
   return {
-    grass: createGrassGeometry(layout.grass),
-    lilies: createLilyGeometry(layout.lilies),
-    daisies: createDaisyGeometry(layout.daisies),
-    lupins: createLupinGeometry(layout.lupins),
-    clouds: createCloudGeometry(layout.clouds),
+    patches: layout.patches.map((patch) => ({
+      grass: createGrassGeometry(patch.grass),
+      lilies: createLilyGeometry(patch.lilies),
+      daisies: createDaisyGeometry(patch.daisies),
+      lupins: createLupinGeometry(patch.lupins),
+    })),
     hills: createHillsGeometry(),
-    tree: createTreeGeometry(),
-    glow: new PlaneGeometry(1, 1),
+    clouds: createCardGeometry(layout.clouds),
+    glows: createCardGeometry(layout.glows),
   };
 }
 
@@ -198,31 +196,35 @@ function Instances({
   geometry,
   material,
   scatter,
-  meshRef,
   renderOrder = 0,
 }: {
   geometry: BufferGeometry;
   material: ShaderMaterial;
   scatter: Scatter;
-  meshRef: RefObject<InstancedMesh | null>;
   renderOrder?: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
     const mesh = ref.current;
-    meshRef.current = mesh;
     if (!mesh || scatter.count === 0) return;
     mesh.count = scatter.count;
     mesh.instanceMatrix.array.set(scatter.matrices);
     mesh.instanceMatrix.needsUpdate = true;
-    mesh.frustumCulled = false;
-  }, [meshRef, scatter]);
+    mesh.userData[FULL_COUNT] = scatter.count;
+    mesh.computeBoundingSphere();
+    mesh.frustumCulled = true;
+    if (!liveMeshes.includes(mesh)) liveMeshes.push(mesh);
+    return () => {
+      const index = liveMeshes.indexOf(mesh);
+      if (index >= 0) liveMeshes.splice(index, 1);
+    };
+  }, [scatter]);
   if (scatter.count === 0) return null;
   return (
     <instancedMesh
       ref={ref}
       args={[geometry, material, scatter.count]}
-      frustumCulled={false}
+      frustumCulled
       renderOrder={renderOrder}
     />
   );
@@ -230,20 +232,20 @@ function Instances({
 
 function FrameDriver({
   materialsRef,
-  meshes,
   sky,
   progress,
   pointer,
   reduced,
   onReady,
+  onDone,
 }: {
   materialsRef: RefObject<ShaderMaterial[]>;
-  meshes: Array<RefObject<InstancedMesh | null>>;
   sky: RefObject<Mesh | null>;
   progress: RefObject<number>;
   pointer: RefObject<{ x: number; y: number }>;
   reduced: boolean;
   onReady?: () => void;
+  onDone: (settled: boolean) => void;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -252,16 +254,46 @@ function FrameDriver({
   const clock = useRef(0);
   const frames = useRef(0);
   const ready = useRef(false);
+  const settled = useRef(false);
   const perf = useRef({ warm: 0, acc: 0, samples: 0, dropped: false });
   const reducedRef = useRef(reduced);
   const onReadyRef = useRef(onReady);
+  const onDoneRef = useRef(onDone);
   useEffect(() => {
     reducedRef.current = reduced;
     onReadyRef.current = onReady;
-  }, [onReady, reduced]);
+    onDoneRef.current = onDone;
+  }, [onDone, onReady, reduced]);
+
+  useEffect(() => {
+    let lastP = Number.NaN;
+    let lastX = Number.NaN;
+    let lastY = Number.NaN;
+    const tick = () => {
+      const walked = progress.current ?? 0;
+      const aim = pointer.current ?? { x: 0, y: 0 };
+      if (!reducedRef.current) {
+        if (walked < 1 && settled.current) {
+          settled.current = false;
+          onDoneRef.current(false);
+        }
+        return;
+      }
+      if (walked !== lastP || aim.x !== lastX || aim.y !== lastY) {
+        lastP = walked;
+        lastX = aim.x;
+        lastY = aim.y;
+        invalidate();
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 48);
+    return () => window.clearInterval(id);
+  }, [invalidate, pointer, progress]);
 
   useFrame((_, delta) => {
     const step = Math.min(delta, 0.05);
+    const frameMs = Math.min(delta, 0.25);
     const walked = progress.current ?? 0;
     const t = walkBlend(walked);
     const aim = pointer.current ?? { x: 0, y: 0 };
@@ -275,30 +307,42 @@ function FrameDriver({
       eased.current.x += (aim.x - eased.current.x) * ease;
       eased.current.y += (aim.y - eased.current.y) * ease;
     }
-    const x = eased.current.x * 0.3;
-    const y = EYE_Y + t * 0.05;
-    const z = START_Z + (END_Z - START_Z) * t;
+    const x = eased.current.x * 0.22;
+    const y = VIEW.eye + t * 0.04;
+    const z = VIEW.startZ + (VIEW.endZ - VIEW.startZ) * t;
     camera.position.set(x, y, z);
-    camera.lookAt(eased.current.x * 0.82, 1.02 - eased.current.y * 0.14, z - LOOK_AHEAD);
+    camera.lookAt(eased.current.x * 0.45, VIEW.eye + VIEW.lookLift - eased.current.y * 0.1, z - VIEW.lookAhead);
     if (sky.current) sky.current.position.set(x, y, z);
     if (!still) clock.current += step;
-    writeUniforms(materialsRef.current, clock.current, windScale(walked, still), handoffVeil(walked), fogDensityFor(walked), x, y, z);
+    writeUniforms(
+      materialsRef.current,
+      clock.current,
+      windScale(walked, still),
+      handoffVeil(walked),
+      fogDensityFor(walked),
+      x,
+      y,
+      z,
+    );
+
+    const done = walked >= 1;
+    if (done !== settled.current) {
+      settled.current = done;
+      onDoneRef.current(done);
+    }
 
     const stats = perf.current;
-    if (!stats.dropped && !still) {
+    if (!stats.dropped) {
       stats.warm += 1;
-      if (stats.warm > 36) {
-        stats.acc += step;
+      if (stats.warm > 4) {
+        stats.acc += frameMs;
         stats.samples += 1;
-        if (stats.samples >= 40 && stats.acc / stats.samples > 0.021) {
-          stats.dropped = true;
-          for (const meshRef of meshes) {
-            const mesh = meshRef.current;
-            if (!mesh) continue;
-            mesh.count = Math.max(12, Math.floor(mesh.count * 0.45));
+        if (stats.samples >= 6) {
+          if (stats.acc / stats.samples > 0.02) {
+            stats.dropped = true;
+            thinEvenly();
+            gl.setPixelRatio(1);
           }
-          gl.setPixelRatio(1);
-        } else if (stats.samples >= 40) {
           stats.acc = 0;
           stats.samples = 0;
         }
@@ -323,71 +367,68 @@ export default function MeadowWorld({
   pointer,
   reduced,
   onReady,
+  onDone,
 }: {
   quality: Quality;
   progress: RefObject<number>;
   pointer: RefObject<{ x: number; y: number }>;
   reduced: boolean;
   onReady?: () => void;
+  onDone: (settled: boolean) => void;
 }) {
   const layout = useMemo(() => buildLayout(quality), [quality]);
   const geometries = useMemo(() => buildGeometries(layout), [layout]);
   const materials = useMemo(() => buildMaterials(), []);
   const materialsRef = useRef(materials.all);
+  const sky = useRef<Mesh>(null);
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
+
   useEffect(() => {
     materialsRef.current = materials.all;
   }, [materials]);
-  const sky = useRef<Mesh>(null);
-  const grass = useRef<InstancedMesh>(null);
-  const lilies = useRef<InstancedMesh>(null);
-  const daisies = useRef<InstancedMesh>(null);
-  const lupins = useRef<InstancedMesh>(null);
-  const glows = useRef<InstancedMesh>(null);
-  const clouds = useRef<InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    gl.compile(scene, camera);
+  }, [camera, geometries, gl, scene]);
 
   return (
     <>
       <FrameDriver
         materialsRef={materialsRef}
-        meshes={[grass, lilies, daisies, lupins, glows, clouds]}
         sky={sky}
         progress={progress}
         pointer={pointer}
         reduced={reduced}
         onReady={onReady}
+        onDone={onDone}
       />
       <mesh ref={sky} frustumCulled={false} renderOrder={-2}>
-        <sphereGeometry args={[48, 20, 14]} />
+        <sphereGeometry args={[48, SKY_SEGMENTS[0], SKY_SEGMENTS[1]]} />
         <primitive object={materials.sky} attach="material" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -20]} frustumCulled={false}>
-        <planeGeometry args={[90, 110, 1, 1]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -18]} frustumCulled={false}>
+        <planeGeometry args={[80, 90, 1, 1]} />
         <primitive object={materials.ground} attach="material" />
       </mesh>
       <mesh geometry={geometries.hills} frustumCulled={false}>
         <primitive object={materials.hill} attach="material" />
       </mesh>
-      <mesh geometry={geometries.tree} position={TREE_AT} frustumCulled={false}>
-        <primitive object={materials.tree} attach="material" />
-      </mesh>
-      <Instances geometry={geometries.grass} material={materials.grass} scatter={layout.grass} meshRef={grass} />
-      <Instances geometry={geometries.lilies} material={materials.lily} scatter={layout.lilies} meshRef={lilies} />
-      <Instances geometry={geometries.daisies} material={materials.daisy} scatter={layout.daisies} meshRef={daisies} />
-      <Instances geometry={geometries.lupins} material={materials.lupin} scatter={layout.lupins} meshRef={lupins} />
-      <Instances
-        geometry={geometries.clouds}
-        material={materials.cloud}
-        scatter={layout.clouds}
-        meshRef={clouds}
-        renderOrder={1}
-      />
-      <Instances
-        geometry={geometries.glow}
-        material={materials.glow}
-        scatter={layout.glows}
-        meshRef={glows}
-        renderOrder={2}
-      />
+      {geometries.patches.map((patch, index) => {
+        const scatter = layout.patches[index];
+        if (!scatter) return null;
+        return (
+          <group key={index}>
+            <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} />
+            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} />
+            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} />
+            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} />
+          </group>
+        );
+      })}
+      <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
+      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={2} />
     </>
   );
 }

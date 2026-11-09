@@ -4,12 +4,11 @@ import { Component, useCallback, useEffect, useRef, useState, useSyncExternalSto
 import { Canvas } from "@react-three/fiber";
 import { LinearSRGBColorSpace, NoToneMapping } from "three";
 import MeadowWorld from "@/components/landing/meadow/World";
+import { VIEW } from "@/components/landing/meadow/palette";
 import { countsFor, detectQuality, webglAvailable, type Quality } from "@/components/landing/meadow/quality";
 
 const FALLBACK =
   "linear-gradient(180deg, #e2f2f8 0%, #d7eef8 20%, #f4e4b4 48%, #c5de8a 70%, #78a84a 100%)";
-const EYE = 1.62;
-const START = 4.6;
 
 export type MeadowSceneProps = {
   progress: RefObject<number>;
@@ -83,6 +82,7 @@ export default function MeadowScene({
   const [supported] = useState(webglAvailable);
   const [lost, setLost] = useState(false);
   const [running, setRunning] = useState(true);
+  const [settled, setSettled] = useState(false);
   const [tier] = useState<Quality>(() => quality ?? detectQuality());
   const reduced = useSystemReducedMotion(reducedMotion);
   const counts = countsFor(quality ?? tier);
@@ -123,7 +123,11 @@ export default function MeadowScene({
     };
   }, []);
 
-  const frameLoop = !running ? "never" : reduced ? "demand" : "always";
+  const hold = useCallback((done: boolean) => {
+    setSettled((current) => (current === done ? current : done));
+  }, []);
+
+  const frameLoop = lost || !running || settled ? "never" : reduced ? "demand" : "always";
 
   return (
     <div
@@ -137,7 +141,7 @@ export default function MeadowScene({
             className="pointer-events-none"
             style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
             dpr={[1, counts.dpr]}
-            frameloop={lost ? "never" : frameLoop}
+            frameloop={frameLoop}
             gl={{
               antialias: counts.antialias,
               alpha: false,
@@ -145,7 +149,7 @@ export default function MeadowScene({
               powerPreference: "high-performance",
               failIfMajorPerformanceCaveat: false,
             }}
-            camera={{ fov: 42, near: 0.08, far: 160, position: [0, EYE, START] }}
+            camera={{ fov: VIEW.fov, near: 0.08, far: 160, position: [0, VIEW.eye, VIEW.startZ] }}
             onCreated={({ gl }) => {
               gl.outputColorSpace = LinearSRGBColorSpace;
               gl.toneMapping = NoToneMapping;
@@ -163,6 +167,7 @@ export default function MeadowScene({
               pointer={pointer}
               reduced={reduced}
               onReady={markReady}
+              onDone={hold}
             />
           </Canvas>
         </SceneBoundary>
