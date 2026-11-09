@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { ArchiveCollection } from "@/data/hackhive";
 import type { HackHiveProject } from "@/types/hackhive";
-import { clockwiseOrder, constellationFor } from "./constellations";
+import { clockwiseOrder, constellationFor, revealPlan, type StarPoint } from "./constellations";
 import YouTubeFacade from "./YouTubeFacade";
 import styles from "./museum.module.css";
 
@@ -12,6 +12,8 @@ const TOUR_MS = 2000;
 function poster(project: HackHiveProject) {
   return project.thumbnail || (project.youtubeId ? `https://img.youtube.com/vi/${project.youtubeId}/hqdefault.jpg` : null);
 }
+const at = (point: StarPoint) => ({ left: `${point.x / 10}%`, top: `${point.y / 8}%` });
+const line = (from: StarPoint, to: StarPoint) => `M${from.x} ${from.y}L${to.x} ${to.y}`;
 
 export default function Constellation({ collection, active, revealed, reducedMotion }: {
   collection: ArchiveCollection; active: boolean; revealed: boolean; reducedMotion: boolean;
@@ -20,7 +22,9 @@ export default function Constellation({ collection, active, revealed, reducedMot
   const shape = useMemo(() => constellationFor(year, projects.length), [year, projects.length]);
   const hosts = useMemo(() => shape.points.slice(0, projects.length), [shape, projects.length]);
   const order = useMemo(() => clockwiseOrder(hosts), [hosts]);
+  const plan = useMemo(() => revealPlan(shape, projects.length), [shape, projects.length]);
   const [selected, setSelected] = useState(0);
+  const [hovered, setHovered] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const [watching, setWatching] = useState(false);
   const [playbackKey, setPlaybackKey] = useState(0);
@@ -32,6 +36,14 @@ export default function Constellation({ collection, active, revealed, reducedMot
   const hitSizes = hosts.map((point, index) => Math.min(100, ...hosts
     .filter((_, other) => other !== index)
     .map(other => Math.hypot((point.x - other.x) / 10, (point.y - other.y) / 8) * .85)));
+  // The hovered (or toured) star lights its own lines and the stars they reach.
+  const lit = hovered ?? selected;
+  const neighbours = new Set(shape.edges.flatMap(([a, b]) => a === lit ? [b] : b === lit ? [a] : []));
+  // Each star flies in from its plan origin; offsets use the map's container units so they track its size.
+  const flight = (index: number) => {
+    const { from, delay, duration } = plan.stars[index], point = shape.points[index];
+    return { "--dx": `${(from.x - point.x) / 10}cqw`, "--dy": `${(from.y - point.y) / 8}cqh`, "--delay": `${delay}s`, "--dur": `${duration}s` } as CSSProperties;
+  };
 
   useEffect(() => {
     if (!touring) return;
@@ -50,21 +62,28 @@ export default function Constellation({ collection, active, revealed, reducedMot
     {project && to ? <>
       <div className={styles.starMap}>
         <svg className={styles.mapLines} viewBox="0 0 1000 800" preserveAspectRatio="none" aria-hidden="true">
-          {shape.edges.map(([a, b]) => <g key={`${a}-${b}`} className={styles.line}>
-            <path pathLength="1" className={styles.starPath} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
-            <path className={styles.lineHit} d={`M${shape.points[a].x} ${shape.points[a].y}L${shape.points[b].x} ${shape.points[b].y}`} />
+          {hosts.map((point, index) => <path key={index} pathLength="1" className={styles.tether} d={line(plan.center, point)}
+            style={{ "--delay": `${plan.stars[index].delay}s`, "--dur": `${plan.stars[index].duration}s`, "--fade": `${plan.hubsLanded}s` } as CSSProperties} />)}
+          {plan.lines.map(({ from, to: end, delay, duration }) => <g key={`${from}-${end}`} className={styles.line}
+            data-lit={from === lit || end === lit ? "" : undefined} style={{ "--delay": `${delay}s`, "--dur": `${duration}s` } as CSSProperties}>
+            <path pathLength="1" className={styles.starPath} d={line(shape.points[from], shape.points[end])} />
+            <path className={styles.lineHit} d={line(shape.points[from], shape.points[end])} />
           </g>)}
         </svg>
         <div className={styles.nodes} aria-label={`${year} ${shape.name} constellation`}>
+          <span className={styles.origin} style={at(plan.center)} aria-hidden="true" />
           {projects.map((item, index) => <button key={item.id} type="button" className={styles.node}
             data-label-align={shape.points[index].x < 220 ? "start" : shape.points[index].x > 780 ? "end" : undefined}
+            data-near={neighbours.has(index) ? "" : undefined}
             aria-pressed={index === selected} aria-label={`Explore ${item.title}`} onClick={() => select(index)}
-            style={{ left: `${shape.points[index].x / 10}%`, top: `${shape.points[index].y / 8}%`, width: `min(48px, ${hitSizes[index]}%)`, height: `min(48px, ${hitSizes[index]}%)` }}>
+            onPointerEnter={event => { if (event.pointerType === "mouse") setHovered(index); }} onPointerLeave={() => setHovered(null)}
+            onFocus={() => setHovered(index)} onBlur={() => setHovered(null)}
+            style={{ ...at(shape.points[index]), ...flight(index), width: `min(48px, ${hitSizes[index]}%)`, height: `min(48px, ${hitSizes[index]}%)` }}>
             <span className={styles.star} aria-hidden="true" />
             <span className={styles.nodeText}>{item.title}</span>
           </button>)}
-          {shape.points.slice(projects.length).map((point, index) => <span key={index} className={styles.faintStar} aria-hidden="true"
-            style={{ left: `${point.x / 10}%`, top: `${point.y / 8}%` }} />)}
+          {shape.points.map((point, index) => index < projects.length ? null : <span key={index} className={styles.faintStar} aria-hidden="true"
+            data-lit={neighbours.has(index) ? "" : undefined} style={{ ...at(point), ...flight(index) }} />)}
         </div>
       </div>
       <article className={styles.preview} aria-label={`${year} featured project`}>

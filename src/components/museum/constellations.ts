@@ -68,8 +68,55 @@ export function constellationFor(year: number, count: number): SkyShape {
   return { name: figure.name, points, edges };
 }
 
+function centroid(points: StarPoint[]): StarPoint {
+  return points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, y: sum.y + point.y / points.length }), { x: 0, y: 0 });
+}
+
 export function clockwiseOrder(points: StarPoint[]) {
-  const center = points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, y: sum.y + point.y / points.length }), { x: 0, y: 0 });
+  const center = centroid(points);
   return points.map((point, index) => ({ index, angle: (Math.atan2(point.y - center.y, point.x - center.x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2) }))
     .sort((a, b) => a.angle - b.angle).map(point => point.index);
+}
+
+// Reveal choreography, in seconds. Project stars burst from the figure's centre; every other star then
+// grows out of an already-placed neighbour along the figure's own line, riding that line's drawing tip.
+export const HUB_FLIGHT = .9;
+export const STAR_FLIGHT = .6;
+const HUB_STAGGER = .07, HANDOFF = .6, CLOSING_LINE = .6;
+
+export type RevealPlan = {
+  center: StarPoint;
+  stars: { delay: number; duration: number; from: StarPoint }[];
+  lines: { from: number; to: number; delay: number; duration: number }[];
+  hubsLanded: number;
+};
+
+export function revealPlan({ points, edges }: SkyShape, hosts: number): RevealPlan {
+  const center = centroid(points.slice(0, Math.max(1, hosts)));
+  const duration = points.map((_, index) => index < hosts ? HUB_FLIGHT : STAR_FLIGHT);
+  const start = points.map(() => Infinity);
+  const parent: (number | null)[] = points.map(() => null);
+  clockwiseOrder(points.slice(0, hosts)).forEach((index, order) => { start[index] = .15 + order * HUB_STAGGER; });
+  // Earliest-arrival pass over a tiny graph: a star leaves once its neighbour is mostly in place.
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [a, b] of edges) for (const [u, v] of [[a, b], [b, a]]) {
+      const at = start[u] + HANDOFF * duration[u];
+      if (v >= hosts && at < start[v]) { start[v] = at; parent[v] = u; changed = true; }
+    }
+  }
+  const landed = (index: number) => start[index] + duration[index];
+  const last = Math.max(...start.filter(Number.isFinite));
+  // Stars with no lines (Orion's sword) simply appear as the figure finishes.
+  points.forEach((_, index) => { if (!Number.isFinite(start[index])) start[index] = last; });
+  const lines = edges.map(([a, b]) => parent[b] === a ? { from: a, to: b, delay: start[b], duration: duration[b] }
+    : parent[a] === b ? { from: b, to: a, delay: start[a], duration: duration[a] }
+      : { ...(landed(a) <= landed(b) ? { from: a, to: b } : { from: b, to: a }), delay: Math.max(landed(a), landed(b)) - .1, duration: CLOSING_LINE });
+  return {
+    center,
+    stars: points.map((point, index) => ({ delay: start[index], duration: duration[index],
+      from: index < hosts ? center : parent[index] === null ? point : points[parent[index]!] })),
+    lines,
+    hubsLanded: Math.max(0, ...points.slice(0, hosts).map((_, index) => landed(index))),
+  };
 }
