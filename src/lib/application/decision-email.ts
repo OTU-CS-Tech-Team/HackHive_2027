@@ -1,57 +1,61 @@
 import 'server-only';
 import type { Application } from '@/lib/application/schema';
+import { emailButton, emailDivider, emailHeading, emailHighlight, emailParagraph, emailShell, escapeHtml } from '@/lib/email';
 
 export type Decision = NonNullable<Application['decision']>;
 
-const HTML_ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+// `mark` emphasises a phrase: honey bold in HTML, plain in the text version.
+// The copy is fixed (no user input), so it goes into the HTML as is.
+type Mark = (text: string) => string;
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => HTML_ENTITIES[char]);
-}
-
-const CONTENT: Record<Decision, { subject: string; paragraphs: string[] }> = {
+const CONTENT: Record<Decision, { subject: string; paragraphs: (mark: Mark) => string[] }> = {
   accepted: {
-    subject: "You're in! Welcome to HackHive 2027",
-    paragraphs: [
-      "Congratulations, you've been accepted to HackHive 2027!",
-      'Your hacker dashboard is now unlocked, with the schedule, your check-in pass, teammates, hardware and points.',
+    subject: "You're in! Welcome to HackHive 2027 🎉",
+    paragraphs: (mark) => [
+      'The results are in. 👀',
+      `After reviewing this year's applications, we're excited to share that ${mark("you've been accepted to HackHive 2027")}. Congratulations! 🥳`,
     ],
   },
   waitlisted: {
     subject: "You're on the HackHive 2027 waitlist",
-    paragraphs: [
-      "Thanks for applying to HackHive 2027. You're on our waitlist for now.",
+    paragraphs: (mark) => [
+      `Thanks for applying to HackHive 2027. ${mark("You're on our waitlist for now.")}`,
       "We'll email you if a spot opens up.",
     ],
   },
   rejected: {
     subject: 'Your HackHive 2027 application',
-    paragraphs: [
-      "Thanks for applying to HackHive 2027. Unfortunately, we couldn't offer you a spot this year.",
+    paragraphs: (mark) => [
+      `Thanks for applying to HackHive 2027. Unfortunately, ${mark("we couldn't offer you a spot this year")}.`,
       'We hope to see you next time.',
     ],
   },
 };
 
+const DASHBOARD_HEADING = 'Your dashboard is unlocked 🔓';
+const DASHBOARD_BODY = 'Your hacker dashboard now has the schedule, your check-in pass, teammates, hardware and points.';
+
+// Returns the body only; sendDecisionEmail wraps it in the branded shell.
 export function decisionEmail(decision: Decision, firstName: string | null, siteUrl: string) {
   const { subject, paragraphs } = CONTENT[decision];
-  const greeting = `Hi ${firstName?.trim() || 'there'},`;
+  const name = firstName?.trim() || 'there';
   const dashboardUrl = decision === 'accepted' ? `${siteUrl}/dashboard` : null;
 
   const text = [
-    greeting,
-    ...paragraphs,
-    ...(dashboardUrl ? [`Click this link to access your dashboard: ${dashboardUrl}`] : []),
+    `Hi ${name},`,
+    ...paragraphs((t) => t),
+    ...(dashboardUrl ? [DASHBOARD_BODY, `Click this link to access your dashboard: ${dashboardUrl}`] : []),
     'The HackHive team',
   ].join('\n\n');
 
   const html = [
-    ...[greeting, ...paragraphs].map((line) => `<p>${escapeHtml(line)}</p>`),
+    emailParagraph(`<strong style="color:#ffffff;">Hi ${escapeHtml(name)}! 👋</strong>`),
+    ...paragraphs(emailHighlight).map(emailParagraph),
     ...(dashboardUrl
-      ? [`<p><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;padding:12px 20px;border-radius:6px;background:#171717;color:#ffffff;text-decoration:none;font-weight:600">Go to your dashboard</a></p>`]
+      ? [emailDivider, emailHeading(DASHBOARD_HEADING), emailParagraph(DASHBOARD_BODY), emailButton(dashboardUrl, 'Go to your dashboard')]
       : []),
-    '<p>The HackHive team</p>',
-  ].join('');
+    emailParagraph('The HackHive team'),
+  ].join('\n');
 
   return { subject, text, html };
 }
@@ -72,11 +76,12 @@ export async function sendDecisionEmail({ to, firstName, decision }: {
     return { sent: false, error: `${missing} is not set` };
   }
 
+  const { subject, text, html } = decisionEmail(decision, firstName, siteUrl);
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], ...decisionEmail(decision, firstName, siteUrl) }),
+      body: JSON.stringify({ from, to: [to], subject, text, html: emailShell(html) }),
       signal: AbortSignal.timeout(10_000),
     });
     if (response.ok) return { sent: true };

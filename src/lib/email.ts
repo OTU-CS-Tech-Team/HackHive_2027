@@ -14,29 +14,59 @@ function resolveFrom() {
 }
 
 const FONT = '-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+const HONEY = '#f5b83d';
+const INK = '#14110b';
+const CREAM = '#fff6e0';
+const MUTED = '#9c8b6c';
+
+const HTML_ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
 // Names, notes and item names come from users, so escape them before putting them in HTML.
-function escapeHtml(text: string) {
-  return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+export function escapeHtml(text: string) {
+  return text.replace(/[&<>"']/g, (char) => HTML_ENTITIES[char]);
 }
 
-// Email clients need inline styles, not a stylesheet. This is the one place the
-// branded shell lives, so every HackHive email looks the same.
-function emailShell(bodyHtml: string) {
+// Building blocks for email bodies. Email clients drop stylesheets, so every style is inline.
+export const emailDivider = `<div style="height:3px;line-height:3px;font-size:0;margin:28px 0;background:${HONEY};background-image:linear-gradient(90deg,${HONEY},#b0aee3);border-radius:2px;">&nbsp;</div>`;
+
+export const emailParagraph = (html: string) => `<p style="margin:0 0 14px;">${html}</p>`;
+
+export const emailHeading = (html: string) =>
+  `<h2 style="margin:0 0 12px;font-size:19px;line-height:1.3;font-weight:700;color:#ffffff;">${html}</h2>`;
+
+export const emailHighlight = (html: string) => `<strong style="color:${HONEY};">${html}</strong>`;
+
+export function emailButton(href: string, label: string) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto;border-collapse:separate;">
+  <tr><td style="background:${HONEY};border-radius:8px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:13px 28px;font-size:15px;font-weight:700;color:${INK};text-decoration:none;">${label}</a></td></tr>
+</table>`;
+}
+
+// The one place the branded shell lives, so every HackHive email looks the same.
+// Logos load from the deployed site (public/email/), so they need NEXT_PUBLIC_SITE_URL;
+// without it the alt text shows instead.
+export function emailShell(bodyHtml: string) {
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') ?? '';
   return `
-<div style="background:#f4f4f5;padding:32px 16px;font-family:${FONT};">
-  <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e5e5e5;overflow:hidden;">
-    <div style="background:#1b003f;padding:18px 28px;">
-      <span style="color:#fff29c;font-size:15px;font-weight:700;letter-spacing:0.03em;">HACKHIVE 2027</span>
-    </div>
-    <div style="padding:28px;color:#111111;font-size:15px;line-height:1.6;">
-      ${bodyHtml}
-    </div>
-    <div style="padding:14px 28px;background:#fafafa;border-top:1px solid #e5e5e5;">
-      <p style="margin:0;font-size:12px;color:#999999;">HackHive 2027 · OTU Computer Science Club</p>
-    </div>
-  </div>
-</div>`;
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${INK}" style="background:${INK};font-family:${FONT};">
+  <tr><td style="padding:32px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;">
+      <tr><td bgcolor="${CREAM}" style="padding:28px 24px 24px;background:${CREAM};border-radius:12px;text-align:center;">
+        <img src="${site}/email/hackhive.png" width="56" height="64" alt="HackHive" style="display:inline-block;vertical-align:middle;margin:0 10px;border:0;">
+        <img src="${site}/email/cs-club.png" width="80" height="64" alt="OTU Computer Science Club" style="display:inline-block;vertical-align:middle;margin:0 10px;border:0;">
+        <p style="margin:16px 0 0;font-size:26px;line-height:1.2;font-weight:800;color:${INK};">HackHive 2027</p>
+        <p style="margin:6px 0 0;font-size:13px;font-weight:600;color:#7a6040;">Hosted by the OTU Computer Science Club</p>
+      </td></tr>
+      <tr><td style="padding:32px 28px 0;color:${CREAM};font-size:15px;line-height:1.65;">
+        ${bodyHtml}
+        ${emailDivider}
+        <p style="margin:0;font-size:12px;line-height:1.6;color:${MUTED};">HackHive 2027 · OTU Computer Science Club${
+          site ? `<br><a href="${site}" style="color:${MUTED};">${site.replace(/^https?:\/\//, '')}</a>` : ''
+        }</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`;
 }
 
 type Item = { name: string; quantity: number };
@@ -58,7 +88,7 @@ function itemLines(items: Item[]) {
 }
 
 function itemsHtml(items: Item[]) {
-  return `<p style="margin:0 0 16px;padding-left:12px;border-left:3px solid #fff29c;">${itemLines(items)
+  return `<p style="margin:0 0 14px;padding-left:12px;border-left:3px solid ${HONEY};color:#ffffff;">${itemLines(items)
     .map(escapeHtml)
     .join('<br>')}</p>`;
 }
@@ -101,9 +131,11 @@ export function sendApplicationReceivedEmail(to: string, { firstName, pdf }: { f
   return sendEmail(
     to,
     'We got your HackHive application',
-    `<p style="margin:0 0 12px;">Hi ${escapeHtml(firstName)},</p>
-<p style="margin:0 0 12px;">${body}</p>
-<p style="margin:0;">${attached}</p>`,
+    `${emailParagraph(`<strong style="color:#ffffff;">Hi ${escapeHtml(firstName)}! 👋</strong>`)}
+${emailParagraph(`Thanks for applying to HackHive 2027! ${emailHighlight('Your application is in')}, and we'll email you once a decision has been made.`)}
+${emailDivider}
+${emailHeading('Your indemnification form 📎')}
+${emailParagraph(attached)}`,
     `Hi ${firstName},\n\n${body}\n\n${attached}`,
     [{ filename: 'HackHive-2027-Indemnification-Form.pdf', content: pdf }],
   );
@@ -114,9 +146,9 @@ export function sendItemRequestReceivedEmail(to: string, { items }: { items: Ite
   return sendEmail(
     to,
     'We got your HackHive item request',
-    `<p style="margin:0 0 12px;">You requested:</p>
+    `${emailParagraph('You requested:')}
 ${itemsHtml(items)}
-<p style="margin:0;">The executives have your request and will review it at their earliest convenience.</p>`,
+${emailParagraph('The executives have your request and will review it at their earliest convenience.')}`,
     `You requested:\n\n${itemsText(items)}\n\nThe executives have your request and will review it at their earliest convenience.`,
   );
 }
@@ -132,11 +164,11 @@ export function sendItemRequestReviewedEmail(
   return sendEmail(
     to,
     accepted ? 'Your HackHive item request was accepted' : 'Your HackHive item request was rejected',
-    `<p style="margin:0 0 12px;">Your request for:</p>
+    `${emailParagraph('Your request for:')}
 ${itemsHtml(items)}
-<p style="margin:0 0 16px;">has been <strong style="color:${accepted ? '#15803d' : '#b91c1c'};">${decision}</strong>.</p>
-${note ? `<p style="margin:0 0 16px;padding:12px 16px;background:#fafafa;border-left:3px solid #1b003f;"><strong>Note from the executives:</strong> ${escapeHtml(note)}</p>` : ''}
-<p style="margin:0;">${escapeHtml(next)}</p>`,
+${emailParagraph(`has been <strong style="color:${accepted ? '#4ade80' : '#f87171'};">${decision}</strong>.`)}
+${note ? `<p style="margin:0 0 14px;padding:12px 16px;background:#2a1e12;border-left:3px solid ${HONEY};"><strong style="color:#ffffff;">Note from the executives:</strong> ${escapeHtml(note)}</p>` : ''}
+${emailParagraph(escapeHtml(next))}`,
     `Your request for:\n\n${itemsText(items)}\n\nhas been ${decision}.${note ? `\n\nNote from the executives: ${note}` : ''}\n\n${next}`,
   );
 }
