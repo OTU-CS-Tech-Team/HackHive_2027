@@ -20,43 +20,56 @@ export default function SpaceBackground() {
     let scrollImpulse = 0, lastScroll = window.scrollY;
     let seed = 2026;
     const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    const createStar = (distant = false): Star => ({
-      x: (random() - .5) * width * 1.8,
-      y: (random() - .5) * height * 1.8,
-      z: distant ? 1 : .12 + random() * .88,
-      size: .4 + random() * .65,
-      warm: random() > .95,
-    });
+    const createStar = (distant = false): Star => {
+      const z = distant ? 1 : .12 + random() * .88;
+      const angle = random() * Math.PI * 2;
+      const radius = .025 + random() * .38;
+      return {
+        x: distant ? Math.cos(angle) * width * radius : (random() - .43) * width * z,
+        y: distant ? Math.sin(angle) * height * radius : (random() - .47) * height * z,
+        z,
+        size: .35 + random() * .65,
+        warm: random() > .95,
+      };
+    };
 
     const paint = (now: number, still = false) => {
       const elapsed = Math.min(now - previous || 33, 64);
       previous = now;
-      // A single arrival, then a nearly imperceptible flight. Never a flashing overlay.
+      // Sustain a clear forward flight; the arrival and scroll add a brief acceleration.
       const arrival = still ? 0 : Math.pow(Math.max(0, 1 - (now - started) / 2400), 3);
-      const speed = still ? 0 : .000006 + arrival * .0006 + scrollImpulse;
-      const streaking = arrival > .08 || scrollImpulse > .00004;
-      scrollImpulse *= .88;
+      const speed = still ? 0 : .000055 + arrival * .00035 + scrollImpulse;
+      scrollImpulse *= .9;
       offsetX += (targetX - offsetX) * .035;
       offsetY += (targetY - offsetY) * .035;
       context.fillStyle = "#000";
       context.fillRect(0, 0, width, height);
       const centerX = width * .43 + offsetX, centerY = height * .47 + offsetY;
       stars.forEach((star, index) => {
-        const oldZ = star.z;
         star.z -= elapsed * speed;
         if (star.z <= .06) { stars[index] = createStar(true); return; }
         const x = star.x / star.z + centerX, y = star.y / star.z + centerY;
         if (x < -40 || x > width + 40 || y < -40 || y > height + 40) {
           stars[index] = createStar(true); return;
         }
-        const opacity = Math.min(.55, .13 + (1 - star.z) * .34);
+        const opacity = Math.min(.68, .13 + (1 - star.z) * .55);
         const color = star.warm ? `rgba(245,210,139,${opacity})` : `rgba(211,221,235,${opacity})`;
         context.fillStyle = color;
-        if (streaking && oldZ > star.z) {
-          const lastX = star.x / oldZ + centerX, lastY = star.y / oldZ + centerY;
-          context.strokeStyle = color;
-          context.lineWidth = .6;
-          context.beginPath(); context.moveTo(lastX, lastY); context.lineTo(x, y); context.stroke();
+        if (!still) {
+          const tailZ = Math.min(1.05, star.z + speed * 85);
+          const tailX = star.x / tailZ + centerX, tailY = star.y / tailZ + centerY;
+          const dx = x - tailX, dy = y - tailY;
+          const distance = Math.hypot(dx, dy);
+          if (distance > 1) {
+            const length = Math.min(distance, arrival > .2 ? 65 : 36);
+            const lastX = x - dx / distance * length, lastY = y - dy / distance * length;
+            const trail = context.createLinearGradient(lastX, lastY, x, y);
+            trail.addColorStop(0, "rgba(211,221,235,0)");
+            trail.addColorStop(1, color);
+            context.strokeStyle = trail;
+            context.lineWidth = .65;
+            context.beginPath(); context.moveTo(lastX, lastY); context.lineTo(x, y); context.stroke();
+          }
         }
         context.beginPath(); context.arc(x, y, Math.min(1.4, star.size / Math.sqrt(star.z)), 0, Math.PI * 2); context.fill();
       });
@@ -72,7 +85,7 @@ export default function SpaceBackground() {
       element.width = Math.round(width * ratio); element.height = Math.round(height * ratio);
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       seed = 2026;
-      stars = Array.from({ length: width < 700 ? 85 : 180 }, () => createStar());
+      stars = Array.from({ length: width < 700 ? 100 : 200 }, () => createStar());
       paint(performance.now(), true);
     };
     const sync = () => {
@@ -89,7 +102,7 @@ export default function SpaceBackground() {
     const scroll = () => {
       const distance = Math.abs(window.scrollY - lastScroll);
       lastScroll = window.scrollY;
-      if (!motion.matches) scrollImpulse = Math.min(.00016, scrollImpulse + distance * .0000005);
+      if (!motion.matches) scrollImpulse = Math.min(.0002, scrollImpulse + distance * .0000006);
     };
     started = performance.now();
     resize(); sync();
