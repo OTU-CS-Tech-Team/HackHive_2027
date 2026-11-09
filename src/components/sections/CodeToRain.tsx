@@ -60,7 +60,7 @@ const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges sect
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
 const GROUP_MIN = 3; // characters per flying chunk of text (min)
 const GROUP_MAX = 5; // ... and max. Bigger groups = fewer draw calls = less lag, chunkier look
-const ANIM_VH = 6; // scroll distance (in screen heights) the whole sequence is scrubbed over
+const ANIM_VH = 3.3; // scroll distance (in screen heights) the whole sequence is scrubbed over
 const MONO = "ui-monospace,Menlo,Consolas,monospace";
 
 const cl = (x: number, a = 0, b = 1) => Math.min(b, Math.max(a, x));

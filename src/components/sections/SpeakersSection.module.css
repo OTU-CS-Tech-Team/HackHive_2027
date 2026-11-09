@@ -591,7 +591,7 @@
 }
 .codeRainTrack {
   position: relative;
-  height: 670vh;            /* 100vh pinned + ANIM_VH * FADE_END (0.94) screens, so it ends right as the shards are gone */
+  height: 400vh;            /* 100vh pinned + ANIM_VH * FADE_END (0.94) screens, so it ends right as the shards are gone */
   background: #14110b;      /* never let the page background show through */
   pointer-events: none;
 }
