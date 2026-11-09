@@ -58,6 +58,8 @@ const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.55; // judges section starts sl
 const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.7; // shards begin fading here
 const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges section cuts in
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
+const GROUP_MIN = 3; // characters per flying chunk of text (min)
+const GROUP_MAX = 5; // ... and max. Bigger groups = fewer draw calls = less lag, chunkier look
 const ANIM_VH = 6; // scroll distance (in screen heights) the whole sequence is scrubbed over
 const MONO = "ui-monospace,Menlo,Consolas,monospace";
 
@@ -71,6 +73,8 @@ const hash = (n: number) => {
   return v - Math.floor(v);
 };
 
+// A few neighbouring characters that fly as one piece (one draw call instead of 3-5).
+type Group = { text: string; start: number; len: number; gx: number; gy: number; r: number; sh: number; s: number; s2: number };
 type Glyph = { ch: string; x: number; y: number; r: number; s: number; s2: number };
 type Pt = [number, number];
 type Chunk = { pts: Pt[]; ccx: number; ccy: number; s: number; s2: number };
@@ -96,6 +100,7 @@ export function CodeToRain() {
     let fs = 14, lh = 20, cw = 8, bx = 0, by = 0, bw = 0, pad = 0;
     let cx = 0, cy = 0, diag = 0, hFull = 0;
     let glyphs: Glyph[] = [];
+    let groups: Group[] = [];
     let chunks: Chunk[] = [];
 
     let sp = 0; // smoothed scroll progress
@@ -207,9 +212,39 @@ export function CodeToRain() {
         }
       });
 
+      // Chunk neighbouring characters (same row, touching) into groups of GROUP_MIN..GROUP_MAX.
+      groups = [];
+      for (let i = 0; i < glyphs.length; ) {
+        const first = glyphs[i];
+        const size = GROUP_MIN + Math.floor(hash(groups.length * 3 + 5) * (GROUP_MAX - GROUP_MIN + 1));
+        let len = 1;
+        while (
+          len < size &&
+          i + len < glyphs.length &&
+          glyphs[i + len].r === first.r &&
+          Math.abs(glyphs[i + len].x - (first.x + len * cw)) < 0.5
+        ) {
+          len++;
+        }
+        let text = "";
+        for (let k = 0; k < len; k++) text += glyphs[i + k].ch;
+        groups.push({
+          text,
+          start: i,
+          len,
+          gx: first.x + (len * cw) / 2, // centre of the chunk: it swells, spins and flies around this
+          gy: first.y,
+          r: first.r,
+          sh: 0.75 + 0.25 * hash(first.r * 3.3),
+          s: hash(groups.length + 1),
+          s2: hash(groups.length + 7),
+        });
+        i += len;
+      }
+
       hFull = cl(pad * 2 + CODE.length * lh + fs * 0.4, H * 0.3, H * 0.92);
       // origin for the bulge and the explosion: horizontal centre, lower part of the text
-      cx = W / 2;
+      cx = W / 3;
       cy = by + hFull * ORIGIN_Y;
       diag = Math.hypot(W, H);
       makeChunks();
@@ -232,7 +267,7 @@ export function CodeToRain() {
       sp = reduced ? target : sp + (target - sp) * Math.min(1, dt * 10);
       const p = sp;
       ctx!.clearRect(0, 0, W, H);
-      ctx!.fillStyle = "#020503";
+      ctx!.fillStyle = "#050502";
       ctx!.fillRect(0, 0, W, H);
       if (hint) hint.style.opacity = p < 0.02 ? "0.7" : "0";
 
@@ -267,7 +302,7 @@ export function CodeToRain() {
             else ctx!.moveTo(cx + w[0], cy + w[1]);
           });
           ctx!.closePath();
-          ctx!.fillStyle = "#030a05";
+          ctx!.fillStyle = "#090a03";
           ctx!.fill();
           ctx!.shadowColor = `rgba(80,255,140,${0.2 + d * 0.6})`;
           ctx!.shadowBlur = 14 + d * 40;
@@ -292,9 +327,9 @@ export function CodeToRain() {
               else ctx!.moveTo(w[0] - wc[0], w[1] - wc[1]);
             });
             ctx!.closePath();
-            ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#030a05";
+            ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#090a03";
             ctx!.fill();
-            ctx!.shadowColor = "rgba(80,255,140,.9)";
+            ctx!.shadowColor = "rgba(240, 255, 80, 0.9)";
             ctx!.shadowBlur = 10 + d * 30 + e * 10;
             ctx!.strokeStyle = `rgba(150,255,185,${0.3 + d * 0.3 + e * 0.4})`;
             ctx!.lineWidth = 1.5 + e * 1.5;
@@ -308,36 +343,39 @@ export function CodeToRain() {
         ctx!.font = `${fs}px ${MONO}`;
         ctx!.textBaseline = "alphabetic";
         const n = Math.min(shown, total);
-        for (let i = 0; i < n; i++) {
-          const o = glyphs[i];
-          let [dx, dy, s, rot] = warp(o.x, o.y, d, o.s, o.s2);
+        // Same glow for every chunk: set once instead of per character.
+        ctx!.shadowColor = "rgba(100,255,150,.8)";
+        ctx!.shadowBlur = d * 10 + e * 14;
+        ctx!.globalAlpha = fade;
+        for (const g of groups) {
+          if (g.start >= n) break; // not typed yet
+          let [dx, dy, s, rot] = warp(g.gx, g.gy, d, g.s, g.s2);
           if (e > 0) {
-            const ang = Math.atan2(dy, dx) + (o.s - 0.5) * 0.7;
-            const sp2 = (0.08 + o.s2 * 0.32) * diag; // stays on screen
+            const ang = Math.atan2(dy, dx) + (g.s - 0.5) * 0.7;
+            const sp2 = (0.08 + g.s2 * 0.32) * diag; // stays on screen
             dx += Math.cos(ang) * sp2 * ee;
             dy += Math.sin(ang) * sp2 * ee;
-            rot += (o.s - 0.5) * 14 * e;
+            rot += (g.s - 0.5) * 14 * e;
             s *= 1 + e * 0.9;
           }
           const x = cx + dx, y = cy + dy;
-          if (x < -60 || x > W + 60 || y < -60 || y > H + 60) continue;
-          const sh = 0.75 + 0.25 * hash(o.r * 3.3);
+          if (x < -80 || x > W + 80 || y < -80 || y > H + 80) continue;
+          const count = Math.min(g.len, n - g.start); // partly typed chunk
           ctx!.save();
-          ctx!.globalAlpha = fade;
           ctx!.translate(x, y);
           ctx!.rotate(rot);
           ctx!.scale(s, s);
-          ctx!.fillStyle = `rgb(${(110 * sh) | 0},${(255 * sh) | 0},${(150 * sh) | 0})`;
-          ctx!.shadowColor = "rgba(100,255,150,.8)";
-          ctx!.shadowBlur = d * 10 + e * 14;
-          ctx!.fillText(o.ch, 0, 0);
+          ctx!.fillStyle = `rgb(${(110 * g.sh) | 0},${(255 * g.sh) | 0},${(150 * g.sh) | 0})`;
+          ctx!.fillText(count === g.len ? g.text : g.text.slice(0, count), (-g.len * cw) / 2, 0);
           ctx!.restore();
         }
+        ctx!.globalAlpha = 1;
+        ctx!.shadowBlur = 0;
 
         // typing cursor
         if (typeP < 1 && shown > 0 && d < 0.05 && Math.floor(now / 450) % 2) {
           const o = glyphs[shown - 1];
-          ctx!.fillStyle = "#7dffa0";
+          ctx!.fillStyle = "#e1ff7d";
           ctx!.fillRect(o.x + cw, o.y - fs * 0.85, cw * 0.8, fs);
         }
       }
