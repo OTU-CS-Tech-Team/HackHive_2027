@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createLupinGeometry } from "@/components/landing/meadow/geometry";
 import { GRASS_CLEAR, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
 import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
 import { sceneBudget } from "@/components/landing/meadow/stats";
@@ -149,6 +150,23 @@ describe("meadow layout", () => {
       }
     }
     expect(shoulder).toBeGreaterThan(8);
+    const index = createLupinGeometry(undefined, "full", "near").index?.count ?? 0;
+    const nearLupins = high.patches[0]?.lupins.count ?? 0;
+    expect((index / 3) * nearLupins).toBeLessThan(40_000);
+    let gap = 0;
+    for (const patch of high.patches) {
+      for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          if (z < 0.85 || z > 2.4) continue;
+          if (x < -1.05 || x > 0.2) continue;
+          const beside = pathCenterMid(z) - x;
+          if (beside > 0.9) gap += 1;
+        }
+      }
+    }
+    expect(gap).toBeGreaterThan(8);
     for (let index = 0; index < high.sparks.count; index += 1) {
       const x = high.sparks.matrices[index * 16 + 12] ?? 0;
       const z = high.sparks.matrices[index * 16 + 14] ?? 0;

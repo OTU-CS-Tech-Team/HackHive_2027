@@ -414,7 +414,7 @@ function addLupinSpike(mesh: Bag, florets: number, around: number, along: number
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
     const y = 0.06 + Math.pow(t, 0.82) * 1.02;
-    const size = 0.028 * Math.pow(1 - t, 0.4) + 0.012;
+    const size = 0.034 * Math.pow(1 - t, 0.4) + 0.015;
     const yaw = floret * golden;
     const tilt = 1.2 - t * 0.55;
     const curve = Math.sin(t * Math.PI) * 0.045;
@@ -436,7 +436,9 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full", 
   }
   switch (density) {
     case "near":
-      addLupinSpike(mesh, 36, 7, 3);
+      // 22 florets on a 6×3 teardrop. 24 of these is about 43k triangles
+      // across the near patch, over the 40k budget.
+      addLupinSpike(mesh, 22, 6, 3);
       break;
     case "mid":
       addLupinSpike(mesh, 8, 5, 2);

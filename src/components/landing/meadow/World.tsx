@@ -264,7 +264,10 @@ function buildMaterials(): Materials {
     fragmentShader: BLOSSOM_FRAG,
     transparent: false,
     depthWrite: true,
-    alphaTest: 0.45,
+    // The fragment bleeds petal pink into the fringe. Coverage would need
+    // MSAA, and the hero is already fill-rate bound, so the cut stays hard.
+    alphaTest: 0.5,
+    alphaToCoverage: false,
   });
   return {
     sky,

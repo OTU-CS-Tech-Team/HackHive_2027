@@ -312,14 +312,46 @@ function sideX(
   return span[0] + (span[1] - span[0]) * t;
 }
 
-/** Just outside the tablet path, in the grass band under the tree at 768. */
-function tabletShoulder(z: number, side: number, rng: () => number) {
-  const center = pathCenterMid(z);
+/** Half-width of the tablet path, matching the ground shader at aspect 0.75. */
+function tabletHalf(z: number) {
   const narrow = 1 - smooth01(0.62, 1.15, 0.75);
   const base = 1.05 * (1 - narrow) + 0.42 * narrow;
-  const half = base * (1 - 0.38 * pathEaseAt(z));
+  return base * (1 - 0.38 * pathEaseAt(z));
+}
+
+/** Just outside the tablet path, in the grass band under the tree at 768. */
+function tabletShoulder(z: number, side: number, rng: () => number) {
+  const half = tabletHalf(z);
   const gap = half * 0.7 + 0.1 + rng() * 0.24;
-  return center + side * gap;
+  return pathCenterMid(z) + side * gap;
+}
+
+/**
+ * Mid flowers in the open lawn on the left of the tablet path. That band
+ * sits between the left lupins and the dirt around screen y 560–700 at 768.
+ * The wide path is further right, so these stay off it at 1280 too.
+ */
+function fillTabletGap(lilies: Item[], daisies: Item[], lupins: Item[]) {
+  const rng = mulberry32(907);
+  const count = 24;
+  for (let i = 0; i < count; i += 1) {
+    const z = 0.95 + (i % 6) * 0.22 + (rng() - 0.5) * 0.07;
+    const column = Math.floor(i / 6);
+    const x = 0.05 - column * 0.32 - rng() * 0.08;
+    const lily = i % 3 === 0;
+    const lupin = i % 5 === 0;
+    if (lupin) {
+      const tint = paint(rng, true);
+      const size = 0.48 + rng() * 0.14;
+      placeFlower(lupins, rng, x, 0.02, z, size, size, tint.color, tint.tip, 0, Math.PI * 2);
+    } else if (lily) {
+      const size = 0.26 + rng() * 0.1;
+      placeFlower(lilies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0.92, 0.5);
+    } else {
+      const size = 0.16 + rng() * 0.08;
+      placeFlower(daisies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0, Math.PI * 2);
+    }
+  }
 }
 
 /** Full meshes, spread from the path shoulder out to the frame edge. */
@@ -351,9 +383,9 @@ function scatterFull(
   return items;
 }
 
-const BLOSSOM_ROSE: RGB[] = [hexToRgb("#e07090"), hexToRgb("#d45880"), hexToRgb("#ee88a4")];
-const BLOSSOM_MID: RGB[] = [hexToRgb("#e87898"), hexToRgb("#f0a0b6"), hexToRgb("#f6c4d0")];
-const BLOSSOM_PALE: RGB[] = [hexToRgb("#ffe4ee"), hexToRgb("#ffd0e0"), hexToRgb("#fff0f4")];
+const BLOSSOM_ROSE: RGB[] = [hexToRgb("#d45078"), hexToRgb("#c44870"), hexToRgb("#e06088")];
+const BLOSSOM_MID: RGB[] = [hexToRgb("#e07090"), hexToRgb("#e888a4"), hexToRgb("#ee9eb4")];
+const BLOSSOM_PALE: RGB[] = [hexToRgb("#f0b4c6"), hexToRgb("#e8a0b6"), hexToRgb("#f4c0d0")];
 
 function placeShell(
   items: Item[],
@@ -472,6 +504,7 @@ export function buildLayout(quality: Quality): SceneLayout {
   const midDaisies = scatterFull(daisySplit.mid, 31, midZ[0], midZ[1], daisyScale, flowerClear, spread, false, 0, Math.PI * 2, true);
   const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
   const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
+  fillTabletGap(midLilies, midDaisies, midLupins);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];

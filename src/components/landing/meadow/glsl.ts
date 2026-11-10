@@ -755,11 +755,27 @@ float cluster(vec2 p, float ang) {
   return alpha;
 }
 
+vec2 nearestPetal(vec2 p, float ang) {
+  vec2 best = vec2(0.0, -0.01);
+  float bestD = length(p - best);
+  for (int i = 0; i < 5; i += 1) {
+    float t = ang + float(i) * 1.256637;
+    vec2 c = vec2(cos(t), sin(t)) * 0.11;
+    float d = length(p - c);
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
 void main() {
   vec2 p = vUv - 0.5;
   float shadow = step(20.5, vKind) * (1.0 - step(22.0, vKind));
   float glow = step(8.0, vKind) * (1.0 - step(20.0, vKind));
   float alpha = 0.0;
+  float ang = 0.0;
   if (shadow > 0.5) {
     alpha = smoothstep(0.5, 0.02, length(p * vec2(0.9, 1.25)));
     alpha *= 0.28 * (1.0 - uVeil);
@@ -771,20 +787,19 @@ void main() {
     alpha = disc(p, vec2(0.0, 0.02), 0.34);
     alpha *= 0.1;
   } else {
-    float n = fract(sin(dot(vTint.rg, vec2(19.7, 73.1))) * 43758.5);
-    alpha = cluster(p, n * 6.28318);
+    ang = fract(sin(dot(vTint.rg, vec2(19.7, 73.1))) * 43758.5) * 6.28318;
+    alpha = cluster(p, ang);
   }
   alpha = saturate(alpha) * (1.0 - uVeil);
   if (alpha < 0.02) discard;
-  float shade = saturate(0.9 - length(p) * 1.2);
-  float front = saturate(vKind / 6.2);
-  vec3 deep = vec3(0.82, 0.3, 0.48);
-  vec3 col = mix(vTint, deep, shade * mix(0.42, 0.16, max(front, glow)));
-  float rim = saturate(p.x * 0.65 + p.y * 0.5 + 0.15);
-  col = mix(col, vec3(1.0, 0.95, 0.93), rim * (1.0 - shade) * 0.7 * (1.0 - glow));
-  col = mix(col, vec3(1.0, 0.86, 0.74), disc(p, vec2(0.0, -0.02), 0.08) * 0.35 * (1.0 - glow));
-  col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.05);
-  gl_FragColor = vec4(col, alpha);
+  // Colour comes from the solid petal, then that pink is what the alpha cut
+  // writes. A fringe sample was coming out white.
+  vec2 q = glow > 0.5 ? p : nearestPetal(p, ang);
+  float shade = saturate(0.88 - length(q) * 0.55);
+  vec3 deep = vec3(0.62, 0.2, 0.36);
+  vec3 col = mix(vTint, deep, 0.18 + shade * 0.1);
+  col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.04);
+  gl_FragColor = vec4(col, 1.0);
 }
 `;
 
