@@ -157,6 +157,21 @@ void main() {
   if (uSss > 0.2) {
     vec3 shifted = world.xyz;
     settlePortrait(shifted, origin);
+    float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
+    if (phone > 0.85 && origin.y < 0.2 && origin.z > 0.9 && origin.z < 3.45) {
+      vec3 settledOrigin = origin;
+      settlePortrait(settledOrigin, origin);
+      float trunkX = ${(TREE.x + TREE.shiftPhone).toFixed(2)};
+      float cover = 1.0 - smoothstep(0.42, 0.58, abs(settledOrigin.x - trunkX));
+      float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, origin.z);
+      float ease = approach * approach * (3.0 - 2.0 * approach);
+      float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
+      float center = mix(line, trunkX, ease);
+      float halfW = 0.42 * mix(1.0, 0.62, ease);
+      float scatter = fract(sin(origin.z * 12.3 + origin.x * 4.7) * 43758.5453);
+      float lane = center - halfW - 0.28 - scatter * 0.5;
+      shifted.x += (lane - settledOrigin.x) * cover;
+    }
     world.xyz = shifted;
   } else if (abs(origin.x) > 0.8 && origin.y < 0.2) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
@@ -233,6 +248,24 @@ void main() {
   #endif
   vec3 shifted = world.xyz;
   settlePortrait(shifted, origin);
+  // Phone only. The narrow settle stacks the right-hand lupins on the
+  // trunk. Slide that column off to the left of the path. 768 and 1280
+  // have phone at 0, so this is a no-op there.
+  float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
+  if (phone > 0.85 && origin.y < 0.2 && origin.z > 0.9 && origin.z < 3.45) {
+    vec3 settledOrigin = origin;
+    settlePortrait(settledOrigin, origin);
+    float trunkX = ${(TREE.x + TREE.shiftPhone).toFixed(2)};
+    float cover = 1.0 - smoothstep(0.42, 0.58, abs(settledOrigin.x - trunkX));
+    float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, origin.z);
+    float ease = approach * approach * (3.0 - 2.0 * approach);
+    float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
+    float center = mix(line, trunkX, ease);
+    float halfW = 0.42 * mix(1.0, 0.62, ease);
+    float scatter = fract(sin(origin.z * 12.3 + origin.x * 4.7) * 43758.5453);
+    float lane = center - halfW - 0.28 - scatter * 0.5;
+    shifted.x += (lane - settledOrigin.x) * cover;
+  }
   world.xyz = shifted;
   float height = clamp(position.y, 0.0, 1.0);
   float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
@@ -745,6 +778,7 @@ varying vec2 vUv;
 varying vec3 vTint;
 varying vec3 vWorld;
 varying float vKind;
+uniform float uAspect;
 
 float disc(vec2 p, vec2 c, float radius) {
   float d = length(p - c) / radius;
@@ -789,6 +823,10 @@ void main() {
   float pale = step(0.9, min(vTint.r, min(vTint.g, vTint.b)));
   vec3 deep = vec3(0.78, 0.38, 0.52);
   vec3 pink = mix(vTint, deep, 0.06);
+  // The pale hill swallows a light pink on a phone. Deepen those cards
+  // there only. White blossoms stay white, and wider frames stay put.
+  float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
+  pink = mix(pink, vec3(0.62, 0.2, 0.36), phone * 0.46);
   vec3 col = mix(pink, vTint, pale);
   col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.04);
   gl_FragColor = vec4(col, 1.0);
