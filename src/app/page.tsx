@@ -1,5 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { Suspense } from "react";
+import { HeroCta, HeroCtaFallback } from "@/components/landing/HeroCta";
 import { HeroScroll } from "@/components/landing/HeroScroll";
 import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
@@ -12,7 +14,11 @@ const HAS_POSTER = existsSync(path.join(process.cwd(), "public/path/poster.webp"
 export default function Home() {
   return (
     <main>
-      <HeroScroll poster={HAS_POSTER} />
+      <HeroScroll poster={HAS_POSTER}>
+        <Suspense fallback={<HeroCtaFallback />}>
+          <HeroCta />
+        </Suspense>
+      </HeroScroll>
       <SponsorsSection />
       <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
       <SpeakersSection />
