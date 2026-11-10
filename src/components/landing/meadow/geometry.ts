@@ -563,63 +563,9 @@ function tubeFrame(tx: number, ty: number, tz: number) {
   };
 }
 
-function addRise(mesh: Bag) {
-  const segs = 14;
-  const rings = 4;
-  const green: RGB = [0.4, 0.6, 0.28];
-  const soil: RGB = [0.28, 0.4, 0.16];
-  const worn: RGB = [0.7, 0.5, 0.28];
-  const center = vert(mesh, 0, 0.16, 0, worn, 0);
-  const rows: number[][] = [];
-  for (let ring = 1; ring <= rings; ring += 1) {
-    const v = ring / rings;
-    const rad = v * 0.78;
-    const y = Math.cos(v * Math.PI * 0.5) * 0.16;
-    const row: number[] = [];
-    const tone = v < 0.3 ? mix(worn, green, 0.55) : mix(green, soil, v);
-    for (let s = 0; s < segs; s += 1) {
-      const angle = (s / segs) * Math.PI * 2;
-      row.push(vert(mesh, Math.cos(angle) * rad, y, Math.sin(angle) * rad * 0.8, tone, 0));
-    }
-    rows.push(row);
-  }
-  const first = rows[0] ?? [];
-  for (let s = 0; s < segs; s += 1) {
-    mesh.indices.push(center, first[s] ?? center, first[(s + 1) % segs] ?? center);
-  }
-  for (let ring = 0; ring < rows.length - 1; ring += 1) {
-    const lower = rows[ring] ?? [];
-    const upper = rows[ring + 1] ?? [];
-    for (let s = 0; s < segs; s += 1) {
-      const n = (s + 1) % segs;
-      const a = lower[s] ?? 0;
-      const b = lower[n] ?? 0;
-      const c = upper[s] ?? 0;
-      const d = upper[n] ?? 0;
-      mesh.indices.push(a, c, b, b, c, d);
-    }
-  }
-  const blade: RGB = [0.32, 0.52, 0.2];
-  const tip: RGB = [0.58, 0.74, 0.34];
-  for (let i = 0; i < 8; i += 1) {
-    const angle = (i / 8) * Math.PI * 2 + 0.3;
-    const rad = 0.28 + (i % 3) * 0.08;
-    const x = Math.cos(angle) * rad;
-    const z = Math.sin(angle) * rad * 0.8;
-    const lean = 0.04 + (i % 2) * 0.03;
-    const h = 0.16 + (i % 4) * 0.04;
-    const a = vert(mesh, x, 0.1, z, blade, 0.5);
-    const b = vert(mesh, x + 0.012, 0.1, z + 0.004, blade, 0.5);
-    const c = vert(mesh, x + lean, 0.1 + h, z, tip, 0.8);
-    const d = vert(mesh, x + 0.01 + lean, 0.1 + h, z + 0.004, tip, 0.8);
-    mesh.indices.push(a, c, b, b, c, d);
-  }
-}
-
-/** A dark forked trunk growing out of a low rise. One draw. */
+/** A dark forked trunk that meets the grass. One draw, no ground disc. */
 export function createTrunkGeometry() {
   const mesh = bag();
-  addRise(mesh);
   const dark: RGB = [0.29, 0.173, 0.102];
   const warm: RGB = [0.42, 0.227, 0.133];
   const addCurve = (points: { x: number; y: number; z: number; r: number }[]) => {
@@ -673,26 +619,27 @@ export function createTrunkGeometry() {
     }
   };
   const trunk = [
-    { x: 0, y: 0.14, z: 0, r: 0.1 },
-    { x: 0.02, y: 0.4, z: 0.01, r: 0.078 },
-    { x: 0.02, y: 0.66, z: -0.01, r: 0.055 },
-    { x: 0.0, y: 0.92, z: 0.01, r: 0.034 },
-    { x: -0.01, y: 1.14, z: 0.0, r: 0.016 },
+    { x: 0, y: 0.02, z: 0, r: 0.1 },
+    { x: 0.02, y: 0.36, z: 0.01, r: 0.078 },
+    { x: 0.02, y: 0.62, z: -0.01, r: 0.055 },
+    { x: 0.0, y: 0.84, z: 0.01, r: 0.034 },
+    { x: -0.01, y: 1.02, z: 0.0, r: 0.016 },
   ];
+  // Tips stop inside the blossom mass so no bare wood sticks out of the crown.
   const left = [
-    { x: 0.0, y: 0.62, z: 0.01, r: 0.028 },
-    { x: -0.1, y: 0.78, z: 0.04, r: 0.014 },
-    { x: -0.16, y: 0.9, z: 0.02, r: 0.007 },
+    { x: 0.0, y: 0.58, z: 0.01, r: 0.026 },
+    { x: -0.05, y: 0.68, z: 0.03, r: 0.014 },
+    { x: -0.07, y: 0.76, z: 0.02, r: 0.007 },
   ];
   const right = [
-    { x: 0.02, y: 0.68, z: 0.0, r: 0.026 },
-    { x: 0.12, y: 0.84, z: -0.03, r: 0.012 },
-    { x: 0.18, y: 0.96, z: -0.01, r: 0.006 },
+    { x: 0.02, y: 0.62, z: 0.0, r: 0.024 },
+    { x: 0.06, y: 0.72, z: -0.02, r: 0.012 },
+    { x: 0.07, y: 0.78, z: -0.01, r: 0.006 },
   ];
   const back = [
-    { x: 0.01, y: 0.58, z: 0.0, r: 0.02 },
-    { x: 0.03, y: 0.74, z: -0.08, r: 0.01 },
-    { x: 0.02, y: 0.88, z: -0.12, r: 0.005 },
+    { x: 0.01, y: 0.54, z: 0.0, r: 0.018 },
+    { x: 0.02, y: 0.66, z: -0.04, r: 0.01 },
+    { x: 0.02, y: 0.74, z: -0.06, r: 0.005 },
   ];
   addCurve(trunk);
   addCurve(left);

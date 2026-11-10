@@ -1,8 +1,9 @@
 /**
- * Blossoming tree on a rise to the right of the hero text.
+ * Blossoming tree on the right of the hero text.
  * The mesh is authored at `x`. The shaders add an aspect shift so the
- * crown stays in the right margin at 1280 and 768, and peeks from the
- * right edge on a phone. The path's far end aims at that shifted trunk.
+ * crown stays in the right margin at 1280 and 768. On a phone the whole
+ * crown, trunk included, sits inside the frame to the right of the title,
+ * date, and button. The path's far end aims at that shifted trunk.
  */
 export const TREE = {
   x: 0.85,
@@ -16,5 +17,5 @@ export const TREE = {
   /** Extra world-x added on a wide frame (1280), a tablet (768), and a phone. */
   shiftWide: 1.74,
   shiftMid: 0.46,
-  shiftPhone: 0.22,
+  shiftPhone: -0.05,
 } as const;
