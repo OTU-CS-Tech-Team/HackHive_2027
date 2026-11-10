@@ -154,6 +154,8 @@ function plantMaterial(
     transparent: soft,
     depthWrite: true,
     alphaToCoverage: soft,
+    premultipliedAlpha: soft,
+    alphaTest: soft && sss < 0.2 ? 0.12 : 0,
   });
 }
 
@@ -524,7 +526,7 @@ export default function MeadowWorld({
         return (
           <group key={index}>
             <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} kind="grass" />
-            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} />
+            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} />
             <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} />
             <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} />
           </group>
@@ -532,7 +534,7 @@ export default function MeadowWorld({
       })}
       <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
       <SparkPoints geometry={geometries.sparks} material={materials.spark} />
-      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={3} />
+      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={4} />
     </>
   );
 }

@@ -148,11 +148,9 @@ function addLilyPetal(mesh: Bag, yaw: number) {
       const y = lift + length * (0.04 + v * 0.86) - recurve * 0.22;
       const z = 0.02 + open + channel - recurve;
       const edge = Math.abs(u);
-      const color: RGB = [
-        0.98 - edge * 0.08 - (1 - v) * 0.03,
-        0.99 - edge * 0.04,
-        0.96 - edge * 0.02,
-      ];
+      const warm: RGB = [1, 0.9804, 0.9412];
+      const white: RGB = [1, 1, 1];
+      const color = mix(warm, white, Math.min(1, v * 0.8 + edge * 0.45));
       row.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, color, 0.04 + v * 0.2, [u, v]));
     }
     grid.push(row);
@@ -358,7 +356,7 @@ export function createLupinGeometry(scatter?: Scatter) {
 function addCurvedBlade(mesh: Bag, yaw: number, lean: number) {
   const root: RGB = [0.18, 0.38, 0.1];
   const mid: RGB = [0.38, 0.6, 0.2];
-  const tip: RGB = [0.84, 0.95, 0.55];
+  const tip: RGB = [0.62, 0.76, 0.34];
   const along = 4;
   const cosY = Math.cos(yaw);
   const sinY = Math.sin(yaw);

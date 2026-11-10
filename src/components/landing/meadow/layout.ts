@@ -240,7 +240,7 @@ export function buildLayout(quality: Quality): SceneLayout {
       x = side * (grassClear + Math.pow(grassRng(), 0.55) * 6.4 * widthMul);
     }
     const height = foreground ? 0.12 + grassRng() * 0.16 : 0.11 + grassRng() * 0.22;
-    const shade = 0.58 + grassRng() * 0.55;
+    const shade = 0.82 + grassRng() * 0.18;
     const warm = grassRng();
     grass.push({
       x,
@@ -251,7 +251,7 @@ export function buildLayout(quality: Quality): SceneLayout {
       sx: 0.55 + grassRng() * 0.85,
       sy: height,
       sz: 0.5 + grassRng() * 0.9,
-      color: [(0.5 + warm * 0.55) * shade, (0.72 + (1 - warm) * 0.4) * shade, (0.28 + grassRng() * 0.32) * shade],
+      color: [(0.4 + warm * 0.14) * shade, (0.58 + (1 - warm) * 0.12) * shade, (0.16 + grassRng() * 0.08) * shade],
       phase: grassRng() * Math.PI * 2,
     });
   }
@@ -262,8 +262,8 @@ export function buildLayout(quality: Quality): SceneLayout {
     glowItems.push({
       ...flower,
       y: 0.72 * flower.sy,
-      sx: flower.sx * 0.045,
-      sy: flower.sy * 0.045,
+      sx: flower.sx * 0.62,
+      sy: flower.sy * 0.62,
       sz: 1,
       color: [1, 1, 1],
     });
