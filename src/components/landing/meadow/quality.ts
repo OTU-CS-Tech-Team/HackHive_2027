@@ -5,6 +5,9 @@ export type SceneCounts = {
   lilies: number;
   daisies: number;
   lupins: number;
+  farLilies: number;
+  farDaisies: number;
+  farLupins: number;
   clouds: number;
   sparks: number;
   dpr: number;
@@ -13,10 +16,13 @@ export type SceneCounts = {
 
 const COUNTS: Record<Quality, SceneCounts> = {
   high: {
-    grass: 900,
+    grass: 870,
     lilies: 180,
     daisies: 90,
     lupins: 110,
+    farLilies: 72,
+    farDaisies: 56,
+    farLupins: 40,
     clouds: 7,
     sparks: 280,
     dpr: 1.25,
@@ -27,6 +33,9 @@ const COUNTS: Record<Quality, SceneCounts> = {
     lilies: 96,
     daisies: 52,
     lupins: 55,
+    farLilies: 40,
+    farDaisies: 32,
+    farLupins: 22,
     clouds: 4,
     sparks: 140,
     dpr: 1,

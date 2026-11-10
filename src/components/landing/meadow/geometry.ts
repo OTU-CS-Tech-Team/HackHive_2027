@@ -530,9 +530,17 @@ function ridge(x: number, phase: number) {
 }
 
 /** A hill that rises out of the meadow. The foot stays at y=0; the crest rolls in world x. */
-function addRollingHill(mesh: Bag, zNear: number, zFar: number, height: number, crest: RGB, phase: number) {
-  const columns = 48;
-  const rows = 10;
+function addRollingHill(
+  mesh: Bag,
+  zNear: number,
+  zFar: number,
+  height: number,
+  crest: RGB,
+  phase: number,
+  columns: number,
+  rows: number,
+  saddle: boolean,
+) {
   const ids: number[] = [];
   const foot: RGB = [0.74, 0.86, 0.58];
   for (let row = 0; row <= rows; row += 1) {
@@ -541,7 +549,8 @@ function addRollingHill(mesh: Bag, zNear: number, zFar: number, height: number, 
     for (let column = 0; column <= columns; column += 1) {
       const u = column / columns;
       const x = (u - 0.5) * 90;
-      const y = Math.max(0, height * (0.84 + ridge(x, phase)) * lift);
+      const dip = saddle ? Math.exp(-(x * x) / (24 * 24)) : 0;
+      const y = Math.max(0, height * (0.84 + ridge(x, phase)) * lift * (1 - dip * 0.58));
       const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.31 + phase) * 0.85 * lift;
       const up = Math.min(1, y / Math.max(height, 0.001));
       ids.push(vert(mesh, x, y, z, mix(foot, crest, up), 0));
@@ -559,66 +568,111 @@ function addRollingHill(mesh: Bag, zNear: number, zFar: number, height: number, 
   }
 }
 
-/** Three ridges. Near one starts in the meadow; far ones fade toward the sky. */
+/** Four ridges. The near foot stays in the meadow; farther ones are taller and bluer. */
 export function createHillsGeometry() {
   const mesh = bag();
-  addRollingHill(mesh, -4, -16, 1.8, [0.7, 0.82, 0.5], 0.2);
-  addRollingHill(mesh, -16, -30, 2.05, [0.78, 0.86, 0.58], 2.5);
-  addRollingHill(mesh, -28, -46, 1.55, [0.86, 0.9, 0.7], 4.4);
+  addRollingHill(mesh, -4, -16, 2.05, [0.7, 0.82, 0.5], 0.2, 56, 12, false);
+  addRollingHill(mesh, -14, -30, 4.6, [0.66, 0.76, 0.66], 1.7, 40, 10, true);
+  addRollingHill(mesh, -28, -48, 6.2, [0.6, 0.7, 0.8], 3.1, 36, 10, true);
+  addRollingHill(mesh, -46, -68, 7.6, [0.56, 0.66, 0.82], 4.6, 32, 8, true);
   return finish(mesh);
 }
 
-/** Dark silhouette. Lighting stays flat so the sides do not read as facets. */
+function tubeFrame(tx: number, ty: number, tz: number) {
+  const ax = Math.abs(ty) > 0.85 ? 1 : 0;
+  const ay = Math.abs(ty) > 0.85 ? 0 : 1;
+  let sx = ty * 0 - tz * ay;
+  let sy = tz * ax - tx * 0;
+  let sz = tx * ay - ty * ax;
+  const sl = Math.hypot(sx, sy, sz) || 1;
+  sx /= sl;
+  sy /= sl;
+  sz /= sl;
+  return {
+    sx,
+    sy,
+    sz,
+    bx: ty * sz - tz * sy,
+    by: tz * sx - tx * sz,
+    bz: tx * sy - ty * sx,
+  };
+}
+
+/** A smooth curved trunk and two branches. One draw, shared vertices so the lighting stays soft. */
 export function createTrunkGeometry() {
   const mesh = bag();
-  const bark: RGB = [0.07, 0.11, 0.07];
-  const addTube = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, r0: number, r1: number) => {
-    const sides = 7;
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const dz = z1 - z0;
-    const length = Math.hypot(dx, dy, dz) || 1;
-    const ux = dx / length;
-    const uy = dy / length;
-    const uz = dz / length;
-    const hx = Math.abs(uy) > 0.9 ? 1 : 0;
-    const hy = Math.abs(uy) > 0.9 ? 0 : 1;
-    let sx = uy * 0 - uz * hy;
-    let sy = uz * hx - ux * 0;
-    let sz = ux * hy - uy * hx;
-    const sl = Math.hypot(sx, sy, sz) || 1;
-    sx /= sl;
-    sy /= sl;
-    sz /= sl;
-    const tx = uy * sz - uz * sy;
-    const ty = uz * sx - ux * sz;
-    const tz = ux * sy - uy * sx;
-    const start = mesh.positions.length / 3;
-    for (let level = 0; level < 2; level += 1) {
-      const radius = level === 0 ? r0 : r1;
-      const px = level === 0 ? x0 : x1;
-      const py = level === 0 ? y0 : y1;
-      const pz = level === 0 ? z0 : z1;
-      for (let i = 0; i < sides; i += 1) {
-        const angle = (i / sides) * Math.PI * 2;
-        const c = Math.cos(angle) * radius;
-        const s = Math.sin(angle) * radius;
-        vert(mesh, px + sx * c + tx * s, py + sy * c + ty * s, pz + sz * c + tz * s, bark, 0);
+  const dark: RGB = [0.42, 0.26, 0.16];
+  const warm: RGB = [0.62, 0.4, 0.24];
+  const addCurve = (points: { x: number; y: number; z: number; r: number }[]) => {
+    const sides = 12;
+    const rings: number[][] = [];
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      const next = points[Math.min(points.length - 1, i + 1)];
+      const prev = points[Math.max(0, i - 1)];
+      if (!point || !next || !prev) continue;
+      let tx = next.x - prev.x;
+      let ty = next.y - prev.y;
+      let tz = next.z - prev.z;
+      const len = Math.hypot(tx, ty, tz) || 1;
+      tx /= len;
+      ty /= len;
+      tz /= len;
+      const frame = tubeFrame(tx, ty, tz);
+      const shade = i / Math.max(1, points.length - 1);
+      const color = mix(dark, warm, shade);
+      const ring: number[] = [];
+      for (let s = 0; s < sides; s += 1) {
+        const angle = (s / sides) * Math.PI * 2;
+        const c = Math.cos(angle) * point.r;
+        const sn = Math.sin(angle) * point.r;
+        ring.push(
+          vert(
+            mesh,
+            point.x + frame.sx * c + frame.bx * sn,
+            point.y + frame.sy * c + frame.by * sn,
+            point.z + frame.sz * c + frame.bz * sn,
+            color,
+            0,
+          ),
+        );
+      }
+      rings.push(ring);
+    }
+    for (let i = 0; i < rings.length - 1; i += 1) {
+      const a = rings[i];
+      const b = rings[i + 1];
+      if (!a || !b) continue;
+      for (let s = 0; s < sides; s += 1) {
+        const n = (s + 1) % sides;
+        const a0 = a[s] ?? 0;
+        const a1 = a[n] ?? 0;
+        const b0 = b[s] ?? 0;
+        const b1 = b[n] ?? 0;
+        mesh.indices.push(a0, b0, a1, a1, b0, b1);
       }
     }
-    for (let i = 0; i < sides; i += 1) {
-      const next = (i + 1) % sides;
-      const a = start + i;
-      const b = start + next;
-      const c = start + sides + i;
-      const d = start + sides + next;
-      mesh.indices.push(a, c, b, b, c, d);
-    }
   };
-  addTube(0, 0, 0, 0.05, 2.35, 0, 0.11, 0.05);
-  addTube(0.02, 1.35, 0, -0.85, 2.55, 0.15, 0.045, 0.02);
-  addTube(0.02, 1.7, 0, 0.7, 2.85, -0.1, 0.04, 0.018);
-  addTube(-0.4, 2.15, 0.08, -1.15, 3.05, 0.25, 0.028, 0.012);
+  const trunk = [
+    { x: 0, y: 0, z: 0, r: 0.1 },
+    { x: 0.02, y: 0.12, z: 0.01, r: 0.082 },
+    { x: 0.05, y: 0.24, z: -0.01, r: 0.064 },
+    { x: 0.02, y: 0.36, z: 0.02, r: 0.046 },
+    { x: -0.02, y: 0.46, z: 0.0, r: 0.03 },
+  ];
+  const left = [
+    { x: 0.03, y: 0.28, z: 0.01, r: 0.026 },
+    { x: -0.12, y: 0.36, z: 0.04, r: 0.016 },
+    { x: -0.26, y: 0.44, z: 0.02, r: 0.01 },
+  ];
+  const right = [
+    { x: 0.02, y: 0.32, z: 0.0, r: 0.024 },
+    { x: 0.16, y: 0.4, z: -0.03, r: 0.014 },
+    { x: 0.3, y: 0.48, z: -0.01, r: 0.008 },
+  ];
+  addCurve(trunk);
+  addCurve(left);
+  addCurve(right);
   return finish(mesh);
 }
 

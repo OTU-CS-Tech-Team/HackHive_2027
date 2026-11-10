@@ -86,17 +86,27 @@ describe("meadow layout", () => {
     expect(trimmedSparks(280, 2)).toBe(70);
     expect(trimmedInstances(104, "flower", 1)).toBe(104);
     expect(trimmedInstances(104, "flower", 2)).toBe(104);
+    expect(trimmedInstances(104, "flower", 3)).toBe(104);
+    expect(trimmedInstances(80, "far", 1)).toBe(80);
+    expect(trimmedInstances(80, "far", 2)).toBe(80);
+    expect(trimmedInstances(80, "far", 3)).toBe(32);
+    expect(trimmedInstances(1800, "grass", 3)).toBe(450);
+    expect(trimmedSparks(280, 3)).toBe(70);
     expect(trimmedInstances(7, "other", 2)).toBe(7);
     expect(readForcedTrim("?meadowTrim=1")).toBe(1);
     expect(readForcedTrim("?meadowTrim=2")).toBe(2);
+    expect(readForcedTrim("?meadowTrim=3", "development")).toBe(3);
     expect(readForcedTrim("")).toBe(0);
+    expect(readForcedTrim("?meadowTrim=1", "production")).toBe(0);
+    expect(readForcedTrim("?meadowTrim=2", "production")).toBe(0);
+    expect(readForcedTrim("?meadowTrim=3", "production")).toBe(0);
   });
 
   it("keeps both quality levels on a small draw budget", () => {
     const high = sceneBudget("high");
     const low = sceneBudget("low");
-    expect(high.draws).toBe(15);
-    expect(low.draws).toBe(15);
+    expect(high.draws).toBe(20);
+    expect(low.draws).toBe(20);
     expect(high.triangles).toBeLessThan(350_000);
     expect(low.triangles).toBeLessThan(high.triangles);
     expect(low.instances.lilies).toBeLessThan(high.instances.lilies);

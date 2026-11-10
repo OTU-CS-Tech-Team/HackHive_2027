@@ -7,6 +7,7 @@ import {
   createHillsGeometry,
   createLilyGeometry,
   createLupinGeometry,
+  createTrunkGeometry,
 } from "@/components/landing/meadow/geometry";
 import { buildLayout } from "@/components/landing/meadow/layout";
 import type { Quality } from "@/components/landing/meadow/quality";
@@ -28,6 +29,7 @@ export type SceneBudget = {
     glows: number;
     sparks: number;
     leaves: number;
+    blossoms: number;
   };
   triangles: number;
   draws: number;
@@ -47,6 +49,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     lupinSpeck: triangles(createLupinGeometry(undefined, "speck")),
     card: triangles(createCardGeometry()),
     hill: triangles(createHillsGeometry()),
+    trunk: triangles(createTrunkGeometry()),
     sky: triangles(new SphereGeometry(48, SKY_SEGMENTS[0], SKY_SEGMENTS[1])),
     ground: 2,
   };
@@ -59,6 +62,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     glows: layout.glows.count,
     sparks: layout.sparks.count,
     leaves: layout.leaves.count,
+    blossoms: layout.blossoms.count,
   };
   let draws = 3;
   let tris = unit.sky + unit.ground + unit.hill;
@@ -95,6 +99,12 @@ export function sceneBudget(quality: Quality): SceneBudget {
     tris += unit.card * layout.glows.count;
   }
   if (layout.sparks.count > 0) draws += 1;
+  if (layout.blossoms.count > 0) {
+    draws += 1;
+    tris += unit.card * layout.blossoms.count;
+  }
+  draws += 1;
+  tris += unit.trunk;
   if (layout.leaves.count > 0) {
     draws += 1;
     tris += unit.card * layout.leaves.count;

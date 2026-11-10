@@ -2,6 +2,7 @@ import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import { hexToRgb } from "@/components/landing/meadow/palette";
 import type { Quality } from "@/components/landing/meadow/quality";
 import { countsFor } from "@/components/landing/meadow/quality";
+import { TREE } from "@/components/landing/meadow/tree";
 
 /** Flowers stay off the calm centre. Grass may grow closer to the path edge. */
 export const FLOWER_CLEAR = 1.12;
@@ -124,6 +125,9 @@ export type SceneLayout = {
   glows: Scatter;
   sparks: Scatter;
   leaves: Scatter;
+  blossoms: Scatter;
+  /** Instances that stay when the far petal drift is trimmed. */
+  canopyCount: number;
 };
 
 function paint(rng: () => number, family: boolean) {
@@ -210,6 +214,78 @@ function scatterFull(
   return items;
 }
 
+const BLOSSOM_PINKS: RGB[] = [
+  hexToRgb("#e24b78"),
+  hexToRgb("#f27a98"),
+  hexToRgb("#ffd0dc"),
+  hexToRgb("#fffaf6"),
+  hexToRgb("#d63d68"),
+  hexToRgb("#f7b3c4"),
+];
+
+/** One instanced cloud: warm backlight, blossom clusters, then the falling petals. */
+function buildBlossoms(quality: Quality) {
+  const compact = quality === "low";
+  const clusters = compact ? 110 : 180;
+  const glows = compact ? 3 : 4;
+  const petals = compact ? 24 : 40;
+  const items: Item[] = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < glows; i += 1) {
+    const angle = (i / glows) * Math.PI * 2;
+    items.push({
+      x: TREE.x + Math.cos(angle) * 0.18,
+      y: TREE.baseY + TREE.canopyY + 0.05,
+      z: TREE.z - 0.35,
+      yaw: 0,
+      pitch: 0,
+      sx: 0.7,
+      sy: 0.48,
+      sz: 1,
+      color: hexToRgb("#ffd2b8"),
+      phase: 10 + i * 0.2,
+    });
+  }
+  for (let i = 0; i < clusters; i += 1) {
+    const t = clusters <= 1 ? 0.5 : i / (clusters - 1);
+    const y = 0.85 - t * 1.15;
+    const ring = Math.sqrt(Math.max(0.04, 1 - (y / 0.9) * (y / 0.9)));
+    const theta = golden * i;
+    const radius = TREE.canopyRadius * (0.28 + 0.72 * Math.pow(ring, 0.85));
+    const size = 0.16 + (1 - t) * 0.2 + (i % 4) * 0.025;
+    const pink = BLOSSOM_PINKS[i % BLOSSOM_PINKS.length] ?? ([1, 0.95, 0.96] as RGB);
+    items.push({
+      x: TREE.x + Math.cos(theta) * radius,
+      y: TREE.baseY + TREE.canopyY + y * TREE.canopySquash * TREE.canopyRadius,
+      z: TREE.z + Math.sin(theta) * radius * 0.78,
+      yaw: 0,
+      pitch: 0,
+      sx: size,
+      sy: size * (0.78 + (i % 3) * 0.08),
+      sz: 1,
+      color: pink,
+      phase: (i % 7) * 0.65,
+    });
+  }
+  for (let i = 0; i < petals; i += 1) {
+    const angle = golden * i * 1.7;
+    const radius = 0.2 + (i % 5) * 0.16;
+    items.push({
+      x: TREE.x + Math.cos(angle) * radius,
+      y: TREE.baseY + TREE.canopyY + 0.15 + (i % 4) * 0.08,
+      z: TREE.z + Math.sin(angle) * radius,
+      yaw: 0,
+      pitch: 0,
+      sx: 0.1 + (i % 3) * 0.02,
+      sy: 0.14,
+      sz: 1,
+      color: BLOSSOM_PINKS[i % 3] ?? ([1, 0.9, 0.93] as RGB),
+      phase: 30 + i * 0.37,
+    });
+  }
+  return { scatter: toScatter(items), canopyCount: glows + clusters };
+}
+
 function splitCount(total: number, nearShare: number) {
   const near = Math.max(4, Math.round(total * nearShare));
   return { near, mid: Math.max(4, total - near) };
@@ -233,6 +309,14 @@ export function buildLayout(quality: Quality): SceneLayout {
   const midDaisies = scatterFull(daisySplit.mid, 31, -3.9, 1.9, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
   const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, compact);
   const midLupins = scatterFull(lupinSplit.mid, 53, -3.9, 1.9, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const farScale = 0.72;
+  const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
+  const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];
+  const farLupinScale: [number, number] = [lupinScale[0] * farScale, lupinScale[1] * farScale];
+  const farLilies = scatterFull(counts.farLilies, 71, -1.9, -3.75, farLilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const farDaisies = scatterFull(counts.farDaisies, 73, -1.9, -3.75, farDaisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const farLupins = scatterFull(counts.farLupins, 79, -1.9, -3.75, farLupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const blossoms = buildBlossoms(quality);
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
@@ -369,14 +453,16 @@ export function buildLayout(quality: Quality): SceneLayout {
       },
       {
         grass: grassPatches[2] ?? emptyScatter(),
-        lilies: emptyScatter(),
-        daisies: emptyScatter(),
-        lupins: emptyScatter(),
+        lilies: toScatter(shuffle(farLilies, 571)),
+        daisies: toScatter(shuffle(farDaisies, 581)),
+        lupins: toScatter(shuffle(farLupins, 591)),
       },
     ],
     clouds: toScatter(shuffle(clouds, 13)),
     glows: toScatter(shuffle(glowItems, 17)),
     sparks: toScatter(shuffle(sparks, 23)),
     leaves: toScatter(shuffle(leaves, 29)),
+    blossoms: blossoms.scatter,
+    canopyCount: blossoms.canopyCount,
   };
 }

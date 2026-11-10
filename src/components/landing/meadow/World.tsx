@@ -14,8 +14,12 @@ import {
   type Side,
   type BufferGeometry,
 } from "three";
-import { createCardGeometry, createDaisyGeometry, createGrassGeometry, createHillsGeometry, createLilyGeometry, createLupinGeometry, createSparkPoints } from "@/components/landing/meadow/geometry";
+import { createCardGeometry, createDaisyGeometry, createGrassGeometry, createHillsGeometry, createLilyGeometry, createLupinGeometry, createSparkPoints, createTrunkGeometry } from "@/components/landing/meadow/geometry";
 import {
+  BARK_FRAG,
+  BARK_VERT,
+  BLOSSOM_FRAG,
+  BLOSSOM_VERT,
   CLOUD_FRAG,
   CLOUD_VERT,
   GLOW_FRAG,
@@ -54,6 +58,7 @@ import {
   windScale,
 } from "@/components/landing/meadow/palette";
 import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
+import { TREE } from "@/components/landing/meadow/tree";
 import { readForcedTrim, trimmedInstances, trimmedSparks, type TrimKind } from "@/components/landing/meadow/trim";
 import type { Quality } from "@/components/landing/meadow/quality";
 
@@ -65,14 +70,22 @@ const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
 
 function kindOf(value: unknown): TrimKind {
-  if (value === "grass" || value === "flower") return value;
+  if (value === "grass" || value === "flower" || value === "far" || value === "tree") return value;
   return "other";
 }
 
-function applyTrim(level: 1 | 2) {
+function applyTrim(level: 1 | 2 | 3) {
   for (const mesh of liveMeshes) {
     const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
-    mesh.count = trimmedInstances(full, kindOf(mesh.userData[KIND]), level);
+    const kind = kindOf(mesh.userData[KIND]);
+    if (kind === "tree") {
+      const canopy = Number(mesh.userData.canopy ?? full);
+      const petals = Math.max(0, full - canopy);
+      const kept = level >= 3 ? Math.floor(petals * 0.35) : petals;
+      mesh.count = Math.min(full, canopy + kept);
+      continue;
+    }
+    mesh.count = trimmedInstances(full, kind, level);
   }
   for (const geometry of livePoints) {
     const full = geometry.getAttribute("position").count;
@@ -165,6 +178,8 @@ type Materials = {
   cloud: ShaderMaterial;
   glow: ShaderMaterial;
   spark: ShaderMaterial;
+  bark: ShaderMaterial;
+  blossom: ShaderMaterial;
 };
 
 function buildMaterials(): Materials {
@@ -239,6 +254,20 @@ function buildMaterials(): Materials {
     depthWrite: false,
     blending: AdditiveBlending,
   });
+  const bark = new ShaderMaterial({
+    uniforms: baseUniforms(),
+    vertexShader: BARK_VERT,
+    fragmentShader: BARK_FRAG,
+    side: DoubleSide,
+  });
+  const blossom = new ShaderMaterial({
+    uniforms: baseUniforms(),
+    vertexShader: BLOSSOM_VERT,
+    fragmentShader: BLOSSOM_FRAG,
+    transparent: true,
+    depthWrite: false,
+    premultipliedAlpha: true,
+  });
   return {
     sky,
     ground,
@@ -250,7 +279,9 @@ function buildMaterials(): Materials {
     cloud,
     glow,
     spark,
-    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark],
+    bark,
+    blossom,
+    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark, bark, blossom],
   };
 }
 
@@ -258,11 +289,13 @@ function buildGeometries(layout: SceneLayout) {
   return {
     patches: layout.patches.map((patch, index) => ({
       grass: createGrassGeometry(patch.grass),
-      lilies: createLilyGeometry(patch.lilies),
-      daisies: createDaisyGeometry(patch.daisies),
-      lupins: createLupinGeometry(patch.lupins, "full", index === 0 ? "near" : "far"),
+      lilies: createLilyGeometry(patch.lilies, index === 2 ? "speck" : "full"),
+      daisies: createDaisyGeometry(patch.daisies, index === 2 ? "speck" : "full"),
+      lupins: createLupinGeometry(patch.lupins, index === 2 ? "speck" : "full", index === 0 ? "near" : "far"),
     })),
     hills: createHillsGeometry(),
+    trunk: createTrunkGeometry(),
+    blossoms: createCardGeometry(layout.blossoms),
     clouds: createCardGeometry(layout.clouds),
     glows: createCardGeometry(layout.glows),
     sparks: createSparkPoints(layout.sparks),
@@ -275,12 +308,14 @@ function Instances({
   scatter,
   renderOrder = 0,
   kind = "",
+  canopy,
 }: {
   geometry: BufferGeometry;
   material: ShaderMaterial;
   scatter: Scatter;
   renderOrder?: number;
   kind?: string;
+  canopy?: number;
 }) {
   const ref = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
@@ -291,6 +326,7 @@ function Instances({
     mesh.instanceMatrix.needsUpdate = true;
     mesh.userData[FULL_COUNT] = scatter.count;
     mesh.userData[KIND] = kind;
+    if (canopy !== undefined) mesh.userData.canopy = canopy;
     mesh.computeBoundingSphere();
     mesh.frustumCulled = true;
     if (!liveMeshes.includes(mesh)) liveMeshes.push(mesh);
@@ -298,7 +334,7 @@ function Instances({
       const index = liveMeshes.indexOf(mesh);
       if (index >= 0) liveMeshes.splice(index, 1);
     };
-  }, [kind, scatter]);
+  }, [canopy, kind, scatter]);
   if (scatter.count === 0) return null;
   return (
     <instancedMesh
@@ -352,8 +388,9 @@ function FrameDriver({
   const frames = useRef(0);
   const ready = useRef(false);
   const settled = useRef(false);
-  const perf = useRef({ warm: 0, hot: 0, dropped: false, trimmed: false });
-  const forcedTrim = useRef<0 | 1 | 2 | null>(null);
+  const perf = useRef({ warm: 0, hot: 0 });
+  const trimStage = useRef(0);
+  const forcedTrim = useRef<0 | 1 | 2 | 3 | null>(null);
   const reducedRef = useRef(reduced);
   const onReadyRef = useRef(onReady);
   const onDoneRef = useRef(onDone);
@@ -439,24 +476,20 @@ function FrameDriver({
     const stats = perf.current;
     if (forcedTrim.current === null) forcedTrim.current = readForcedTrim(window.location.search);
     const forced = forcedTrim.current;
-    if ((forced === 1 || forced === 2) && !stats.trimmed) {
+    if (forced !== 0 && trimStage.current === 0) {
       applyTrim(forced);
       gl.setPixelRatio(forced === 1 ? 1 : 0.85);
-      stats.dropped = true;
-      stats.trimmed = true;
-    } else if (!stats.trimmed) {
+      trimStage.current = 3;
+    } else if (trimStage.current < 3) {
       stats.warm += 1;
       if (stats.warm > 1 && frameMs > 0.018) stats.hot += 1;
-      if (!stats.dropped && stats.hot >= 3) {
-        stats.dropped = true;
+      if (stats.hot >= 3) {
+        const next = (trimStage.current + 1) as 1 | 2 | 3;
+        applyTrim(next);
+        gl.setPixelRatio(next === 1 ? 1 : 0.85);
+        trimStage.current = next;
         stats.hot = 0;
         stats.warm = 0;
-        applyTrim(1);
-        gl.setPixelRatio(1);
-      } else if (stats.dropped && stats.hot >= 3) {
-        stats.trimmed = true;
-        applyTrim(2);
-        gl.setPixelRatio(0.85);
       }
     }
 
@@ -532,12 +565,23 @@ export default function MeadowWorld({
         return (
           <group key={index}>
             <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} kind="grass" />
-            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} kind="flower" />
-            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} kind="flower" />
-            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} kind="flower" />
+            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} kind={index === 2 ? "far" : "flower"} />
+            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} kind={index === 2 ? "far" : "flower"} />
+            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} kind={index === 2 ? "far" : "flower"} />
           </group>
         );
       })}
+      <mesh geometry={geometries.trunk} position={[TREE.x, TREE.baseY, TREE.z]} frustumCulled={false} renderOrder={2}>
+        <primitive object={materials.bark} attach="material" />
+      </mesh>
+      <Instances
+        geometry={geometries.blossoms}
+        material={materials.blossom}
+        scatter={layout.blossoms}
+        renderOrder={3}
+        kind="tree"
+        canopy={layout.canopyCount}
+      />
       <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
       <SparkPoints geometry={geometries.sparks} material={materials.spark} />
       <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={4} />
