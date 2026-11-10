@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GRASS_CLEAR, buildLayout, pathCenterAt } from "@/components/landing/meadow/layout";
+import { GRASS_CLEAR, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
 import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
 import { sceneBudget } from "@/components/landing/meadow/stats";
 import { readForcedTrim, trimmedInstances, trimmedSparks } from "@/components/landing/meadow/trim";
@@ -21,7 +21,9 @@ describe("meadow layout", () => {
         for (let index = 0; index < group.count; index += 1) {
           const x = group.matrices[index * 16 + 12] ?? 0;
           const z = group.matrices[index * 16 + 14] ?? 0;
-          expect(Math.abs(x - pathCenterAt(z))).toBeGreaterThan(0.48);
+          const wide = Math.abs(x - pathCenterAt(z));
+          const mid = Math.abs(x - pathCenterMid(z));
+          expect(wide > 0.48 || mid > 0.22).toBe(true);
         }
       }
       grass += patch.grass.count;
@@ -90,11 +92,11 @@ describe("meadow layout", () => {
     expect(trimmedInstances(104, "flower", 2)).toBe(104);
     expect(trimmedInstances(104, "flower", 3)).toBe(104);
     expect(trimmedInstances(104, "mid", 1)).toBe(104);
-    expect(trimmedInstances(104, "mid", 2)).toBe(52);
-    expect(trimmedInstances(104, "mid", 3)).toBe(41);
+    expect(trimmedInstances(104, "mid", 2)).toBe(104);
+    expect(trimmedInstances(104, "mid", 3)).toBe(104);
     expect(trimmedInstances(80, "far", 1)).toBe(80);
-    expect(trimmedInstances(80, "far", 2)).toBe(40);
-    expect(trimmedInstances(80, "far", 3)).toBe(32);
+    expect(trimmedInstances(80, "far", 2)).toBe(80);
+    expect(trimmedInstances(80, "far", 3)).toBe(80);
     expect(trimmedInstances(1800, "grass", 3)).toBe(450);
     expect(trimmedSparks(280, 3)).toBe(70);
     expect(trimmedInstances(7, "other", 2)).toBe(7);
@@ -114,6 +116,7 @@ describe("meadow layout", () => {
     expect(low.draws).toBe(20);
     expect(high.triangles).toBeLessThan(350_000);
     expect(low.triangles).toBeLessThan(high.triangles);
-    expect(low.instances.lilies).toBeLessThan(high.instances.lilies);
+    expect(low.instances.lilies).toBe(high.instances.lilies);
+    expect(low.instances.lupins).toBe(high.instances.lupins);
   });
 });

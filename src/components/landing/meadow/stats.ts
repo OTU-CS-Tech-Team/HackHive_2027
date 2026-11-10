@@ -44,6 +44,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     lilyMid: triangles(createLilyGeometry(undefined, "full", "mid")),
     lilySpeck: triangles(createLilyGeometry(undefined, "speck")),
     daisy: triangles(createDaisyGeometry()),
+    daisyMid: triangles(createDaisyGeometry(undefined, "full", "mid")),
     daisySpeck: triangles(createDaisyGeometry(undefined, "speck")),
     lupin: triangles(createLupinGeometry(undefined, "full", "near")),
     lupinMid: triangles(createLupinGeometry(undefined, "full", "mid")),
@@ -77,17 +78,18 @@ export function sceneBudget(quality: Quality): SceneBudget {
       draws += 1;
       tris += unit.grass * patch.grass.count;
     }
+    const nearFull = quality === "high" && index === 0;
     if (patch.lilies.count > 0) {
       draws += 1;
-      tris += (far ? unit.lilySpeck : index === 0 ? unit.lily : unit.lilyMid) * patch.lilies.count;
+      tris += (far ? unit.lilySpeck : nearFull ? unit.lily : unit.lilyMid) * patch.lilies.count;
     }
     if (patch.daisies.count > 0) {
       draws += 1;
-      tris += (far ? unit.daisySpeck : unit.daisy) * patch.daisies.count;
+      tris += (far ? unit.daisySpeck : nearFull ? unit.daisy : unit.daisyMid) * patch.daisies.count;
     }
     if (patch.lupins.count > 0) {
       draws += 1;
-      const lupinUnit = far ? unit.lupinSpeck : index === 0 ? unit.lupin : unit.lupinMid;
+      const lupinUnit = far ? unit.lupinSpeck : nearFull ? unit.lupin : unit.lupinMid;
       tris += lupinUnit * patch.lupins.count;
     }
   });

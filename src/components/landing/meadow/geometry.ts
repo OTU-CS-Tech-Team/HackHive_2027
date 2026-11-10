@@ -297,14 +297,16 @@ export function createLilyGeometry(scatter?: Scatter, lod: FlowerLod = "full", d
   return finish(mesh, scatter);
 }
 
-export function createDaisyGeometry(scatter?: Scatter, lod: FlowerLod = "full") {
+export function createDaisyGeometry(scatter?: Scatter, lod: FlowerLod = "full", detail: LilyDetail = "near") {
   const mesh = bag();
   switch (lod) {
     case "speck":
       addSpeckDaisy(mesh);
       break;
     case "full": {
-      const petals = 8;
+      const petals = detail === "mid" ? 5 : 8;
+      const across = detail === "mid" ? 2 : 3;
+      const along = detail === "mid" ? 3 : 5;
       for (let i = 0; i < petals; i += 1) {
         addPetal(
           mesh,
@@ -316,6 +318,9 @@ export function createDaisyGeometry(scatter?: Scatter, lod: FlowerLod = "full") 
           [0.99, 0.99, 0.97],
           [1, 1, 1],
           0.22,
+          0,
+          across,
+          along,
         );
       }
       addDisc(mesh, 0.04, 0.12, [0.96, 0.74, 0.16], 0.05);

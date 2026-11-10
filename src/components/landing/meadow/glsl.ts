@@ -288,7 +288,7 @@ void main() {
   float halfPath = pathHalfWidth(uAspect, vWorld.z);
   if (uSss < 0.2) {
     if (fade > 0.12 && offPath < halfPath * 0.78) discard;
-  } else if (fade > 0.2 && offPath < halfPath * 0.92) {
+  } else if (fade > 0.2 && offPath < halfPath * 0.76) {
     discard;
   }
   vec3 n = normalize(vNormal);
@@ -553,7 +553,7 @@ void main() {
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   float narrow = 1.0 - smoothstep(0.72, 1.05, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  vec2 fitted = size * mix(1.0, 0.7, narrow);
+  vec2 fitted = size * mix(1.0, 0.84, narrow);
   vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
   vec3 world = center + puff;
   world.x += sin(uTime * 0.035 + aPhase) * uWind * 0.7;
@@ -651,9 +651,9 @@ void main() {
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
   float squeeze = mix(1.0, 0.42, narrow);
-  squeeze = mix(squeeze, 0.2, phone);
+  squeeze = mix(squeeze, 0.5, phone);
   world.x = anchor + (world.x - anchor) * squeeze;
-  world.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.68, phone);
+  world.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.78, phone);
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -706,8 +706,8 @@ void main() {
   float squeeze = mix(1.0, 0.42, narrow);
   squeeze = mix(squeeze, 0.2, phone);
   center.x = anchor + (center.x - anchor) * squeeze;
-  center.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.68, phone);
-  size *= squeeze;
+  center.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.78, phone);
+  size *= mix(squeeze, 0.5, phone);
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;

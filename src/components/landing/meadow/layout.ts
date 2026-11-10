@@ -186,38 +186,130 @@ export function flowerMargin(z: number) {
   return Math.min(FLOWER_CLEAR, 1.05 * (1 - 0.38 * pathEaseAt(z)) + 0.08);
 }
 
-/** Ground half-width at the frame edge. High matches the 1280 camera; low matches a 390 after the portrait squeeze. */
-function frameEdge(z: number, compact: boolean) {
-  if (compact) return 1.35 + Math.max(0, 4.4 - z) * 0.42;
-  return (0.98 + Math.max(0, 5.05 - z) * 0.67) * 1.02;
+/** Centre of the path on a tablet, where the trunk sits closer to the title. */
+export function pathCenterMid(z: number) {
+  const line = Math.sin(z * 0.33) * 0.14 + Math.sin(z * 0.91 + 1.7) * 0.06;
+  return line * (1 - pathEaseAt(z)) + (TREE.x + TREE.shiftMid) * pathEaseAt(z);
+}
+
+function anchorFor(aspect: number) {
+  const wide = smooth01(0.95, 1.45, Math.max(aspect, 0.3));
+  const phone = 1 - smooth01(0.5, 0.72, aspect);
+  const mid = (1 - wide) * (1 - phone);
+  return TREE.x + mid * TREE.shiftMid + wide * TREE.shiftWide + phone * TREE.shiftPhone;
+}
+
+function halfFor(aspect: number, z: number) {
+  const narrow = 1 - smooth01(0.62, 1.15, Math.max(aspect, 0.3));
+  const base = 1.05 * (1 - narrow) + 0.42 * narrow;
+  return base * (1 - 0.38 * pathEaseAt(z));
+}
+
+function centerFor(z: number, anchor: number) {
+  const line = Math.sin(z * 0.33) * 0.14 + Math.sin(z * 0.91 + 1.7) * 0.06;
+  return line * (1 - pathEaseAt(z)) + anchor * pathEaseAt(z);
+}
+
+/** Half-width settlePortrait keeps on screen. Flowers past this pile up on the frame. */
+function visibleHalf(z: number, aspect: number) {
+  const aspectT = Math.min(1.35, Math.max(0, (aspect - 0.46) / 0.29));
+  const blended = (1.3 - z * 0.191) * (1 - Math.min(aspectT, 1)) + (2.12 - z * 0.31) * Math.min(aspectT, 1);
+  return Math.max(0.4, blended + Math.max(0, aspectT - 1) * 0.4) * 0.98;
+}
+
+/** Ground half-width the camera can see. The wide frame is wider than settlePortrait. */
+function frameHalf(z: number, aspect: number) {
+  if (aspect >= 1.2) return Math.max(0.9, 1.79 + (3.84 - z) * 0.67);
+  return visibleHalf(z, aspect);
+}
+
+function mergeIntervals(parts: [number, number][]) {
+  const sorted = parts.filter((part) => part[1] - part[0] > 0.05).sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const [start, end] of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1] + 0.03) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+
+/**
+ * Lawns that are actually on screen beside a path. High covers the desktop
+ * and the tablet, because both use this layout. Low also covers the phone.
+ * A bed only has to clear the path of the width it shows on.
+ */
+function flowerBeds(z: number, compact: boolean) {
+  const aspects = compact ? [0.46, 0.75, 1.6] : [0.75, 1.6];
+  const parts: [number, number][] = [];
+  for (const aspect of aspects) {
+    const vis = frameHalf(z, aspect);
+    const center = centerFor(z, anchorFor(aspect));
+    const half = halfFor(aspect, z) * 0.8;
+    const left: [number, number] = [-vis, Math.min(vis, center - half)];
+    const right: [number, number] = [Math.max(-vis, center + half), vis];
+    if (left[1] - left[0] > 0.05) parts.push(left);
+    if (right[1] - right[0] > 0.05) parts.push(right);
+  }
+  return mergeIntervals(parts);
 }
 
 function sideX(
   rng: () => number,
   side: number,
   z: number,
-  clear: number,
+  _clear: number,
   compact: boolean,
   outer: boolean,
   inward: boolean,
 ) {
-  const center = pathCenterAt(z);
-  const shoulderClear = Math.min(clear, flowerMargin(z));
-  const edge = Math.max(Math.abs(center) + shoulderClear + 0.4, frameEdge(z, compact));
-  const wideShoulder = center + side * (shoulderClear + 0.04);
-  if (side < 0) {
-    // The wide path bends right, so a shoulder on that path leaves the centre
-    // as lawn on a narrower frame. Keep most of the left bed in that wedge,
-    // and send the rest out to the frame edge.
-    // Half the left bed sits in the shoulder the wide path covers and the
-    // tablet path does not. The fragment shader hides those on a wide frame.
-    const wedge = Math.min(center - 0.52, center * 0.34 - 0.05);
-    if (outer) return -edge + rng() * Math.min(1.1, edge * 0.45);
-    if (rng() < 0.58) return wedge - rng() * 0.7;
-    return Math.min(wedge, wideShoulder) - 0.7 - Math.pow(rng(), 1.2) * 1.8;
+  const beds = flowerBeds(z, compact);
+  const pivot = pathCenterAt(z);
+  const wanted = beds.filter(([start, end]) => {
+    const mid = (start + end) / 2;
+    return side < 0 ? mid < pivot : mid > pivot;
+  });
+  if (wanted.length === 0) return pivot + side * (0.58 + rng() * 0.45);
+  const pool = wanted;
+  let total = 0;
+  for (const [start, end] of pool) {
+    const mid = (start + end) / 2;
+    const onScreen = Math.abs(mid) <= visibleHalf(z, compact ? 0.46 : 0.75) + 0.08;
+    total += (end - start) * (onScreen ? 4 : 0.4);
   }
-  const along = inward ? Math.pow(rng(), 1.65) : outer ? 0.62 + rng() * 0.38 : Math.pow(rng(), 1.2);
-  return wideShoulder + along * Math.max(0.16, edge - wideShoulder);
+  let pick = rng() * total;
+  let chosen = pool[0] ?? [pivot + side, pivot + side * 1.4];
+  for (const bed of pool) {
+    const mid = (bed[0] + bed[1]) / 2;
+    const onScreen = Math.abs(mid) <= visibleHalf(z, compact ? 0.46 : 0.75) + 0.08;
+    const weight = (bed[1] - bed[0]) * (onScreen ? 4 : 0.4);
+    if (pick <= weight) {
+      chosen = bed;
+      break;
+    }
+    pick -= weight;
+  }
+  const vis = visibleHalf(z, compact ? 0.46 : 0.75);
+  const innerStart = Math.max(chosen[0], -vis);
+  const innerEnd = Math.min(chosen[1], vis);
+  const focus: [number, number] = innerEnd - innerStart > 0.05 ? [innerStart, innerEnd] : chosen;
+  const pathIsOnTheRight = (focus[0] + focus[1]) / 2 < pivot;
+  const roll = rng();
+  let span: [number, number] = focus;
+  let t = rng();
+  if (inward && roll < 0.32) {
+    const shoulder = (focus[1] - focus[0]) * 0.36;
+    span = pathIsOnTheRight
+      ? [Math.max(focus[0], focus[1] - shoulder), focus[1]]
+      : [focus[0], Math.min(focus[1], focus[0] + shoulder)];
+    t = pathIsOnTheRight ? 1 - Math.pow(t, 1.5) : Math.pow(t, 1.5);
+  } else if (roll < 0.6) {
+    span = focus;
+  } else {
+    span = chosen;
+    t = pathIsOnTheRight ? Math.pow(t, 1.55) : 1 - Math.pow(t, 1.55);
+  }
+  return span[0] + (span[1] - span[0]) * t;
 }
 
 /** Full meshes, spread from the path shoulder out to the frame edge. */
@@ -243,45 +335,6 @@ function scatterFull(
     const x = sideX(rng, side, z, clear, compact, i % 5 === 1, inward);
     const tint = paint(rng, family);
     const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
-    placeFlower(items, rng, x, 0.02, z, size, size, tint.color, tint.tip, lean, yawSpan);
-  }
-  return items;
-}
-
-/** Mid meshes in the lawn a wide frame hides and a tablet shows. */
-function scatterWedge(
-  count: number,
-  seed: number,
-  scaleRange: [number, number],
-  family: boolean,
-  lean: number,
-  yawSpan: number,
-) {
-  const rng = mulberry32(seed);
-  const items: Item[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const side = i % 2 === 0 ? -1 : 1;
-    let x = 0;
-    let z = 0.65 + rng() * 2.7;
-    const wide = pathCenterAt(z);
-    const ease = pathEaseAt(z);
-    const line = Math.sin(z * 0.33) * 0.14 + Math.sin(z * 0.91 + 1.7) * 0.06;
-    const tablet = line * (1 - ease) + (TREE.x + TREE.shiftMid) * ease;
-    if (side < 0) {
-      const roll = rng();
-      if (roll < 0.6) x = tablet - (0.5 + rng() * 0.45);
-      else if (roll < 0.85) x = -1.5 + rng() * 1.05;
-      else {
-        z = 3.3 + rng() * 0.8;
-        x = tablet - (0.5 + rng() * 0.7);
-      }
-    } else {
-      x = wide + 0.8 + rng() * 0.45;
-    }
-    const center = pathCenterAt(z);
-    if (Math.abs(x - center) < 0.62) x = center + (x < center ? -0.62 : 0.62);
-    const tint = paint(rng, family);
-    const size = (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * 1.6;
     placeFlower(items, rng, x, 0.02, z, size, size, tint.color, tint.tip, lean, yawSpan);
   }
   return items;
@@ -408,28 +461,18 @@ export function buildLayout(quality: Quality): SceneLayout {
   const lilySplit = splitCount(counts.lilies, compact ? 0.58 : 0.34);
   const daisySplit = splitCount(counts.daisies, compact ? 0.58 : 0.34);
   const lupinSplit = splitCount(counts.lupins, compact ? 0.58 : 0.34);
-  const lilyScale = compact ? ([0.22, 0.32] as [number, number]) : ([0.26, 0.38] as [number, number]);
-  const daisyScale = compact ? ([0.2, 0.3] as [number, number]) : ([0.16, 0.26] as [number, number]);
-  const lupinScale = compact ? ([0.42, 0.6] as [number, number]) : ([0.46, 0.66] as [number, number]);
+  const lilyScale: [number, number] = [0.26, 0.38];
+  const daisyScale: [number, number] = [0.16, 0.26];
+  const lupinScale: [number, number] = [0.46, 0.66];
   // On a phone the ground past about z=3.9 is below the frame, so the near row sits inside it.
-  const nearZ = compact ? ([3.85, 1.35] as const) : ([4.75, 1.55] as const);
-  const midZ = compact ? ([2.55, 0.2] as const) : ([-3.9, 1.9] as const);
-  const kept = (total: number) => (compact ? total : Math.max(4, Math.round(total * 0.38)));
-  const lilyFar = kept(lilySplit.mid);
-  const daisyFar = kept(daisySplit.mid);
-  const lupinFar = kept(lupinSplit.mid);
-  const nearLilies = scatterFull(lilySplit.near, 11, nearZ[0], nearZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, compact);
-  const midLiliesFar = scatterFull(lilyFar, 13, midZ[0], midZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5);
-  const wedgeLilies = scatterWedge(lilySplit.mid - lilyFar, 13013, lilyScale, false, 0.92, 0.5);
-  const nearDaisies = scatterFull(daisySplit.near, 29, nearZ[0], nearZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, compact);
-  const midDaisiesFar = scatterFull(daisyFar, 31, midZ[0], midZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
-  const wedgeDaisies = scatterWedge(daisySplit.mid - daisyFar, 13031, daisyScale, false, 0, Math.PI * 2);
-  const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, compact);
-  const midLupinsFar = scatterFull(lupinFar, 53, midZ[0], midZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
-  const wedgeLupins = scatterWedge(lupinSplit.mid - lupinFar, 13053, lupinScale, true, 0, Math.PI * 2);
-  const midLilies = [...midLiliesFar, ...wedgeLilies];
-  const midDaisies = [...midDaisiesFar, ...wedgeDaisies];
-  const midLupins = [...midLupinsFar, ...wedgeLupins];
+  const nearZ = compact ? ([3.7, 1.2] as const) : ([4.05, 1.35] as const);
+  const midZ = compact ? ([3.5, 0.15] as const) : ([3.85, 0.05] as const);
+  const nearLilies = scatterFull(lilySplit.near, 11, nearZ[0], nearZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, true);
+  const midLilies = scatterFull(lilySplit.mid, 13, midZ[0], midZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, true);
+  const nearDaisies = scatterFull(daisySplit.near, 29, nearZ[0], nearZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, true);
+  const midDaisies = scatterFull(daisySplit.mid, 31, midZ[0], midZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, true);
+  const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, true);
+  const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, true);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];
@@ -494,7 +537,7 @@ export function buildLayout(quality: Quality): SceneLayout {
   }
 
   const glowItems: Item[] = [];
-  const glowLilies = [...nearLilies, ...midLiliesFar].sort((a, b) => b.z - a.z).slice(0, 20);
+  const glowLilies = [...nearLilies, ...midLilies].sort((a, b) => b.z - a.z).slice(0, 20);
   for (const flower of glowLilies) {
     glowItems.push({
       ...flower,

@@ -281,14 +281,18 @@ function buildMaterials(): Materials {
   };
 }
 
-function buildGeometries(layout: SceneLayout) {
+function buildGeometries(layout: SceneLayout, quality: Quality) {
   return {
-    patches: layout.patches.map((patch, index) => ({
-      grass: createGrassGeometry(patch.grass),
-      lilies: createLilyGeometry(patch.lilies, index === 2 ? "speck" : "full", index === 0 ? "near" : "mid"),
-      daisies: createDaisyGeometry(patch.daisies, index === 2 ? "speck" : "full"),
-      lupins: createLupinGeometry(patch.lupins, index === 2 ? "speck" : "full", index === 0 ? "near" : "mid"),
-    })),
+    patches: layout.patches.map((patch, index) => {
+      const far = index === 2;
+      const nearFull = quality === "high" && index === 0;
+      return {
+        grass: createGrassGeometry(patch.grass),
+        lilies: createLilyGeometry(patch.lilies, far ? "speck" : "full", nearFull ? "near" : "mid"),
+        daisies: createDaisyGeometry(patch.daisies, far ? "speck" : "full", nearFull ? "near" : "mid"),
+        lupins: createLupinGeometry(patch.lupins, far ? "speck" : "full", nearFull ? "near" : "mid"),
+      };
+    }),
     hills: createHillsGeometry(),
     trunk: createTrunkGeometry(),
     blossoms: createCardGeometry(layout.blossoms),
@@ -517,7 +521,7 @@ export default function MeadowWorld({
   onDone: (settled: boolean) => void;
 }) {
   const layout = useMemo(() => buildLayout(quality), [quality]);
-  const geometries = useMemo(() => buildGeometries(layout), [layout]);
+  const geometries = useMemo(() => buildGeometries(layout, quality), [layout, quality]);
   const materials = useMemo(() => buildMaterials(), []);
   const materialsRef = useRef(materials.all);
   const sky = useRef<Mesh>(null);
