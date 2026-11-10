@@ -110,21 +110,24 @@ float ribbonEase(float z) {
 
 float ribbonCenter(float z, float aspect) {
   float line = pathLine(z);
-  return mix(line + pathBase(aspect) * 0.28, treeAnchor(aspect), ribbonEase(z));
+  float shoulder = line + pathBase(aspect) * 0.62;
+  return mix(shoulder, treeAnchor(aspect), ribbonEase(z));
 }
 
 float ribbonHalf(float aspect, float z) {
-  return mix(pathBase(aspect) * 0.55, 0.38, ribbonEase(z));
+  float base = pathBase(aspect);
+  return mix(base * 0.3, base * 0.1, ribbonEase(z));
 }
 
 float ribbonMask(float x, float z, float aspect) {
-  float halfW = ribbonHalf(aspect, z);
-  float body = 1.0 - smoothstep(halfW * 0.55, halfW * 1.15, abs(x - ribbonCenter(z, aspect)));
+  float halfW = max(ribbonHalf(aspect, z), 0.04);
+  float dist = abs(x - ribbonCenter(z, aspect));
+  float body = 1.0 - smoothstep(halfW * 0.5, halfW * 1.5, dist);
   float treeZ = ${TREE.z.toFixed(2)};
-  float along = body * smoothstep(treeZ - 0.15, treeZ + 0.55, z);
+  float along = body * smoothstep(treeZ - 0.25, treeZ + 0.45, z);
   vec2 toTrunk = vec2(x - treeAnchor(aspect), z - treeZ);
-  float pad = 1.0 - smoothstep(0.06, 0.58, length(toTrunk * vec2(0.9, 1.2)));
-  return max(along, pad);
+  float worn = (1.0 - smoothstep(0.03, 0.22, length(toTrunk))) * 0.62;
+  return max(along, worn);
 }
 `;
 
@@ -293,7 +296,8 @@ uniform float uRim;
 uniform float uAspect;
 
 void main() {
-  if (vWorld.z < 4.8 && vWorld.z > 0.25 && abs(vWorld.x - ribbonCenter(vWorld.z, uAspect)) < ribbonHalf(uAspect, vWorld.z) * 2.0 + 0.22) discard;
+  float ease = ribbonEase(vWorld.z);
+  if (ease > 0.15 && abs(vWorld.x - ribbonCenter(vWorld.z, uAspect)) < ribbonHalf(uAspect, vWorld.z) * 0.7) discard;
   vec3 n = normalize(vNormal);
   if (!gl_FrontFacing) n = -n;
   vec3 albedo = vColor.b > 1.5 ? mix(vTint, vTip, saturate(vColor.r)) : vColor.rgb;
@@ -319,15 +323,16 @@ uniform float uAspect;
 uniform vec3 uEmissive;
 
 void main() {
-  float trail = vWorld.z < 4.8 && vWorld.z > 0.25 ? 1.0 : 0.0;
+  float ease = ribbonEase(vWorld.z);
   float ribbonOff = abs(vWorld.x - ribbonCenter(vWorld.z, uAspect));
   float halfR = ribbonHalf(uAspect, vWorld.z);
   if (uSss < 0.2) {
     float fade = pathEndFade(vWorld.z);
-    float onPath = fade > 0.12 && abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < pathHalfWidth(uAspect, vWorld.z) * 0.92 ? 1.0 : 0.0;
-    float onRibbon = trail > 0.5 && ribbonOff < halfR * 2.4 + 0.45 ? 1.0 : 0.0;
-    if (onPath + onRibbon > 0.2) discard;
-  } else if (trail > 0.5 && ribbonOff < halfR * 2.0 + 0.22) {
+    float onPath = fade > 0.12 && abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < pathHalfWidth(uAspect, vWorld.z) * 0.72 ? 1.0 : 0.0;
+    float onRibbon = ease > 0.04 && ribbonOff < halfR * 1.25 ? 1.0 : 0.0;
+    float atTrunk = distance(vWorld.xz, vec2(treeAnchor(uAspect), ${TREE.z.toFixed(2)})) < 0.16 ? 1.0 : 0.0;
+    if (onPath + onRibbon + atTrunk > 0.2) discard;
+  } else if (ease > 0.15 && ribbonOff < halfR * 0.8) {
     discard;
   }
   vec3 n = normalize(vNormal);
@@ -464,7 +469,7 @@ void main() {
   float pathHalf = pathHalfWidth(uAspect, vWorld.z) + wobble * pathEndFade(vWorld.z);
   float edge = mix(0.2, 0.62, 1.0 - smoothstep(-6.5, 0.3, vWorld.z));
   edge += (valueNoise(vWorld.xz * 0.73 + 3.1) - 0.5) * 0.2;
-  float pathMask = (1.0 - smoothstep(pathHalf * 0.8, pathHalf + edge * 0.55, abs(lateral))) * pathEndFade(vWorld.z);
+  float pathMask = (1.0 - smoothstep(pathHalf * 0.42, pathHalf + edge, abs(lateral))) * pathEndFade(vWorld.z);
   pathMask = max(pathMask, ribbonMask(vWorld.x, vWorld.z, uAspect));
   vec3 pathCol = mix(uPath, uPathEdge, 0.22);
   float tone = valueNoise(vWorld.xz * 0.16);
@@ -516,18 +521,30 @@ varying vec3 vColor;
 varying float vLift;
 
 void main() {
+  float dist = distance(vWorld, uCamPos);
   float lift = saturate(vLift);
-  float n = washNoise(vWorld.xz * 0.21);
-  float ragged = saturate(lift + (n - 0.5) * 0.36);
-  vec3 ridge = vColor * vec3(0.55, 0.5, 0.62);
-  vec3 foot = mix(vColor, uSkyMid, 0.62);
-  vec3 col = mix(foot, ridge, smoothstep(0.0, 0.72, ragged));
-  col = mix(col, uSkyMid, smoothstep(0.84, 1.0, ragged) * 0.8);
-  float flank = saturate(vWorld.x * 0.05 + 0.2) * smoothstep(0.25, 0.7, lift);
-  col = mix(col, min(col + vec3(0.05, 0.03, 0.01), vec3(1.0)), flank);
-  float nearFoot = (1.0 - smoothstep(0.15, 0.9, vWorld.y)) * smoothstep(-12.0, -7.0, vWorld.z);
-  if (nearFoot > 0.05) col = driftTint(col, vWorld.xz, nearFoot);
-  gl_FragColor = vec4(col, 1.0);
+  float n = washNoise(vWorld.xz * 0.16);
+  float ragged = saturate(lift + (n - 0.5) * 0.18);
+  vec3 ridge = vColor * mix(vec3(1.0), vec3(0.94, 0.92, 0.98), lift);
+  vec3 foot = mix(vColor, uSkyMid, 0.22);
+  foot = mix(foot, foot * vec3(0.96, 0.98, 1.05), 0.4);
+  vec3 col = mix(foot, ridge, smoothstep(0.08, 0.82, ragged));
+  col *= mix(0.98, 1.02, n);
+  col = mix(col, uSkyMid, smoothstep(0.9, 1.0, ragged) * 0.35);
+  float flank = saturate(vWorld.x * 0.03 + 0.1) * smoothstep(0.25, 0.8, lift);
+  col = mix(col, min(col * vec3(1.05, 1.02, 0.99) + vec3(0.025, 0.012, 0.0), vec3(1.0)), flank * 0.4);
+  float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
+  float cream = smoothstep(0.9, 2.5, vWorld.y) * nearHill;
+  col = mix(col, mix(col, uHorizon, 0.28), cream * 0.3);
+  float title = (1.0 - smoothstep(0.2, 6.5, abs(vWorld.x))) * smoothstep(0.4, 1.55, vWorld.y) * (1.0 - smoothstep(1.7, 2.6, vWorld.y));
+  col = mix(col, mix(uHorizon, uSkyTop, 0.3), title * nearHill * 0.48);
+  col = mix(col, uHandoff, uVeil);
+  float wrap = saturate(uSunDir.y * 0.35 + 0.72);
+  vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
+  vec3 shaded = mix(lit, atmospheric(lit, dist), 0.1);
+  float footWash = (1.0 - smoothstep(0.2, 1.15, vWorld.y)) * nearHill;
+  if (footWash > 0.02) shaded = driftTint(shaded, vWorld.xz, footWash);
+  gl_FragColor = vec4(shaded, 1.0);
 }
 `;
 
@@ -689,24 +706,18 @@ void main() {
 }
 `;
 
-export const BARK_FRAG = COMMON + TREE_PLACE + /* glsl */ `
+export const BARK_FRAG = COMMON + /* glsl */ `
 varying vec3 vColor;
 varying vec3 vNormal;
 varying vec3 vWorld;
-uniform float uAspect;
 
 void main() {
   vec3 n = normalize(vNormal);
   if (!gl_FrontFacing) n = -n;
   float ndl = saturate(dot(n, normalize(uSunDir)) * 0.45 + 0.62);
   vec3 lit = vColor * (0.78 + 0.4 * ndl);
-  float rise = step(vColor.r + 0.02, vColor.g);
-  vec2 from = vWorld.xz - vec2(treeAnchor(uAspect), ${TREE.z.toFixed(2)});
-  vec2 dir = from / max(length(from), 0.04);
-  float wedge = smoothstep(0.05, 0.62, dot(dir, vec2(-0.68, 0.73)));
-  lit = mix(lit, vec3(0.79, 0.59, 0.31) * (0.86 + 0.2 * ndl), rise * wedge);
   float facing = saturate(dot(n, normalize(uCamPos - vWorld)));
-  lit += vec3(1.0, 0.74, 0.58) * pow(1.0 - facing, 2.0) * 0.16 * (1.0 - rise * wedge);
+  lit += vec3(1.0, 0.74, 0.58) * pow(1.0 - facing, 2.0) * 0.16;
   gl_FragColor = vec4(atmospheric(lit, distance(vWorld, uCamPos)), 1.0);
 }
 `;

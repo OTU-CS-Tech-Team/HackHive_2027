@@ -480,11 +480,9 @@ export function createGrassGeometry(scatter?: Scatter) {
 
 function ridge(x: number, phase: number) {
   return (
-    Math.sin(x * 0.15 + phase) * 0.3 +
-    Math.sin(x * 0.37 + phase * 1.6) * 0.16 +
-    Math.sin(x * 0.71 + phase * 0.7) * 0.09 +
-    Math.sin(x * 1.35 + phase * 2.1) * 0.07 +
-    Math.sin(x * 2.2 + phase * 0.4) * 0.035
+    Math.sin(x * 0.18 + phase) * 0.34 +
+    Math.sin(x * 0.46 + phase * 1.3) * 0.16 +
+    Math.sin(x * 0.95 + phase * 1.8) * 0.06
   );
 }
 
@@ -530,10 +528,10 @@ function addRollingHill(
 /** Four ridges. The near foot stays in the meadow; farther ones are taller and bluer. */
 export function createHillsGeometry() {
   const mesh = bag();
-  addRollingHill(mesh, -4, -16, 2.35, [0.42, 0.58, 0.3], [0.72, 0.84, 0.58], 0.2, 60, 12, false);
-  addRollingHill(mesh, -14, -32, 6.2, [0.5, 0.46, 0.68], [0.74, 0.72, 0.84], 1.7, 48, 10, true);
-  addRollingHill(mesh, -30, -50, 8.6, [0.36, 0.54, 0.8], [0.66, 0.76, 0.9], 3.4, 40, 10, true);
-  addRollingHill(mesh, -48, -68, 10.2, [0.58, 0.72, 0.88], [0.8, 0.86, 0.94], 5.1, 36, 8, true);
+  addRollingHill(mesh, -4, -16, 2.35, [0.48, 0.64, 0.34], [0.7, 0.82, 0.52], 0.2, 72, 14, false);
+  addRollingHill(mesh, -14, -32, 6.2, [0.58, 0.54, 0.74], [0.7, 0.68, 0.82], 1.7, 56, 12, true);
+  addRollingHill(mesh, -30, -50, 8.6, [0.42, 0.6, 0.84], [0.62, 0.74, 0.9], 3.4, 48, 12, true);
+  addRollingHill(mesh, -48, -68, 10.2, [0.66, 0.78, 0.9], [0.78, 0.84, 0.94], 5.1, 44, 10, true);
   return finish(mesh);
 }
 
@@ -562,16 +560,18 @@ function addRise(mesh: Bag) {
   const rings = 4;
   const green: RGB = [0.4, 0.6, 0.28];
   const soil: RGB = [0.28, 0.4, 0.16];
-  const center = vert(mesh, 0, 0.16, 0, green, 0);
+  const worn: RGB = [0.7, 0.5, 0.28];
+  const center = vert(mesh, 0, 0.16, 0, worn, 0);
   const rows: number[][] = [];
   for (let ring = 1; ring <= rings; ring += 1) {
     const v = ring / rings;
     const rad = v * 0.78;
     const y = Math.cos(v * Math.PI * 0.5) * 0.16;
     const row: number[] = [];
+    const tone = v < 0.3 ? mix(worn, green, 0.55) : mix(green, soil, v);
     for (let s = 0; s < segs; s += 1) {
       const angle = (s / segs) * Math.PI * 2;
-      row.push(vert(mesh, Math.cos(angle) * rad, y, Math.sin(angle) * rad * 0.8, mix(green, soil, v), 0));
+      row.push(vert(mesh, Math.cos(angle) * rad, y, Math.sin(angle) * rad * 0.8, tone, 0));
     }
     rows.push(row);
   }

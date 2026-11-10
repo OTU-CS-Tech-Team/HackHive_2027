@@ -257,8 +257,8 @@ function placeShell(
 /** Layered blossom cloud: shadow, warm rim, three depths, then a few falling petals. */
 function buildBlossoms(quality: Quality) {
   const compact = quality === "low";
-  const glows = compact ? 2 : 3;
-  const petals = compact ? 10 : 16;
+  const glows = compact ? 3 : 4;
+  const petals = compact ? 16 : 26;
   const items: Item[] = [];
   items.push({
     x: TREE.x,
@@ -266,8 +266,8 @@ function buildBlossoms(quality: Quality) {
     z: TREE.z,
     yaw: 0,
     pitch: 0,
-      sx: 0.9,
-    sy: 0.55,
+    sx: 1.35,
+    sy: 0.85,
     sz: 1,
     color: hexToRgb("#243018"),
     phase: 21,
@@ -280,20 +280,20 @@ function buildBlossoms(quality: Quality) {
       z: TREE.z - 0.42,
       yaw: 0,
       pitch: 0,
-      sx: 0.44,
-      sy: 0.32,
+      sx: 0.95,
+      sy: 0.7,
       sz: 1,
       color: hexToRgb("#ffd2b8"),
       phase: 11 + i * 0.15,
     });
   }
-  const back = compact ? 24 : 40;
-  const mid = compact ? 30 : 48;
-  const front = compact ? 20 : 32;
+  const back = compact ? 34 : 56;
+  const mid = compact ? 42 : 68;
+  const front = compact ? 28 : 48;
   placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 1.02, -0.22, 0.25, BLOSSOM_ROSE, 0.32, 0.44);
   placeShell(items, mid, TREE.canopyY + 0.02, TREE.canopyRadius * 0.88, 0.0, 2.7, BLOSSOM_MID, 0.28, 0.4);
   placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.68, 0.18, 5.3, BLOSSOM_PALE, 0.24, 0.34);
-  const sprigs = compact ? 6 : 10;
+  const sprigs = compact ? 8 : 14;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < sprigs; i += 1) {
     const angle = golden * i * 2.4 + 0.4;
