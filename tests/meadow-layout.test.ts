@@ -26,7 +26,8 @@ describe("meadow layout", () => {
         expect(Math.abs(x)).toBeGreaterThan(GRASS_CLEAR - 0.05);
       }
     }
-    expect(grass).toBeGreaterThan(flowers);
+    expect(grass).toBeGreaterThan(1500);
+    expect(flowers).toBeGreaterThan(2000);
     expect(layout.clouds.count).toBeGreaterThan(0);
     expect(layout.sparks.count).toBeGreaterThan(100);
     expect(layout.leaves.count).toBe(0);
@@ -59,8 +60,9 @@ describe("meadow layout", () => {
   it("keeps both quality levels on a small draw budget", () => {
     const high = sceneBudget("high");
     const low = sceneBudget("low");
-    expect(high.draws).toBeLessThan(24);
-    expect(low.draws).toBeLessThanOrEqual(high.draws);
+    expect(high.draws).toBe(18);
+    expect(low.draws).toBe(18);
+    expect(high.triangles).toBeLessThan(350_000);
     expect(low.triangles).toBeLessThan(high.triangles);
     expect(low.instances.lilies).toBeLessThan(high.instances.lilies);
   });

@@ -39,8 +39,11 @@ export function sceneBudget(quality: Quality): SceneBudget {
   const unit = {
     grass: triangles(createGrassGeometry()),
     lily: triangles(createLilyGeometry()),
+    lilySpeck: triangles(createLilyGeometry(undefined, "speck")),
     daisy: triangles(createDaisyGeometry()),
+    daisySpeck: triangles(createDaisyGeometry(undefined, "speck")),
     lupin: triangles(createLupinGeometry()),
+    lupinSpeck: triangles(createLupinGeometry(undefined, "speck")),
     card: triangles(createCardGeometry()),
     hill: triangles(createHillsGeometry()),
     sky: triangles(new SphereGeometry(48, SKY_SEGMENTS[0], SKY_SEGMENTS[1])),
@@ -58,7 +61,8 @@ export function sceneBudget(quality: Quality): SceneBudget {
   };
   let draws = 3;
   let tris = unit.sky + unit.ground + unit.hill;
-  for (const patch of layout.patches) {
+  layout.patches.forEach((patch, index) => {
+    const far = index === 2;
     instances.grass += patch.grass.count;
     instances.lilies += patch.lilies.count;
     instances.daisies += patch.daisies.count;
@@ -69,17 +73,17 @@ export function sceneBudget(quality: Quality): SceneBudget {
     }
     if (patch.lilies.count > 0) {
       draws += 1;
-      tris += unit.lily * patch.lilies.count;
+      tris += (far ? unit.lilySpeck : unit.lily) * patch.lilies.count;
     }
     if (patch.daisies.count > 0) {
       draws += 1;
-      tris += unit.daisy * patch.daisies.count;
+      tris += (far ? unit.daisySpeck : unit.daisy) * patch.daisies.count;
     }
     if (patch.lupins.count > 0) {
       draws += 1;
-      tris += unit.lupin * patch.lupins.count;
+      tris += (far ? unit.lupinSpeck : unit.lupin) * patch.lupins.count;
     }
-  }
+  });
   if (layout.clouds.count > 0) {
     draws += 1;
     tris += unit.card * layout.clouds.count;

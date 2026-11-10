@@ -221,35 +221,151 @@ function addLilyLeaf(mesh: Bag, yaw: number, y0: number) {
   }
 }
 
-export function createLilyGeometry(scatter?: Scatter) {
+export type FlowerLod = "full" | "speck";
+
+/** Three hard-edged petals. At distance this reads as a white flower, not a soft disc. */
+function addSpeckLily(mesh: Bag) {
+  const petals = 3;
+  for (let petal = 0; petal < petals; petal += 1) {
+    const yaw = (petal / petals) * Math.PI * 2;
+    const cosY = Math.cos(yaw);
+    const sinY = Math.sin(yaw);
+    const corners: [number, number, number, number, number][] = [
+      [-0.11, 0.18, 0.02, -0.42, 0.04],
+      [0.11, 0.18, 0.02, 0.42, 0.04],
+      [0.035, 0.72, 0.2, 0.36, 0.72],
+      [-0.035, 0.72, 0.2, -0.36, 0.72],
+    ];
+    const ids = corners.map(([x, y, z, su, sv]) =>
+      vert(
+        mesh,
+        x * cosY + z * sinY,
+        y,
+        -x * sinY + z * cosY,
+        [1, 0.98, 0.94],
+        0.08,
+        [su, sv],
+      ),
+    );
+    const a = ids[0] ?? 0;
+    const b = ids[1] ?? 0;
+    const c = ids[2] ?? 0;
+    const d = ids[3] ?? 0;
+    mesh.indices.push(a, d, b, b, d, c);
+  }
+  addDisc(mesh, 0.22, 0.04, [0.84, 0.91, 0.48], 0.02);
+}
+
+/** A flat five-point star. Hard edges stay crisp when the flower is only a few pixels tall. */
+function addSpeckDaisy(mesh: Bag) {
+  const center = vert(mesh, 0, 0.04, 0, [0.96, 0.74, 0.16], 0.05, [0, 0.2]);
+  const points = 5;
+  const ring: number[] = [];
+  for (let i = 0; i < points * 2; i += 1) {
+    const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+    const radius = i % 2 === 0 ? 0.48 : 0.16;
+    ring.push(
+      vert(
+        mesh,
+        Math.cos(angle) * radius,
+        0.04,
+        Math.sin(angle) * radius,
+        i % 2 === 0 ? [1, 1, 1] : [0.98, 0.96, 0.9],
+        0.05,
+        [0.3, 0.6],
+      ),
+    );
+  }
+  for (let i = 0; i < ring.length; i += 1) {
+    mesh.indices.push(center, ring[i] ?? center, ring[(i + 1) % ring.length] ?? center);
+  }
+}
+
+/** Four crossed quads: a short coloured spike. */
+function addSpeckLupin(mesh: Bag) {
+  const yaws = [0, Math.PI / 4, Math.PI / 2, (Math.PI * 3) / 4];
+  for (const yaw of yaws) {
+    const cosY = Math.cos(yaw);
+    const sinY = Math.sin(yaw);
+    const width = 0.08;
+    const corners: [number, number][] = [
+      [-1, 0],
+      [1, 0],
+      [1, 1],
+      [-1, 1],
+    ];
+    const ids = corners.map(([u, v]) => vert(mesh, u * width * cosY, v * 0.92, u * width * sinY, [v, 0, 2], 0.22));
+    const a = ids[0] ?? 0;
+    const b = ids[1] ?? 0;
+    const c = ids[2] ?? 0;
+    const d = ids[3] ?? 0;
+    mesh.indices.push(a, d, b, b, d, c);
+  }
+}
+
+function attachTips(geometry: BufferGeometry, scatter?: Scatter) {
+  if (scatter?.tips && scatter.count > 0) {
+    geometry.setAttribute("aTip", new InstancedBufferAttribute(scatter.tips, 3));
+  } else {
+    const count = geometry.getAttribute("position").count;
+    const tip = new Float32Array(Math.max(count, 1) * 3);
+    tip.fill(1);
+    geometry.setAttribute("aTip", new Float32BufferAttribute(tip, 3));
+  }
+  return geometry;
+}
+
+export function createLilyGeometry(scatter?: Scatter, lod: FlowerLod = "full") {
   const mesh = bag();
-  const petals = 6;
-  for (let i = 0; i < petals; i += 1) addLilyPetal(mesh, (i / petals) * Math.PI * 2);
-  addDisc(mesh, 0.64, 0.032, [0.84, 0.91, 0.48], 0.02);
-  addLilyStem(mesh);
-  addLilyLeaf(mesh, 0.7, 0.05);
-  addLilyLeaf(mesh, 2.5, 0.1);
+  switch (lod) {
+    case "speck":
+      addSpeckLily(mesh);
+      break;
+    case "full":
+      for (let i = 0; i < 6; i += 1) addLilyPetal(mesh, (i / 6) * Math.PI * 2);
+      addDisc(mesh, 0.64, 0.032, [0.84, 0.91, 0.48], 0.02);
+      addLilyStem(mesh);
+      addLilyLeaf(mesh, 0.7, 0.05);
+      addLilyLeaf(mesh, 2.5, 0.1);
+      break;
+    default: {
+      const unknown: never = lod;
+      return unknown;
+    }
+  }
   return finish(mesh, scatter);
 }
 
-export function createDaisyGeometry(scatter?: Scatter) {
+export function createDaisyGeometry(scatter?: Scatter, lod: FlowerLod = "full") {
   const mesh = bag();
-  const petals = 8;
-  for (let i = 0; i < petals; i += 1) {
-    addPetal(
-      mesh,
-      (i / petals) * Math.PI * 2,
-      1.22,
-      0.42,
-      0.08,
-      0.06,
-      [0.99, 0.99, 0.97],
-      [1, 1, 1],
-      0.22,
-    );
+  switch (lod) {
+    case "speck":
+      addSpeckDaisy(mesh);
+      break;
+    case "full": {
+      const petals = 8;
+      for (let i = 0; i < petals; i += 1) {
+        addPetal(
+          mesh,
+          (i / petals) * Math.PI * 2,
+          1.22,
+          0.42,
+          0.08,
+          0.06,
+          [0.99, 0.99, 0.97],
+          [1, 1, 1],
+          0.22,
+        );
+      }
+      addDisc(mesh, 0.04, 0.12, [0.96, 0.74, 0.16], 0.05);
+      addDisc(mesh, 0.06, 0.06, [0.84, 0.55, 0.1], 0.05);
+      break;
+    }
+    default: {
+      const unknown: never = lod;
+      return unknown;
+    }
   }
-  addDisc(mesh, 0.04, 0.12, [0.96, 0.74, 0.16], 0.05);
-  addDisc(mesh, 0.06, 0.06, [0.84, 0.55, 0.1], 0.05);
   return finish(mesh, scatter);
 }
 
@@ -315,8 +431,16 @@ function addTeardrop(
 }
 
 /** One spike: florets spiral up the stem, large and deep at the base, small and pale at the tip. */
-export function createLupinGeometry(scatter?: Scatter) {
+export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full") {
   const mesh = bag();
+  if (lod === "speck") {
+    addSpeckLupin(mesh);
+    return attachTips(finish(mesh, scatter), scatter);
+  }
+  if (lod !== "full") {
+    const unknown: never = lod;
+    return unknown;
+  }
   const stem: RGB = [0.2, 0.34, 0.12];
   const stemTip: RGB = [0.38, 0.52, 0.2];
   let previous = vert(mesh, 0, 0, 0, stem, 0.2);
@@ -341,16 +465,7 @@ export function createLupinGeometry(scatter?: Scatter) {
     const stalk = 0.018 + size * 0.28;
     addTeardrop(mesh, Math.cos(yaw) * stalk + curve, y, Math.sin(yaw) * stalk, size, yaw, tilt, t);
   }
-  const geometry = finish(mesh, scatter);
-  if (scatter?.tips && scatter.count > 0) {
-    geometry.setAttribute("aTip", new InstancedBufferAttribute(scatter.tips, 3));
-  } else {
-    const count = geometry.getAttribute("position").count;
-    const tip = new Float32Array(Math.max(count, 1) * 3);
-    tip.fill(1);
-    geometry.setAttribute("aTip", new Float32BufferAttribute(tip, 3));
-  }
-  return geometry;
+  return attachTips(finish(mesh, scatter), scatter);
 }
 
 function addCurvedBlade(mesh: Bag, yaw: number, lean: number) {

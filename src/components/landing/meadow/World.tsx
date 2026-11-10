@@ -262,12 +262,15 @@ function buildMaterials(): Materials {
 
 function buildGeometries(layout: SceneLayout) {
   return {
-    patches: layout.patches.map((patch) => ({
-      grass: createGrassGeometry(patch.grass),
-      lilies: createLilyGeometry(patch.lilies),
-      daisies: createDaisyGeometry(patch.daisies),
-      lupins: createLupinGeometry(patch.lupins),
-    })),
+    patches: layout.patches.map((patch, index) => {
+      const lod = index === 2 ? "speck" : "full";
+      return {
+        grass: createGrassGeometry(patch.grass),
+        lilies: createLilyGeometry(patch.lilies, lod),
+        daisies: createDaisyGeometry(patch.daisies, lod),
+        lupins: createLupinGeometry(patch.lupins, lod),
+      };
+    }),
     hills: createHillsGeometry(),
     clouds: createCardGeometry(layout.clouds),
     glows: createCardGeometry(layout.glows),
