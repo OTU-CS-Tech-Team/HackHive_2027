@@ -5,11 +5,10 @@
 .heroScroll {
   position: relative;
   isolation: isolate;
-  /* 0.45vh of walk. The veil is still sheer at the end of it. */
+  /* 0.45vh of walk. The veil starts at progress 0.75, over .dawn. */
   height: calc(var(--path-vh, 100svh) * 1.45);
-  /* .dawn overlaps the sticky stage, so its white top meets the meadow
-     while the scene is still dissolving. No blank white strip. */
-  margin-bottom: calc(var(--path-vh, 100svh) * -0.18);
+  /* .dawn overlaps the sticky stage. --hero-overlap is set from OVERLAP. */
+  margin-bottom: calc(var(--path-vh, 100svh) * -1 * var(--hero-overlap, 0.16));
   background: transparent;
 }
 
@@ -60,11 +59,17 @@
   }
 }
 
-.content > * {
+.copy {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.copy > * {
   pointer-events: auto;
 }
 
-.content > .hero {
+.copy > .hero {
   max-height: none;
   overflow: visible;
 }
