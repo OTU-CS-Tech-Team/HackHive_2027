@@ -177,7 +177,7 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
   }, []);
 
   return (
-    <section ref={rootRef} className={styles.heroScroll} data-hero-scroll="" aria-label="HackHive">
+    <section ref={rootRef} className={styles.heroScroll} data-hero-scroll="" aria-label="HackHive 2027">
       <div className={styles.heroStage} data-hero-stage="">
         <HeroMeadow progress={progressRef} pointer={pointerRef} poster={poster} />
         <div className={styles.content}>
