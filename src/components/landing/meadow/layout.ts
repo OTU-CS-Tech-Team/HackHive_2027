@@ -140,24 +140,25 @@ function flowerBed(
   const rng = mulberry32(seed);
   const items: Item[] = [];
   const drifts = [
-    { side: -1, z: 4.2, reach: 0.2 },
-    { side: 1, z: 4.05, reach: 0.85 },
-    { side: -1, z: 3.2, reach: 0.45 },
-    { side: 1, z: 2.7, reach: 1.05 },
-    { side: -1, z: 1.7, reach: 0.3 },
-    { side: 1, z: 1.35, reach: 0.9 },
-    { side: -1, z: 0.55, reach: 0.55 },
-    { side: 1, z: 0.15, reach: 1.15 },
-    { side: -1, z: -0.7, reach: 0.4 },
-    { side: 1, z: -1.35, reach: 0.95 },
-    { side: -1, z: -2.6, reach: 0.6 },
-    { side: 1, z: -4.4, reach: 0.35 },
+    { x: -1.7, z: 4.2, rx: 0.9 },
+    { x: 1.85, z: 3.95, rx: 1.0 },
+    { x: -3.1, z: 2.9, rx: 1.25 },
+    { x: 3.2, z: 2.7, rx: 1.3 },
+    { x: -4.2, z: 1.35, rx: 1.45 },
+    { x: 4.3, z: 1.15, rx: 1.5 },
+    { x: -2.4, z: 0.2, rx: 1.2 },
+    { x: 2.6, z: -0.15, rx: 1.25 },
+    { x: -4.6, z: -1.15, rx: 1.4 },
+    { x: 4.7, z: -1.4, rx: 1.45 },
+    { x: -3.3, z: -3.55, rx: 1.2 },
+    { x: 3.4, z: -3.7, rx: 1.2 },
   ];
   for (let i = 0; i < count; i += 1) {
-    const drift = drifts[Math.min(drifts.length - 1, Math.floor(Math.pow(rng(), 1.15) * drifts.length))] ?? drifts[0];
-    const z = drift.z + (rng() - 0.5) * 0.55;
-    let x = drift.side * (clear + 0.16 + drift.reach * spreadMul + (rng() - 0.5) * 0.62 * spreadMul);
-    if (Math.abs(x) < clear) x = drift.side * (clear + 0.08 + rng() * 0.2);
+    const drift = drifts[i < drifts.length ? i : Math.floor(rng() * drifts.length)] ?? drifts[0];
+    const z = drift.z + (rng() - 0.5) * 0.7;
+    let x = (drift.x + (rng() - 0.5) * drift.rx) * spreadMul;
+    const side = x < 0 ? -1 : 1;
+    if (Math.abs(x) < clear) x = side * (clear + 0.08 + rng() * 0.22);
     const size =
       (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * (z > 2.2 ? nearMul : z < -2.5 ? 0.8 : 1);
     items.push({
@@ -209,12 +210,12 @@ export function buildLayout(quality: Quality): SceneLayout {
   const widthMul = compact ? 0.42 : 1;
   for (let i = 0; i < counts.grass; i += 1) {
     const roll = grassRng();
-    const foreground = roll < 0.46;
-    const clump = !foreground && roll < 0.74;
+    const foreground = roll < 0.18;
+    const clump = !foreground && roll < 0.58;
     let x = 0;
     let z = 0;
     if (foreground) {
-      const side = grassRng() < 0.42 ? -1 : 1;
+      const side = grassRng() < 0.5 ? -1 : 1;
       z = 4.75 - grassRng() * 2.15;
       const along = Math.pow(grassRng(), compact ? 1.45 : 0.62);
       const reach = compact ? 2.2 : 4.6;
@@ -233,7 +234,7 @@ export function buildLayout(quality: Quality): SceneLayout {
       z = 2.1 - depth * 7.2;
       x = side * (grassClear + Math.pow(grassRng(), 0.55) * 6.4 * widthMul);
     }
-    const height = foreground ? 0.12 + grassRng() * 0.16 : 0.11 + grassRng() * 0.22;
+    const height = foreground ? 0.07 + grassRng() * 0.1 : 0.09 + grassRng() * 0.16;
     const shade = 0.82 + grassRng() * 0.18;
     const warm = grassRng();
     grass.push({
@@ -242,9 +243,9 @@ export function buildLayout(quality: Quality): SceneLayout {
       z,
       yaw: (grassRng() - 0.5) * Math.PI * 2,
       pitch: (grassRng() - 0.5) * 0.44,
-      sx: 0.55 + grassRng() * 0.85,
+      sx: 0.38 + grassRng() * 0.5,
       sy: height,
-      sz: 0.5 + grassRng() * 0.9,
+      sz: 0.36 + grassRng() * 0.5,
       color: [(0.4 + warm * 0.14) * shade, (0.58 + (1 - warm) * 0.12) * shade, (0.16 + grassRng() * 0.08) * shade],
       phase: grassRng() * Math.PI * 2,
     });

@@ -223,7 +223,7 @@ function buildMaterials(): Materials {
     side: DoubleSide,
   });
   const cloud = new ShaderMaterial({
-    uniforms: baseUniforms(),
+    uniforms: { ...baseUniforms(), uAspect: { value: 1.6 } },
     vertexShader: CLOUD_VERT,
     fragmentShader: CLOUD_FRAG,
     transparent: true,

@@ -225,7 +225,7 @@ export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
   const petals = 6;
   for (let i = 0; i < petals; i += 1) addLilyPetal(mesh, (i / petals) * Math.PI * 2);
-  addDisc(mesh, 0.64, 0.032, [1, 0.98, 0.9], 0.02);
+  addDisc(mesh, 0.64, 0.032, [0.84, 0.91, 0.48], 0.02);
   addLilyStem(mesh);
   addLilyLeaf(mesh, 0.7, 0.05);
   addLilyLeaf(mesh, 2.5, 0.1);
