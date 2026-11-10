@@ -12,17 +12,27 @@ type Bag = {
   positions: number[];
   colors: number[];
   bends: number[];
+  spans: number[];
   indices: number[];
 };
 
 function bag(): Bag {
-  return { positions: [], colors: [], bends: [], indices: [] };
+  return { positions: [], colors: [], bends: [], spans: [], indices: [] };
 }
 
-function vert(mesh: Bag, x: number, y: number, z: number, color: RGB, bend: number) {
+function vert(
+  mesh: Bag,
+  x: number,
+  y: number,
+  z: number,
+  color: RGB,
+  bend: number,
+  span: [number, number] = [0, 0.4],
+) {
   mesh.positions.push(x, y, z);
   mesh.colors.push(color[0], color[1], color[2]);
   mesh.bends.push(bend);
+  mesh.spans.push(span[0], span[1]);
   return mesh.positions.length / 3 - 1;
 }
 
@@ -32,6 +42,7 @@ function finish(mesh: Bag, scatter?: Scatter): BufferGeometry {
   geometry.setAttribute("position", new Float32BufferAttribute(mesh.positions, 3));
   geometry.setAttribute("color", new Float32BufferAttribute(mesh.colors, 3));
   geometry.setAttribute("aBend", new Float32BufferAttribute(mesh.bends, 1));
+  geometry.setAttribute("aSpan", new Float32BufferAttribute(mesh.spans, 2));
   geometry.setIndex(mesh.indices);
   geometry.computeVertexNormals();
   if (scatter) {
@@ -118,8 +129,9 @@ function addDisc(mesh: Bag, y: number, radius: number, color: RGB, bend: number)
 function addLilyPetal(mesh: Bag, yaw: number) {
   const across = 6;
   const along = 8;
-  const length = 0.44;
-  const width = 0.12;
+  const length = 0.38;
+  const width = 0.086;
+  const lift = 0.62;
   const cosY = Math.cos(yaw);
   const sinY = Math.sin(yaw);
   const grid: number[][] = [];
@@ -133,15 +145,15 @@ function addLilyPetal(mesh: Bag, yaw: number) {
       const u = (xStep / across) * 2 - 1;
       const channel = (1 - u * u) * 0.07 * Math.sin(Math.PI * v);
       const x = u * half;
-      const y = length * (0.04 + v * 0.86) - recurve * 0.22;
+      const y = lift + length * (0.04 + v * 0.86) - recurve * 0.22;
       const z = 0.02 + open + channel - recurve;
       const edge = Math.abs(u);
       const color: RGB = [
-        0.98 - edge * 0.2 - (1 - v) * 0.06,
-        0.99 - edge * 0.12,
-        0.95 - edge * 0.06,
+        0.98 - edge * 0.08 - (1 - v) * 0.03,
+        0.99 - edge * 0.04,
+        0.96 - edge * 0.02,
       ];
-      row.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, color, 0.06 + v * 0.45));
+      row.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, color, 0.04 + v * 0.2, [u, v]));
     }
     grid.push(row);
   }
@@ -158,11 +170,67 @@ function addLilyPetal(mesh: Bag, yaw: number) {
   }
 }
 
+function addLilyStem(mesh: Bag) {
+  const root: RGB = [0.1, 0.32, 0.08];
+  const top: RGB = [0.24, 0.48, 0.16];
+  let previousLeft = -1;
+  let previousRight = -1;
+  const steps = 6;
+  for (let step = 0; step <= steps; step += 1) {
+    const t = step / steps;
+    const y = t * 0.64;
+    const curve = Math.sin(t * Math.PI) * 0.028;
+    const width = 0.028 * (1 - t * 0.22);
+    const color = mix(root, top, t);
+    const left = vert(mesh, curve - width, y, 0, color, 0.12, [-1, -1]);
+    const right = vert(mesh, curve + width, y, 0.002, color, 0.12, [1, -1]);
+    if (previousLeft >= 0) {
+      mesh.indices.push(previousLeft, left, previousRight, previousRight, left, right);
+    }
+    previousLeft = left;
+    previousRight = right;
+  }
+}
+
+function addLilyLeaf(mesh: Bag, yaw: number, y0: number) {
+  const base: RGB = [0.12, 0.38, 0.1];
+  const tip: RGB = [0.36, 0.58, 0.18];
+  const cosY = Math.cos(yaw);
+  const sinY = Math.sin(yaw);
+  const across = 3;
+  const along = 4;
+  const ids: number[] = [];
+  for (let yStep = 0; yStep <= along; yStep += 1) {
+    const v = yStep / along;
+    const half = 0.18 * Math.sin(Math.PI * Math.pow(v, 0.8));
+    for (let xStep = 0; xStep <= across; xStep += 1) {
+      const u = (xStep / across) * 2 - 1;
+      const x = u * half;
+      const y = y0 + v * 0.34 - v * v * 0.08;
+      const z = 0.016 + v * 0.14 + (1 - u * u) * 0.02;
+      ids.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, mix(base, tip, v), 0.16, [u, -1]));
+    }
+  }
+  const stride = across + 1;
+  for (let yStep = 0; yStep < along; yStep += 1) {
+    for (let xStep = 0; xStep < across; xStep += 1) {
+      const a = ids[yStep * stride + xStep] ?? 0;
+      const b = ids[yStep * stride + xStep + 1] ?? 0;
+      const c = ids[(yStep + 1) * stride + xStep] ?? 0;
+      const d = ids[(yStep + 1) * stride + xStep + 1] ?? 0;
+      mesh.indices.push(a, c, b, b, c, d);
+    }
+  }
+}
+
 export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
   const petals = 6;
   for (let i = 0; i < petals; i += 1) addLilyPetal(mesh, (i / petals) * Math.PI * 2);
-  addDisc(mesh, 0.07, 0.04, [1, 0.97, 0.86], 0.02);
+  addDisc(mesh, 0.64, 0.032, [1, 0.98, 0.9], 0.02);
+  addLilyStem(mesh);
+  addLilyLeaf(mesh, 0.7, 0.05);
+  addLilyLeaf(mesh, 2.5, 0.1);
   return finish(mesh, scatter);
 }
 
@@ -297,11 +365,11 @@ function addCurvedBlade(mesh: Bag, yaw: number, lean: number) {
   const ids: number[] = [];
   for (let step = 0; step <= along; step += 1) {
     const v = step / along;
-    const width = 0.0048 * (1 - v * 0.7);
+    const width = 0.016 * (1 - v * 0.72);
     const bow = Math.sin(v * Math.PI) * lean + v * v * lean;
     const color = v < 0.4 ? mix(root, mid, v / 0.4) : mix(mid, tip, (v - 0.4) / 0.6);
-    const left = vert(mesh, -width * cosY + bow * sinY, v, width * sinY + bow * cosY, color, 0.35 + v * 0.65);
-    const right = vert(mesh, width * cosY + bow * sinY, v, -width * sinY + bow * cosY, color, 0.35 + v * 0.65);
+    const left = vert(mesh, -width * cosY + bow * sinY, v, width * sinY + bow * cosY, color, 0.35 + v * 0.65, [-1, v]);
+    const right = vert(mesh, width * cosY + bow * sinY, v, -width * sinY + bow * cosY, color, 0.35 + v * 0.65, [1, v]);
     ids.push(left, right);
   }
   for (let step = 0; step < along; step += 1) {

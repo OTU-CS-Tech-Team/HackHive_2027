@@ -32,10 +32,12 @@ export const PLANT_VERT = /* glsl */ `
 attribute float aPhase;
 attribute float aBend;
 attribute vec3 aTint;
+attribute vec2 aSpan;
 
 varying vec3 vColor;
 varying vec3 vNormal;
 varying vec3 vWorld;
+varying vec2 vSpan;
 
 uniform float uTime;
 uniform float uWind;
@@ -67,6 +69,7 @@ void main() {
   world.z += sway * 0.09;
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * n);
+  vSpan = aSpan;
   #ifdef USE_COLOR
     vColor = color * aTint;
   #else
@@ -162,6 +165,7 @@ export const PLANT_FRAG = COMMON + /* glsl */ `
 varying vec3 vColor;
 varying vec3 vNormal;
 varying vec3 vWorld;
+varying vec2 vSpan;
 
 uniform float uSss;
 uniform float uRim;
@@ -170,19 +174,32 @@ uniform vec3 uEmissive;
 void main() {
   vec3 n = normalize(vNormal);
   if (uRim > 0.5 && uSss < 0.5 && !gl_FrontFacing) n = -n;
+  float foliage = step(vSpan.y, -0.02);
+  float across = abs(vSpan.x);
+  float along = clamp(vSpan.y, 0.0, 1.0);
+  float acrossPx = max(fwidth(across), 0.015);
+  float alongPx = max(fwidth(along), 0.012);
+  float skirt = mix(0.55, 0.18, step(uSss, 0.2));
+  float side = 1.0 - smoothstep(max(skirt, 1.0 - acrossPx * 3.0), 1.0, across);
+  float tip = 1.0 - smoothstep(max(0.62, 1.0 - alongPx * 2.4), 1.0, along);
+  float leaf = 1.0 - smoothstep(0.8, 1.0, across);
   vec3 sun = normalize(uSunDir);
   float ndl = dot(n, sun);
-  float petal = smoothstep(0.25, 0.7, uSss);
-  float wrap = saturate(ndl * mix(0.55, 0.78, petal) + mix(0.46, 0.1, petal));
-  float back = pow(saturate(-ndl), 1.15);
-  float thin = pow(1.0 - abs(ndl), 1.7);
-  vec3 lit = vColor * (uAmbient * mix(0.8, 0.3, petal) + uSunColor * wrap * mix(0.6, 1.05, petal));
-  lit += vColor * uSunColor * (back * 0.5 + thin * 0.32) * uSss;
+  float petal = smoothstep(0.25, 0.7, uSss) * (1.0 - foliage);
+  float body = mix(1.0, 0.46, petal);
+  float alpha = foliage > 0.5 ? leaf : side * tip * body;
+  float wrap = saturate(ndl * mix(0.55, 0.32, petal) + mix(0.46, 0.58, petal));
+  float back = pow(saturate(-ndl), 1.1);
+  float thin = pow(1.0 - abs(ndl), 1.45);
+  vec3 lit = vColor * (uAmbient * mix(0.8, 0.62, petal) + uSunColor * wrap * mix(0.6, 0.42, petal));
+  lit += vColor * uSunColor * (back * 0.9 + thin * 0.75) * uSss * (1.0 - foliage);
   float facing = saturate(dot(n, normalize(uCamPos - vWorld)));
-  float rim = pow(1.0 - facing, 2.2);
-  lit += uEmissive * rim * uRim * 0.5;
-  lit += uEmissive * uRim * 0.04;
-  gl_FragColor = vec4(atmospheric(lit, distance(vWorld, uCamPos)), 1.0);
+  float rim = pow(1.0 - facing, 1.7);
+  lit += uEmissive * (0.16 + rim * 0.85) * uRim * (1.0 - foliage);
+  lit += vec3(1.0, 0.98, 0.94) * petal * pow(across, 1.6) * 0.28;
+  lit = atmospheric(lit, distance(vWorld, uCamPos));
+  if (alpha < 0.02) discard;
+  gl_FragColor = vec4(lit, alpha);
 }
 `;
 
@@ -250,10 +267,24 @@ void main() {
   float narrow = 1.0 - smoothstep(0.62, 1.15, uAspect);
   float inner = mix(0.62, 0.16, narrow);
   float outer = mix(0.98, 0.42, narrow);
-  float crisp = mix(0.28, 1.0, smoothstep(1.2, 11.0, dist));
-  float outerNear = max(inner + 0.02, mix(inner, outer, crisp));
+  float crisp = mix(0.04, 1.0, smoothstep(3.2, 16.0, dist));
+  float outerNear = max(inner + 0.012, mix(inner, outer, crisp));
   float pathMask = 1.0 - smoothstep(inner, outerNear, ax);
-  vec3 pathCol = mix(uPath, uPathEdge, smoothstep(inner * 0.45, outerNear, ax));
+  vec3 pathCol = mix(uPath, uPathEdge, smoothstep(inner * 0.55, outerNear, ax));
+  vec2 gritP = vWorld.xz * vec2(7.0, 18.0);
+  float gritPx = max(fwidth(gritP.x), fwidth(gritP.y));
+  vec2 gi = floor(gritP);
+  vec2 gf = fract(gritP);
+  gf = gf * gf * (3.0 - 2.0 * gf);
+  float g00 = grassHash(gi);
+  float g10 = grassHash(gi + vec2(1.0, 0.0));
+  float g01 = grassHash(gi + vec2(0.0, 1.0));
+  float g11 = grassHash(gi + vec2(1.0, 1.0));
+  float grit = mix(mix(g00, g10, gf.x), mix(g01, g11, gf.x), gf.y) - 0.5;
+  float fine = grassHash(floor(vWorld.xz * vec2(19.0, 31.0))) - 0.5;
+  float gritDetail = 1.0 - smoothstep(0.45, 1.3, gritPx);
+  pathCol *= 1.0 + (grit * 0.1 + fine * 0.035) * gritDetail * (1.0 - uVeil);
+  pathCol = mix(pathCol, pathCol * vec3(0.86, 0.78, 0.64), grit * grit * gritDetail * 0.35);
   pathCol = mix(pathCol, uHandoff, uVeil);
   grass = mix(grass, uHandoff, uVeil);
   vec3 albedo = mix(grass, pathCol, pathMask);

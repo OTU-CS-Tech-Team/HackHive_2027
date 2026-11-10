@@ -57,6 +57,7 @@ import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
 import type { Quality } from "@/components/landing/meadow/quality";
 
 const FULL_COUNT = "fullCount";
+const KIND = "meadowKind";
 /** His veil is clear, then tan, then solid white at progress 0.9. */
 const VEIL_HOLD = 0.9;
 const liveMeshes: InstancedMesh[] = [];
@@ -70,6 +71,18 @@ function thinEvenly() {
   for (const geometry of livePoints) {
     const full = geometry.getAttribute("position").count;
     geometry.setDrawRange(0, Math.max(8, Math.floor(full * 0.5)));
+  }
+}
+
+function thinFurther() {
+  for (const mesh of liveMeshes) {
+    if (mesh.userData[KIND] !== "grass") continue;
+    const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
+    mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.25)));
+  }
+  for (const geometry of livePoints) {
+    const full = geometry.getAttribute("position").count;
+    geometry.setDrawRange(0, Math.max(8, Math.floor(full * 0.25)));
   }
 }
 
@@ -119,7 +132,13 @@ function baseUniforms() {
   };
 }
 
-function plantMaterial(sss: number, emissive: [number, number, number], side: Side = DoubleSide, rim = 0) {
+function plantMaterial(
+  sss: number,
+  emissive: [number, number, number],
+  side: Side = DoubleSide,
+  rim = 0,
+  soft = false,
+) {
   return new ShaderMaterial({
     uniforms: {
       ...baseUniforms(),
@@ -132,6 +151,9 @@ function plantMaterial(sss: number, emissive: [number, number, number], side: Si
     fragmentShader: PLANT_FRAG,
     vertexColors: true,
     side,
+    transparent: soft,
+    depthWrite: true,
+    alphaToCoverage: soft,
   });
 }
 
@@ -180,8 +202,8 @@ function buildMaterials(): Materials {
     vertexColors: true,
     side: DoubleSide,
   });
-  const grass = plantMaterial(0.08, [0, 0, 0], DoubleSide);
-  const lily = plantMaterial(0.5, [1, 0.97, 0.9], DoubleSide, 0.18);
+  const grass = plantMaterial(0.08, [0, 0, 0], DoubleSide, 0, true);
+  const lily = plantMaterial(0.92, [1, 0.98, 0.94], DoubleSide, 0.34, true);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = new ShaderMaterial({
     uniforms: {
@@ -252,11 +274,13 @@ function Instances({
   material,
   scatter,
   renderOrder = 0,
+  kind = "",
 }: {
   geometry: BufferGeometry;
   material: ShaderMaterial;
   scatter: Scatter;
   renderOrder?: number;
+  kind?: string;
 }) {
   const ref = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
@@ -266,6 +290,7 @@ function Instances({
     mesh.instanceMatrix.array.set(scatter.matrices);
     mesh.instanceMatrix.needsUpdate = true;
     mesh.userData[FULL_COUNT] = scatter.count;
+    mesh.userData[KIND] = kind;
     mesh.computeBoundingSphere();
     mesh.frustumCulled = true;
     if (!liveMeshes.includes(mesh)) liveMeshes.push(mesh);
@@ -273,7 +298,7 @@ function Instances({
       const index = liveMeshes.indexOf(mesh);
       if (index >= 0) liveMeshes.splice(index, 1);
     };
-  }, [scatter]);
+  }, [kind, scatter]);
   if (scatter.count === 0) return null;
   return (
     <instancedMesh
@@ -327,7 +352,7 @@ function FrameDriver({
   const frames = useRef(0);
   const ready = useRef(false);
   const settled = useRef(false);
-  const perf = useRef({ warm: 0, hot: 0, dropped: false });
+  const perf = useRef({ warm: 0, hot: 0, dropped: false, trimmed: false });
   const reducedRef = useRef(reduced);
   const onReadyRef = useRef(onReady);
   const onDoneRef = useRef(onDone);
@@ -411,13 +436,19 @@ function FrameDriver({
     }
 
     const stats = perf.current;
-    if (!stats.dropped) {
+    if (!stats.trimmed) {
       stats.warm += 1;
       if (stats.warm > 1 && frameMs > 0.018) stats.hot += 1;
-      if (stats.hot >= 3) {
+      if (!stats.dropped && stats.hot >= 3) {
         stats.dropped = true;
+        stats.hot = 0;
+        stats.warm = 0;
         thinEvenly();
         gl.setPixelRatio(1);
+      } else if (stats.dropped && stats.hot >= 3) {
+        stats.trimmed = true;
+        thinFurther();
+        gl.setPixelRatio(0.85);
       }
     }
 
@@ -492,7 +523,7 @@ export default function MeadowWorld({
         if (!scatter) return null;
         return (
           <group key={index}>
-            <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} />
+            <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} kind="grass" />
             <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} />
             <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} />
             <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} />
