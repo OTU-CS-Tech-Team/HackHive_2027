@@ -82,26 +82,33 @@ float meadowHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+float pathEase(float z) {
+  float approach = 1.0 - smoothstep(1.0, 2.7, z);
+  return approach * approach * (3.0 - 2.0 * approach);
+}
+
 float pathCenter(float z, float aspect) {
   float nearLine = sin(z * 0.33) * 0.14 + sin(z * 0.91 + 1.7) * 0.06;
-  float treeZ = ${TREE.z.toFixed(2)};
-  float approach = 1.0 - smoothstep(treeZ + 0.25, 4.7, z);
-  float ease = approach * approach * (3.0 - 2.0 * approach);
-  float sway = sin(z * 0.9 + 0.4) * 0.2 * ease * (1.0 - ease);
-  return mix(nearLine, treeAnchor(aspect), ease) + sway;
+  float narrow = 1.0 - smoothstep(0.62, 1.15, max(aspect, 0.3));
+  float base = mix(1.05, 0.42, narrow);
+  // The near edge stays on the original centre. Only the far edge swings out to the trunk.
+  float left = nearLine - base;
+  float right = mix(nearLine + base, treeAnchor(aspect) + 0.18, pathEase(z));
+  return (left + right) * 0.5;
 }
 
 float pathHalfWidth(float aspect, float z) {
+  float nearLine = sin(z * 0.33) * 0.14 + sin(z * 0.91 + 1.7) * 0.06;
   float narrow = 1.0 - smoothstep(0.62, 1.15, max(aspect, 0.3));
   float base = mix(1.05, 0.42, narrow);
-  float treeZ = ${TREE.z.toFixed(2)};
-  float far = 1.0 - smoothstep(treeZ + 0.1, 3.5, z);
-  return base * mix(1.0, 0.58, far);
+  float left = nearLine - base;
+  float right = mix(nearLine + base, treeAnchor(aspect) + 0.18, pathEase(z));
+  return max(base * 0.55, (right - left) * 0.5);
 }
 
 float pathEndFade(float z) {
   float treeZ = ${TREE.z.toFixed(2)};
-  return smoothstep(treeZ - 0.7, treeZ + 0.45, z);
+  return smoothstep(treeZ - 0.9, treeZ + 0.02, z);
 }
 `;
 
@@ -295,7 +302,7 @@ uniform vec3 uEmissive;
 
 void main() {
   if (uSss < 0.2) {
-    float core = pathHalfWidth(uAspect, vWorld.z) * 0.7;
+    float core = pathHalfWidth(uAspect, vWorld.z) * mix(0.7, 1.28, pathEase(vWorld.z));
     if (abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < core) discard;
   }
   vec3 n = normalize(vNormal);
@@ -428,7 +435,10 @@ void main() {
   float pathHalf = pathHalfWidth(uAspect, vWorld.z) + wobble * pathEndFade(vWorld.z);
   float edge = mix(0.2, 0.62, 1.0 - smoothstep(-6.5, 0.3, vWorld.z));
   edge += (valueNoise(vWorld.xz * 0.73 + 3.1) - 0.5) * 0.2;
-  float pathMask = (1.0 - smoothstep(pathHalf * 0.42, pathHalf + edge, abs(lateral))) * pathEndFade(vWorld.z);
+  float flare = pathEase(vWorld.z);
+  float core = mix(0.42, 0.94, flare);
+  edge *= mix(1.0, 0.35, flare);
+  float pathMask = (1.0 - smoothstep(pathHalf * core, pathHalf + edge, abs(lateral))) * pathEndFade(vWorld.z);
   vec3 pathCol = mix(uPath, uPathEdge, 0.22);
   float tone = valueNoise(vWorld.xz * 0.16);
   pathCol *= mix(0.93, 1.07, tone);
@@ -462,23 +472,20 @@ void main() {
   float dist = distance(vWorld, uCamPos);
   float y = max(vWorld.y, 0.0);
   vec3 col = vColor;
-  float n = washNoise(vWorld.xz * 0.18);
-  float n2 = washNoise(vWorld.xz * 0.42 + 3.0);
-  col *= mix(0.84, 1.14, n);
-  col = mix(col, col * vec3(0.9, 0.98, 1.05), (n2 - 0.45) * 0.35);
-  float footLift = 1.0 - smoothstep(0.08, 1.8, y);
-  vec3 haze = mix(uSkyMid, vec3(0.8, 0.86, 0.92), 0.4);
-  col = mix(col, haze, footLift * mix(0.28, 0.7, n2));
-  float far = 1.0 - smoothstep(-62.0, -10.0, vWorld.z);
-  vec3 rangeTint = mix(vec3(0.58, 0.68, 0.6), vec3(0.76, 0.83, 0.92), smoothstep(0.2, 0.9, far));
-  col = mix(col, rangeTint, far * 0.38);
-  float ridge = smoothstep(1.5, 6.4, y);
-  col = mix(col, uSkyMid, ridge * mix(0.18, 0.72, far));
+  float n = washNoise(vWorld.xz * 0.16);
+  col *= mix(0.94, 1.06, n);
+  vec3 face = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  float ndl = saturate(dot(face, normalize(uSunDir)) * 0.55 + 0.62);
+  col *= mix(0.92, 1.05, ndl);
+  float footLift = 1.0 - smoothstep(0.4, 3.2, y);
+  col = mix(col, col * vec3(0.9, 0.94, 1.02), footLift * 0.22);
+  float tip = smoothstep(8.0, 12.0, y);
+  col = mix(col, uSkyMid, tip * 0.16);
   float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
-  float cream = smoothstep(0.45, 2.2, y) * nearHill;
-  col = mix(col, mix(col, uHorizon, 0.42), cream * 0.5);
-  float title = (1.0 - smoothstep(0.2, 7.0, abs(vWorld.x))) * smoothstep(0.25, 1.35, y) * (1.0 - smoothstep(1.45, 2.4, y));
-  col = mix(col, mix(uHorizon, uSkyTop, 0.42), title * nearHill * 0.84);
+  float cream = smoothstep(0.9, 2.5, y) * nearHill;
+  col = mix(col, mix(col, uHorizon, 0.28), cream * 0.3);
+  float title = (1.0 - smoothstep(0.2, 6.5, abs(vWorld.x))) * smoothstep(0.4, 1.55, y) * (1.0 - smoothstep(1.7, 2.6, y));
+  col = mix(col, mix(uHorizon, uSkyTop, 0.3), title * nearHill * 0.48);
   float lateral = vWorld.x - pathCenter(vWorld.z, uAspect);
   float pathHalf = pathHalfWidth(uAspect, vWorld.z);
   float trail = 1.0 - smoothstep(pathHalf * 0.35, pathHalf + 0.48, abs(lateral));
@@ -487,7 +494,7 @@ void main() {
   col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
-  vec3 shaded = atmospheric(lit, dist);
+  vec3 shaded = mix(lit, atmospheric(lit, dist), 0.14);
   float foot = (1.0 - smoothstep(0.2, 1.15, y)) * nearHill * (1.0 - trail * onSlope);
   gl_FragColor = vec4(driftTint(shaded, vWorld.xz, foot), 1.0);
 }
@@ -642,6 +649,8 @@ void main() {
   p.x += sin(uTime * 0.7) * uWind * h * h * 0.012;
   vec4 world = modelMatrix * vec4(p, 1.0);
   world.x += treeAnchor(uAspect) - ${TREE.x.toFixed(3)};
+  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  world.y -= phone * 0.16;
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -692,8 +701,9 @@ void main() {
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
   float squeeze = mix(1.0, 0.52, narrow);
-  squeeze = mix(squeeze, 0.68, phone);
+  squeeze = mix(squeeze, 0.74, phone);
   center.x = anchor + (center.x - anchor) * squeeze;
+  center.y -= phone * 0.16;
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;
@@ -762,6 +772,9 @@ void main() {
     alpha = max(alpha, blossomPetal(p, ang + 5.03));
     throat = puff(p, vec2(0.0, -0.01), vec2(0.1, 0.08));
     alpha = max(alpha, throat * 0.9);
+    float outer = 1.0 - step(1.6, vKind);
+    float sprig = smoothstep(0.46, 0.12, length(p));
+    alpha *= mix(1.0, sprig, outer);
   }
   alpha = saturate(alpha) * (1.0 - uVeil);
   if (alpha < 0.02) discard;
@@ -771,6 +784,8 @@ void main() {
   vec3 col = mix(vTint, pale, lift * mix(0.22, 0.62, max(front, glow)));
   col = mix(col, vTint * vec3(0.62, 0.4, 0.46), (1.0 - lift) * (1.0 - front) * (1.0 - glow) * 0.65);
   col = mix(col, vec3(1.0, 0.82, 0.68), throat * 0.55);
+  float backlight = saturate(p.x * 0.85 + p.y * 0.6 + 0.2);
+  col = mix(col, vec3(1.0, 0.94, 0.91), backlight * 0.32 * (1.0 - glow));
   col += vec3(1.0, 0.7, 0.52) * pow(saturate(0.38 - length(p)), 2.0) * mix(0.08, 0.2, glow);
   col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), mix(0.16, 0.34, glow));
   gl_FragColor = vec4(col * alpha, alpha);

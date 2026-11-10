@@ -16,5 +16,5 @@ export const TREE = {
   /** Extra world-x added on a wide frame (1280), a tablet (768), and a phone. */
   shiftWide: 1.62,
   shiftMid: 0.74,
-  shiftPhone: 0.62,
+  shiftPhone: 0.18,
 } as const;

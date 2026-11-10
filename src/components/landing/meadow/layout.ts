@@ -293,7 +293,27 @@ function buildBlossoms(quality: Quality) {
   placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 1.02, -0.22, 0.25, BLOSSOM_ROSE, 0.32, 0.44);
   placeShell(items, mid, TREE.canopyY + 0.02, TREE.canopyRadius * 0.88, 0.0, 2.7, BLOSSOM_MID, 0.28, 0.4);
   placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.68, 0.18, 5.3, BLOSSOM_PALE, 0.24, 0.34);
+  const sprigs = compact ? 8 : 14;
   const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < sprigs; i += 1) {
+    const angle = golden * i * 2.4 + 0.4;
+    const reach = TREE.canopyRadius * (1.12 + (i % 4) * 0.07);
+    const lift = ((i % 5) - 2) * 0.11;
+    const color = i % 3 === 0 ? BLOSSOM_PALE[i % BLOSSOM_PALE.length] : BLOSSOM_MID[i % BLOSSOM_MID.length];
+    if (!color) continue;
+    items.push({
+      x: TREE.x + Math.cos(angle) * reach,
+      y: TREE.baseY + TREE.canopyY + lift,
+      z: TREE.z + Math.sin(angle) * reach * 0.9,
+      yaw: 0,
+      pitch: 0,
+      sx: 0.16 + (i % 3) * 0.03,
+      sy: 0.2 + (i % 4) * 0.02,
+      sz: 1,
+      color,
+      phase: 6.4 + (i % 3) * 0.04,
+    });
+  }
   for (let i = 0; i < petals; i += 1) {
     const angle = golden * i * 1.7;
     const radius = 0.18 + (i % 5) * 0.12;
@@ -312,7 +332,7 @@ function buildBlossoms(quality: Quality) {
       phase: 30 + i * 0.37,
     });
   }
-  return { scatter: toScatter(items), canopyCount: 1 + glows + back + mid + front };
+  return { scatter: toScatter(items), canopyCount: 1 + glows + back + mid + front + sprigs };
 }
 
 function splitCount(total: number, nearShare: number) {
