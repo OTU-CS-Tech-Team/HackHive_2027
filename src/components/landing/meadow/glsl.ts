@@ -169,9 +169,12 @@ varying vec2 vSpan;
 
 uniform float uSss;
 uniform float uRim;
+uniform float uAspect;
 uniform vec3 uEmissive;
 
 void main() {
+  float pathHalf = max(mix(0.62, 0.16, 1.0 - smoothstep(0.62, 1.15, uAspect)), fwidth(vWorld.x) * 3.2);
+  if (uSss < 0.2 && abs(vWorld.x) < pathHalf) discard;
   vec3 n = normalize(vNormal);
   if (uRim > 0.5 && uSss < 0.5 && !gl_FrontFacing) n = -n;
   float foliage = step(vSpan.y, -0.02);
@@ -274,11 +277,14 @@ void main() {
   float ax = abs(vWorld.x);
   float narrow = 1.0 - smoothstep(0.62, 1.15, uAspect);
   float inner = mix(0.62, 0.16, narrow);
-  float edge = mix(0.016, 0.045, smoothstep(8.0, 28.0, dist));
-  float pathMask = 1.0 - smoothstep(inner, inner + edge, ax);
-  vec3 pathCol = mix(uPath, uPathEdge, 0.35);
-  vec2 gritP = vWorld.xz * vec2(34.0, 46.0);
-  float gritPx = max(fwidth(gritP.x), fwidth(gritP.y));
+  float pathSpan = max(fwidth(vWorld.x), 0.0004);
+  float pathHalf = max(inner, pathSpan * 3.2);
+  float edge = max(mix(0.016, 0.04, smoothstep(8.0, 28.0, dist)), pathSpan * 0.85);
+  float pathMask = 1.0 - smoothstep(pathHalf, pathHalf + edge, ax);
+  vec3 pathCol = mix(uPath, uPathEdge, 0.22);
+  float worldPx = max(fwidth(vWorld.x), fwidth(vWorld.z));
+  float cell = clamp(0.55 / max(worldPx, 0.0004), 8.0, 96.0);
+  vec2 gritP = vWorld.xz * vec2(cell, cell * 1.28);
   vec2 gi = floor(gritP);
   vec2 gf = fract(gritP);
   gf = gf * gf * (3.0 - 2.0 * gf);
@@ -287,25 +293,28 @@ void main() {
   float g01 = grassHash(gi + vec2(0.0, 1.0));
   float g11 = grassHash(gi + vec2(1.0, 1.0));
   float grit = mix(mix(g00, g10, gf.x), mix(g01, g11, gf.x), gf.y);
-  float fine = grassHash(floor(vWorld.xz * vec2(70.0, 90.0)));
-  float gritDetail = 1.0 - smoothstep(1.8, 3.4, gritPx);
-  pathCol *= 1.0 + ((grit - 0.5) * 0.2 + (fine - 0.5) * 0.08) * gritDetail * (1.0 - uVeil);
+  float fine = grassHash(floor(vWorld.xz * vec2(cell * 2.1, cell * 2.4)));
+  pathCol *= 1.0 + ((grit - 0.5) * 0.24 + (fine - 0.5) * 0.1) * (1.0 - uVeil);
   float lane = abs(fract(vWorld.x * 3.1 + grassHash(vec2(floor(vWorld.z * 0.55), 2.0)) * 0.2) - 0.5);
-  float rut = 1.0 - smoothstep(0.05, 0.16, lane);
-  pathCol *= 1.0 - rut * 0.18 * (1.0 - uVeil);
-  vec2 pebbleCell = floor(vWorld.xz * 13.0);
-  float pebble = step(0.93, grassHash(pebbleCell));
-  float pebbleDot = 1.0 - smoothstep(0.08, 0.28, length(fract(vWorld.xz * 13.0) - 0.5));
-  pathCol = mix(pathCol, pathCol * vec3(0.74, 0.66, 0.52), pebble * pebbleDot * gritDetail * (1.0 - uVeil));
-  float chip = step(0.97, grassHash(pebbleCell + 4.2));
-  pathCol = mix(pathCol, min(pathCol * vec3(1.16, 1.1, 0.98), vec3(0.9, 0.74, 0.5)), chip * pebbleDot * gritDetail);
+  float rutW = mix(0.045, 0.1, smoothstep(8.0, 36.0, dist));
+  float rut = 1.0 - smoothstep(rutW, rutW + 0.09, lane);
+  pathCol *= 1.0 - rut * 0.2 * (1.0 - uVeil);
+  float peb = clamp(0.28 / max(worldPx, 0.0004), 4.0, 28.0);
+  vec2 pebbleCell = floor(vWorld.xz * vec2(peb, peb * 1.15));
+  float pebble = step(0.9, grassHash(pebbleCell));
+  float pebbleDot = 1.0 - smoothstep(0.06, 0.32, length(fract(vWorld.xz * vec2(peb, peb * 1.15)) - 0.5));
+  pathCol = mix(pathCol, pathCol * vec3(0.7, 0.6, 0.46), pebble * pebbleDot * (1.0 - uVeil));
+  float chip = step(0.96, grassHash(pebbleCell + 4.2));
+  pathCol = mix(pathCol, min(pathCol * vec3(1.18, 1.1, 0.96), vec3(0.92, 0.76, 0.52)), chip * pebbleDot);
+  float rim = 1.0 - smoothstep(0.0, max(edge, pathSpan * 1.1), abs(ax - pathHalf));
+  pathCol = mix(pathCol, pathCol * vec3(0.58, 0.48, 0.32), rim * (1.0 - uVeil));
   pathCol = mix(pathCol, uHandoff, uVeil);
   grass = mix(grass, uHandoff, uVeil);
   vec3 albedo = mix(grass, pathCol, pathMask);
   float wrap = saturate(dot(normalize(vNormal), normalize(uSunDir)) * 0.35 + 0.72);
   vec3 lit = albedo * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   vec3 fogged = atmospheric(lit, dist);
-  gl_FragColor = vec4(mix(fogged, lit, pathMask * 0.6), 1.0);
+  gl_FragColor = vec4(mix(fogged, lit, pathMask), 1.0);
 }
 `;
 
@@ -313,6 +322,9 @@ export const HILL_FRAG = COMMON + /* glsl */ `
 varying vec3 vWorld;
 uniform vec3 uGrassNear;
 uniform vec3 uGrassFar;
+uniform vec3 uPath;
+uniform vec3 uPathEdge;
+uniform float uAspect;
 
 float grassHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -359,7 +371,23 @@ void main() {
   col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
-  gl_FragColor = vec4(atmospheric(lit, dist), 1.0);
+  float narrow = 1.0 - smoothstep(0.62, 1.15, uAspect);
+  float pathHalf = mix(0.55, 0.14, narrow);
+  float ax = abs(vWorld.x);
+  float onPath = (1.0 - smoothstep(pathHalf, pathHalf + 0.035, ax))
+    * (1.0 - smoothstep(-6.0, -12.0, vWorld.z))
+    * (1.0 - smoothstep(0.25, 0.85, vWorld.y));
+  vec3 pathCol = mix(uPath, uPathEdge, 0.22);
+  float cell = clamp(0.5 / max(fwidth(vWorld.x), 0.0004), 8.0, 80.0);
+  float grit = grassHash(floor(vWorld.xz * vec2(cell, cell * 1.2)));
+  pathCol *= 1.0 + (grit - 0.5) * 0.24 * (1.0 - uVeil);
+  float lane = abs(fract(vWorld.x * 3.1 + grassHash(vec2(floor(vWorld.z * 0.55), 2.0)) * 0.2) - 0.5);
+  pathCol *= 1.0 - (1.0 - smoothstep(0.05, 0.14, lane)) * 0.18 * (1.0 - uVeil);
+  float rim = 1.0 - smoothstep(0.0, 0.045, abs(ax - pathHalf));
+  pathCol = mix(pathCol, pathCol * vec3(0.58, 0.48, 0.32), rim * (1.0 - uVeil));
+  pathCol = mix(pathCol, uHandoff, uVeil);
+  vec3 pathLit = pathCol * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
+  gl_FragColor = vec4(mix(atmospheric(lit, dist), pathLit, onPath), 1.0);
 }
 `;
 
@@ -392,7 +420,6 @@ void main() {
 
 export const CLOUD_VERT = /* glsl */ `
 varying vec2 vUv;
-varying vec3 vWorld;
 uniform float uTime;
 uniform float uWind;
 attribute float aPhase;
@@ -409,28 +436,33 @@ void main() {
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center + (right * position.x * size.x + up * position.y * size.y);
-  world.x += sin(uTime * 0.12 + aPhase) * uWind * 0.22;
-  vWorld = world;
+  world.x += sin(uTime * 0.035 + aPhase) * uWind * 0.7;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `;
 
 export const CLOUD_FRAG = COMMON + /* glsl */ `
 varying vec2 vUv;
-varying vec3 vWorld;
+
+float puff(vec2 p, vec2 c, vec2 r) {
+  return smoothstep(1.0, 0.36, length((p - c) / r));
+}
 
 void main() {
   vec2 p = vUv - 0.5;
-  float a = smoothstep(0.5, 0.14, length(p * vec2(1.02, 1.45)));
-  float b = smoothstep(0.36, 0.1, length((p - vec2(0.14, 0.02)) * vec2(1.45, 1.7)));
-  float c = smoothstep(0.32, 0.08, length((p + vec2(0.16, 0.03)) * vec2(1.55, 1.85)));
-  float alpha = max(a, max(b * 0.92, c * 0.78));
-  float dist = distance(vWorld, uCamPos);
-  float fog = saturate(1.0 - exp(-dist * uFogDensity));
-  alpha *= (1.0 - fog) * (1.0 - uVeil);
-  if (alpha < 0.03) discard;
-  vec3 col = mix(vec3(1.0, 0.995, 0.985), mix(uHorizon, uHandoff, uVeil), fog * 0.65 + uVeil);
-  gl_FragColor = vec4(col, alpha * 0.72);
+  float shape = puff(p, vec2(0.0, 0.05), vec2(0.4, 0.2));
+  shape = max(shape, puff(p, vec2(-0.22, 0.01), vec2(0.24, 0.15)));
+  shape = max(shape, puff(p, vec2(0.2, 0.03), vec2(0.26, 0.16)));
+  shape = max(shape, puff(p, vec2(-0.04, 0.16), vec2(0.2, 0.13)));
+  shape = max(shape, puff(p, vec2(0.12, 0.17), vec2(0.18, 0.12)));
+  shape = max(shape, puff(p, vec2(0.02, -0.07), vec2(0.28, 0.13)));
+  float body = smoothstep(0.4, 0.68, shape);
+  float edge = smoothstep(0.14, 0.4, shape);
+  float alpha = max(body, edge * 0.4) * (1.0 - uVeil);
+  if (alpha < 0.02) discard;
+  float lift = saturate(p.y * 1.8 + 0.35);
+  vec3 col = mix(vec3(0.8, 0.86, 0.92), vec3(1.0), lift);
+  gl_FragColor = vec4(col, alpha);
 }
 `;
 

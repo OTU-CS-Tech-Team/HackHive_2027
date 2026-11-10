@@ -58,7 +58,7 @@ import type { Quality } from "@/components/landing/meadow/quality";
 
 const FULL_COUNT = "fullCount";
 const KIND = "meadowKind";
-/** His veil is clear, then tan, then solid white at progress 0.9. */
+/** His veil is cream, then solid white at progress 0.9. */
 const VEIL_HOLD = 0.9;
 const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
@@ -76,9 +76,10 @@ function thinEvenly() {
 
 function thinFurther() {
   for (const mesh of liveMeshes) {
-    if (mesh.userData[KIND] !== "grass") continue;
+    const kind = mesh.userData[KIND];
     const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
-    mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.25)));
+    if (kind === "grass") mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.25)));
+    else if (kind === "flower") mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.18)));
   }
   for (const geometry of livePoints) {
     const full = geometry.getAttribute("position").count;
@@ -198,6 +199,9 @@ function buildMaterials(): Materials {
       ...baseUniforms(),
       uGrassNear: { value: colorOf(GRASS_NEAR) },
       uGrassFar: { value: colorOf(GRASS_FAR) },
+      uPath: { value: colorOf(PATH) },
+      uPathEdge: { value: colorOf(PATH_EDGE) },
+      uAspect: { value: 1.6 },
     },
     vertexShader: PLANT_VERT,
     fragmentShader: HILL_FRAG,
@@ -526,9 +530,9 @@ export default function MeadowWorld({
         return (
           <group key={index}>
             <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} kind="grass" />
-            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} />
-            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} />
-            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} />
+            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} kind="flower" />
+            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} kind="flower" />
+            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} kind="flower" />
           </group>
         );
       })}

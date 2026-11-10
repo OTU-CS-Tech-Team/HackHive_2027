@@ -139,22 +139,33 @@ function flowerBed(
 ) {
   const rng = mulberry32(seed);
   const items: Item[] = [];
+  const drifts = [
+    { side: -1, z: 4.2, reach: 0.2 },
+    { side: 1, z: 4.05, reach: 0.85 },
+    { side: -1, z: 3.2, reach: 0.45 },
+    { side: 1, z: 2.7, reach: 1.05 },
+    { side: -1, z: 1.7, reach: 0.3 },
+    { side: 1, z: 1.35, reach: 0.9 },
+    { side: -1, z: 0.55, reach: 0.55 },
+    { side: 1, z: 0.15, reach: 1.15 },
+    { side: -1, z: -0.7, reach: 0.4 },
+    { side: 1, z: -1.35, reach: 0.95 },
+    { side: -1, z: -2.6, reach: 0.6 },
+    { side: 1, z: -4.4, reach: 0.35 },
+  ];
   for (let i = 0; i < count; i += 1) {
-    const corner = i < Math.ceil(count * 0.14);
-    const fringe = !corner && i < Math.ceil(count * 0.42);
-    const depth = Math.pow(rng(), 0.62);
-    const z = corner ? 4.35 - rng() * 1.15 : fringe ? 4.05 - rng() * 1.55 : 2.35 - depth * 11;
-    const side = rng() < 0.5 ? -1 : 1;
-    const near = z > 2.4;
-    const spread = (corner ? (spreadMul < 1 ? 1.6 : 2.9) : fringe ? 1.15 : near ? 2.4 : 4.8) * spreadMul;
-    const x = side * (clear + Math.pow(rng(), fringe ? 0.8 : 0.6) * spread);
-    const size = (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * (near ? nearMul : 1);
+    const drift = drifts[Math.min(drifts.length - 1, Math.floor(Math.pow(rng(), 1.15) * drifts.length))] ?? drifts[0];
+    const z = drift.z + (rng() - 0.5) * 0.55;
+    let x = drift.side * (clear + 0.16 + drift.reach * spreadMul + (rng() - 0.5) * 0.62 * spreadMul);
+    if (Math.abs(x) < clear) x = drift.side * (clear + 0.08 + rng() * 0.2);
+    const size =
+      (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * (z > 2.2 ? nearMul : z < -2.5 ? 0.8 : 1);
     items.push({
       x,
       y: 0,
       z,
       yaw: (rng() - 0.5) * yawJitter,
-      pitch: lean + (rng() - 0.5) * 0.2,
+      pitch: lean + (rng() - 0.5) * 0.12,
       sx: size,
       sy: size,
       sz: size,
@@ -170,35 +181,18 @@ export function buildLayout(quality: Quality): SceneLayout {
   const compact = quality === "low";
   const flowerClear = compact ? 0.32 : FLOWER_CLEAR;
   const spreadMul = compact ? 0.42 : 1;
-  const lilyRng = mulberry32(11);
-  const lilies: Item[] = [];
-  for (let i = 0; i < counts.lilies; i += 1) {
-    const corner = i < Math.ceil(counts.lilies * 0.12);
-    const near = !corner && i < Math.ceil(counts.lilies * 0.22);
-    const depth = lilyRng();
-    const z = corner ? 4.25 - depth * 0.9 : near ? 3.5 - depth * 1.15 : 2.15 - depth * 6.2;
-    const side = lilyRng() < 0.5 ? -1 : 1;
-    const reach = (corner ? 2.7 : near ? 1.35 : 1.8 + depth * 2.6) * spreadMul;
-    const x = side * (flowerClear + 0.12 + Math.pow(lilyRng(), 0.8) * reach);
-    const size = corner
-      ? (compact ? 0.15 : 0.18) + lilyRng() * 0.04
-      : near
-        ? (compact ? 0.26 : 0.3) + lilyRng() * (compact ? 0.04 : 0.06)
-        : (compact ? 0.16 : 0.2) + lilyRng() * (compact ? 0.07 : 0.1);
-    lilies.push({
-      x,
-      y: 0.02,
-      z,
-      yaw: (lilyRng() - 0.5) * 0.5,
-      pitch: 0.92 + (lilyRng() - 0.5) * 0.08,
-      sx: size,
-      sy: size,
-      sz: size,
-      color: [1, 1, 1],
-      phase: lilyRng() * Math.PI * 2,
-    });
-  }
-  const daisies = flowerBed(counts.daisies, 29, [0.16, 0.26], () => [1, 1, 1], 0.85, flowerClear, spreadMul);
+  const lilies = flowerBed(
+    counts.lilies,
+    11,
+    compact ? [0.16, 0.24] : [0.2, 0.3],
+    () => [1, 1, 1],
+    1,
+    flowerClear,
+    spreadMul,
+    0.92,
+    0.5,
+  );
+  const daisies = flowerBed(counts.daisies, 29, [0.16, 0.26], () => [1, 1, 1], 0.95, flowerClear, spreadMul);
   const lupinTips: RGB[] = [];
   const lupinItems = flowerBed(counts.lupins, 47, compact ? [0.38, 0.55] : [0.46, 0.66], (rng) => {
     const family = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
@@ -270,16 +264,18 @@ export function buildLayout(quality: Quality): SceneLayout {
   }
   const cloudRng = mulberry32(7);
   const clouds: Item[] = [];
+  const gutter = compact ? 2.05 : 5.2;
   for (let i = 0; i < counts.clouds; i += 1) {
     const side = i % 2 === 0 ? -1 : 1;
+    const depth = i / Math.max(1, counts.clouds - 1);
     clouds.push({
-      x: side * (1.2 + cloudRng() * 4.5),
-      y: 3.4 + cloudRng() * 1.1,
-      z: 4.5 - cloudRng() * 14,
+      x: side * (gutter + (i % 3) * (compact ? 0.55 : 1.15) + cloudRng() * (compact ? 0.7 : 1.4)),
+      y: 2.85 + cloudRng() * 0.7,
+      z: -2.2 - depth * 6.4 - cloudRng() * 0.8,
       yaw: 0,
       pitch: 0,
-      sx: 3.4 + cloudRng() * 2.2,
-      sy: 1.35 + cloudRng() * 0.7,
+      sx: (compact ? 3.4 : 4.6) + cloudRng() * 1.6,
+      sy: 1.9 + cloudRng() * 0.7,
       sz: 1,
       color: [1, 1, 1],
       phase: cloudRng() * Math.PI * 2,
