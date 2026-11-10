@@ -2,8 +2,8 @@
  * Blossoming tree on the right of the hero text.
  * The mesh is authored at `x`. The shaders add an aspect shift so the
  * crown stays in the right margin at 1280 and 768. On a phone the crown
- * is smaller than the tablet one but still a full tree, inside the frame
- * and clear of the title, date, and button. The path's far end aims at
+ * is a full tree under the subtitle. phoneSlide and phoneReach are
+ * shader-only, so the layout anchor stays put. The phone path aims at
  * that shifted trunk.
  */
 export const TREE = {
@@ -19,4 +19,8 @@ export const TREE = {
   shiftWide: 1.74,
   shiftMid: 0.46,
   shiftPhone: -0.05,
+  /** Phone-only world-x added in the shaders, on top of shiftPhone. */
+  phoneSlide: -0.5,
+  /** Phone-only step toward the camera, so the crown sits under the subtitle. */
+  phoneReach: 2.05,
 } as const;

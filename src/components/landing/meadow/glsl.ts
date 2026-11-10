@@ -72,7 +72,12 @@ float treeAnchor(float aspect) {
   return ${TREE.x.toFixed(3)}
     + midBand * ${TREE.shiftMid.toFixed(3)}
     + wide * ${TREE.shiftWide.toFixed(3)}
-    + phone * ${TREE.shiftPhone.toFixed(3)};
+    + phone * ${(TREE.shiftPhone + TREE.phoneSlide).toFixed(3)};
+}
+
+float treeDepth(float aspect) {
+  float phone = 1.0 - smoothstep(0.5, 0.72, aspect);
+  return ${TREE.z.toFixed(2)} + phone * ${TREE.phoneReach.toFixed(2)};
 }
 `;
 
@@ -91,8 +96,10 @@ float pathBase(float aspect) {
   return mix(1.05, 0.42, narrow);
 }
 
+uniform float uAspect;
+
 float pathEase(float z) {
-  float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, z);
+  float approach = 1.0 - smoothstep(treeDepth(uAspect), 4.6, z);
   return approach * approach * (3.0 - 2.0 * approach);
 }
 
@@ -105,14 +112,13 @@ float pathHalfWidth(float aspect, float z) {
 }
 
 float pathEndFade(float z) {
-  float treeZ = ${TREE.z.toFixed(2)};
+  float treeZ = treeDepth(uAspect);
   return smoothstep(treeZ - 0.75, treeZ + 0.2, z);
 }
 `;
 
 /** Vertex-only. Flowers standing in the dirt slide to the right shoulder. */
 const PARK_FLOWER = /* glsl */ `
-uniform float uAspect;
 void parkOffPath(inout vec3 world, vec3 foot, float stem) {
   if (foot.y > 0.2) return;
   if (pathEndFade(foot.z) < 0.12) return;
@@ -197,12 +203,12 @@ void main() {
       float stem = 1.0;
     #endif
     if (phone > 0.85 && foot.y < 0.2 && foot.z > 0.9 && foot.z < 3.45) {
-      float trunkX = ${(TREE.x + TREE.shiftPhone).toFixed(2)};
+      float trunkX = ${(TREE.x + TREE.shiftPhone + TREE.phoneSlide).toFixed(2)};
       float cover = 1.0 - smoothstep(0.42, 0.58, abs(foot.x - trunkX));
       // Short flowers already to the right of the trunk stay in the grass
       // below it. Tall spikes in that column still slide left.
       if (stem < 0.24 && foot.x > trunkX - 0.05) cover = 0.0;
-      float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, origin.z);
+      float approach = 1.0 - smoothstep(${(TREE.z + TREE.phoneReach).toFixed(2)}, 4.6, origin.z);
       float ease = approach * approach * (3.0 - 2.0 * approach);
       float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
       float center = mix(line, trunkX, ease);
@@ -214,6 +220,13 @@ void main() {
       foot.x += delta;
     }
     parkOffPath(shifted, foot, stem);
+    // Narrow frames only. The nearest big lilies were covering the left
+    // foreground. Step them back so the daisies and lupins read. 1280 has
+    // narrowBed at 0, so this does not move a flower there.
+    float narrowBed = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+    if (narrowBed > 0.35 && stem > 0.24 && foot.y < 0.2 && foot.z > 1.7 && foot.x < pathCenter(foot.z, uAspect) - 0.05) {
+      shifted.z -= 0.62 * narrowBed;
+    }
     world.xyz = shifted;
   } else if (abs(origin.x) > 0.8 && origin.y < 0.2) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
@@ -296,9 +309,9 @@ void main() {
   // have phone at 0, so this is a no-op there.
   float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
   if (phone > 0.85 && foot.y < 0.2 && foot.z > 0.9 && foot.z < 3.45) {
-    float trunkX = ${(TREE.x + TREE.shiftPhone).toFixed(2)};
+    float trunkX = ${(TREE.x + TREE.shiftPhone + TREE.phoneSlide).toFixed(2)};
     float cover = 1.0 - smoothstep(0.42, 0.58, abs(foot.x - trunkX));
-    float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, origin.z);
+    float approach = 1.0 - smoothstep(${(TREE.z + TREE.phoneReach).toFixed(2)}, 4.6, origin.z);
     float ease = approach * approach * (3.0 - 2.0 * approach);
     float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
     float center = mix(line, trunkX, ease);
@@ -310,6 +323,13 @@ void main() {
     foot.x += delta;
   }
   parkOffPath(shifted, foot, 1.0);
+  // Narrow frames only. Bring some left lupins forward so the foreground
+  // matches the mixed 1280 bed. 1280 has narrowBed at 0.
+  float narrowBed = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+  float pick = fract(sin(foot.z * 12.7 + foot.x * 4.1) * 43758.5453);
+  if (narrowBed > 0.35 && pick > 0.22 && foot.y < 0.2 && foot.x < pathCenter(foot.z, uAspect) - 0.1 && foot.z > 1.2 && foot.z < 3.5) {
+    shifted.z += 0.42 * narrowBed;
+  }
   world.xyz = shifted;
   float height = clamp(position.y, 0.0, 1.0);
   float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
@@ -337,7 +357,6 @@ varying vec3 vNormal;
 varying vec3 vWorld;
 
 uniform float uRim;
-uniform float uAspect;
 
 void main() {
   if (pathEndFade(vWorld.z) > 0.12 && abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < pathHalfWidth(uAspect, vWorld.z) * 0.34) discard;
@@ -362,7 +381,6 @@ varying vec2 vSpan;
 
 uniform float uSss;
 uniform float uRim;
-uniform float uAspect;
 uniform vec3 uEmissive;
 
 void main() {
@@ -440,7 +458,6 @@ uniform vec3 uGrassNear;
 uniform vec3 uGrassFar;
 uniform vec3 uPath;
 uniform vec3 uPathEdge;
-uniform float uAspect;
 
 float grassHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -736,10 +753,20 @@ void main() {
   world.x += anchor - ${TREE.x.toFixed(3)};
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float squeeze = mix(1.0, 0.4, narrow);
-  squeeze = mix(squeeze, 0.15, phone);
+  // 1280 leaves narrow and phone at 0. 768 uses the narrow targets,
+  // about a quarter larger than before. Phone replaces both.
+  float squeeze = mix(1.0, 0.54, narrow);
+  squeeze = mix(squeeze, 0.44, phone);
   world.x = anchor + (world.x - anchor) * squeeze;
-  world.y *= mix(1.0, 0.58, narrow) * mix(1.0, 0.42, phone);
+  world.y *= mix(1.0, 0.76, narrow) * mix(1.0, 0.34, phone);
+  world.z += phone * ${TREE.phoneReach.toFixed(2)};
+  // The phone crown was sitting on the ground. Lift its lower half so the
+  // trunk and base show, and keep the top under the button.
+  if (phone > 0.5) {
+    float crownTop = 0.52;
+    float t = clamp(world.y / crownTop, 0.0, 1.0);
+    world.y = pow(max(t, 0.0), 0.55) * crownTop;
+  }
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -790,10 +817,16 @@ void main() {
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
   // Same anchor squeeze as the bark, so the limbs still meet the crown.
-  float squeeze = mix(1.0, 0.4, narrow);
-  squeeze = mix(squeeze, 0.15, phone);
+  float squeeze = mix(1.0, 0.54, narrow);
+  squeeze = mix(squeeze, 0.44, phone);
   center.x = anchor + (center.x - anchor) * squeeze;
-  center.y *= mix(1.0, 0.58, narrow) * mix(1.0, 0.42, phone);
+  center.y *= mix(1.0, 0.76, narrow) * mix(1.0, 0.34, phone);
+  center.z += phone * ${TREE.phoneReach.toFixed(2)};
+  if (phone > 0.5) {
+    float crownTop = 0.52;
+    float t = clamp(center.y / crownTop, 0.0, 1.0);
+    center.y = pow(max(t, 0.0), 0.55) * crownTop;
+  }
   size *= squeeze;
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
