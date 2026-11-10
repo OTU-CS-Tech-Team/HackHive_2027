@@ -127,15 +127,17 @@ void parkOffPath(inout vec3 world, vec3 foot, float stem) {
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
   float visible = mix(1.3 - foot.z * 0.191, 2.12 - foot.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
-  float edge = max(visible, 0.4) * 0.94;
-  float right = center + limit + 0.14 + scatter * 0.2;
-  float left = center - limit - 0.12 - scatter * 0.16;
-  float lane = right;
-  if (right > edge) {
-    // The right shoulder is off this frame. Stay on the right only when
-    // that edge is still grass. Otherwise the left lawn is the open bed.
-    lane = edge > center + limit * 0.82 ? edge - scatter * 0.05 : max(left, -edge);
-  }
+  // The portrait edge is too narrow for a wide frame, and it was stacking
+  // every in-path flower into one left-hand strip. The wide frame can see
+  // past the tree, so use the same half-width the layout uses.
+  float wide = smoothstep(0.95, 1.45, max(uAspect, 0.3));
+  float wideEdge = max(0.9, 1.79 + (3.84 - foot.z) * 0.67);
+  float edge = mix(max(visible, 0.4) * 0.94, wideEdge * 0.96, wide);
+  float left = center - limit - 0.16 - scatter * 0.42;
+  float right = center + limit + 0.16 + scatter * 0.42;
+  float lane = foot.x < center ? left : right;
+  if (lane > edge) lane = min(left, edge - scatter * 0.08);
+  if (lane < -edge) lane = max(right, -edge + scatter * 0.08);
   world.x += lane - foot.x;
 }
 `;
@@ -734,12 +736,10 @@ void main() {
   world.x += anchor - ${TREE.x.toFixed(3)};
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  // Keep the trunk a tree on a narrow frame. The old 0.42 squeeze
-  // turned the flare and the limbs into a stick.
-  float squeeze = mix(1.0, 0.82, narrow);
-  squeeze = mix(squeeze, 0.76, phone);
+  float squeeze = mix(1.0, 0.4, narrow);
+  squeeze = mix(squeeze, 0.15, phone);
   world.x = anchor + (world.x - anchor) * squeeze;
-  world.y *= mix(1.0, 0.9, narrow) * mix(1.0, 0.94, phone);
+  world.y *= mix(1.0, 0.58, narrow) * mix(1.0, 0.42, phone);
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -790,11 +790,11 @@ void main() {
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
   // Same anchor squeeze as the bark, so the limbs still meet the crown.
-  float squeeze = mix(1.0, 0.82, narrow);
-  squeeze = mix(squeeze, 0.76, phone);
+  float squeeze = mix(1.0, 0.4, narrow);
+  squeeze = mix(squeeze, 0.15, phone);
   center.x = anchor + (center.x - anchor) * squeeze;
-  center.y *= mix(1.0, 0.9, narrow) * mix(1.0, 0.94, phone);
-  size *= mix(1.0, 0.92, narrow) * mix(1.0, 0.8, phone);
+  center.y *= mix(1.0, 0.58, narrow) * mix(1.0, 0.42, phone);
+  size *= squeeze;
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;

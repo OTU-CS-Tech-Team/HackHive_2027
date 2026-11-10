@@ -689,41 +689,42 @@ export function createTrunkGeometry() {
       }
     }
   };
+  // Same flare and limb shape as the large tree, scaled to the crown
+  // that sits on the hill at the end of the path.
+  const fit = 0.6;
   const trunk = [
-    { x: 0, y: 0.01, z: 0, r: 0.26 },
-    { x: 0.01, y: 0.1, z: 0.01, r: 0.18 },
-    { x: 0.03, y: 0.32, z: 0.01, r: 0.13 },
-    { x: 0.04, y: 0.58, z: 0, r: 0.1 },
-    { x: 0.02, y: 0.86, z: -0.01, r: 0.072 },
-    { x: 0, y: 1.12, z: 0.01, r: 0.046 },
-    { x: -0.02, y: 1.34, z: 0, r: 0.026 },
+    { x: 0, y: 0.01 * fit, z: 0, r: 0.26 * fit },
+    { x: 0.01 * fit, y: 0.1 * fit, z: 0.01 * fit, r: 0.18 * fit },
+    { x: 0.03 * fit, y: 0.32 * fit, z: 0.01 * fit, r: 0.13 * fit },
+    { x: 0.04 * fit, y: 0.58 * fit, z: 0, r: 0.1 * fit },
+    { x: 0.02 * fit, y: 0.86 * fit, z: -0.01 * fit, r: 0.072 * fit },
+    { x: 0, y: 1.12 * fit, z: 0.01 * fit, r: 0.046 * fit },
+    { x: -0.02 * fit, y: 1.34 * fit, z: 0, r: 0.026 * fit },
   ];
-  // Tips end inside the blossom mass. The limbs stay thick enough to read
-  // from the path, then disappear into the crown.
   const left = [
-    { x: 0.02, y: 0.72, z: 0.01, r: 0.048 },
-    { x: -0.16, y: 0.98, z: 0.08, r: 0.032 },
-    { x: -0.38, y: 1.26, z: 0.1, r: 0.018 },
+    { x: 0.02 * fit, y: 0.72 * fit, z: 0.01 * fit, r: 0.048 * fit },
+    { x: -0.16 * fit, y: 0.98 * fit, z: 0.08 * fit, r: 0.032 * fit },
+    { x: -0.38 * fit, y: 1.26 * fit, z: 0.1 * fit, r: 0.018 * fit },
   ];
   const right = [
-    { x: 0.03, y: 0.68, z: 0, r: 0.046 },
-    { x: 0.22, y: 0.96, z: -0.06, r: 0.03 },
-    { x: 0.42, y: 1.24, z: -0.08, r: 0.016 },
+    { x: 0.03 * fit, y: 0.68 * fit, z: 0, r: 0.046 * fit },
+    { x: 0.22 * fit, y: 0.96 * fit, z: -0.06 * fit, r: 0.03 * fit },
+    { x: 0.42 * fit, y: 1.24 * fit, z: -0.08 * fit, r: 0.016 * fit },
   ];
   const front = [
-    { x: 0.01, y: 0.64, z: 0.02, r: 0.04 },
-    { x: -0.06, y: 0.92, z: 0.18, r: 0.026 },
-    { x: -0.1, y: 1.2, z: 0.32, r: 0.014 },
+    { x: 0.01 * fit, y: 0.64 * fit, z: 0.02 * fit, r: 0.04 * fit },
+    { x: -0.06 * fit, y: 0.92 * fit, z: 0.18 * fit, r: 0.026 * fit },
+    { x: -0.1 * fit, y: 1.2 * fit, z: 0.32 * fit, r: 0.014 * fit },
   ];
   const back = [
-    { x: 0.02, y: 0.6, z: 0, r: 0.036 },
-    { x: 0.08, y: 0.9, z: -0.18, r: 0.022 },
-    { x: 0.1, y: 1.18, z: -0.32, r: 0.012 },
+    { x: 0.02 * fit, y: 0.6 * fit, z: 0, r: 0.036 * fit },
+    { x: 0.08 * fit, y: 0.9 * fit, z: -0.18 * fit, r: 0.022 * fit },
+    { x: 0.1 * fit, y: 1.18 * fit, z: -0.32 * fit, r: 0.012 * fit },
   ];
   const high = [
-    { x: 0, y: 0.98, z: 0.01, r: 0.032 },
-    { x: -0.2, y: 1.22, z: -0.04, r: 0.018 },
-    { x: -0.32, y: 1.42, z: 0.04, r: 0.01 },
+    { x: 0, y: 0.98 * fit, z: 0.01 * fit, r: 0.032 * fit },
+    { x: -0.2 * fit, y: 1.22 * fit, z: -0.04 * fit, r: 0.018 * fit },
+    { x: -0.32 * fit, y: 1.42 * fit, z: 0.04 * fit, r: 0.01 * fit },
   ];
   addCurve(trunk);
   addCurve(left);
