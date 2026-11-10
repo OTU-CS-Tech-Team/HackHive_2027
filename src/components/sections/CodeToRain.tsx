@@ -51,16 +51,28 @@ namespace SysCore {
   }
 }`.split("\n");
 
-const EXPLODE_AT = 0.58; // scroll progress where the shatter starts
-const EXPLODE_LEN = 0.3; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
-const FADE_LEN = 0.06; // extra scroll after the travel before the shards are gone
+const TYPE_END = 0.16; // scroll progress by which the code is fully typed, however slowly it's scrolled
+const TYPE_MS = 1600; // ... though it types itself in this long once the stage is in view, no scrolling needed
+const BULGE_START = 0.1; // scroll progress where the box starts to swell
+const EXPLODE_AT = 0.42; // scroll progress where the shatter starts
+const EXPLODE_LEN = 0.36; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
+const FADE_LEN = 0.08; // extra scroll after the travel before the shards are gone
 const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.55; // judges section starts sliding up here
 const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.7; // shards begin fading here
 const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges section cuts in
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
 const GROUP_MIN = 3; // characters per flying chunk of text (min)
 const GROUP_MAX = 5; // ... and max. Bigger groups = fewer draw calls = less lag, chunkier look
-const ANIM_VH = 3.3; // scroll distance (in screen heights) the whole sequence is scrubbed over
+const ANIM_VH = 1.8; // scroll distance (in screen heights) the whole sequence is scrubbed over
+const MAX_DPR = 2; // canvas resolution cap: the glows cost per pixel, and 3x phone screens gain little past 2x
+// Blurring on every frame (canvas shadowBlur) is what made this lag, so nothing here does: the code's glow is
+// blurred once into a sprite sheet and stamped on, and the box and shards glow with wide faint strokes.
+const GLOW_REACH = 24; // how far a chunk's glow spreads past its text, px
+const GLOW_BLUR = 16; // the glow's blur, baked into the sheet at full strength
+const GLOW_FULL = 24; // the old shadowBlur (d * 10 + e * 14) that counts as full strength
+const GLOW_RES = 0.5; // the sheet's resolution: it's all blur, so half size loses nothing
+// The track: one pinned screen, plus the scroll the sequence plays over, ending right as the shards are gone.
+const TRACK_VH = 100 + ANIM_VH * FADE_END * 100;
 const MONO = "ui-monospace,Menlo,Consolas,monospace";
 
 const cl = (x: number, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -78,6 +90,20 @@ type Group = { text: string; start: number; len: number; gx: number; gy: number;
 type Glyph = { ch: string; x: number; y: number; r: number; s: number; s2: number };
 type Pt = [number, number];
 type Chunk = { pts: Pt[]; ccx: number; ccy: number; s: number; s2: number };
+// Where a group's glow sits in the sprite sheet, in sheet px at full size.
+type Sprite = { sx: number; sy: number; w: number; h: number };
+
+// A soft glow around the current path without a blur: two wide, very faint strokes under the line itself
+// (a blur spreads its colour thin, so these are kept faint to match).
+function haloStroke(ctx: CanvasRenderingContext2D, rgb: string, alpha: number, reach: number) {
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = `rgba(${rgb},${alpha * 0.025})`;
+  ctx.lineWidth = reach * 0.8;
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(${rgb},${alpha * 0.05})`;
+  ctx.lineWidth = reach * 0.3;
+  ctx.stroke();
+}
 
 export function CodeToRain() {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -102,11 +128,18 @@ export function CodeToRain() {
     let glyphs: Glyph[] = [];
     let groups: Group[] = [];
     let chunks: Chunk[] = [];
+    let sprites: Sprite[] = [];
+    const sheet = document.createElement("canvas");
 
     let sp = 0; // smoothed scroll progress
+    let auto = 0; // how far the code has typed itself, 0..1
     let last = performance.now();
     let raf = 0;
     let running = true;
+    // What was last drawn, so a frame where none of it has changed can be skipped.
+    let drawn = "";
+    let judgesIn = "";
+    let hintOn: boolean | null = null;
 
     // Bulge: slight swell around the container's middle point.
     function warp(x: number, y: number, d: number, j1: number, j2: number) {
@@ -174,7 +207,8 @@ export function CodeToRain() {
       W = stage!.clientWidth;
       H = stage!.clientHeight;
       if (!W || !H) return;
-      dpr = window.devicePixelRatio || 1;
+      dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+      drawn = "";
       cv!.width = W * dpr;
       cv!.height = H * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -242,6 +276,31 @@ export function CodeToRain() {
         i += len;
       }
 
+      // Each group's glow, blurred once into one sheet (shadow drawn, then the text itself knocked back
+      // out so only the glow is left), for frames to stamp on.
+      const sheetW = 2048;
+      let sx = 0, sy = 0, rowH = 0;
+      sprites = groups.map((g) => {
+        const w = g.len * cw + GLOW_REACH * 2, h = fs * 1.35 + GLOW_REACH * 2;
+        if (sx + w > sheetW) { sx = 0; sy += rowH; rowH = 0; }
+        const sprite = { sx, sy, w, h };
+        sx += w;
+        rowH = Math.max(rowH, h);
+        return sprite;
+      });
+      sheet.width = Math.ceil(sheetW * GLOW_RES);
+      sheet.height = Math.ceil((sy + rowH) * GLOW_RES);
+      const sc = sheet.getContext("2d")!;
+      sc.setTransform(GLOW_RES, 0, 0, GLOW_RES, 0, 0);
+      sc.font = `${fs}px ${MONO}`;
+      sc.fillStyle = "#64ff96";
+      sc.shadowColor = "rgba(100,255,150,.8)";
+      sc.shadowBlur = GLOW_BLUR * GLOW_RES; // shadows ignore the transform, so it's scaled by hand
+      groups.forEach((g, k) => sc.fillText(g.text, sprites[k].sx + GLOW_REACH, sprites[k].sy + GLOW_REACH + fs));
+      sc.shadowBlur = 0;
+      sc.globalCompositeOperation = "destination-out";
+      groups.forEach((g, k) => sc.fillText(g.text, sprites[k].sx + GLOW_REACH, sprites[k].sy + GLOW_REACH + fs));
+
       hFull = cl(pad * 2 + CODE.length * lh + fs * 0.4, H * 0.3, H * 0.92);
       // origin for the bulge and the explosion: horizontal centre, lower part of the text
       cx = W / 3;
@@ -250,36 +309,50 @@ export function CodeToRain() {
       makeChunks();
     }
 
-    function progress() {
-      const rect = track!.getBoundingClientRect();
-      // Absolute scroll distance, so the track can end right after the reveal
-      // without squashing the animation.
-      return cl(-rect.top / (ANIM_VH * window.innerHeight));
-    }
-
     function frame(now: number) {
       raf = requestAnimationFrame(frame);
       const dt = (now - last) / 1000;
       last = now;
       if (!running || !W) return;
 
-      const target = progress();
-      sp = reduced ? target : sp + (target - sp) * Math.min(1, dt * 10);
+      // Absolute scroll distance, so the track can end right after the reveal
+      // without squashing the animation.
+      const top = track!.getBoundingClientRect().top;
+      const target = cl(-top / (ANIM_VH * window.innerHeight));
+      sp = reduced ? target : Math.abs(target - sp) < 1e-4 ? target : sp + (target - sp) * Math.min(1, dt * 10);
       const p = sp;
+      // The code types itself once most of the stage is in view, and starts over if scrolled back above it.
+      if (top > window.innerHeight) auto = 0;
+      else if (top < window.innerHeight * 0.35) auto = reduced ? 1 : cl(auto + (dt * 1000) / TYPE_MS);
+
+      const typeP = Math.max(cl(p / TYPE_END), auto);
+      const blink = typeP < 1 && Math.floor(now / 450) % 2;
+      // Nothing to redraw: same scroll, same typing, same cursor.
+      const state = `${p}|${typeP}|${blink}`;
+      if (state === drawn) return;
+      drawn = state;
+
       ctx!.clearRect(0, 0, W, H);
       ctx!.fillStyle = "#14110b";
       ctx!.fillRect(0, 0, W, H);
-      if (hint) hint.style.opacity = p < 0.02 ? "0.7" : "0";
+      const showHint = p < 0.02;
+      if (hint && showHint !== hintOn) {
+        hintOn = showHint;
+        hint.style.opacity = showHint ? "0.7" : "0";
+      }
 
-      const typeP = cl(p / 0.42);
-      const d = ss(0.25, 0.58, p); // bulge amount
+      const d = ss(BULGE_START, EXPLODE_AT, p); // bulge amount
       const e = cl((p - EXPLODE_AT) / EXPLODE_LEN); // outward travel, scroll driven
       const ee = 1 - Math.pow(1 - e, 1.8); // burst, then slows
       const fade = 1 - ss(FADE_START, FADE_END, p); // shards and code fade out near the end
       // The judges section (with its own gavel rain) slides up over the pinned stage and fades in.
       // 0 = parked one screen below, 1 = in place. CSS on the section reads --judges-in.
-      const slide = reduced ? (p >= FADE_END ? 1 : 0) : ss(SLIDE_START, FADE_END, p);
-      host!.style.setProperty("--judges-in", slide.toFixed(4));
+      const slide = (reduced ? (p >= FADE_END ? 1 : 0) : ss(SLIDE_START, FADE_END, p)).toFixed(4);
+      // Only when it moves: every change restyles the whole judges section.
+      if (slide !== judgesIn) {
+        judgesIn = slide;
+        host!.style.setProperty("--judges-in", slide);
+      }
       const reveal = p >= FADE_END ? 1 : 0; // shards are gone: stop drawing them
       const total = glyphs.length;
       const shown = Math.floor(typeP * total);
@@ -304,12 +377,10 @@ export function CodeToRain() {
           ctx!.closePath();
           ctx!.fillStyle = "#090a03";
           ctx!.fill();
-          ctx!.shadowColor = `rgba(80,255,140,${0.2 + d * 0.6})`;
-          ctx!.shadowBlur = 14 + d * 40;
+          haloStroke(ctx!, "80,255,140", 0.2 + d * 0.6, 14 + d * 40);
           ctx!.strokeStyle = `rgba(125,255,160,${0.35 + d * 0.4})`;
           ctx!.lineWidth = 2;
           ctx!.stroke();
-          ctx!.shadowBlur = 0;
         } else {
           for (const c of chunks) {
             const wc = warp(c.ccx, c.ccy, d, 0.5, 0.5);
@@ -329,25 +400,23 @@ export function CodeToRain() {
             ctx!.closePath();
             ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#090a03";
             ctx!.fill();
-            ctx!.shadowColor = "rgba(240, 255, 80, 0.9)";
-            ctx!.shadowBlur = 10 + d * 30 + e * 10;
+            haloStroke(ctx!, "240,255,80", 0.9, 10 + d * 30 + e * 10);
             ctx!.strokeStyle = `rgba(150,255,185,${0.3 + d * 0.3 + e * 0.4})`;
             ctx!.lineWidth = 1.5 + e * 1.5;
             ctx!.stroke();
             ctx!.restore();
           }
-          ctx!.shadowBlur = 0;
         }
 
         // ---- code text ----
         ctx!.font = `${fs}px ${MONO}`;
         ctx!.textBaseline = "alphabetic";
         const n = Math.min(shown, total);
-        // Same glow for every chunk: set once instead of per character.
-        ctx!.shadowColor = "rgba(100,255,150,.8)";
-        ctx!.shadowBlur = d * 10 + e * 14;
+        // The glow swells with the bulge and the burst, as the old blur did, stamped from the sheet.
+        const glow = cl((d * 10 + e * 14) / GLOW_FULL) * fade;
         ctx!.globalAlpha = fade;
-        for (const g of groups) {
+        for (let k = 0; k < groups.length; k++) {
+          const g = groups[k];
           if (g.start >= n) break; // not typed yet
           let [dx, dy, s, rot] = warp(g.gx, g.gy, d, g.s, g.s2);
           if (e > 0) {
@@ -365,15 +434,21 @@ export function CodeToRain() {
           ctx!.translate(x, y);
           ctx!.rotate(rot);
           ctx!.scale(s, s);
+          if (glow > 0.02 && count === g.len) {
+            const sprite = sprites[k];
+            ctx!.globalAlpha = glow;
+            ctx!.drawImage(sheet, sprite.sx * GLOW_RES, sprite.sy * GLOW_RES, sprite.w * GLOW_RES, sprite.h * GLOW_RES,
+              (-g.len * cw) / 2 - GLOW_REACH, -fs - GLOW_REACH, sprite.w, sprite.h);
+            ctx!.globalAlpha = fade;
+          }
           ctx!.fillStyle = `rgb(${(110 * g.sh) | 0},${(255 * g.sh) | 0},${(150 * g.sh) | 0})`;
           ctx!.fillText(count === g.len ? g.text : g.text.slice(0, count), (-g.len * cw) / 2, 0);
           ctx!.restore();
         }
         ctx!.globalAlpha = 1;
-        ctx!.shadowBlur = 0;
 
         // typing cursor
-        if (typeP < 1 && shown > 0 && d < 0.05 && Math.floor(now / 450) % 2) {
+        if (blink && shown > 0 && d < 0.05) {
           const o = glyphs[shown - 1];
           ctx!.fillStyle = "#e1ff7d";
           ctx!.fillRect(o.x + cw, o.y - fs * 0.85, cw * 0.8, fs);
@@ -399,7 +474,7 @@ export function CodeToRain() {
   }, []);
 
   return (
-    <div ref={trackRef} className={styles.codeRainTrack}>
+    <div ref={trackRef} className={styles.codeRainTrack} style={{ height: `${TRACK_VH}vh` }}>
       <div className={styles.codeRainStage}>
         <canvas ref={canvasRef} className={styles.codeRainCanvas} aria-hidden="true" />
         <div ref={hintRef} className={styles.codeRainHint} aria-hidden="true">
