@@ -9,11 +9,34 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Scroll position only. The veil is fully closed before this returns 1,
-// which is the moment the next section is allowed to enter.
-function veilOpacity(progress: number) {
-  const t = clamp((progress - 0.56) / 0.28, 0, 1);
+// Path dirt from the meadow palette. Late progress mixes it into the forest.
+const PATH_TAN = { r: 0xc9, g: 0x96, b: 0x4e };
+// Top stop of the sponsors woods gradient.
+const FOREST = { r: 0x0b, g: 0x24, b: 0x19 };
+
+function smoothstep(value: number) {
+  const t = clamp(value, 0, 1);
   return t * t * (3 - 2 * t);
+}
+
+// Same window as the meadow: fog, hills, and path leave the tan at 0.56
+// and are fully forest at 0.84, before the next section can enter.
+function veilAmount(progress: number) {
+  return smoothstep((progress - 0.56) / 0.28);
+}
+
+function channel(from: number, to: number, amount: number) {
+  return Math.round(from + (to - from) * amount);
+}
+
+// Transparent, then the path tan, then solid forest. Never white.
+function veilColor(progress: number) {
+  const t = veilAmount(progress);
+  if (t <= 0) return "rgba(201, 150, 78, 0)";
+  if (t >= 1) return "rgb(11, 36, 25)";
+  if (t < 0.5) return `rgba(201, 150, 78, ${(t / 0.5).toFixed(3)})`;
+  const u = (t - 0.5) / 0.5;
+  return `rgb(${channel(PATH_TAN.r, FOREST.r, u)}, ${channel(PATH_TAN.g, FOREST.g, u)}, ${channel(PATH_TAN.b, FOREST.b, u)})`;
 }
 
 function trackPointer(
@@ -111,7 +134,7 @@ export function HeroScroll({ poster }: { poster: boolean }) {
     let start = 0;
     let end = 1;
     let running = true;
-    let lastVeil = -1;
+    let lastVeil = "";
 
     const measure = () => {
       const height = window.innerHeight;
@@ -132,10 +155,10 @@ export function HeroScroll({ poster }: { poster: boolean }) {
       const progress = clamp((scrollY - start) / (end - start), 0, 1);
       // Direct from scroll position. No tween, including when motion is reduced.
       progressRef.current = progress;
-      const opacity = veilOpacity(progress);
-      if (veil && Math.abs(opacity - lastVeil) > 0.001) {
-        veil.style.opacity = opacity.toFixed(3);
-        lastVeil = opacity;
+      const color = veilColor(progress);
+      if (veil && color !== lastVeil) {
+        veil.style.backgroundColor = color;
+        lastVeil = color;
       }
       pointer?.step();
       requestAnimationFrame(frame);
