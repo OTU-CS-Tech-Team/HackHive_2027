@@ -14,10 +14,10 @@ const MeadowScene = dynamic(() => import("@/components/landing/MeadowScene"), {
 
 | Prop | Type | Role |
 | --- | --- | --- |
-| `progress` | `RefObject<number>` | Hero walk, `0` at the trailhead and `1` at the chapter 2 hand-off. Read every frame. |
+| `progress` | `RefObject<number>` | Hero walk, `0` at the trailhead and `1` at the Sponsors hand-off. Read every frame. |
 | `pointer` | `RefObject<{ x: number; y: number }>` | `-1..1`. The page only smooths this lightly; the camera eases itself. |
-| `reducedMotion` | `boolean` optional | Wind and sway stop. Scroll still walks the camera and plays the chapter 2 veil. Detected from `prefers-reduced-motion` when omitted. |
-| `quality` | `"low" \| "high"` optional | Instance counts and DPR cap (`1.5` high, `1` low). Phones and weak GPUs default to low. If a frame stays over 20 ms, each mesh keeps an even prefix of its shuffled instances and the pixel ratio drops to 1. |
+| `reducedMotion` | `boolean` optional | Wind and sway stop. Scroll still walks the camera and plays the Sponsors veil. Detected from `prefers-reduced-motion` when omitted. |
+| `quality` | `"low" \| "high"` optional | Omit it and `detectQuality()` runs once, before the first frame, including on desktop: narrow viewports, low core or memory counts, and older mobile GPUs use low. `HeroMeadow` omits this prop so a phone does not build the high scene and then rebuild. An explicit value still wins. DPR cap is `1.25` high and `1` low. If a frame stays over 20 ms, each mesh keeps an even prefix of its shuffled instances and the pixel ratio drops to 1. |
 | `onReady` | `() => void` optional | Once, after the first presented frame (or immediately if WebGL is unavailable). |
 | `className` | `string` optional | Added on the root. |
 
@@ -25,7 +25,7 @@ The root is `position: absolute; inset: 0` inside whatever parent you give it. I
 
 ## Light
 
-One sun direction and one horizon colour (`#f4e4b4`) feed the sky, fog, clouds, hills, grass, flowers, and path. Distant things lose saturation and fade into that horizon, so the path has no visible end and the ground does not meet the sky on a hard line. Near the end of `progress` the frame veils a little further into the same haze.
+One sun direction and one horizon colour (`#f4e4b4`) feed the sky, fog, clouds, hills, grass, flowers, and path. Distant things lose saturation and fade into that horizon, so the path has no visible end and the ground does not meet the sky on a hard line. From progress `0.56` the fog, hills, path, and veil move to the sponsors woods (`#0b2419`) and are fully there by `0.84`, the same green the hand-off veil uses.
 
 ## Preview
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FLOWER_CLEAR, GRASS_CLEAR, buildLayout } from "@/components/landing/meadow/layout";
-import { HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
+import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
 import { sceneBudget } from "@/components/landing/meadow/stats";
 
 function column(matrices: Float32Array, count: number, offset: number) {
@@ -28,6 +28,7 @@ describe("meadow layout", () => {
     }
     expect(grass).toBeGreaterThan(flowers);
     expect(layout.clouds.count).toBeGreaterThan(0);
+    expect(layout.sparks.count).toBeGreaterThan(100);
     expect(layout.leaves.count).toBe(0);
   });
 
@@ -48,10 +49,11 @@ describe("meadow layout", () => {
   it("shares one horizon colour and only veils at the hand-off", () => {
     expect(HORIZON).toBe("#f4e4b4");
     expect(SKY_TOP).toBe("#e2f2f8");
+    expect(FOREST).toBe("#0b2419");
     expect(handoffVeil(0)).toBe(0);
     expect(handoffVeil(0.5)).toBe(0);
-    expect(handoffVeil(1)).toBeGreaterThan(0.3);
-    expect(handoffVeil(1)).toBeLessThan(0.5);
+    expect(handoffVeil(0.84)).toBeCloseTo(1);
+    expect(handoffVeil(1)).toBe(1);
   });
 
   it("keeps both quality levels on a small draw budget", () => {

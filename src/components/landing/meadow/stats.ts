@@ -26,6 +26,7 @@ export type SceneBudget = {
     lupins: number;
     clouds: number;
     glows: number;
+    sparks: number;
     leaves: number;
   };
   triangles: number;
@@ -52,6 +53,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     lupins: 0,
     clouds: layout.clouds.count,
     glows: layout.glows.count,
+    sparks: layout.sparks.count,
     leaves: layout.leaves.count,
   };
   let draws = 3;
@@ -85,6 +87,10 @@ export function sceneBudget(quality: Quality): SceneBudget {
   if (layout.glows.count > 0) {
     draws += 1;
     tris += unit.card * layout.glows.count;
+  }
+  if (layout.sparks.count > 0) {
+    draws += 1;
+    tris += unit.card * layout.sparks.count;
   }
   if (layout.leaves.count > 0) {
     draws += 1;

@@ -6,6 +6,7 @@ export type SceneCounts = {
   daisies: number;
   lupins: number;
   clouds: number;
+  sparks: number;
   dpr: number;
   antialias: boolean;
 };
@@ -17,7 +18,8 @@ const COUNTS: Record<Quality, SceneCounts> = {
     daisies: 70,
     lupins: 48,
     clouds: 5,
-    dpr: 1.5,
+    sparks: 520,
+    dpr: 1.25,
     antialias: false,
   },
   low: {
@@ -26,6 +28,7 @@ const COUNTS: Record<Quality, SceneCounts> = {
     daisies: 40,
     lupins: 32,
     clouds: 3,
+    sparks: 240,
     dpr: 1,
     antialias: false,
   },
@@ -57,7 +60,7 @@ export function detectQuality(): Quality {
     if (!gl) return "low";
     const debug = gl.getExtension("WEBGL_debug_renderer_info");
     const renderer = debug ? String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)) : "";
-    weakGpu = /swiftshader|llvmpipe|microsoft basic render|mali-|adreno \(tm\) [1-4]/i.test(renderer);
+    weakGpu = /mali-|adreno \(tm\) [1-4]|microsoft basic render/i.test(renderer);
   } catch {
     weakGpu = true;
   }

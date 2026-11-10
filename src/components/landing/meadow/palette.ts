@@ -5,10 +5,14 @@ export const SKY_MID = "#d7eef8";
 export const HORIZON = "#f4e4b4";
 export const SUN = "#fff6e2";
 export const AMBIENT = "#e7f1ea";
-export const GRASS_NEAR = "#78a84a";
-export const GRASS_FAR = "#b7d57a";
-export const PATH = "#f4e0bc";
-export const HILL = "#d5e4b4";
+export const GRASS_NEAR = "#4f8f3a";
+export const GRASS_FAR = "#c6e4a4";
+/** Warm dirt through the walk. Late progress mixes this into the forest. */
+export const PATH = "#e4c07a";
+export const PATH_EDGE = "#c4a06a";
+export const HILL = "#c6e4a4";
+/** Top of the sponsors woods gradient. The hand-off veil uses the same green. */
+export const FOREST = "#0b2419";
 
 /** Direction the light travels from (toward the sun), shared by every shader. */
 export const SUN_DIR: readonly [number, number, number] = [0.46, 0.62, 0.34];
@@ -17,12 +21,12 @@ export const FOG_DENSITY = 0.028;
 
 /** Shared by the canvas and the frame driver so the first frame matches the walk. */
 export const VIEW = {
-  fov: 50,
-  eye: 1.42,
-  startZ: 7.15,
-  endZ: 2.1,
-  lookAhead: 8.2,
-  lookLift: 0.38,
+  fov: 46,
+  eye: 1.12,
+  startZ: 6.4,
+  endZ: 1.85,
+  lookAhead: 9.4,
+  lookLift: -0.62,
 } as const;
 
 export function clamp01(value: number) {
@@ -36,9 +40,12 @@ export function smoothstep(value: number) {
   return t * t * (3 - 2 * t);
 }
 
-/** 0 through the walk, then a soft wash into the horizon so chapter 2 can cross-fade. */
+/**
+ * Closed through the walk. Fully the forest by 0.84, the same window as the
+ * HTML veil, so the scene is already that green when Sponsors enters.
+ */
 export function handoffVeil(progress: number) {
-  return smoothstep((clamp01(progress) - 0.56) / 0.44) * 0.4;
+  return smoothstep((clamp01(progress) - 0.56) / 0.28);
 }
 
 export function fogDensityFor(progress: number) {

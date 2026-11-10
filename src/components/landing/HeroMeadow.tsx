@@ -22,22 +22,13 @@ export function HeroMeadow({
   const [ready, setReady] = useState(false);
   const markReady = useCallback(() => setReady(true), []);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [quality, setQuality] = useState<"low" | "high">("high");
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const mobile = window.matchMedia("(max-width: 767px)");
-    const sync = () => {
-      setReducedMotion(reduce.matches);
-      setQuality(mobile.matches ? "low" : "high");
-    };
+    const sync = () => setReducedMotion(reduce.matches);
     sync();
     reduce.addEventListener("change", sync);
-    mobile.addEventListener("change", sync);
-    return () => {
-      reduce.removeEventListener("change", sync);
-      mobile.removeEventListener("change", sync);
-    };
+    return () => reduce.removeEventListener("change", sync);
   }, []);
 
   return (
@@ -47,7 +38,6 @@ export function HeroMeadow({
         progress={progress}
         pointer={pointer}
         reducedMotion={reducedMotion}
-        quality={quality}
         onReady={markReady}
       />
       <div

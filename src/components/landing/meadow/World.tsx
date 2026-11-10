@@ -24,6 +24,8 @@ import {
   GROUND_VERT,
   PLANT_FRAG,
   PLANT_VERT,
+  SPARK_FRAG,
+  SPARK_VERT,
   SKY_FRAG,
   SKY_VERT,
 } from "@/components/landing/meadow/glsl";
@@ -33,8 +35,10 @@ import {
   FOG_DENSITY,
   GRASS_FAR,
   GRASS_NEAR,
+  FOREST,
   HORIZON,
   PATH,
+  PATH_EDGE,
   SKY_MID,
   SKY_TOP,
   SUN,
@@ -88,6 +92,7 @@ function baseUniforms() {
     uSunDir: { value: new Vector3(SUN_DIR[0], SUN_DIR[1], SUN_DIR[2]).normalize() },
     uSunColor: { value: colorOf(SUN) },
     uHorizon: { value: colorOf(HORIZON) },
+    uForest: { value: colorOf(FOREST) },
     uSkyTop: { value: colorOf(SKY_TOP) },
     uSkyMid: { value: colorOf(SKY_MID) },
     uAmbient: { value: colorOf(AMBIENT) },
@@ -99,11 +104,12 @@ function baseUniforms() {
   };
 }
 
-function plantMaterial(sss: number, emissive: [number, number, number], side: Side = DoubleSide) {
+function plantMaterial(sss: number, emissive: [number, number, number], side: Side = DoubleSide, rim = 0) {
   return new ShaderMaterial({
     uniforms: {
       ...baseUniforms(),
       uSss: { value: sss },
+      uRim: { value: rim },
       uEmissive: { value: new Vector3(...emissive) },
     },
     vertexShader: PLANT_VERT,
@@ -124,6 +130,7 @@ type Materials = {
   lupin: ShaderMaterial;
   cloud: ShaderMaterial;
   glow: ShaderMaterial;
+  spark: ShaderMaterial;
 };
 
 function buildMaterials(): Materials {
@@ -140,13 +147,14 @@ function buildMaterials(): Materials {
       uGrassNear: { value: colorOf(GRASS_NEAR) },
       uGrassFar: { value: colorOf(GRASS_FAR) },
       uPath: { value: colorOf(PATH) },
+      uPathEdge: { value: colorOf(PATH_EDGE) },
     },
     vertexShader: GROUND_VERT,
     fragmentShader: GROUND_FRAG,
   });
-  const hill = plantMaterial(0.02, [0, 0, 0], FrontSide);
-  const grass = plantMaterial(0.12, [0, 0, 0], FrontSide);
-  const lily = plantMaterial(0.7, [0.18, 0.16, 0.1]);
+  const hill = plantMaterial(0.04, [0, 0, 0], DoubleSide);
+  const grass = plantMaterial(0.08, [0, 0, 0], FrontSide);
+  const lily = plantMaterial(0.85, [0.55, 0.5, 0.32], DoubleSide, 1);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({
@@ -164,6 +172,14 @@ function buildMaterials(): Materials {
     depthWrite: false,
     blending: AdditiveBlending,
   });
+  const spark = new ShaderMaterial({
+    uniforms: baseUniforms(),
+    vertexShader: SPARK_VERT,
+    fragmentShader: SPARK_FRAG,
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
   return {
     sky,
     ground,
@@ -174,7 +190,8 @@ function buildMaterials(): Materials {
     lupin,
     cloud,
     glow,
-    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow],
+    spark,
+    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark],
   };
 }
 
@@ -189,6 +206,7 @@ function buildGeometries(layout: SceneLayout) {
     hills: createHillsGeometry(),
     clouds: createCardGeometry(layout.clouds),
     glows: createCardGeometry(layout.glows),
+    sparks: createCardGeometry(layout.sparks),
   };
 }
 
@@ -428,7 +446,8 @@ export default function MeadowWorld({
         );
       })}
       <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
-      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={2} />
+      <Instances geometry={geometries.sparks} material={materials.spark} scatter={layout.sparks} renderOrder={2} />
+      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={3} />
     </>
   );
 }

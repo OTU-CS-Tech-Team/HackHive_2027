@@ -3,8 +3,8 @@ import type { Quality } from "@/components/landing/meadow/quality";
 import { countsFor } from "@/components/landing/meadow/quality";
 
 /** Flowers stay off the calm centre. Grass may grow closer to the path edge. */
-export const FLOWER_CLEAR = 0.32;
-export const GRASS_CLEAR = 0.18;
+export const FLOWER_CLEAR = 1.12;
+export const GRASS_CLEAR = 0.84;
 export const PATCH_BANDS = [2.4, -3.2] as const;
 
 export type Scatter = {
@@ -111,6 +111,7 @@ export type SceneLayout = {
   patches: Patch[];
   clouds: Scatter;
   glows: Scatter;
+  sparks: Scatter;
   leaves: Scatter;
 };
 
@@ -119,6 +120,7 @@ function flowerBed(
   seed: number,
   scaleRange: [number, number],
   tint: (rng: () => number) => RGB,
+  nearMul = 1,
 ) {
   const rng = mulberry32(seed);
   const items: Item[] = [];
@@ -128,9 +130,9 @@ function flowerBed(
     const z = fringe ? 2.55 + rng() * 1.2 : 4.4 - depth * 14;
     const side = rng() < 0.5 ? -1 : 1;
     const near = z > 2.4;
-    const spread = fringe ? 0.85 : near ? 2.2 : 4.6;
-    const x = side * (FLOWER_CLEAR + Math.pow(rng(), fringe ? 0.85 : 0.6) * spread);
-    const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
+    const spread = fringe ? 1.15 : near ? 2.4 : 4.8;
+    const x = side * (FLOWER_CLEAR + Math.pow(rng(), fringe ? 0.8 : 0.6) * spread);
+    const size = (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * (near ? nearMul : 1);
     items.push({
       x,
       y: 0,
@@ -149,15 +151,15 @@ function flowerBed(
 
 export function buildLayout(quality: Quality): SceneLayout {
   const counts = countsFor(quality);
-  const lilies = flowerBed(counts.lilies, 11, [0.46, 0.72], (rng) => {
+  const lilies = flowerBed(counts.lilies, 11, [0.4, 0.62], (rng) => {
     const warm = rng() * 0.04;
     return [0.97 - warm, 0.96 - warm * 0.4, 0.93];
-  });
-  const daisies = flowerBed(counts.daisies, 29, [0.28, 0.46], () => [1, 1, 1]);
-  const lupinItems = flowerBed(counts.lupins, 47, [0.55, 0.86], (rng) => {
+  }, 0.55);
+  const daisies = flowerBed(counts.daisies, 29, [0.26, 0.4], () => [1, 1, 1], 0.85);
+  const lupinItems = flowerBed(counts.lupins, 47, [0.7, 1.05], (rng) => {
     const base = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
     return base;
-  });
+  }, 0.9);
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
@@ -167,7 +169,7 @@ export function buildLayout(quality: Quality): SceneLayout {
     const z = fringe ? 2.4 + grassRng() * 1.5 : 5.4 - depth * 18;
     const side = grassRng() < 0.5 ? -1 : 1;
     const near = z > 2.4;
-    const spread = fringe ? 1.15 : near ? 2.8 : 6.2;
+    const spread = fringe ? 1.35 : near ? 2.6 : 6.4;
     const x = side * (GRASS_CLEAR + Math.pow(grassRng(), fringe ? 0.7 : 0.5) * spread);
     const height = 0.34 + grassRng() * 0.4;
     const shade = 0.75 + grassRng() * 0.4;
@@ -190,9 +192,9 @@ export function buildLayout(quality: Quality): SceneLayout {
   for (const flower of glowLilies) {
     glowItems.push({
       ...flower,
-      y: 0.28 * flower.sy,
-      sx: flower.sx * 0.9,
-      sy: flower.sy * 0.9,
+      y: 0.22 * flower.sy,
+      sx: flower.sx * 0.32,
+      sy: flower.sy * 0.32,
       sz: 1,
       color: [1, 0.96, 0.86],
     });
@@ -215,6 +217,33 @@ export function buildLayout(quality: Quality): SceneLayout {
     });
   }
 
+  const sparkRng = mulberry32(19);
+  const sparks: Item[] = [];
+  const sparkColors: RGB[] = [
+    [1, 0.95, 0.72],
+    [1, 0.82, 0.45],
+    [0.95, 0.78, 1],
+    [1, 0.96, 0.96],
+    [0.78, 0.95, 0.62],
+  ];
+  for (let i = 0; i < counts.sparks; i += 1) {
+    const side = sparkRng() < 0.5 ? -1 : 1;
+    const z = 1.2 - sparkRng() * 12;
+    const color = sparkColors[Math.floor(sparkRng() * sparkColors.length)] ?? [1, 0.95, 0.72];
+    sparks.push({
+      x: side * (1.35 + Math.pow(sparkRng(), 0.7) * 5.2),
+      y: 0.18 + sparkRng() * 0.55,
+      z,
+      yaw: 0,
+      pitch: 0,
+      sx: 0.08 + sparkRng() * 0.1,
+      sy: 0.08 + sparkRng() * 0.1,
+      sz: 1,
+      color,
+      phase: sparkRng() * Math.PI * 2,
+    });
+  }
+
   const leaves: Item[] = [];
 
   const grassPatches = splitPatches(grass, 501);
@@ -231,6 +260,7 @@ export function buildLayout(quality: Quality): SceneLayout {
     })),
     clouds: toScatter(shuffle(clouds, 13)),
     glows: toScatter(shuffle(glowItems, 17)),
-    leaves: toScatter(leaves),
+    sparks: toScatter(shuffle(sparks, 23)),
+    leaves: toScatter(shuffle(leaves, 29)),
   };
 }
