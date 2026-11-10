@@ -51,19 +51,19 @@ namespace SysCore {
   }
 }`.split("\n");
 
-const TYPE_END = 0.16; // scroll progress by which the code is fully typed, however slowly it's scrolled
+const TYPE_END = 0.23; // scroll progress by which the code is fully typed, however slowly it's scrolled
 const TYPE_MS = 1600; // ... though it types itself in this long once the stage is in view, no scrolling needed
 const BULGE_START = 0.1; // scroll progress where the box starts to swell
-const EXPLODE_AT = 0.42; // scroll progress where the shatter starts
-const EXPLODE_LEN = 0.36; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
+const EXPLODE_AT = 0.39; // scroll progress where the shatter starts
+const EXPLODE_LEN = 0.46; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
 const FADE_LEN = 0.08; // extra scroll after the travel before the shards are gone
-const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.55; // judges section starts sliding up here
-const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.7; // shards begin fading here
+const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.35; // judges section starts sliding up here
+const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.5; // shards begin fading here
 const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges section cuts in
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
 const GROUP_MIN = 3; // characters per flying chunk of text (min)
 const GROUP_MAX = 5; // ... and max. Bigger groups = fewer draw calls = less lag, chunkier look
-const ANIM_VH = 1.8; // scroll distance (in screen heights) the whole sequence is scrubbed over
+const ANIM_VH = 5.3; // scroll distance (in screen heights) the whole sequence is scrubbed over
 const MAX_DPR = 2; // canvas resolution cap: the glows cost per pixel, and 3x phone screens gain little past 2x
 // Blurs (canvas shadowBlur) are what made this lag, one per shard and per chunk of code every frame. Now each
 // frame blurs at most once: the shards' outlines are stroked as one path, and the code's glow is blurred once

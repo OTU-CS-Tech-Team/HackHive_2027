@@ -599,7 +599,7 @@
 .codeRainStage {
   position: sticky;         /* keeps the animation pinned while you scroll */
   top: 0;
-  height: 100vh;
+  height: 110vh;
   width: 100%;
   overflow: hidden;
 }
