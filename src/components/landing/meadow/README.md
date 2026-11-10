@@ -25,7 +25,7 @@ The root is `position: absolute; inset: 0` inside whatever parent you give it. I
 
 ## Light
 
-One sun direction and one horizon colour (`#f4e4b4`) feed the sky, fog, clouds, hills, grass, flowers, and path. Distant things lose saturation and fade into that horizon, so the path has no visible end and the ground does not meet the sky on a hard line. From progress `0.7` the fog, hills, and path warm toward a light cream (`#fff6ea`) and are fully there by `0.84`, so the scene sits under a white veil. The loop stops once that veil is opaque. Distant flowers are one points draw. The ground itself carries a grass texture so the far meadow stays a carpet, and on a narrow screen the path tightens so grass stays in frame.
+One sun direction and one horizon colour (`#f4e4b4`) feed the sky, fog, clouds, hills, grass, flowers, and path. Distant things lose saturation and fade into that horizon, so the path has no visible end and the ground does not meet the sky on a hard line. From progress `0.7` the fog, hills, and path warm toward a light cream (`#fff6ea`) and are fully there by `0.84`, so the scene sits under the hero veil. That veil is clear, then path tan, then white at progress `0.9`. The loop stops there, and starts again if the scroll comes back. Distant flowers are one points draw. The ground itself carries a grass texture so the far meadow stays a carpet, and on a narrow screen the path tightens so grass stays in frame.
 
 ## Preview
 

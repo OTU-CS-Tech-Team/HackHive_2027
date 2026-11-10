@@ -51,13 +51,14 @@ import {
   fogDensityFor,
   handoffVeil,
   hexToRgb,
-  walkBlend,
   windScale,
 } from "@/components/landing/meadow/palette";
 import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
 import type { Quality } from "@/components/landing/meadow/quality";
 
 const FULL_COUNT = "fullCount";
+/** His veil is clear, then tan, then solid white at progress 0.9. */
+const VEIL_HOLD = 0.9;
 const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
 
@@ -343,13 +344,11 @@ function FrameDriver({
     const tick = () => {
       const walked = progress.current ?? 0;
       const aim = pointer.current ?? { x: 0, y: 0 };
-      if (!reducedRef.current) {
-        if (walked < 1 && settled.current) {
-          settled.current = false;
-          onDoneRef.current(false);
-        }
-        return;
+      if (settled.current && walked < VEIL_HOLD) {
+        settled.current = false;
+        onDoneRef.current(false);
       }
+      if (!reducedRef.current) return;
       if (walked !== lastP || aim.x !== lastX || aim.y !== lastY) {
         lastP = walked;
         lastX = aim.x;
@@ -366,7 +365,7 @@ function FrameDriver({
     const step = Math.min(delta, 0.05);
     const frameMs = Math.min(delta, 0.25);
     const walked = progress.current ?? 0;
-    const t = walkBlend(walked);
+    const t = walked;
     const aim = pointer.current ?? { x: 0, y: 0 };
     const still = reducedRef.current;
     if (!eased.current.snapped || still) {
@@ -405,7 +404,7 @@ function FrameDriver({
       portrait,
     );
 
-    const done = handoffVeil(walked) >= 0.98;
+    const done = walked >= VEIL_HOLD;
     if (done !== settled.current) {
       settled.current = done;
       onDoneRef.current(done);
