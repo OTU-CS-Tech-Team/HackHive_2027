@@ -83,7 +83,7 @@ void main() {
   lit += vColor * uSunColor * back * uSss;
   float facing = saturate(dot(n, normalize(uCamPos - vWorld)));
   float rim = pow(1.0 - facing, 2.4) * uRim;
-  lit += uEmissive * rim;
+  lit += uEmissive * (rim + uRim * 0.16);
   gl_FragColor = vec4(atmospheric(lit, distance(vWorld, uCamPos)), 1.0);
 }
 `;
@@ -112,11 +112,12 @@ uniform float uAspect;
 
 void main() {
   float dist = distance(vWorld, uCamPos);
-  vec3 grass = mix(uGrassNear, uGrassFar, smoothstep(4.0, 22.0, dist));
+  vec3 grass = mix(uGrassNear, uGrassFar, smoothstep(3.0, 14.0, dist));
+  grass = mix(grass, uHorizon, smoothstep(11.0, 28.0, dist) * 0.7);
   float ax = abs(vWorld.x);
   float narrow = 1.0 - smoothstep(0.62, 1.15, uAspect);
-  float inner = mix(0.64, 0.16, narrow);
-  float outer = mix(1.08, 0.4, narrow);
+  float inner = mix(0.62, 0.16, narrow);
+  float outer = mix(0.98, 0.42, narrow);
   float pathMask = 1.0 - smoothstep(inner, outer, ax);
   vec3 pathCol = mix(uPath, uPathEdge, smoothstep(inner * 0.25, outer, ax));
   pathCol = mix(pathCol, uForest, uVeil);
@@ -125,6 +126,24 @@ void main() {
   float wrap = saturate(dot(normalize(vNormal), normalize(uSunDir)) * 0.35 + 0.72);
   vec3 lit = albedo * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   gl_FragColor = vec4(atmospheric(lit, dist), 1.0);
+}
+`;
+
+export const HILL_FRAG = COMMON + /* glsl */ `
+varying vec3 vColor;
+varying vec3 vWorld;
+uniform vec3 uGrassNear;
+uniform vec3 uGrassFar;
+
+void main() {
+  float dist = distance(vWorld, uCamPos);
+  vec3 grass = mix(uGrassNear, uGrassFar, smoothstep(3.0, 14.0, dist));
+  grass = mix(grass, uHorizon, smoothstep(11.0, 28.0, dist) * 0.7);
+  float crest = smoothstep(0.1, 1.15, vWorld.y);
+  vec3 col = mix(grass, vColor, crest * 0.8);
+  col = mix(col, uHorizon, smoothstep(1.15, 2.5, vWorld.y) * 0.62);
+  col = mix(col, uForest, uVeil);
+  gl_FragColor = vec4(atmospheric(col, dist * 0.7), 1.0);
 }
 `;
 
@@ -253,38 +272,42 @@ varying vec2 vUv;
 uniform float uSpread;
 uniform float uVeil;
 
-float blob(vec2 p, vec2 center, float rx, float ry) {
+float mass(vec2 p, vec2 center, float rx, float ry) {
   vec2 d = (p - center) / vec2(rx, ry);
-  return smoothstep(1.0, 0.93, length(d));
+  return smoothstep(1.02, 0.22, length(d));
 }
 
-float branch(vec2 p, vec2 a, vec2 b, float width) {
+float segment(vec2 p, vec2 a, vec2 b, float width) {
   vec2 pa = p - a;
   vec2 ba = b - a;
   float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
-  return smoothstep(width, width * 0.4, length(pa - ba * h));
+  return smoothstep(width, width * 0.3, length(pa - ba * h));
 }
 
 void main() {
   vec2 uv = vUv;
   float spread = uSpread;
-  float canopy = 0.0;
-  canopy = max(canopy, blob(uv, vec2(mix(0.14, 0.18, spread), 0.78), mix(0.3, 0.4, spread), 0.22));
-  canopy = max(canopy, blob(uv, vec2(mix(0.34, 0.48, spread), 0.86), mix(0.24, 0.36, spread), 0.16));
-  canopy = max(canopy, blob(uv, vec2(mix(0.05, 0.74, spread), 0.9), mix(0.18, 0.32, spread), 0.13));
-  canopy = max(canopy, blob(uv, vec2(mix(0.24, 0.32, spread), 0.62), 0.16, 0.12));
-  float trunk = smoothstep(0.028, 0.01, abs(uv.x - 0.065)) * smoothstep(0.0, 0.08, uv.y) * (1.0 - smoothstep(0.55, 0.7, uv.y));
-  float bough = branch(uv, vec2(0.07, 0.52), vec2(mix(0.32, 0.5, spread), 0.8), 0.01);
-  float twig = branch(uv, vec2(0.08, 0.44), vec2(mix(0.18, 0.7, spread), 0.9), 0.007);
-  float spur = branch(uv, vec2(0.07, 0.6), vec2(mix(0.12, 0.28, spread), 0.74), 0.008);
-  float shape = max(canopy, max(trunk, max(bough, max(twig, spur))));
-  float fade = smoothstep(0.0, 0.16, uv.y);
-  fade *= 1.0 - smoothstep(mix(0.78, 0.96, spread), 1.0, uv.x);
-  float alpha = shape * fade * (1.0 - uVeil);
+  float a = mass(uv, vec2(0.32, 0.7), 0.28, 0.2);
+  float b = mass(uv, vec2(0.5, 0.78), 0.22, 0.16);
+  float c = mass(uv, vec2(0.2, 0.58), 0.2, 0.15);
+  float d = mass(uv, vec2(0.46, 0.58), 0.16, 0.12);
+  float canopy = max(max(a, b), max(c, d));
+  float gap = max(mass(uv, vec2(0.4, 0.74), 0.05, 0.035), mass(uv, vec2(0.28, 0.66), 0.035, 0.025));
+  float trunk = segment(uv, vec2(0.22, 0.0), vec2(0.34, 0.34), 0.03);
+  trunk = max(trunk, segment(uv, vec2(0.34, 0.34), vec2(0.36, 0.56), 0.024));
+  float bough = segment(uv, vec2(0.34, 0.5), vec2(0.56, 0.74), 0.016);
+  float wood = max(trunk, bough);
+  float shape = max(canopy, wood * 0.95);
+  float logo = smoothstep(0.78, 0.94, uv.y) * smoothstep(0.38, 0.06, uv.x) * spread;
+  float alpha = shape * (1.0 - uVeil) * (1.0 - logo);
+  alpha *= 1.0 - smoothstep(0.92, 1.0, uv.x);
   if (alpha < 0.04) discard;
-  vec3 leaf = mix(vec3(0.035, 0.09, 0.05), vec3(0.11, 0.22, 0.12), canopy * uv.y);
-  vec3 col = mix(vec3(0.02, 0.05, 0.03), leaf, clamp(canopy + bough, 0.0, 1.0));
-  gl_FragColor = vec4(col, alpha * 0.95);
+  float lit = clamp(uv.x * 0.55 + (uv.y - 0.45) * 0.8, 0.0, 1.0);
+  vec3 leaf = mix(vec3(0.1, 0.28, 0.1), vec3(0.58, 0.78, 0.32), lit);
+  leaf = mix(leaf, vec3(0.75, 0.88, 0.48), gap * 0.65);
+  vec3 bark = vec3(0.18, 0.22, 0.1);
+  vec3 col = mix(bark, leaf, clamp(canopy, 0.0, 1.0));
+  gl_FragColor = vec4(col, alpha * mix(0.9, 0.72, gap));
 }
 `;
 

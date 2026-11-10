@@ -180,7 +180,7 @@ export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
   const petals = 6;
   for (let i = 0; i < petals; i += 1) {
-    addTrumpetPetal(mesh, (i / petals) * Math.PI * 2, 0.3, 0.2, 0.28);
+    addTrumpetPetal(mesh, (i / petals) * Math.PI * 2, 0.34, 0.2, 0.3);
   }
   for (let i = 0; i < 5; i += 1) {
     addStamen(mesh, (i / 5) * Math.PI * 2 + 0.3, [0.72, 0.38, 0.1]);
@@ -211,26 +211,51 @@ export function createDaisyGeometry(scatter?: Scatter) {
 }
 
 function addBump(mesh: Bag, x: number, y: number, z: number, radius: number, lit: RGB, dark: RGB, bend: number) {
-  const lon = 5;
+  const lon = 6;
+  const rings = [
+    { y: radius * 0.62, r: radius * 0.78, shade: 0.12 },
+    { y: radius * 0.16, r: radius, shade: 0.28 },
+    { y: -radius * 0.42, r: radius * 0.82, shade: 0.55 },
+  ];
   const top = vert(mesh, x, y + radius * 0.92, z, lit, bend);
-  const bot = vert(mesh, x, y - radius * 0.82, z, dark, bend);
-  const upper: number[] = [];
-  const equator: number[] = [];
-  for (let i = 0; i < lon; i += 1) {
-    const angle = (i / lon) * Math.PI * 2;
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-    upper.push(vert(mesh, x + c * radius * 0.72, y + radius * 0.38, z + s * radius * 0.72, mix(lit, dark, 0.22), bend));
-    equator.push(vert(mesh, x + c * radius, y - radius * 0.05, z + s * radius, mix(lit, dark, 0.48), bend));
-  }
+  const bot = vert(mesh, x, y - radius * 0.86, z, dark, bend);
+  const bands = rings.map((ring) => {
+    const ids: number[] = [];
+    for (let i = 0; i < lon; i += 1) {
+      const angle = (i / lon) * Math.PI * 2;
+      ids.push(
+        vert(
+          mesh,
+          x + Math.cos(angle) * ring.r,
+          y + ring.y,
+          z + Math.sin(angle) * ring.r,
+          mix(lit, dark, ring.shade),
+          bend,
+        ),
+      );
+    }
+    return ids;
+  });
+  const stitch = (above: number[], below: number[]) => {
+    for (let i = 0; i < lon; i += 1) {
+      const next = (i + 1) % lon;
+      const a0 = above[i] ?? top;
+      const a1 = above[next] ?? top;
+      const b0 = below[i] ?? bot;
+      const b1 = below[next] ?? bot;
+      mesh.indices.push(a0, a1, b1, a0, b1, b0);
+    }
+  };
+  const upper = bands[0] ?? [];
+  const equator = bands[1] ?? [];
+  const lower = bands[2] ?? [];
   for (let i = 0; i < lon; i += 1) {
     const next = (i + 1) % lon;
-    const u0 = upper[i] ?? top;
-    const u1 = upper[next] ?? top;
-    const e0 = equator[i] ?? bot;
-    const e1 = equator[next] ?? bot;
-    mesh.indices.push(top, u1, u0, u0, u1, e1, u0, e1, e0, e0, e1, bot);
+    mesh.indices.push(top, upper[next] ?? top, upper[i] ?? top);
+    mesh.indices.push(lower[i] ?? bot, lower[next] ?? bot, bot);
   }
+  stitch(upper, equator);
+  stitch(equator, lower);
 }
 
 /** A tapered spike of little floret bumps, not a smooth cone. */
@@ -241,16 +266,16 @@ export function createLupinGeometry(scatter?: Scatter) {
   const stemTopR = vert(mesh, 0.004, 1.05, 0, [0.4, 0.55, 0.22], 0.55);
   const stemBaseR = vert(mesh, 0.012, 0, 0, [0.22, 0.36, 0.14], 0.2);
   mesh.indices.push(stemBottom, stemTopL, stemBaseR, stemBaseR, stemTopL, stemTopR);
-  const florets = 14;
+  const florets = 16;
   const lit: RGB = [1, 0.98, 0.93];
-  const dark: RGB = [0.58, 0.52, 0.48];
+  const dark: RGB = [0.62, 0.56, 0.52];
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
-    const y = 0.16 + t * 0.84;
-    const radius = 0.072 * (1 - t * 0.72);
-    const spin = floret * 2.4;
-    const ring = (1 - t) * 0.03;
-    addBump(mesh, Math.cos(spin) * ring, y, Math.sin(spin) * ring, radius, lit, dark, 0.22);
+    const y = 0.16 + t * 0.78;
+    const radius = 0.04 * (1 - t * 0.4);
+    const spin = floret * 2.15;
+    const ring = (1 - t) * 0.02;
+    addBump(mesh, Math.cos(spin) * ring, y, Math.sin(spin) * ring, radius, lit, dark, 0.16);
   }
   return finish(mesh, scatter);
 }
@@ -261,53 +286,59 @@ export function createGrassGeometry(scatter?: Scatter) {
   const root: RGB = [0.08, 0.16, 0.05];
   const mid: RGB = [0.28, 0.46, 0.14];
   const tip: RGB = [0.84, 0.95, 0.5];
-  const left = vert(mesh, -0.014, 0, 0, root, 1);
-  const right = vert(mesh, 0.014, 0, 0, root, 1);
-  const midL = vert(mesh, -0.008, 0.42, 0.04, mid, 1);
-  const midR = vert(mesh, 0.008, 0.42, 0.04, mid, 1);
-  const top = vert(mesh, 0.002, 1, 0.16, tip, 1);
+  const left = vert(mesh, -0.006, 0, 0, root, 1);
+  const right = vert(mesh, 0.006, 0, 0, root, 1);
+  const midL = vert(mesh, -0.0035, 0.46, 0.025, mid, 1);
+  const midR = vert(mesh, 0.0035, 0.46, 0.025, mid, 1);
+  const top = vert(mesh, 0.001, 1, 0.12, tip, 1);
   mesh.indices.push(left, midL, right, right, midL, midR, midL, top, midR);
   return finish(mesh, scatter);
 }
 
-function addRidge(
-  mesh: Bag,
-  z: number,
-  height: number,
-  dip: number,
-  base: RGB,
-  crest: RGB,
-) {
-  const columns = 32;
+function ridge(x: number, phase: number) {
+  return (
+    Math.sin(x * 0.22 + phase) * 0.58 +
+    Math.sin(x * 0.55 + phase * 1.4) * 0.3 +
+    Math.sin(x * 1.18 + phase * 0.55) * 0.14
+  );
+}
+
+/** A hill that rises out of the meadow. The foot stays at y=0; the crest rolls in world x. */
+function addRollingHill(mesh: Bag, zNear: number, zFar: number, height: number, crest: RGB, phase: number) {
+  const columns = 48;
+  const rows = 10;
   const ids: number[] = [];
-  for (let column = 0; column <= columns; column += 1) {
-    const u = column / columns;
-    const x = (u - 0.5) * 70;
-    const roll = Math.sin(u * Math.PI * 2.4 + z * 0.17) * 0.28 + Math.sin(u * Math.PI * 6.2) * 0.08;
-    const edge = Math.abs(u - 0.5) * 2;
-    const peak = height * (0.78 + 0.22 * Math.pow(edge, 1.15)) * (1 + roll) * dip;
-    const crestMix = 0.35 + 0.65 * Math.min(1, peak / (height * 1.15));
-    ids.push(vert(mesh, x, -0.35, z, base, 0));
-    ids.push(vert(mesh, x, peak, z, mix(base, crest, crestMix), 0));
+  const foot: RGB = [0.74, 0.86, 0.58];
+  for (let row = 0; row <= rows; row += 1) {
+    const v = row / rows;
+    const lift = Math.pow(Math.sin(v * Math.PI), 0.7);
+    for (let column = 0; column <= columns; column += 1) {
+      const u = column / columns;
+      const x = (u - 0.5) * 90;
+      const y = Math.max(0, height * (0.48 + ridge(x, phase)) * lift);
+      const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.31 + phase) * 0.85 * lift;
+      const up = Math.min(1, y / Math.max(height, 0.001));
+      ids.push(vert(mesh, x, y, z, mix(foot, crest, up), 0));
+    }
   }
-  for (let column = 0; column < columns; column += 1) {
-    const a = ids[column * 2] ?? 0;
-    const b = ids[column * 2 + 1] ?? 0;
-    const c = ids[column * 2 + 2] ?? 0;
-    const d = ids[column * 2 + 3] ?? 0;
-    mesh.indices.push(a, b, c, c, b, d);
+  const stride = columns + 1;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const a = ids[row * stride + column] ?? 0;
+      const b = ids[row * stride + column + 1] ?? 0;
+      const c = ids[(row + 1) * stride + column] ?? 0;
+      const d = ids[(row + 1) * stride + column + 1] ?? 0;
+      mesh.indices.push(a, b, c, b, d, c);
+    }
   }
 }
 
-/** Three rolling silhouettes. The centre stays readable; distance fades the colour. */
+/** Three ridges. Near one starts in the meadow; far ones fade toward the sky. */
 export function createHillsGeometry() {
   const mesh = bag();
-  const far: RGB = [0.74, 0.84, 0.58];
-  const mid: RGB = [0.4, 0.62, 0.32];
-  const near: RGB = [0.16, 0.38, 0.18];
-  addRidge(mesh, -27, 2.35, 1, far, [0.58, 0.74, 0.42]);
-  addRidge(mesh, -15.5, 3.15, 1, mid, [0.24, 0.46, 0.22]);
-  addRidge(mesh, -8.2, 1.55, 1, near, [0.1, 0.26, 0.12]);
+  addRollingHill(mesh, 2, -16, 2.05, [0.86, 0.91, 0.7], 0.6);
+  addRollingHill(mesh, -8, -28, 2.55, [0.9, 0.92, 0.78], 2.1);
+  addRollingHill(mesh, -18, -44, 1.85, [0.94, 0.93, 0.84], 3.4);
   return finish(mesh);
 }
 

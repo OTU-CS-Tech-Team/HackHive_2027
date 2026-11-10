@@ -23,6 +23,7 @@ import {
   GLOW_VERT,
   GROUND_FRAG,
   GROUND_VERT,
+  HILL_FRAG,
   PLANT_FRAG,
   PLANT_VERT,
   SPARK_FRAG,
@@ -167,9 +168,19 @@ function buildMaterials(): Materials {
     vertexShader: GROUND_VERT,
     fragmentShader: GROUND_FRAG,
   });
-  const hill = plantMaterial(0.04, [0, 0, 0], DoubleSide);
+  const hill = new ShaderMaterial({
+    uniforms: {
+      ...baseUniforms(),
+      uGrassNear: { value: colorOf(GRASS_NEAR) },
+      uGrassFar: { value: colorOf(GRASS_FAR) },
+    },
+    vertexShader: PLANT_VERT,
+    fragmentShader: HILL_FRAG,
+    vertexColors: true,
+    side: DoubleSide,
+  });
   const grass = plantMaterial(0.08, [0, 0, 0], FrontSide);
-  const lily = plantMaterial(0.18, [0.85, 0.72, 0.4], DoubleSide, 0.85);
+  const lily = plantMaterial(0.22, [1, 0.94, 0.72], DoubleSide, 0.9);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({
@@ -387,10 +398,10 @@ function FrameDriver({
       const dist = 7.2;
       const vSize = 2 * Math.tan((VIEW.fov * Math.PI) / 360) * dist;
       const hSize = vSize * Math.max(aspect, 0.35);
-      const cardW = hSize * (portrait ? 1.22 : 0.5);
-      const cardH = vSize * (portrait ? 0.44 : 0.34);
-      const localX = -hSize * 0.5 + cardW * (portrait ? 0.4 : 0.46);
-      const localY = vSize * 0.5 - cardH * 0.46;
+      const cardW = hSize * (portrait ? 0.7 : 0.26);
+      const cardH = vSize * (portrait ? 0.26 : 0.24);
+      const localX = -hSize * 0.5 + cardW * (portrait ? 0.38 : 0.46);
+      const localY = vSize * 0.5 - cardH * (portrait ? 1.15 : 0.62);
       treeOffset.set(localX, localY, -dist).applyQuaternion(camera.quaternion);
       frame.position.copy(camera.position).add(treeOffset);
       frame.quaternion.copy(camera.quaternion);

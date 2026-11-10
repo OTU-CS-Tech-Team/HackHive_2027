@@ -158,12 +158,13 @@ export function buildLayout(quality: Quality): SceneLayout {
   const compact = quality === "low";
   const flowerClear = compact ? 0.32 : FLOWER_CLEAR;
   const spreadMul = compact ? 0.42 : 1;
-  const lilies = flowerBed(counts.lilies, 11, compact ? [0.18, 0.26] : [0.2, 0.31], (rng) => {
-    const warm = rng() * 0.05;
-    return [0.98 - warm, 0.95 - warm * 0.5, 0.88];
-  }, 0.9, flowerClear, spreadMul, 1.2, 0.55);
-  const daisies = flowerBed(counts.daisies, 29, [0.1, 0.16], () => [1, 1, 1], 0.8, flowerClear, spreadMul);
-  const lupinItems = flowerBed(counts.lupins, 47, compact ? [0.55, 0.8] : [0.62, 0.92], (rng) => {
+  const lilies = flowerBed(counts.lilies, 11, compact ? [0.42, 0.56] : [0.5, 0.66], (rng) => {
+    const warm = rng() * 0.04;
+    return [1 - warm * 0.3, 0.98 - warm * 0.2, 0.94];
+  }, 1, flowerClear, spreadMul, 0.42, 0.35);
+  for (const lily of lilies) lily.y = 0.04;
+  const daisies = flowerBed(counts.daisies, 29, [0.16, 0.26], () => [1, 1, 1], 0.85, flowerClear, spreadMul);
+  const lupinItems = flowerBed(counts.lupins, 47, compact ? [0.38, 0.55] : [0.46, 0.66], (rng) => {
     const base = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
     return base;
   }, 0.85, flowerClear, spreadMul);
@@ -171,15 +172,14 @@ export function buildLayout(quality: Quality): SceneLayout {
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
   for (let i = 0; i < counts.grass; i += 1) {
-    const fringe = i < Math.ceil(counts.grass * 0.28);
+    const nearBand = i < Math.ceil(counts.grass * 0.65);
     const depth = Math.pow(grassRng(), 0.85);
-    const z = fringe ? 2.4 + grassRng() * 1.5 : 5.4 - depth * 18;
+    const z = nearBand ? 1.5 + grassRng() * 3.4 : 4.6 - depth * 16;
     const side = grassRng() < 0.5 ? -1 : 1;
-    const near = z > 2.4;
     const grassClear = compact ? 0.18 : GRASS_CLEAR;
-    const spread = (fringe ? 1.35 : near ? 2.6 : 6.4) * (compact ? 0.4 : 1);
-    const x = side * (grassClear + Math.pow(grassRng(), fringe ? 0.7 : 0.5) * spread);
-    const height = 0.34 + grassRng() * 0.4;
+    const spread = (nearBand ? 1.7 : 5.2) * (compact ? 0.4 : 1);
+    const x = side * (grassClear + Math.pow(grassRng(), nearBand ? 0.75 : 0.55) * spread);
+    const height = nearBand ? 0.26 + grassRng() * 0.28 : 0.32 + grassRng() * 0.34;
     const shade = 0.75 + grassRng() * 0.4;
     grass.push({
       x,
@@ -187,9 +187,9 @@ export function buildLayout(quality: Quality): SceneLayout {
       z,
       yaw: grassRng() * Math.PI * 2,
       pitch: 0,
-      sx: 0.7 + grassRng() * 0.8,
+      sx: 0.22 + grassRng() * 0.16,
       sy: height,
-      sz: 0.8 + grassRng() * 0.5,
+      sz: 0.55 + grassRng() * 0.3,
       color: [shade * 0.85, shade, shade * 0.55],
       phase: grassRng() * Math.PI * 2,
     });
