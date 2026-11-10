@@ -114,37 +114,44 @@ function addDisc(mesh: Bag, y: number, radius: number, color: RGB, bend: number)
   }
 }
 
-/** One lathed bell. A single surface, so the rim cannot break into petals. */
-function addBell(mesh: Bag, length: number, radius: number) {
-  const around = 16;
-  const along = 9;
-  const rings: number[][] = [];
+/** One pointed petal. Wide through the lower half, curled, with the tip bent back. */
+function addLilyPetal(mesh: Bag, yaw: number) {
+  const across = 3;
+  const along = 6;
+  const length = 0.4;
+  const width = 0.1;
+  const cosY = Math.cos(yaw);
+  const sinY = Math.sin(yaw);
+  const grid: number[][] = [];
   for (let yStep = 0; yStep <= along; yStep += 1) {
     const v = yStep / along;
-    const flare = 0.18 + Math.pow(v, 1.45) * 0.82;
-    const r = radius * flare;
-    const y = length * (0.04 + v * 0.96);
-    const ring: number[] = [];
-    for (let step = 0; step < around; step += 1) {
-      const ang = (step / around) * Math.PI * 2;
-      ring.push(vert(mesh, Math.cos(ang) * r, y, Math.sin(ang) * r, [1, 1, 1], 0.04 + v * 0.08));
+    const half = width * Math.pow(Math.sin(Math.PI * v), 0.55);
+    const recurve = Math.pow(Math.max(0, (v - 0.55) / 0.45), 1.2) * 0.14;
+    const cup = Math.sin(v * Math.PI) * 0.12;
+    const row: number[] = [];
+    for (let xStep = 0; xStep <= across; xStep += 1) {
+      const u = (xStep / across) * 2 - 1;
+      const x = u * half;
+      const y = v * length;
+      const z = cup * (1 - u * u * 0.65) - recurve - v * v * 0.04;
+      const edge = Math.abs(u);
+      const color: RGB = [
+        1 - edge * 0.12,
+        0.99 - edge * 0.08,
+        0.97 - edge * 0.05,
+      ];
+      row.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, color, 0.08 + v * 0.4));
     }
-    rings.push(ring);
-  }
-  const cap = vert(mesh, 0, length * 0.04, 0, [1, 1, 1], 0.02);
-  const first = rings[0] ?? [];
-  for (let step = 0; step < around; step += 1) {
-    mesh.indices.push(cap, first[step] ?? cap, first[(step + 1) % around] ?? cap);
+    grid.push(row);
   }
   for (let yStep = 0; yStep < along; yStep += 1) {
-    const lower = rings[yStep] ?? [];
-    const upper = rings[yStep + 1] ?? [];
-    for (let step = 0; step < around; step += 1) {
-      const next = (step + 1) % around;
-      const a = lower[step] ?? cap;
-      const b = lower[next] ?? cap;
-      const c = upper[step] ?? cap;
-      const d = upper[next] ?? cap;
+    const lower = grid[yStep] ?? [];
+    const upper = grid[yStep + 1] ?? [];
+    for (let xStep = 0; xStep < across; xStep += 1) {
+      const a = lower[xStep] ?? 0;
+      const b = lower[xStep + 1] ?? 0;
+      const c = upper[xStep] ?? 0;
+      const d = upper[xStep + 1] ?? 0;
       mesh.indices.push(a, b, d, a, d, c);
     }
   }
@@ -152,7 +159,9 @@ function addBell(mesh: Bag, length: number, radius: number) {
 
 export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
-  addBell(mesh, 0.22, 0.09);
+  const petals = 6;
+  for (let i = 0; i < petals; i += 1) addLilyPetal(mesh, (i / petals) * Math.PI * 2);
+  addDisc(mesh, 0.05, 0.03, [1, 0.97, 0.86], 0.02);
   return finish(mesh, scatter);
 }
 
@@ -177,15 +186,15 @@ export function createDaisyGeometry(scatter?: Scatter) {
   return finish(mesh, scatter);
 }
 
-function addBump(mesh: Bag, x: number, y: number, z: number, radius: number, lit: RGB, dark: RGB, bend: number) {
+function addBump(mesh: Bag, x: number, y: number, z: number, radius: number, lit: RGB, dark: RGB, bend: number, yScale = 1) {
   const lon = 6;
   const rings = [
-    { y: radius * 0.62, r: radius * 0.78, shade: 0.12 },
-    { y: radius * 0.16, r: radius, shade: 0.28 },
-    { y: -radius * 0.42, r: radius * 0.82, shade: 0.55 },
+    { y: radius * 0.62 * yScale, r: radius * 0.78, shade: 0.12 },
+    { y: radius * 0.16 * yScale, r: radius, shade: 0.28 },
+    { y: -radius * 0.42 * yScale, r: radius * 0.82, shade: 0.55 },
   ];
-  const top = vert(mesh, x, y + radius * 0.92, z, lit, bend);
-  const bot = vert(mesh, x, y - radius * 0.86, z, dark, bend);
+  const top = vert(mesh, x, y + radius * 0.92 * yScale, z, lit, bend);
+  const bot = vert(mesh, x, y - radius * 0.86 * yScale, z, dark, bend);
   const bands = rings.map((ring) => {
     const ids: number[] = [];
     for (let i = 0; i < lon; i += 1) {
@@ -225,31 +234,31 @@ function addBump(mesh: Bag, x: number, y: number, z: number, radius: number, lit
   stitch(equator, lower);
 }
 
-/** A tapered spike of little floret bumps, not a smooth cone. */
+/** One cone: big florets at the base, tiny ones at the tip, each sitting on the stem. */
 export function createLupinGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const stemBottom = vert(mesh, -0.012, 0, 0, [0.22, 0.36, 0.14], 0.2);
-  const stemTopL = vert(mesh, -0.004, 1.05, 0, [0.4, 0.55, 0.22], 0.55);
-  const stemTopR = vert(mesh, 0.004, 1.05, 0, [0.4, 0.55, 0.22], 0.55);
-  const stemBaseR = vert(mesh, 0.012, 0, 0, [0.22, 0.36, 0.14], 0.2);
+  const stemBottom = vert(mesh, -0.01, 0, 0, [0.22, 0.36, 0.14], 0.2);
+  const stemTopL = vert(mesh, -0.003, 1.08, 0, [0.4, 0.55, 0.22], 0.55);
+  const stemTopR = vert(mesh, 0.003, 1.08, 0, [0.4, 0.55, 0.22], 0.55);
+  const stemBaseR = vert(mesh, 0.01, 0, 0, [0.22, 0.36, 0.14], 0.2);
   mesh.indices.push(stemBottom, stemTopL, stemBaseR, stemBaseR, stemTopL, stemTopR);
-  const florets = 16;
-  const lit: RGB = [1, 0.98, 0.93];
-  const dark: RGB = [0.62, 0.56, 0.52];
+  const florets = 12;
+  const lit: RGB = [1, 0.98, 0.94];
+  const dark: RGB = [0.74, 0.66, 0.62];
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
-    const y = 0.16 + t * 0.78;
-    const radius = 0.04 * (1 - t * 0.4);
-    const spin = floret * 2.15;
-    const ring = (1 - t) * 0.02;
-    addBump(mesh, Math.cos(spin) * ring, y, Math.sin(spin) * ring, radius, lit, dark, 0.16);
+    const y = 0.08 + t * 0.96;
+    const radius = 0.12 * Math.pow(1 - t, 0.8) + 0.028;
+    const spin = floret * 2.399;
+    const stalk = 0.0;
+    addBump(mesh, Math.cos(spin) * stalk, y, Math.sin(spin) * stalk, radius, lit, dark, 0.1, 0.62);
   }
   return finish(mesh, scatter);
 }
 
 function addBlade(mesh: Bag, ox: number, lean: number) {
-  const root: RGB = [0.06, 0.13, 0.04];
-  const mid: RGB = [0.22, 0.4, 0.11];
+  const root: RGB = [0.14, 0.32, 0.09];
+  const mid: RGB = [0.32, 0.52, 0.16];
   const tip: RGB = [0.74, 0.9, 0.42];
   const width = 0.016;
   const left = vert(mesh, ox - width, 0, 0, root, 1);

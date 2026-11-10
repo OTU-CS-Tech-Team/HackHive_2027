@@ -3,6 +3,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uHorizon;
 uniform vec3 uForest;
+uniform vec3 uHandoff;
 uniform vec3 uSkyTop;
 uniform vec3 uSkyMid;
 uniform vec3 uAmbient;
@@ -20,9 +21,9 @@ vec3 atmospheric(vec3 color, float dist) {
   float lift = smoothstep(16.0, 48.0, dist);
   float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
   vec3 soft = mix(color, vec3(luma), lift * 0.78);
-  vec3 fogColor = mix(uHorizon, uForest, uVeil);
+  vec3 fogColor = mix(uHorizon, uHandoff, uVeil);
   soft = mix(soft, fogColor, fog);
-  soft = mix(soft, uForest, uVeil);
+  soft = mix(soft, uHandoff, uVeil);
   return soft;
 }
 `;
@@ -38,6 +39,7 @@ varying vec3 vWorld;
 
 uniform float uTime;
 uniform float uWind;
+uniform float uAspect;
 
 void main() {
   #ifdef USE_INSTANCING
@@ -47,6 +49,12 @@ void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
     vec3 n = normal;
   #endif
+  float ax = abs(world.x);
+  if (ax > 0.8) {
+    float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+    float outer = mix(0.98, 0.42, narrow);
+    world.x *= min(1.0, (outer + 0.1) / 0.84);
+  }
   float height = clamp(position.y, 0.0, 1.0);
   float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
   sway *= pow(height, 1.45);
@@ -74,16 +82,19 @@ uniform vec3 uEmissive;
 
 void main() {
   vec3 n = normalize(vNormal);
-  if (uRim > 0.5 && !gl_FrontFacing) n = -n;
+  if (uRim > 0.5 && uSss < 0.5 && !gl_FrontFacing) n = -n;
   vec3 sun = normalize(uSunDir);
   float ndl = dot(n, sun);
-  float wrap = saturate(ndl * 0.55 + 0.42);
-  float back = pow(saturate(-ndl), 1.25);
-  vec3 lit = vColor * (uAmbient * 0.72 + uSunColor * wrap * 0.7);
-  lit += vColor * uSunColor * back * uSss;
+  float petal = smoothstep(0.25, 0.7, uSss);
+  float wrap = saturate(ndl * mix(0.55, 0.78, petal) + mix(0.46, 0.1, petal));
+  float back = pow(saturate(-ndl), 1.15);
+  float thin = pow(1.0 - abs(ndl), 1.7);
+  vec3 lit = vColor * (uAmbient * mix(0.8, 0.3, petal) + uSunColor * wrap * mix(0.6, 1.05, petal));
+  lit += vColor * uSunColor * (back * 0.5 + thin * 0.32) * uSss;
   float facing = saturate(dot(n, normalize(uCamPos - vWorld)));
-  float rim = pow(1.0 - facing, 2.4) * uRim;
-  lit += uEmissive * (rim * 0.55 + uRim * 0.42);
+  float rim = pow(1.0 - facing, 2.2);
+  lit += uEmissive * rim * uRim * 0.5;
+  lit += uEmissive * uRim * 0.04;
   gl_FragColor = vec4(atmospheric(lit, distance(vWorld, uCamPos)), 1.0);
 }
 `;
@@ -116,6 +127,8 @@ float grassHash(vec2 p) {
 
 float grassBlade(vec2 xz, float scale, float salt) {
   vec2 g = xz * scale;
+  float pixels = max(fwidth(g.x), fwidth(g.y));
+  if (pixels > 1.0) return 0.0;
   vec2 cell = floor(g);
   vec2 f = fract(g);
   float n = grassHash(cell + salt);
@@ -126,10 +139,9 @@ float grassBlade(vec2 xz, float scale, float salt) {
 }
 
 float grassTuft(vec2 xz) {
-  float a = grassBlade(xz, 52.0, 1.1);
-  float b = grassBlade(xz + 0.05, 78.0, 4.8);
-  float c = grassBlade(xz + 0.11, 110.0, 9.1);
-  return clamp(a * 0.5 + b * 0.38 + c * 0.3, 0.0, 1.0);
+  float a = grassBlade(xz, 46.0, 1.1);
+  float b = grassBlade(xz + 0.07, 71.0, 4.8);
+  return clamp(a * 0.58 + b * 0.42, 0.0, 1.0);
 }
 
 vec3 meadowColor(vec3 world, float dist) {
@@ -138,7 +150,7 @@ vec3 meadowColor(vec3 world, float dist) {
   down = down * down * (3.0 - 2.0 * down);
   vec3 grass = mix(uHorizon, uGrassNear, down);
   float field = grassTuft(world.xz);
-  float shade = grassHash(floor(world.xz * vec2(52.0, 14.0) + 2.0));
+  float shade = 0.62;
   vec3 root = vec3(0.1, 0.2, 0.05);
   vec3 tip = vec3(0.78, 0.92, 0.46);
   vec3 blade = mix(root, tip, shade);
@@ -154,10 +166,12 @@ void main() {
   float narrow = 1.0 - smoothstep(0.62, 1.15, uAspect);
   float inner = mix(0.62, 0.16, narrow);
   float outer = mix(0.98, 0.42, narrow);
-  float pathMask = 1.0 - smoothstep(inner, outer, ax);
-  vec3 pathCol = mix(uPath, uPathEdge, smoothstep(inner * 0.25, outer, ax));
-  pathCol = mix(pathCol, uForest, uVeil);
-  grass = mix(grass, uForest, uVeil);
+  float crisp = mix(0.28, 1.0, smoothstep(1.2, 11.0, dist));
+  float outerNear = max(inner + 0.02, mix(inner, outer, crisp));
+  float pathMask = 1.0 - smoothstep(inner, outerNear, ax);
+  vec3 pathCol = mix(uPath, uPathEdge, smoothstep(inner * 0.45, outerNear, ax));
+  pathCol = mix(pathCol, uHandoff, uVeil);
+  grass = mix(grass, uHandoff, uVeil);
   vec3 albedo = mix(grass, pathCol, pathMask);
   float wrap = saturate(dot(normalize(vNormal), normalize(uSunDir)) * 0.35 + 0.72);
   vec3 lit = albedo * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
@@ -176,6 +190,8 @@ float grassHash(vec2 p) {
 
 float grassBlade(vec2 xz, float scale, float salt) {
   vec2 g = xz * scale;
+  float pixels = max(fwidth(g.x), fwidth(g.y));
+  if (pixels > 1.0) return 0.0;
   vec2 cell = floor(g);
   vec2 f = fract(g);
   float n = grassHash(cell + salt);
@@ -186,10 +202,9 @@ float grassBlade(vec2 xz, float scale, float salt) {
 }
 
 float grassTuft(vec2 xz) {
-  float a = grassBlade(xz, 52.0, 1.1);
-  float b = grassBlade(xz + 0.05, 78.0, 4.8);
-  float c = grassBlade(xz + 0.11, 110.0, 9.1);
-  return clamp(a * 0.5 + b * 0.38 + c * 0.3, 0.0, 1.0);
+  float a = grassBlade(xz, 46.0, 1.1);
+  float b = grassBlade(xz + 0.07, 71.0, 4.8);
+  return clamp(a * 0.58 + b * 0.42, 0.0, 1.0);
 }
 
 vec3 meadowColor(vec3 world, float dist) {
@@ -198,7 +213,7 @@ vec3 meadowColor(vec3 world, float dist) {
   down = down * down * (3.0 - 2.0 * down);
   vec3 grass = mix(uHorizon, uGrassNear, down);
   float field = grassTuft(world.xz);
-  float shade = grassHash(floor(world.xz * vec2(52.0, 14.0) + 2.0));
+  float shade = 0.62;
   vec3 root = vec3(0.1, 0.2, 0.05);
   vec3 tip = vec3(0.78, 0.92, 0.46);
   vec3 blade = mix(root, tip, shade);
@@ -214,7 +229,7 @@ void main() {
   vec3 col = mix(grass, vec3(0.4, 0.62, 0.28), body * 0.55);
   float crest = smoothstep(1.2, 2.15, vWorld.y);
   col = mix(col, uHorizon, crest * 0.7);
-  col = mix(col, uForest, uVeil);
+  col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   gl_FragColor = vec4(atmospheric(lit, dist), 1.0);
@@ -243,7 +258,7 @@ void main() {
   float sunDot = saturate(dot(dir, normalize(uSunDir)));
   col += uSunColor * pow(sunDot, 96.0) * 0.42;
   col += uSunColor * pow(sunDot, 7.0) * 0.14;
-  col = mix(col, uForest, uVeil);
+  col = mix(col, uHandoff, uVeil);
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -287,7 +302,7 @@ void main() {
   float fog = saturate(1.0 - exp(-dist * uFogDensity));
   alpha *= (1.0 - fog) * (1.0 - uVeil);
   if (alpha < 0.03) discard;
-  vec3 col = mix(vec3(1.0, 0.995, 0.985), mix(uHorizon, uForest, uVeil), fog * 0.65 + uVeil);
+  vec3 col = mix(vec3(1.0, 0.995, 0.985), mix(uHorizon, uHandoff, uVeil), fog * 0.65 + uVeil);
   gl_FragColor = vec4(col, alpha * 0.72);
 }
 `;

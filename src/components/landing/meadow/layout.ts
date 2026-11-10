@@ -131,7 +131,7 @@ function flowerBed(
   for (let i = 0; i < count; i += 1) {
     const fringe = i < Math.ceil(count * 0.42);
     const depth = Math.pow(rng(), 0.62);
-    const z = fringe ? 2.55 + rng() * 1.2 : 4.4 - depth * 14;
+    const z = fringe ? 4.05 - rng() * 1.55 : 2.35 - depth * 11;
     const side = rng() < 0.5 ? -1 : 1;
     const near = z > 2.4;
     const spread = (fringe ? 1.15 : near ? 2.4 : 4.8) * spreadMul;
@@ -161,18 +161,21 @@ export function buildLayout(quality: Quality): SceneLayout {
   const lilyRng = mulberry32(11);
   const lilies: Item[] = [];
   for (let i = 0; i < counts.lilies; i += 1) {
+    const near = i < Math.ceil(counts.lilies * 0.22);
     const depth = lilyRng();
-    const z = 2.6 - depth * 7.2;
+    const z = near ? 4.1 - depth * 1.55 : 2.15 - depth * 6.2;
     const side = lilyRng() < 0.5 ? -1 : 1;
-    const reach = (1.6 + depth * 2.8) * spreadMul;
-    const x = side * (flowerClear + 0.15 + Math.pow(lilyRng(), 0.85) * reach);
-    const size = (compact ? 0.4 : 0.56) + lilyRng() * (compact ? 0.1 : 0.16);
+    const reach = (near ? 1.35 : 1.8 + depth * 2.6) * spreadMul;
+    const x = side * (flowerClear + 0.12 + Math.pow(lilyRng(), 0.8) * reach);
+    const size = near
+      ? (compact ? 0.34 : 0.4) + lilyRng() * (compact ? 0.06 : 0.1)
+      : (compact ? 0.16 : 0.2) + lilyRng() * (compact ? 0.07 : 0.1);
     lilies.push({
       x,
       y: 0.02,
       z,
-      yaw: (lilyRng() - 0.5) * 0.4,
-      pitch: 1.05 + (lilyRng() - 0.5) * 0.06,
+      yaw: (lilyRng() - 0.5) * 0.5,
+      pitch: 0.86 + (lilyRng() - 0.5) * 0.06,
       sx: size,
       sy: size,
       sz: size,
@@ -189,13 +192,14 @@ export function buildLayout(quality: Quality): SceneLayout {
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
   for (let i = 0; i < counts.grass; i += 1) {
-    const depth = Math.pow(grassRng(), 1.45);
-    const z = 4.6 - depth * 13.2;
+    const near = grassRng() < 0.48;
+    const depth = near ? grassRng() : Math.pow(grassRng(), 1.15);
+    const z = near ? 4.15 - depth * 1.7 : 2.3 - depth * 10.6;
     const side = grassRng() < 0.5 ? -1 : 1;
     const grassClear = compact ? 0.18 : GRASS_CLEAR;
-    const spread = (z > 1.5 ? 2.4 : 7.2) * (compact ? 0.4 : 1);
+    const spread = (near ? 3.2 : 7.2) * (compact ? 0.42 : 1);
     const x = side * (grassClear + Math.pow(grassRng(), 0.6) * spread);
-    const height = 0.5 + grassRng() * 0.42;
+    const height = near ? 0.26 + grassRng() * 0.2 : 0.48 + grassRng() * 0.4;
     const shade = 0.72 + grassRng() * 0.32;
     grass.push({
       x,

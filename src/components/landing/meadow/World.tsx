@@ -38,6 +38,7 @@ import {
   GRASS_FAR,
   GRASS_NEAR,
   FOREST,
+  HANDOFF,
   HORIZON,
   PATH,
   PATH_EDGE,
@@ -104,6 +105,7 @@ function baseUniforms() {
     uSunColor: { value: colorOf(SUN) },
     uHorizon: { value: colorOf(HORIZON) },
     uForest: { value: colorOf(FOREST) },
+    uHandoff: { value: colorOf(HANDOFF) },
     uSkyTop: { value: colorOf(SKY_TOP) },
     uSkyMid: { value: colorOf(SKY_MID) },
     uAmbient: { value: colorOf(AMBIENT) },
@@ -122,6 +124,7 @@ function plantMaterial(sss: number, emissive: [number, number, number], side: Si
       uSss: { value: sss },
       uRim: { value: rim },
       uEmissive: { value: new Vector3(...emissive) },
+      uAspect: { value: 1.6 },
     },
     vertexShader: PLANT_VERT,
     fragmentShader: PLANT_FRAG,
@@ -176,7 +179,7 @@ function buildMaterials(): Materials {
     side: DoubleSide,
   });
   const grass = plantMaterial(0.08, [0, 0, 0], FrontSide);
-  const lily = plantMaterial(0.35, [1, 1, 1], DoubleSide, 1);
+  const lily = plantMaterial(0.9, [1, 0.98, 0.92], DoubleSide, 0.55);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({
@@ -312,7 +315,7 @@ function FrameDriver({
   const frames = useRef(0);
   const ready = useRef(false);
   const settled = useRef(false);
-  const perf = useRef({ warm: 0, acc: 0, samples: 0, dropped: false });
+  const perf = useRef({ warm: 0, hot: 0, dropped: false });
   const reducedRef = useRef(reduced);
   const onReadyRef = useRef(onReady);
   const onDoneRef = useRef(onDone);
@@ -391,7 +394,7 @@ function FrameDriver({
       portrait,
     );
 
-    const done = walked >= 1;
+    const done = handoffVeil(walked) >= 0.98;
     if (done !== settled.current) {
       settled.current = done;
       onDoneRef.current(done);
@@ -400,18 +403,11 @@ function FrameDriver({
     const stats = perf.current;
     if (!stats.dropped) {
       stats.warm += 1;
-      if (stats.warm > 4) {
-        stats.acc += frameMs;
-        stats.samples += 1;
-        if (stats.samples >= 6) {
-          if (stats.acc / stats.samples > 0.02) {
-            stats.dropped = true;
-            thinEvenly();
-            gl.setPixelRatio(1);
-          }
-          stats.acc = 0;
-          stats.samples = 0;
-        }
+      if (stats.warm > 1 && frameMs > 0.018) stats.hot += 1;
+      if (stats.hot >= 3) {
+        stats.dropped = true;
+        thinEvenly();
+        gl.setPixelRatio(1);
       }
     }
 
