@@ -76,6 +76,88 @@ void main() {
 }
 `;
 
+/**
+ * Lupin colours are display-space sRGB (hex / 255). The renderer is linear with
+ * no tone mapping, so this shader must not darken them again. aTint is the
+ * base, aTip is the tip, and color.r is the height along the spike. A stem
+ * vertex keeps its own green (color.b stays below 1).
+ */
+export const LUPIN_VERT = /* glsl */ `
+attribute float aPhase;
+attribute float aBend;
+attribute vec3 aTint;
+attribute vec3 aTip;
+
+varying vec3 vColor;
+varying vec3 vTint;
+varying vec3 vTip;
+varying vec3 vNormal;
+varying vec3 vWorld;
+
+uniform float uTime;
+uniform float uWind;
+uniform float uAspect;
+
+void main() {
+  #ifdef USE_INSTANCING
+    vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+    vec3 n = mat3(instanceMatrix) * normal;
+  #else
+    vec4 world = modelMatrix * vec4(position, 1.0);
+    vec3 n = normal;
+  #endif
+  #ifdef USE_INSTANCING
+    vec3 origin = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  #else
+    vec3 origin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  #endif
+  if (abs(origin.x) > 0.8) {
+    float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+    float outer = mix(0.98, 0.42, narrow);
+    float squeeze = min(1.0, (outer + 0.1) / 0.84);
+    world.x += origin.x * (squeeze - 1.0);
+  }
+  float height = clamp(position.y, 0.0, 1.0);
+  float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
+  sway *= pow(height, 1.45);
+  world.x += sway * 0.2;
+  world.z += sway * 0.09;
+  vWorld = world.xyz;
+  vNormal = normalize(mat3(modelMatrix) * n);
+  vTint = aTint;
+  vTip = aTip;
+  #ifdef USE_COLOR
+    vColor = color;
+  #else
+    vColor = vec3(0.0);
+  #endif
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+export const LUPIN_FRAG = COMMON + /* glsl */ `
+varying vec3 vColor;
+varying vec3 vTint;
+varying vec3 vTip;
+varying vec3 vNormal;
+varying vec3 vWorld;
+
+uniform float uRim;
+
+void main() {
+  vec3 n = normalize(vNormal);
+  if (!gl_FrontFacing) n = -n;
+  vec3 albedo = vColor.b > 1.5 ? mix(vTint, vTip, saturate(vColor.r)) : vColor.rgb;
+  float ndl = dot(n, normalize(uSunDir));
+  float sunFace = saturate(ndl * 0.5 + 0.5);
+  vec3 lit = albedo * (0.96 + 0.1 * sunFace);
+  float facing = saturate(dot(n, normalize(uCamPos - vWorld)));
+  float rim = pow(1.0 - facing, 1.8);
+  lit += albedo * rim * uRim;
+  gl_FragColor = vec4(atmospheric(lit, distance(vWorld, uCamPos)), 1.0);
+}
+`;
+
 export const PLANT_FRAG = COMMON + /* glsl */ `
 varying vec3 vColor;
 varying vec3 vNormal;

@@ -196,8 +196,7 @@ function addTeardrop(
   radius: number,
   yaw: number,
   tilt: number,
-  lit: RGB,
-  dark: RGB,
+  spikeT: number,
 ) {
   const around = 8;
   const along = 4;
@@ -215,19 +214,19 @@ function addTeardrop(
     const v = step / along;
     const belly = Math.sin(Math.PI * v);
     const rad = radius * belly;
-    const shade = 0.25 + v * 0.65;
     const row: number[] = [];
     for (let side = 0; side < around; side += 1) {
       const angle = (side / around) * Math.PI * 2;
       const [x, y, z] = place(Math.cos(angle) * rad, (v - 0.45) * radius * 1.35, Math.sin(angle) * rad);
-      row.push(vert(mesh, x, y, z, mix(dark, lit, shade), 0.06));
+      row.push(vert(mesh, x, y, z, [spikeT, 0, 2], 0.06));
     }
     grid.push(row);
   }
   const baseAt = place(0, -0.45 * radius * 1.35, 0);
   const tipAt = place(0, 0.55 * radius * 1.35, 0);
-  const base = vert(mesh, baseAt[0], baseAt[1], baseAt[2], dark, 0.06);
-  const tip = vert(mesh, tipAt[0], tipAt[1], tipAt[2], lit, 0.06);
+  const floret: RGB = [spikeT, 0, 2];
+  const base = vert(mesh, baseAt[0], baseAt[1], baseAt[2], floret, 0.06);
+  const tip = vert(mesh, tipAt[0], tipAt[1], tipAt[2], floret, 0.06);
   const first = grid[0] ?? [];
   const last = grid[along] ?? [];
   for (let side = 0; side < around; side += 1) {
@@ -273,12 +272,19 @@ export function createLupinGeometry(scatter?: Scatter) {
     const yaw = floret * golden;
     const tilt = 1.2 - t * 0.55;
     const curve = Math.sin(t * Math.PI) * 0.045;
-    const lit = mix([0.72, 0.66, 0.7], [1, 0.99, 0.97], Math.pow(t, 0.7));
-    const dark = mix([0.42, 0.36, 0.42], [0.82, 0.78, 0.8], t);
     const stalk = 0.018 + size * 0.28;
-    addTeardrop(mesh, Math.cos(yaw) * stalk + curve, y, Math.sin(yaw) * stalk, size, yaw, tilt, lit, dark);
+    addTeardrop(mesh, Math.cos(yaw) * stalk + curve, y, Math.sin(yaw) * stalk, size, yaw, tilt, t);
   }
-  return finish(mesh, scatter);
+  const geometry = finish(mesh, scatter);
+  if (scatter?.tips && scatter.count > 0) {
+    geometry.setAttribute("aTip", new InstancedBufferAttribute(scatter.tips, 3));
+  } else {
+    const count = geometry.getAttribute("position").count;
+    const tip = new Float32Array(Math.max(count, 1) * 3);
+    tip.fill(1);
+    geometry.setAttribute("aTip", new Float32BufferAttribute(tip, 3));
+  }
+  return geometry;
 }
 
 function addCurvedBlade(mesh: Bag, yaw: number, lean: number) {

@@ -1,4 +1,5 @@
 import { Euler, Matrix4, Quaternion, Vector3 } from "three";
+import { hexToRgb } from "@/components/landing/meadow/palette";
 import type { Quality } from "@/components/landing/meadow/quality";
 import { countsFor } from "@/components/landing/meadow/quality";
 
@@ -12,6 +13,7 @@ export type Scatter = {
   matrices: Float32Array;
   colors: Float32Array;
   phases: Float32Array;
+  tips?: Float32Array;
 };
 
 type RGB = [number, number, number];
@@ -26,6 +28,7 @@ type Item = {
   sy: number;
   sz: number;
   color: RGB;
+  tip?: RGB;
   phase: number;
 };
 
@@ -70,14 +73,22 @@ function toScatter(items: Item[]): Scatter {
   const matrices = new Float32Array(count * 16);
   const colors = new Float32Array(count * 3);
   const phases = new Float32Array(count);
+  const tipped = items.some((item) => item.tip);
+  const tips = tipped ? new Float32Array(count * 3) : undefined;
   items.forEach((item, index) => {
     writeMatrix(matrices, index, item);
     colors[index * 3] = item.color[0];
     colors[index * 3 + 1] = item.color[1];
     colors[index * 3 + 2] = item.color[2];
+    const tip = item.tip ?? item.color;
+    if (tips) {
+      tips[index * 3] = tip[0];
+      tips[index * 3 + 1] = tip[1];
+      tips[index * 3 + 2] = tip[2];
+    }
     phases[index] = item.phase;
   });
-  return { count, matrices, colors, phases };
+  return { count, matrices, colors, phases, tips };
 }
 
 function emptyScatter(): Scatter {
@@ -94,10 +105,10 @@ export function splitPatches(items: Item[], seed: number): Scatter[] {
   return bins.map((bin, index) => (bin.length === 0 ? emptyScatter() : toScatter(shuffle(bin, seed + index * 97))));
 }
 
-const LUPINS: RGB[] = [
-  [0.82, 0.28, 0.32],
-  [0.92, 0.72, 0.22],
-  [0.48, 0.32, 0.7],
+const LUPINS: { base: RGB; tip: RGB }[] = [
+  { base: hexToRgb("#e0453a"), tip: hexToRgb("#ff8a7a") },
+  { base: hexToRgb("#f2b52e"), tip: hexToRgb("#ffe27a") },
+  { base: hexToRgb("#8a5bd6"), tip: hexToRgb("#c7a6ff") },
 ];
 
 export type Patch = {
@@ -184,10 +195,15 @@ export function buildLayout(quality: Quality): SceneLayout {
     });
   }
   const daisies = flowerBed(counts.daisies, 29, [0.16, 0.26], () => [1, 1, 1], 0.85, flowerClear, spreadMul);
+  const lupinTips: RGB[] = [];
   const lupinItems = flowerBed(counts.lupins, 47, compact ? [0.38, 0.55] : [0.46, 0.66], (rng) => {
-    const base = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
-    return base;
+    const family = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
+    lupinTips.push(family.tip);
+    return family.base;
   }, 0.85, flowerClear, spreadMul);
+  lupinItems.forEach((item, index) => {
+    item.tip = lupinTips[index];
+  });
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
