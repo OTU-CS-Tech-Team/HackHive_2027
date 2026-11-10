@@ -8,7 +8,7 @@ export const AMBIENT = "#e7f1ea";
 export const GRASS_NEAR = "#4f8f3a";
 export const GRASS_FAR = "#c6e4a4";
 /** Warm dirt through the walk. Late progress mixes this into the forest. */
-export const PATH = "#e4c07a";
+export const PATH = "#c9964e";
 export const PATH_EDGE = "#c4a06a";
 export const HILL = "#c6e4a4";
 /** Top of the sponsors woods gradient. The hand-off veil uses the same green. */
@@ -17,7 +17,7 @@ export const FOREST = "#0b2419";
 /** Direction the light travels from (toward the sun), shared by every shader. */
 export const SUN_DIR: readonly [number, number, number] = [0.46, 0.62, 0.34];
 
-export const FOG_DENSITY = 0.028;
+export const FOG_DENSITY = 0.02;
 
 /** Shared by the canvas and the frame driver so the first frame matches the walk. */
 export const VIEW = {

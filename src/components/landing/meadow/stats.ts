@@ -88,10 +88,9 @@ export function sceneBudget(quality: Quality): SceneBudget {
     draws += 1;
     tris += unit.card * layout.glows.count;
   }
-  if (layout.sparks.count > 0) {
-    draws += 1;
-    tris += unit.card * layout.sparks.count;
-  }
+  if (layout.sparks.count > 0) draws += 1;
+  draws += 1;
+  tris += 2;
   if (layout.leaves.count > 0) {
     draws += 1;
     tris += unit.card * layout.leaves.count;

@@ -121,6 +121,10 @@ function flowerBed(
   scaleRange: [number, number],
   tint: (rng: () => number) => RGB,
   nearMul = 1,
+  clear = FLOWER_CLEAR,
+  spreadMul = 1,
+  lean = 0,
+  yawJitter = Math.PI * 2,
 ) {
   const rng = mulberry32(seed);
   const items: Item[] = [];
@@ -130,15 +134,15 @@ function flowerBed(
     const z = fringe ? 2.55 + rng() * 1.2 : 4.4 - depth * 14;
     const side = rng() < 0.5 ? -1 : 1;
     const near = z > 2.4;
-    const spread = fringe ? 1.15 : near ? 2.4 : 4.8;
-    const x = side * (FLOWER_CLEAR + Math.pow(rng(), fringe ? 0.8 : 0.6) * spread);
+    const spread = (fringe ? 1.15 : near ? 2.4 : 4.8) * spreadMul;
+    const x = side * (clear + Math.pow(rng(), fringe ? 0.8 : 0.6) * spread);
     const size = (scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0])) * (near ? nearMul : 1);
     items.push({
       x,
       y: 0,
       z,
-      yaw: rng() * Math.PI * 2,
-      pitch: (rng() - 0.5) * 0.08,
+      yaw: (rng() - 0.5) * yawJitter,
+      pitch: lean + (rng() - 0.5) * 0.2,
       sx: size,
       sy: size,
       sz: size,
@@ -151,15 +155,18 @@ function flowerBed(
 
 export function buildLayout(quality: Quality): SceneLayout {
   const counts = countsFor(quality);
-  const lilies = flowerBed(counts.lilies, 11, [0.4, 0.62], (rng) => {
-    const warm = rng() * 0.04;
-    return [0.97 - warm, 0.96 - warm * 0.4, 0.93];
-  }, 0.55);
-  const daisies = flowerBed(counts.daisies, 29, [0.26, 0.4], () => [1, 1, 1], 0.85);
-  const lupinItems = flowerBed(counts.lupins, 47, [0.7, 1.05], (rng) => {
+  const compact = quality === "low";
+  const flowerClear = compact ? 0.32 : FLOWER_CLEAR;
+  const spreadMul = compact ? 0.42 : 1;
+  const lilies = flowerBed(counts.lilies, 11, compact ? [0.18, 0.26] : [0.2, 0.31], (rng) => {
+    const warm = rng() * 0.05;
+    return [0.98 - warm, 0.95 - warm * 0.5, 0.88];
+  }, 0.9, flowerClear, spreadMul, 1.2, 0.55);
+  const daisies = flowerBed(counts.daisies, 29, [0.1, 0.16], () => [1, 1, 1], 0.8, flowerClear, spreadMul);
+  const lupinItems = flowerBed(counts.lupins, 47, compact ? [0.55, 0.8] : [0.62, 0.92], (rng) => {
     const base = LUPINS[Math.floor(rng() * LUPINS.length)] ?? LUPINS[0];
     return base;
-  }, 0.9);
+  }, 0.85, flowerClear, spreadMul);
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
@@ -169,8 +176,9 @@ export function buildLayout(quality: Quality): SceneLayout {
     const z = fringe ? 2.4 + grassRng() * 1.5 : 5.4 - depth * 18;
     const side = grassRng() < 0.5 ? -1 : 1;
     const near = z > 2.4;
-    const spread = fringe ? 1.35 : near ? 2.6 : 6.4;
-    const x = side * (GRASS_CLEAR + Math.pow(grassRng(), fringe ? 0.7 : 0.5) * spread);
+    const grassClear = compact ? 0.18 : GRASS_CLEAR;
+    const spread = (fringe ? 1.35 : near ? 2.6 : 6.4) * (compact ? 0.4 : 1);
+    const x = side * (grassClear + Math.pow(grassRng(), fringe ? 0.7 : 0.5) * spread);
     const height = 0.34 + grassRng() * 0.4;
     const shade = 0.75 + grassRng() * 0.4;
     grass.push({
@@ -220,24 +228,26 @@ export function buildLayout(quality: Quality): SceneLayout {
   const sparkRng = mulberry32(19);
   const sparks: Item[] = [];
   const sparkColors: RGB[] = [
-    [1, 0.95, 0.72],
-    [1, 0.82, 0.45],
-    [0.95, 0.78, 1],
-    [1, 0.96, 0.96],
-    [0.78, 0.95, 0.62],
+    [1, 0.98, 0.94],
+    [1, 0.84, 0.32],
+    [0.7, 0.52, 0.96],
   ];
   for (let i = 0; i < counts.sparks; i += 1) {
     const side = sparkRng() < 0.5 ? -1 : 1;
-    const z = 1.2 - sparkRng() * 12;
-    const color = sparkColors[Math.floor(sparkRng() * sparkColors.length)] ?? [1, 0.95, 0.72];
+    const middle = sparkRng() < 0.78;
+    const z = middle ? 2.6 - sparkRng() * 9 : -6.2 - sparkRng() * 8;
+    const edge = compact ? 0.28 : 1.02;
+    const reach = middle ? (compact ? 0.95 : 2.2) : (compact ? 1.8 : 4.8);
+    const color = sparkColors[Math.floor(sparkRng() * sparkColors.length)] ?? [1, 0.98, 0.94];
+    const size = 0.14 + sparkRng() * (middle ? 0.16 : 0.1);
     sparks.push({
-      x: side * (1.35 + Math.pow(sparkRng(), 0.7) * 5.2),
-      y: 0.18 + sparkRng() * 0.55,
+      x: side * (edge + Math.pow(sparkRng(), 0.62) * reach),
+      y: 0.1 + sparkRng() * (middle ? 0.42 : 0.62),
       z,
       yaw: 0,
       pitch: 0,
-      sx: 0.08 + sparkRng() * 0.1,
-      sy: 0.08 + sparkRng() * 0.1,
+      sx: size,
+      sy: size,
       sz: 1,
       color,
       phase: sparkRng() * Math.PI * 2,

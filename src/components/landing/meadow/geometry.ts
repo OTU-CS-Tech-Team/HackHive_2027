@@ -122,12 +122,12 @@ function addStamen(mesh: Bag, yaw: number, color: RGB) {
   let previousRight = -1;
   for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
-    const py = 0.05 + t * 0.42;
-    const pz = 0.02 + Math.sin(t * Math.PI) * 0.08;
-    const width = t > 0.72 ? 0.028 : 0.008;
-    const filament: RGB = t > 0.72 ? color : [0.86, 0.78, 0.32];
-    const left = vert(mesh, -width * cosY + pz * sinY, py, width * sinY + pz * cosY, filament, 0.15);
-    const right = vert(mesh, width * cosY + pz * sinY, py, -width * sinY + pz * cosY, filament, 0.15);
+    const py = 0.05 + t * 0.16;
+    const pz = 0.015 + Math.sin(t * Math.PI) * 0.03;
+    const width = t > 0.72 ? 0.018 : 0.006;
+    const filament: RGB = t > 0.72 ? color : [0.86, 0.72, 0.28];
+    const left = vert(mesh, -width * cosY + pz * sinY, py, width * sinY + pz * cosY, filament, 0.08);
+    const right = vert(mesh, width * cosY + pz * sinY, py, -width * sinY + pz * cosY, filament, 0.08);
     if (previousLeft >= 0) {
       mesh.indices.push(previousLeft, left, previousRight, previousRight, left, right);
     }
@@ -136,28 +136,56 @@ function addStamen(mesh: Bag, yaw: number, color: RGB) {
   }
 }
 
+/** One scooped petal of a trumpet. The throat stays narrow; the lip curls back. */
+function addTrumpetPetal(mesh: Bag, yaw: number, length: number, radius: number, bend: number) {
+  const across = 4;
+  const along = 7;
+  const ids: number[] = [];
+  const throat: RGB = [1, 0.98, 0.86];
+  const body: RGB = [0.9, 0.84, 0.68];
+  const edge: RGB = [0.42, 0.36, 0.28];
+  for (let yStep = 0; yStep <= along; yStep += 1) {
+    const v = yStep / along;
+    const reflexT = Math.max(0, (v - 0.68) / 0.32);
+    const reflex = reflexT * reflexT;
+    const flare = 0.28 + v * v * 0.95 + reflex * 0.55;
+    const half = 0.3 + v * 0.2;
+    for (let xStep = 0; xStep <= across; xStep += 1) {
+      const u = (xStep / across) * 2 - 1;
+      const channel = 1 - u * u;
+      const ang = yaw + u * half;
+      const r = radius * flare * (1 - channel * 0.22);
+      const x = Math.cos(ang) * r;
+      const z = Math.sin(ang) * r;
+      const y = length * (v * (1 - reflex * 0.55) + 0.02);
+      const alongShade = Math.pow(v, 0.75);
+      const edgeShade = Math.pow(Math.abs(u), 1.35) * (0.62 + v * 0.38) + reflex * 0.28;
+      const col = mix(mix(throat, body, alongShade), edge, Math.min(1, edgeShade));
+      ids.push(vert(mesh, x, y, z, col, bend * (0.12 + v * 0.7)));
+    }
+  }
+  const stride = across + 1;
+  for (let yStep = 0; yStep < along; yStep += 1) {
+    for (let xStep = 0; xStep < across; xStep += 1) {
+      const a = ids[yStep * stride + xStep] ?? 0;
+      const b = ids[yStep * stride + xStep + 1] ?? 0;
+      const c = ids[(yStep + 1) * stride + xStep] ?? 0;
+      const d = ids[(yStep + 1) * stride + xStep + 1] ?? 0;
+      mesh.indices.push(a, b, c, b, d, c);
+    }
+  }
+}
+
 export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const petal: RGB = [0.9, 0.9, 0.82];
-  const tip: RGB = [1, 1, 0.97];
-  for (let i = 0; i < 6; i += 1) {
-    const inner = i % 2 === 1;
-    addPetal(
-      mesh,
-      (i / 6) * Math.PI * 2 + (inner ? 0.18 : 0),
-      inner ? 0.7 : 1.15,
-      inner ? 0.38 : 0.52,
-      inner ? 0.13 : 0.18,
-      inner ? 0.42 : 0.78,
-      petal,
-      tip,
-      0.45,
-    );
+  const petals = 6;
+  for (let i = 0; i < petals; i += 1) {
+    addTrumpetPetal(mesh, (i / petals) * Math.PI * 2, 0.3, 0.2, 0.28);
   }
   for (let i = 0; i < 5; i += 1) {
-    addStamen(mesh, (i / 5) * Math.PI * 2, [0.78, 0.42, 0.12]);
+    addStamen(mesh, (i / 5) * Math.PI * 2 + 0.3, [0.72, 0.38, 0.1]);
   }
-  addDisc(mesh, 0.04, 0.05, [0.9, 0.78, 0.28], 0.05);
+  addDisc(mesh, 0.05, 0.04, [0.98, 0.78, 0.28], 0.04);
   return finish(mesh, scatter);
 }
 
@@ -182,38 +210,47 @@ export function createDaisyGeometry(scatter?: Scatter) {
   return finish(mesh, scatter);
 }
 
+function addBump(mesh: Bag, x: number, y: number, z: number, radius: number, lit: RGB, dark: RGB, bend: number) {
+  const lon = 5;
+  const top = vert(mesh, x, y + radius * 0.92, z, lit, bend);
+  const bot = vert(mesh, x, y - radius * 0.82, z, dark, bend);
+  const upper: number[] = [];
+  const equator: number[] = [];
+  for (let i = 0; i < lon; i += 1) {
+    const angle = (i / lon) * Math.PI * 2;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    upper.push(vert(mesh, x + c * radius * 0.72, y + radius * 0.38, z + s * radius * 0.72, mix(lit, dark, 0.22), bend));
+    equator.push(vert(mesh, x + c * radius, y - radius * 0.05, z + s * radius, mix(lit, dark, 0.48), bend));
+  }
+  for (let i = 0; i < lon; i += 1) {
+    const next = (i + 1) % lon;
+    const u0 = upper[i] ?? top;
+    const u1 = upper[next] ?? top;
+    const e0 = equator[i] ?? bot;
+    const e1 = equator[next] ?? bot;
+    mesh.indices.push(top, u1, u0, u0, u1, e1, u0, e1, e0, e0, e1, bot);
+  }
+}
+
+/** A tapered spike of little floret bumps, not a smooth cone. */
 export function createLupinGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const white: RGB = [1, 0.98, 0.94];
-  const stemBottom = vert(mesh, -0.008, 0, 0, [0.28, 0.4, 0.16], 0.15);
-  const stemTopL = vert(mesh, -0.004, 1.02, 0, [0.5, 0.62, 0.28], 0.55);
-  const stemTopR = vert(mesh, 0.004, 1.02, 0, [0.5, 0.62, 0.28], 0.55);
-  const stemBaseR = vert(mesh, 0.008, 0, 0, [0.28, 0.4, 0.16], 0.15);
+  const stemBottom = vert(mesh, -0.012, 0, 0, [0.22, 0.36, 0.14], 0.2);
+  const stemTopL = vert(mesh, -0.004, 1.05, 0, [0.4, 0.55, 0.22], 0.55);
+  const stemTopR = vert(mesh, 0.004, 1.05, 0, [0.4, 0.55, 0.22], 0.55);
+  const stemBaseR = vert(mesh, 0.012, 0, 0, [0.22, 0.36, 0.14], 0.2);
   mesh.indices.push(stemBottom, stemTopL, stemBaseR, stemBaseR, stemTopL, stemTopR);
-  const florets = 12;
+  const florets = 14;
+  const lit: RGB = [1, 0.98, 0.93];
+  const dark: RGB = [0.58, 0.52, 0.48];
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
-    const y = 0.16 + t * 0.82;
-    const size = 0.105 * (1 - t * 0.78);
-    const yaw = floret * 0.9;
-    const shade = 0.55 + t * 0.45;
-    const color: RGB = [shade, shade * 0.96, shade];
-    for (let petal = 0; petal < 4; petal += 1) {
-      addPetal(
-        mesh,
-        yaw + (petal / 4) * Math.PI * 2,
-        1.25,
-        size,
-        size * 0.62,
-        0.12,
-        color,
-        white,
-        0.2,
-        y,
-        2,
-        2,
-      );
-    }
+    const y = 0.16 + t * 0.84;
+    const radius = 0.072 * (1 - t * 0.72);
+    const spin = floret * 2.4;
+    const ring = (1 - t) * 0.03;
+    addBump(mesh, Math.cos(spin) * ring, y, Math.sin(spin) * ring, radius, lit, dark, 0.22);
   }
   return finish(mesh, scatter);
 }
@@ -246,11 +283,11 @@ function addRidge(
   for (let column = 0; column <= columns; column += 1) {
     const u = column / columns;
     const x = (u - 0.5) * 70;
-    const wave = 0.78 + 0.22 * Math.sin(u * Math.PI * 5 + z * 0.15);
+    const roll = Math.sin(u * Math.PI * 2.4 + z * 0.17) * 0.28 + Math.sin(u * Math.PI * 6.2) * 0.08;
     const edge = Math.abs(u - 0.5) * 2;
-    const peak = height * wave * Math.pow(edge, 1.7) * dip - 0.35;
-    const crestMix = Math.min(1, Math.pow(edge, 1.35));
-    ids.push(vert(mesh, x, -0.8, z, base, 0));
+    const peak = height * (0.78 + 0.22 * Math.pow(edge, 1.15)) * (1 + roll) * dip;
+    const crestMix = 0.35 + 0.65 * Math.min(1, peak / (height * 1.15));
+    ids.push(vert(mesh, x, -0.35, z, base, 0));
     ids.push(vert(mesh, x, peak, z, mix(base, crest, crestMix), 0));
   }
   for (let column = 0; column < columns; column += 1) {
@@ -262,16 +299,15 @@ function addRidge(
   }
 }
 
-/** Layered silhouettes. Centre stays low so the wordmark keeps sky; the sides rise. */
+/** Three rolling silhouettes. The centre stays readable; distance fades the colour. */
 export function createHillsGeometry() {
   const mesh = bag();
-  const far: RGB = [0.91, 0.95, 0.77];
-  const mid: RGB = [0.62, 0.78, 0.4];
-  const near: RGB = [0.22, 0.48, 0.26];
-  const treeline: RGB = [0.04, 0.14, 0.1];
-  addRidge(mesh, -26, 3.4, 1, far, mid);
-  addRidge(mesh, -15, 4.4, 1, mid, near);
-  addRidge(mesh, -8.5, 5.2, 1, near, treeline);
+  const far: RGB = [0.74, 0.84, 0.58];
+  const mid: RGB = [0.4, 0.62, 0.32];
+  const near: RGB = [0.16, 0.38, 0.18];
+  addRidge(mesh, -27, 2.35, 1, far, [0.58, 0.74, 0.42]);
+  addRidge(mesh, -15.5, 3.15, 1, mid, [0.24, 0.46, 0.22]);
+  addRidge(mesh, -8.2, 1.55, 1, near, [0.1, 0.26, 0.12]);
   return finish(mesh);
 }
 
@@ -327,6 +363,26 @@ export function createTrunkGeometry() {
   addTube(0.02, 1.7, 0, 0.7, 2.85, -0.1, 0.04, 0.018);
   addTube(-0.4, 2.15, 0.08, -1.15, 3.05, 0.25, 0.028, 0.012);
   return finish(mesh);
+}
+
+/** One vertex per glow. The fragment shader paints the flower on the point. */
+export function createSparkPoints(scatter: Scatter): BufferGeometry {
+  const count = scatter.count;
+  const positions = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  for (let index = 0; index < count; index += 1) {
+    positions[index * 3] = scatter.matrices[index * 16 + 12] ?? 0;
+    positions[index * 3 + 1] = scatter.matrices[index * 16 + 13] ?? 0;
+    positions[index * 3 + 2] = scatter.matrices[index * 16 + 14] ?? 0;
+    sizes[index] = scatter.matrices[index * 16] ?? 0.16;
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("aTint", new Float32BufferAttribute(scatter.colors, 3));
+  geometry.setAttribute("aPhase", new Float32BufferAttribute(scatter.phases, 1));
+  geometry.setAttribute("aSize", new Float32BufferAttribute(sizes, 1));
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 /** Soft card. The shader draws the blob; the quad itself is never a hard edge. */

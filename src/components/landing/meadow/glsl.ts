@@ -16,7 +16,8 @@ float saturate(float x) { return clamp(x, 0.0, 1.0); }
 
 vec3 atmospheric(vec3 color, float dist) {
   float fog = saturate(1.0 - exp(-dist * uFogDensity));
-  float lift = smoothstep(14.0, 46.0, dist);
+  fog *= smoothstep(3.2, 11.0, dist);
+  float lift = smoothstep(16.0, 48.0, dist);
   float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
   vec3 soft = mix(color, vec3(luma), lift * 0.78);
   vec3 fogColor = mix(uHorizon, uForest, uVeil);
@@ -73,15 +74,16 @@ uniform vec3 uEmissive;
 
 void main() {
   vec3 n = normalize(vNormal);
+  if (uRim > 0.5 && !gl_FrontFacing) n = -n;
   vec3 sun = normalize(uSunDir);
   float ndl = dot(n, sun);
-  float wrap = saturate(ndl * 0.48 + 0.58);
+  float wrap = saturate(ndl * 0.55 + 0.42);
   float back = pow(saturate(-ndl), 1.25);
-  vec3 lit = vColor * (uAmbient * 0.8 + uSunColor * wrap * 0.52);
+  vec3 lit = vColor * (uAmbient * 0.72 + uSunColor * wrap * 0.7);
   lit += vColor * uSunColor * back * uSss;
   float facing = saturate(dot(n, normalize(uCamPos - vWorld)));
-  float rim = pow(1.0 - facing, 2.1) * uRim;
-  lit += uEmissive * (rim + uRim * 0.22);
+  float rim = pow(1.0 - facing, 2.4) * uRim;
+  lit += uEmissive * rim;
   gl_FragColor = vec4(atmospheric(lit, distance(vWorld, uCamPos)), 1.0);
 }
 `;
@@ -106,13 +108,17 @@ uniform vec3 uGrassNear;
 uniform vec3 uGrassFar;
 uniform vec3 uPath;
 uniform vec3 uPathEdge;
+uniform float uAspect;
 
 void main() {
   float dist = distance(vWorld, uCamPos);
   vec3 grass = mix(uGrassNear, uGrassFar, smoothstep(4.0, 22.0, dist));
   float ax = abs(vWorld.x);
-  float pathMask = 1.0 - smoothstep(0.64, 1.08, ax);
-  vec3 pathCol = mix(uPath, uPathEdge, smoothstep(0.16, 1.08, ax));
+  float narrow = 1.0 - smoothstep(0.62, 1.15, uAspect);
+  float inner = mix(0.64, 0.16, narrow);
+  float outer = mix(1.08, 0.4, narrow);
+  float pathMask = 1.0 - smoothstep(inner, outer, ax);
+  vec3 pathCol = mix(uPath, uPathEdge, smoothstep(inner * 0.25, outer, ax));
   pathCol = mix(pathCol, uForest, uVeil);
   grass = mix(grass, uForest, uVeil);
   vec3 albedo = mix(grass, pathCol, pathMask);
@@ -194,45 +200,91 @@ void main() {
 `;
 
 export const SPARK_VERT = /* glsl */ `
-varying vec2 vUv;
-varying vec3 vWorld;
-varying vec3 vTint;
-uniform float uTime;
-uniform float uWind;
 attribute float aPhase;
+attribute float aSize;
 attribute vec3 aTint;
 
+varying vec3 vTint;
+varying float vFog;
+
+uniform float uTime;
+uniform float uWind;
+uniform vec3 uCamPos;
+uniform float uFogDensity;
+uniform float uVeil;
+
 void main() {
-  vUv = uv;
-  vTint = aTint;
-  #ifdef USE_INSTANCING
-    vec3 center = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    float scale = length(instanceMatrix[0].xyz);
-  #else
-    vec3 center = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    float scale = 1.0;
-  #endif
-  vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-  vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-  vec3 world = center + (right * position.x + up * position.y) * scale;
+  vec3 world = (modelMatrix * vec4(position, 1.0)).xyz;
   world.y += sin(uTime * 1.4 + aPhase) * uWind * 0.03;
-  vWorld = world;
-  gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
+  vec4 viewPos = viewMatrix * vec4(world, 1.0);
+  gl_Position = projectionMatrix * viewPos;
+  gl_PointSize = clamp(aSize * 260.0 / max(0.2, -viewPos.z), 1.6, 8.0);
+  vTint = aTint;
+  float dist = distance(world, uCamPos);
+  vFog = exp(-dist * uFogDensity * 0.55) * (1.0 - uVeil);
 }
 `;
 
-export const SPARK_FRAG = COMMON + /* glsl */ `
-varying vec2 vUv;
-varying vec3 vWorld;
+export const SPARK_FRAG = /* glsl */ `
 varying vec3 vTint;
+varying float vFog;
 
 void main() {
-  float radius = length(vUv * 2.0 - 1.0);
-  float alpha = pow(saturate(1.0 - radius), 2.2);
-  if (alpha < 0.08) discard;
-  float dist = distance(vWorld, uCamPos);
-  float fade = exp(-dist * uFogDensity * 0.65) * (1.0 - uVeil);
-  gl_FragColor = vec4(vTint * alpha * fade, alpha * 0.85);
+  vec2 p = gl_PointCoord * 2.0 - 1.0;
+  float radius = length(p);
+  float alpha = pow(clamp(1.0 - radius, 0.0, 1.0), 1.45);
+  if (alpha < 0.05) discard;
+  vec3 col = vTint * (0.55 + 0.9 * (1.0 - radius));
+  gl_FragColor = vec4(col * vFog, alpha * 0.9);
+}
+`;
+
+export const TREE_VERT = /* glsl */ `
+varying vec2 vUv;
+
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+export const TREE_FRAG = /* glsl */ `
+varying vec2 vUv;
+uniform float uSpread;
+uniform float uVeil;
+
+float blob(vec2 p, vec2 center, float rx, float ry) {
+  vec2 d = (p - center) / vec2(rx, ry);
+  return smoothstep(1.0, 0.93, length(d));
+}
+
+float branch(vec2 p, vec2 a, vec2 b, float width) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
+  return smoothstep(width, width * 0.4, length(pa - ba * h));
+}
+
+void main() {
+  vec2 uv = vUv;
+  float spread = uSpread;
+  float canopy = 0.0;
+  canopy = max(canopy, blob(uv, vec2(mix(0.14, 0.18, spread), 0.78), mix(0.3, 0.4, spread), 0.22));
+  canopy = max(canopy, blob(uv, vec2(mix(0.34, 0.48, spread), 0.86), mix(0.24, 0.36, spread), 0.16));
+  canopy = max(canopy, blob(uv, vec2(mix(0.05, 0.74, spread), 0.9), mix(0.18, 0.32, spread), 0.13));
+  canopy = max(canopy, blob(uv, vec2(mix(0.24, 0.32, spread), 0.62), 0.16, 0.12));
+  float trunk = smoothstep(0.028, 0.01, abs(uv.x - 0.065)) * smoothstep(0.0, 0.08, uv.y) * (1.0 - smoothstep(0.55, 0.7, uv.y));
+  float bough = branch(uv, vec2(0.07, 0.52), vec2(mix(0.32, 0.5, spread), 0.8), 0.01);
+  float twig = branch(uv, vec2(0.08, 0.44), vec2(mix(0.18, 0.7, spread), 0.9), 0.007);
+  float spur = branch(uv, vec2(0.07, 0.6), vec2(mix(0.12, 0.28, spread), 0.74), 0.008);
+  float shape = max(canopy, max(trunk, max(bough, max(twig, spur))));
+  float fade = smoothstep(0.0, 0.16, uv.y);
+  fade *= 1.0 - smoothstep(mix(0.78, 0.96, spread), 1.0, uv.x);
+  float alpha = shape * fade * (1.0 - uVeil);
+  if (alpha < 0.04) discard;
+  vec3 leaf = mix(vec3(0.035, 0.09, 0.05), vec3(0.11, 0.22, 0.12), canopy * uv.y);
+  vec3 col = mix(vec3(0.02, 0.05, 0.03), leaf, clamp(canopy + bough, 0.0, 1.0));
+  gl_FragColor = vec4(col, alpha * 0.95);
 }
 `;
 

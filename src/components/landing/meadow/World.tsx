@@ -9,12 +9,13 @@ import {
   FrontSide,
   InstancedMesh,
   Mesh,
+  Points,
   ShaderMaterial,
   Vector3,
   type Side,
   type BufferGeometry,
 } from "three";
-import { createCardGeometry, createDaisyGeometry, createGrassGeometry, createHillsGeometry, createLilyGeometry, createLupinGeometry } from "@/components/landing/meadow/geometry";
+import { createCardGeometry, createDaisyGeometry, createGrassGeometry, createHillsGeometry, createLilyGeometry, createLupinGeometry, createSparkPoints } from "@/components/landing/meadow/geometry";
 import {
   CLOUD_FRAG,
   CLOUD_VERT,
@@ -28,6 +29,8 @@ import {
   SPARK_VERT,
   SKY_FRAG,
   SKY_VERT,
+  TREE_FRAG,
+  TREE_VERT,
 } from "@/components/landing/meadow/glsl";
 import { buildLayout, type Scatter, type SceneLayout } from "@/components/landing/meadow/layout";
 import {
@@ -55,11 +58,17 @@ import type { Quality } from "@/components/landing/meadow/quality";
 
 const FULL_COUNT = "fullCount";
 const liveMeshes: InstancedMesh[] = [];
+const livePoints: BufferGeometry[] = [];
+const treeOffset = new Vector3();
 
 function thinEvenly() {
   for (const mesh of liveMeshes) {
     const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
     mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.5)));
+  }
+  for (const geometry of livePoints) {
+    const full = geometry.getAttribute("position").count;
+    geometry.setDrawRange(0, Math.max(8, Math.floor(full * 0.5)));
   }
 }
 
@@ -72,6 +81,8 @@ function writeUniforms(
   x: number,
   y: number,
   z: number,
+  aspect: number,
+  spread: number,
 ) {
   if (!materials) return;
   for (const material of materials) {
@@ -80,6 +91,8 @@ function writeUniforms(
     material.uniforms.uVeil.value = veil;
     material.uniforms.uFogDensity.value = fog;
     material.uniforms.uCamPos.value.set(x, y, z);
+    if (material.uniforms.uAspect) material.uniforms.uAspect.value = aspect;
+    if (material.uniforms.uSpread) material.uniforms.uSpread.value = spread;
   }
 }
 
@@ -131,6 +144,7 @@ type Materials = {
   cloud: ShaderMaterial;
   glow: ShaderMaterial;
   spark: ShaderMaterial;
+  tree: ShaderMaterial;
 };
 
 function buildMaterials(): Materials {
@@ -148,13 +162,14 @@ function buildMaterials(): Materials {
       uGrassFar: { value: colorOf(GRASS_FAR) },
       uPath: { value: colorOf(PATH) },
       uPathEdge: { value: colorOf(PATH_EDGE) },
+      uAspect: { value: 1.6 },
     },
     vertexShader: GROUND_VERT,
     fragmentShader: GROUND_FRAG,
   });
   const hill = plantMaterial(0.04, [0, 0, 0], DoubleSide);
   const grass = plantMaterial(0.08, [0, 0, 0], FrontSide);
-  const lily = plantMaterial(0.85, [0.55, 0.5, 0.32], DoubleSide, 1);
+  const lily = plantMaterial(0.18, [0.85, 0.72, 0.4], DoubleSide, 0.85);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({
@@ -180,6 +195,15 @@ function buildMaterials(): Materials {
     depthWrite: false,
     blending: AdditiveBlending,
   });
+  const tree = new ShaderMaterial({
+    uniforms: { ...baseUniforms(), uSpread: { value: 0 } },
+    vertexShader: TREE_VERT,
+    fragmentShader: TREE_FRAG,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    side: DoubleSide,
+  });
   return {
     sky,
     ground,
@@ -191,7 +215,8 @@ function buildMaterials(): Materials {
     cloud,
     glow,
     spark,
-    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark],
+    tree,
+    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark, tree],
   };
 }
 
@@ -206,7 +231,7 @@ function buildGeometries(layout: SceneLayout) {
     hills: createHillsGeometry(),
     clouds: createCardGeometry(layout.clouds),
     glows: createCardGeometry(layout.glows),
-    sparks: createCardGeometry(layout.sparks),
+    sparks: createSparkPoints(layout.sparks),
   };
 }
 
@@ -248,9 +273,27 @@ function Instances({
   );
 }
 
+function SparkPoints({ geometry, material }: { geometry: BufferGeometry; material: ShaderMaterial }) {
+  const ref = useRef<Points>(null);
+  useLayoutEffect(() => {
+    if (!livePoints.includes(geometry)) livePoints.push(geometry);
+    return () => {
+      const index = livePoints.indexOf(geometry);
+      if (index >= 0) livePoints.splice(index, 1);
+    };
+  }, [geometry]);
+  if (geometry.getAttribute("position").count === 0) return null;
+  return (
+    <points ref={ref} geometry={geometry} frustumCulled={false} renderOrder={2}>
+      <primitive object={material} attach="material" />
+    </points>
+  );
+}
+
 function FrameDriver({
   materialsRef,
   sky,
+  tree,
   progress,
   pointer,
   reduced,
@@ -259,6 +302,7 @@ function FrameDriver({
 }: {
   materialsRef: RefObject<ShaderMaterial[]>;
   sky: RefObject<Mesh | null>;
+  tree: RefObject<Mesh | null>;
   progress: RefObject<number>;
   pointer: RefObject<{ x: number; y: number }>;
   reduced: boolean;
@@ -325,12 +369,33 @@ function FrameDriver({
       eased.current.x += (aim.x - eased.current.x) * ease;
       eased.current.y += (aim.y - eased.current.y) * ease;
     }
+    const canvas = gl.domElement;
+    const aspect = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
+    const portrait = aspect < 0.85 ? 1 : 0;
     const x = eased.current.x * 0.22;
-    const y = VIEW.eye + t * 0.04;
+    const y = VIEW.eye + t * 0.04 + portrait * 0.72;
     const z = VIEW.startZ + (VIEW.endZ - VIEW.startZ) * t;
     camera.position.set(x, y, z);
-    camera.lookAt(eased.current.x * 0.45, VIEW.eye + VIEW.lookLift - eased.current.y * 0.1, z - VIEW.lookAhead);
+    camera.lookAt(
+      eased.current.x * 0.45,
+      VIEW.eye + VIEW.lookLift - portrait * 0.78 - eased.current.y * 0.1,
+      z - VIEW.lookAhead,
+    );
     if (sky.current) sky.current.position.set(x, y, z);
+    const frame = tree.current;
+    if (frame) {
+      const dist = 7.2;
+      const vSize = 2 * Math.tan((VIEW.fov * Math.PI) / 360) * dist;
+      const hSize = vSize * Math.max(aspect, 0.35);
+      const cardW = hSize * (portrait ? 1.22 : 0.5);
+      const cardH = vSize * (portrait ? 0.44 : 0.34);
+      const localX = -hSize * 0.5 + cardW * (portrait ? 0.4 : 0.46);
+      const localY = vSize * 0.5 - cardH * 0.46;
+      treeOffset.set(localX, localY, -dist).applyQuaternion(camera.quaternion);
+      frame.position.copy(camera.position).add(treeOffset);
+      frame.quaternion.copy(camera.quaternion);
+      frame.scale.set(cardW, cardH, 1);
+    }
     if (!still) clock.current += step;
     writeUniforms(
       materialsRef.current,
@@ -341,6 +406,8 @@ function FrameDriver({
       x,
       y,
       z,
+      aspect,
+      portrait,
     );
 
     const done = walked >= 1;
@@ -399,6 +466,7 @@ export default function MeadowWorld({
   const materials = useMemo(() => buildMaterials(), []);
   const materialsRef = useRef(materials.all);
   const sky = useRef<Mesh>(null);
+  const tree = useRef<Mesh>(null);
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
@@ -416,6 +484,7 @@ export default function MeadowWorld({
       <FrameDriver
         materialsRef={materialsRef}
         sky={sky}
+        tree={tree}
         progress={progress}
         pointer={pointer}
         reduced={reduced}
@@ -446,7 +515,11 @@ export default function MeadowWorld({
         );
       })}
       <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
-      <Instances geometry={geometries.sparks} material={materials.spark} scatter={layout.sparks} renderOrder={2} />
+      <SparkPoints geometry={geometries.sparks} material={materials.spark} />
+      <mesh ref={tree} frustumCulled={false} renderOrder={5}>
+        <planeGeometry args={[1, 1]} />
+        <primitive object={materials.tree} attach="material" />
+      </mesh>
       <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={3} />
     </>
   );
