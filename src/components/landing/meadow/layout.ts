@@ -6,7 +6,7 @@ import { countsFor } from "@/components/landing/meadow/quality";
 /** Flowers stay off the calm centre. Grass may grow closer to the path edge. */
 export const FLOWER_CLEAR = 1.12;
 export const GRASS_CLEAR = 0.84;
-export const PATCH_BANDS = [2.4, -3.2] as const;
+export const PATCH_BANDS = [2.4, -4.15] as const;
 
 export type Scatter = {
   count: number;
@@ -191,7 +191,8 @@ function scatterFull(
   const items: Item[] = [];
   for (let i = 0; i < count; i += 1) {
     const side = i % 2 === 0 ? -1 : 1;
-    const z = z0 + rng() * (z1 - z0);
+    const depth = i % 2 === 0 ? rng() * 0.38 : rng();
+    const z = z0 + depth * (z1 - z0);
     const x = sideX(rng, side, z, clear, compact, i % 4 === 0);
     const tint = paint(rng, family);
     const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
@@ -201,7 +202,7 @@ function scatterFull(
 }
 
 function splitCount(total: number) {
-  const near = Math.max(4, Math.round(total * 0.4));
+  const near = Math.max(4, Math.round(total * 0.34));
   return { near, mid: Math.max(4, total - near) };
 }
 
@@ -215,12 +216,12 @@ export function buildLayout(quality: Quality): SceneLayout {
   const lilyScale = compact ? ([0.18, 0.26] as [number, number]) : ([0.26, 0.38] as [number, number]);
   const daisyScale = [0.16, 0.26] as [number, number];
   const lupinScale = compact ? ([0.38, 0.55] as [number, number]) : ([0.46, 0.66] as [number, number]);
-  const nearLilies = scatterFull(lilySplit.near, 11, 2.15, 4.5, lilyScale, flowerClear, compact, false, 0.92, 0.5);
-  const midLilies = scatterFull(lilySplit.mid, 13, -2.6, 2.35, lilyScale, flowerClear, compact, false, 0.92, 0.5);
-  const nearDaisies = scatterFull(daisySplit.near, 29, 2.15, 4.5, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
-  const midDaisies = scatterFull(daisySplit.mid, 31, -2.6, 2.35, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
-  const nearLupins = scatterFull(lupinSplit.near, 47, 2.15, 4.5, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
-  const midLupins = scatterFull(lupinSplit.mid, 53, -2.6, 2.35, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const nearLilies = scatterFull(lilySplit.near, 11, 4.75, 1.55, lilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const midLilies = scatterFull(lilySplit.mid, 13, -3.9, 1.9, lilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const nearDaisies = scatterFull(daisySplit.near, 29, 4.75, 1.55, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const midDaisies = scatterFull(daisySplit.mid, 31, -3.9, 1.9, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const nearLupins = scatterFull(lupinSplit.near, 47, 4.75, 1.55, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const midLupins = scatterFull(lupinSplit.mid, 53, -3.9, 1.9, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];

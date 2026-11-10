@@ -27,7 +27,8 @@ describe("meadow layout", () => {
         expect(Math.abs(x)).toBeGreaterThan(GRASS_CLEAR - 0.05);
       }
     }
-    expect(grass).toBeGreaterThan(1500);
+    expect(grass).toBeGreaterThan(1000);
+    expect(layout.patches.reduce((sum, patch) => sum + patch.lupins.count, 0)).toBeGreaterThanOrEqual(110);
     expect(flowers).toBeGreaterThan(250);
     expect(layout.clouds.count).toBeGreaterThan(0);
     expect(layout.sparks.count).toBeGreaterThan(100);

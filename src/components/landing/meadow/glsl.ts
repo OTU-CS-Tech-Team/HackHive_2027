@@ -91,6 +91,25 @@ varying vec2 vSpan;
 uniform float uTime;
 uniform float uWind;
 uniform float uAspect;
+uniform float uSss;
+
+void settlePortrait(inout vec3 world, vec3 origin) {
+  float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+  float ax = abs(origin.x);
+  if (narrow < 0.02 || ax < 0.5 || origin.y >= 0.2) return;
+  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  float placedInner = mix(1.12, 0.62, phone);
+  float wide = (0.98 + max(0.0, 5.05 - origin.z) * 0.67) * 1.02;
+  float compactEdge = 0.9 + max(0.0, 4.1 - origin.z) * 0.31;
+  float placedOuter = mix(wide, compactEdge, phone);
+  float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
+  float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
+  visible += max(0.0, aspectT - 1.0) * 0.4;
+  float shoulder = mix(1.05, 0.42, narrow) + 0.12;
+  float along = clamp((ax - placedInner) / max(0.25, placedOuter - placedInner), 0.0, 1.0);
+  float nx = mix(shoulder, visible * 0.96, along);
+  world.x += origin.x * (nx / ax - 1.0);
+}
 
 void main() {
   #ifdef USE_INSTANCING
@@ -105,7 +124,11 @@ void main() {
   #else
     vec3 origin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   #endif
-  if (abs(origin.x) > 0.8 && origin.y < 0.2) {
+  if (uSss > 0.2) {
+    vec3 shifted = world.xyz;
+    settlePortrait(shifted, origin);
+    world.xyz = shifted;
+  } else if (abs(origin.x) > 0.8 && origin.y < 0.2) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
     float outer = mix(0.98, 0.42, narrow);
     float squeeze = min(1.0, (outer + 0.1) / 0.84);
@@ -150,6 +173,24 @@ uniform float uTime;
 uniform float uWind;
 uniform float uAspect;
 
+void settlePortrait(inout vec3 world, vec3 origin) {
+  float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+  float ax = abs(origin.x);
+  if (narrow < 0.02 || ax < 0.5 || origin.y >= 0.2) return;
+  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  float placedInner = mix(1.12, 0.62, phone);
+  float wide = (0.98 + max(0.0, 5.05 - origin.z) * 0.67) * 1.02;
+  float compactEdge = 0.9 + max(0.0, 4.1 - origin.z) * 0.31;
+  float placedOuter = mix(wide, compactEdge, phone);
+  float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
+  float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
+  visible += max(0.0, aspectT - 1.0) * 0.4;
+  float shoulder = mix(1.05, 0.42, narrow) + 0.12;
+  float along = clamp((ax - placedInner) / max(0.25, placedOuter - placedInner), 0.0, 1.0);
+  float nx = mix(shoulder, visible * 0.96, along);
+  world.x += origin.x * (nx / ax - 1.0);
+}
+
 void main() {
   #ifdef USE_INSTANCING
     vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
@@ -163,12 +204,9 @@ void main() {
   #else
     vec3 origin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   #endif
-  if (abs(origin.x) > 0.8 && origin.y < 0.2) {
-    float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
-    float outer = mix(0.98, 0.42, narrow);
-    float squeeze = min(1.0, (outer + 0.1) / 0.84);
-    world.x += origin.x * (squeeze - 1.0);
-  }
+  vec3 shifted = world.xyz;
+  settlePortrait(shifted, origin);
+  world.xyz = shifted;
   float height = clamp(position.y, 0.0, 1.0);
   float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
   sway *= pow(height, 1.45);

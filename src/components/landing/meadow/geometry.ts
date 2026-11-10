@@ -380,8 +380,8 @@ function addTeardrop(
   tilt: number,
   spikeT: number,
 ) {
-  const around = 8;
-  const along = 4;
+  const around = 5;
+  const along = 2;
   const ct = Math.cos(tilt);
   const st = Math.sin(tilt);
   const cy = Math.cos(yaw);
@@ -453,12 +453,12 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full") 
     mesh.indices.push(previous, next, side);
     previous = next;
   }
-  const florets = 44;
+  const florets = 26;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
     const y = 0.06 + Math.pow(t, 0.82) * 1.02;
-    const size = 0.028 * Math.pow(1 - t, 0.4) + 0.012;
+    const size = (0.028 * Math.pow(1 - t, 0.4) + 0.012) * 1.28;
     const yaw = floret * golden;
     const tilt = 1.2 - t * 0.55;
     const curve = Math.sin(t * Math.PI) * 0.045;

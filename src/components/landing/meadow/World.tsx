@@ -195,6 +195,7 @@ function buildMaterials(): Materials {
       uPath: { value: colorOf(PATH) },
       uPathEdge: { value: colorOf(PATH_EDGE) },
       uAspect: { value: 1.6 },
+      uSss: { value: 0 },
     },
     vertexShader: PLANT_VERT,
     fragmentShader: HILL_FRAG,
