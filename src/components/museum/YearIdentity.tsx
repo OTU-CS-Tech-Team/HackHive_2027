@@ -17,9 +17,17 @@ const DIGITS: Record<string, string> = {
   "9": "M34 30C34-3 4 3 7 25C10 44 35 34 34 18C37 35 28 55 12 61",
 };
 
-export default function YearIdentity({ year, reducedMotion }: { year: number; reducedMotion: boolean }) {
+// `crossed` scribbles the year out ahead of a change (its scene is on its way out); clearing it
+// without a change writes the year in afresh.
+export default function YearIdentity({ year, reducedMotion, crossed = false }: { year: number; reducedMotion: boolean; crossed?: boolean }) {
   const [displayed, setDisplayed] = useState(year);
   const [scribbling, setScribbling] = useState(false);
+  const [writes, setWrites] = useState(0);
+  const [wasCrossed, setWasCrossed] = useState(crossed);
+  if (crossed !== wasCrossed) {
+    setWasCrossed(crossed);
+    if (!crossed) setWrites(count => count + 1);
+  }
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       setScribbling(year !== displayed && !reducedMotion);
@@ -34,9 +42,9 @@ export default function YearIdentity({ year, reducedMotion }: { year: number; re
 
   return <div className={styles.yearIdentity}>
     <h1 className={styles.srOnly}>HackHive project archive</h1>
-    <div className={styles.yearSlot} data-scribbling={scribbling} aria-live="polite" aria-atomic="true">
+    <div className={styles.yearSlot} data-scribbling={scribbling || crossed} aria-live="polite" aria-atomic="true">
       <span className={styles.srOnly}>{displayed}</span>
-      <svg key={displayed} className={styles.writtenYear} viewBox="0 0 220 80" aria-hidden="true">
+      <svg key={`${displayed}-${writes}`}className={styles.writtenYear} viewBox="0 0 220 80" aria-hidden="true">
         {String(displayed).split("").map((digit, index) => <path key={index} d={DIGITS[digit]} pathLength="1"
           transform={`translate(${16 + index * 47} 6)`} style={{ animationDelay: `${index * .18}s` }} />)}
       </svg>
