@@ -27,6 +27,7 @@ import {
   GROUND_FRAG,
   GROUND_VERT,
   HILL_FRAG,
+  HILL_VERT,
   LUPIN_FRAG,
   LUPIN_VERT,
   PLANT_FRAG,
@@ -205,12 +206,9 @@ function buildMaterials(): Materials {
   const hill = new ShaderMaterial({
     uniforms: {
       ...baseUniforms(),
-      uPath: { value: colorOf(PATH) },
-      uPathEdge: { value: colorOf(PATH_EDGE) },
       uAspect: { value: 1.6 },
-      uSss: { value: 0 },
     },
-    vertexShader: PLANT_VERT,
+    vertexShader: HILL_VERT,
     fragmentShader: HILL_FRAG,
     vertexColors: true,
     side: DoubleSide,
