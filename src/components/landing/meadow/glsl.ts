@@ -81,6 +81,28 @@ float treeDepth(float aspect) {
 }
 `;
 
+/**
+ * Bark and blossoms share this, so the limbs always meet the crown.
+ * 1280 keeps the authored tree. 768 narrows it beside the title. A phone
+ * scales it evenly about the trunk base, so the crown keeps its shape.
+ * Returns the x scale, which the blossom cards use for their size.
+ */
+const TREE_FIT = TREE_PLACE + /* glsl */ `
+float placeTree(inout vec3 world, float aspect) {
+  float anchor = treeAnchor(aspect);
+  world.x += anchor - ${TREE.x.toFixed(3)};
+  float narrow = 1.0 - smoothstep(0.72, 1.15, max(aspect, 0.3));
+  float phone = 1.0 - smoothstep(0.5, 0.72, aspect);
+  float sx = mix(mix(1.0, 0.54, narrow), ${TREE.phoneScale.toFixed(3)}, phone);
+  float sy = mix(mix(1.0, 0.76, narrow), ${TREE.phoneScale.toFixed(3)}, phone);
+  float sz = mix(1.0, ${TREE.phoneScale.toFixed(3)}, phone);
+  world.x = anchor + (world.x - anchor) * sx;
+  world.y = ${TREE.baseY.toFixed(3)} + (world.y - ${TREE.baseY.toFixed(3)}) * sy;
+  world.z = ${TREE.z.toFixed(3)} + (world.z - ${TREE.z.toFixed(3)}) * sz + phone * ${TREE.phoneReach.toFixed(2)};
+  return sx;
+}
+`;
+
 /** Path centre and width, shared by the ground and the grass discard. */
 const PATH = TREE_PLACE + /* glsl */ `
 float meadowHash(vec2 p) {
@@ -205,6 +227,10 @@ void main() {
     if (phone > 0.85 && foot.y < 0.2 && foot.z > 0.9 && foot.z < 3.45) {
       float trunkX = ${(TREE.x + TREE.shiftPhone + TREE.phoneSlide).toFixed(2)};
       float cover = 1.0 - smoothstep(0.42, 0.58, abs(foot.x - trunkX));
+      // In front of the far tree, half the column stays on the right of the
+      // path and half fills the lawn on its left, so neither side is bare.
+      float split = step(0.5, fract(sin(origin.x * 31.7 + origin.z * 7.3) * 43758.5453));
+      cover *= 1.0 - split * step(${(TREE.z + TREE.phoneReach + 0.3).toFixed(2)}, foot.z);
       // Short flowers already to the right of the trunk stay in the grass
       // below it. Tall spikes in that column still slide left.
       if (stem < 0.24 && foot.x > trunkX - 0.05) cover = 0.0;
@@ -308,9 +334,17 @@ void main() {
   // trunk. Slide that column off to the left of the path. 768 and 1280
   // have phone at 0, so this is a no-op there.
   float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
+  #ifdef USE_INSTANCING
+    float stem = length(instanceMatrix[1].xyz);
+  #else
+    float stem = 1.0;
+  #endif
   if (phone > 0.85 && foot.y < 0.2 && foot.z > 0.9 && foot.z < 3.45) {
     float trunkX = ${(TREE.x + TREE.shiftPhone + TREE.phoneSlide).toFixed(2)};
     float cover = 1.0 - smoothstep(0.42, 0.58, abs(foot.x - trunkX));
+    // The short spikes in the bed right of the far tree stay there. They
+    // pass under the phone crown, so they never hide the trunk.
+    if (stem < 0.32 && foot.x > trunkX + 0.08) cover = 0.0;
     float approach = 1.0 - smoothstep(${(TREE.z + TREE.phoneReach).toFixed(2)}, 4.6, origin.z);
     float ease = approach * approach * (3.0 - 2.0 * approach);
     float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
@@ -322,7 +356,7 @@ void main() {
     shifted.x += delta;
     foot.x += delta;
   }
-  parkOffPath(shifted, foot, 1.0);
+  parkOffPath(shifted, foot, stem);
   // Narrow frames only. Bring some left lupins forward so the foreground
   // matches the mixed 1280 bed. 1280 has narrowBed at 0.
   float narrowBed = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
@@ -735,7 +769,7 @@ void main() {
 }
 `;
 
-export const BARK_VERT = TREE_PLACE + /* glsl */ `
+export const BARK_VERT = TREE_FIT + /* glsl */ `
 attribute vec3 color;
 varying vec3 vColor;
 varying vec3 vNormal;
@@ -749,24 +783,7 @@ void main() {
   float h = clamp(position.y, 0.0, 1.2);
   p.x += sin(uTime * 0.7) * uWind * h * h * 0.012;
   vec4 world = modelMatrix * vec4(p, 1.0);
-  float anchor = treeAnchor(uAspect);
-  world.x += anchor - ${TREE.x.toFixed(3)};
-  float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
-  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  // 1280 leaves narrow and phone at 0. 768 uses the narrow targets,
-  // about a quarter larger than before. Phone replaces both.
-  float squeeze = mix(1.0, 0.54, narrow);
-  squeeze = mix(squeeze, 0.44, phone);
-  world.x = anchor + (world.x - anchor) * squeeze;
-  world.y *= mix(1.0, 0.76, narrow) * mix(1.0, 0.34, phone);
-  world.z += phone * ${TREE.phoneReach.toFixed(2)};
-  // The phone crown was sitting on the ground. Lift its lower half so the
-  // trunk and base show, and keep the top under the button.
-  if (phone > 0.5) {
-    float crownTop = 0.52;
-    float t = clamp(world.y / crownTop, 0.0, 1.0);
-    world.y = pow(max(t, 0.0), 0.55) * crownTop;
-  }
+  placeTree(world.xyz, uAspect);
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -790,7 +807,7 @@ void main() {
 }
 `;
 
-export const BLOSSOM_VERT = TREE_PLACE + /* glsl */ `
+export const BLOSSOM_VERT = TREE_FIT + /* glsl */ `
 attribute float aPhase;
 attribute vec3 aTint;
 varying vec2 vUv;
@@ -812,21 +829,9 @@ void main() {
     vec3 center = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec2 size = vec2(1.0);
   #endif
-  float anchor = treeAnchor(uAspect);
-  center.x += anchor - ${TREE.x.toFixed(3)};
-  float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  // Same anchor squeeze as the bark, so the limbs still meet the crown.
-  float squeeze = mix(1.0, 0.54, narrow);
-  squeeze = mix(squeeze, 0.44, phone);
-  center.x = anchor + (center.x - anchor) * squeeze;
-  center.y *= mix(1.0, 0.76, narrow) * mix(1.0, 0.34, phone);
-  center.z += phone * ${TREE.phoneReach.toFixed(2)};
-  if (phone > 0.5) {
-    float crownTop = 0.52;
-    float t = clamp(center.y / crownTop, 0.0, 1.0);
-    center.y = pow(max(t, 0.0), 0.55) * crownTop;
-  }
+  // Same placement as the bark, so the limbs still meet the crown.
+  float squeeze = placeTree(center, uAspect);
   size *= squeeze;
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);

@@ -4,6 +4,7 @@ import {
   InstancedBufferAttribute,
 } from "three";
 import type { Scatter } from "@/components/landing/meadow/layout";
+import { TREE_LIMBS, TREE_TRUNK } from "@/components/landing/meadow/tree";
 
 type RGB = [number, number, number];
 
@@ -634,7 +635,7 @@ function tubeFrame(tx: number, ty: number, tz: number) {
   };
 }
 
-/** A dark forked trunk that meets the grass. One draw, no ground disc. */
+/** A dark trunk whose limbs reach into the crown. One draw, no ground disc. */
 export function createTrunkGeometry() {
   const mesh = bag();
   const dark: RGB = [0.29, 0.173, 0.102];
@@ -689,49 +690,10 @@ export function createTrunkGeometry() {
       }
     }
   };
-  // Same flare and limb shape as the large tree, scaled to the crown
-  // that sits on the hill at the end of the path.
-  const fit = 0.6;
-  const trunk = [
-    { x: 0, y: 0.01 * fit, z: 0, r: 0.26 * fit },
-    { x: 0.01 * fit, y: 0.1 * fit, z: 0.01 * fit, r: 0.18 * fit },
-    { x: 0.03 * fit, y: 0.32 * fit, z: 0.01 * fit, r: 0.13 * fit },
-    { x: 0.04 * fit, y: 0.58 * fit, z: 0, r: 0.1 * fit },
-    { x: 0.02 * fit, y: 0.86 * fit, z: -0.01 * fit, r: 0.072 * fit },
-    { x: 0, y: 1.12 * fit, z: 0.01 * fit, r: 0.046 * fit },
-    { x: -0.02 * fit, y: 1.34 * fit, z: 0, r: 0.026 * fit },
-  ];
-  const left = [
-    { x: 0.02 * fit, y: 0.72 * fit, z: 0.01 * fit, r: 0.048 * fit },
-    { x: -0.16 * fit, y: 0.98 * fit, z: 0.08 * fit, r: 0.032 * fit },
-    { x: -0.38 * fit, y: 1.26 * fit, z: 0.1 * fit, r: 0.018 * fit },
-  ];
-  const right = [
-    { x: 0.03 * fit, y: 0.68 * fit, z: 0, r: 0.046 * fit },
-    { x: 0.22 * fit, y: 0.96 * fit, z: -0.06 * fit, r: 0.03 * fit },
-    { x: 0.42 * fit, y: 1.24 * fit, z: -0.08 * fit, r: 0.016 * fit },
-  ];
-  const front = [
-    { x: 0.01 * fit, y: 0.64 * fit, z: 0.02 * fit, r: 0.04 * fit },
-    { x: -0.06 * fit, y: 0.92 * fit, z: 0.18 * fit, r: 0.026 * fit },
-    { x: -0.1 * fit, y: 1.2 * fit, z: 0.32 * fit, r: 0.014 * fit },
-  ];
-  const back = [
-    { x: 0.02 * fit, y: 0.6 * fit, z: 0, r: 0.036 * fit },
-    { x: 0.08 * fit, y: 0.9 * fit, z: -0.18 * fit, r: 0.022 * fit },
-    { x: 0.1 * fit, y: 1.18 * fit, z: -0.32 * fit, r: 0.012 * fit },
-  ];
-  const high = [
-    { x: 0, y: 0.98 * fit, z: 0.01 * fit, r: 0.032 * fit },
-    { x: -0.2 * fit, y: 1.22 * fit, z: -0.04 * fit, r: 0.018 * fit },
-    { x: -0.32 * fit, y: 1.42 * fit, z: 0.04 * fit, r: 0.01 * fit },
-  ];
-  addCurve(trunk);
-  addCurve(left);
-  addCurve(right);
-  addCurve(front);
-  addCurve(back);
-  addCurve(high);
+  // Limbs run up into the crown. The blossom layout hangs clusters on
+  // the same points, so the bark and the cloud read as one tree.
+  addCurve(TREE_TRUNK);
+  for (const limb of TREE_LIMBS) addCurve(limb);
   return finish(mesh);
 }
 

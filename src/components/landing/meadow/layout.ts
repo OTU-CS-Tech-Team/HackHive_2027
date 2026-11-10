@@ -2,7 +2,7 @@ import { Euler, Matrix4, Quaternion, Vector3 } from "three";
 import { hexToRgb } from "@/components/landing/meadow/palette";
 import type { Quality } from "@/components/landing/meadow/quality";
 import { countsFor } from "@/components/landing/meadow/quality";
-import { TREE } from "@/components/landing/meadow/tree";
+import { TREE, TREE_LIMBS, type LimbPoint } from "@/components/landing/meadow/tree";
 
 /** Flowers stay off the calm centre. Grass may grow closer to the path edge. */
 export const FLOWER_CLEAR = 1.12;
@@ -399,19 +399,20 @@ function fillLeftLawn(lilies: Item[], daisies: Item[], lupins: Item[]) {
 }
 
 /**
- * Short lilies and daisies in the grass right of the phone path, in
- * front of the trunk so they sit below it. Tall spikes stay out of this
- * band. z stays in the mid patch.
+ * The bed right of the phone path, in front of the far tree. Short lilies
+ * and daisies sit by the dirt; short lupins stand among them so the right
+ * side has the same colour as the left garden. The lupins stay low enough
+ * to pass under the phone crown. z stays in the mid patch.
  */
-function fillTreeFoot(lilies: Item[], daisies: Item[]) {
+function fillTreeFoot(lilies: Item[], daisies: Item[], lupins: Item[]) {
   const rng = mulberry32(1601);
+  const aspect = 0.46;
+  const narrow = 1 - smooth01(0.62, 1.15, aspect);
+  const base = 1.05 * (1 - narrow) + 0.42 * narrow;
   const count = 6;
   for (let i = 0; i < count; i += 1) {
     const z = 1.7 + i * 0.1 + (rng() - 0.5) * 0.03;
-    const aspect = 0.46;
     const center = centerFor(z, anchorFor(aspect));
-    const narrow = 1 - smooth01(0.62, 1.15, aspect);
-    const base = 1.05 * (1 - narrow) + 0.42 * narrow;
     const half = base * (1 - 0.38 * pathEaseAt(z));
     const x = center + half * 0.58 + (i % 3) * 0.04;
     const size = 0.24 + rng() * 0.04;
@@ -420,6 +421,18 @@ function fillTreeFoot(lilies: Item[], daisies: Item[]) {
     } else {
       placeFlower(daisies, rng, x, 0.02, z, size * 0.85, size * 0.85, [1, 1, 1], undefined, 0, Math.PI * 2);
     }
+  }
+  // Short lupins (under 0.32, so the shaders leave them on the right
+  // grass) fill the open lawn between the dirt and the frame edge.
+  const spikes = 8;
+  for (let i = 0; i < spikes; i += 1) {
+    const z = 1.3 + i * 0.11 + (rng() - 0.5) * 0.05;
+    const center = centerFor(z, anchorFor(aspect));
+    const half = base * (1 - 0.38 * pathEaseAt(z));
+    const x = center + half * (0.62 + (i % 3) * 0.22);
+    const tint = paint(rng, true);
+    const size = 0.26 + rng() * 0.05;
+    placeFlower(lupins, rng, x, 0.02, z, size, size, tint.color, tint.tip, 0, Math.PI * 2);
   }
 }
 
@@ -618,6 +631,54 @@ function placeShell(
   }
 }
 
+/** Point on a limb at height y, or null when the limb never reaches it. */
+function limbAt(limb: LimbPoint[], y: number) {
+  for (let i = 0; i < limb.length - 1; i += 1) {
+    const a = limb[i];
+    const b = limb[i + 1];
+    if (!a || !b || y < a.y || y > b.y) continue;
+    const t = (y - a.y) / Math.max(b.y - a.y, 1e-4);
+    return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+  }
+  return null;
+}
+
+/**
+ * Blossom clusters that hang off each limb below the cloud, so the bark
+ * runs up into flowers instead of stopping under a floating crown.
+ */
+function hangOnLimbs(items: Item[]) {
+  const rng = mulberry32(2207);
+  const heights = [0.74, 0.82, 0.9, 0.97];
+  TREE_LIMBS.forEach((limb, li) => {
+    heights.forEach((h, hi) => {
+      const at = limbAt(limb, h);
+      if (!at) return;
+      const cards = hi === 0 ? 2 : hi === 1 ? 3 : 4;
+      for (let c = 0; c < cards; c += 1) {
+        const angle = rng() * Math.PI * 2;
+        const spread = 0.04 + rng() * 0.06;
+        const palette = (li + hi + c) % 3 === 0 ? BLOSSOM_PINK : (li + c) % 2 === 0 ? BLOSSOM_WHITE : BLOSSOM_MIXED;
+        const color = palette[Math.floor(rng() * palette.length)] ?? BLOSSOM_PINK[0];
+        if (!color) continue;
+        const size = 0.17 + rng() * 0.07;
+        items.push({
+          x: TREE.x + at.x + Math.cos(angle) * spread,
+          y: TREE.baseY + h - 0.03 - rng() * 0.06,
+          z: TREE.z + at.z + Math.sin(angle) * spread * 0.8,
+          yaw: 0,
+          pitch: 0,
+          sx: size,
+          sy: size * 0.96,
+          sz: 1,
+          color,
+          phase: 7.1 + li * 0.07 + c * 0.02,
+        });
+      }
+    });
+  });
+}
+
 /**
  * One crown for both tiers. Closer cards are first so the depth test
  * rejects the shells behind them. No stacked glow quads.
@@ -654,6 +715,7 @@ function buildBlossoms() {
       phase: 6.4 + (i % 3) * 0.04,
     });
   }
+  hangOnLimbs(items);
   items.sort((a, b) => b.z - a.z);
   const canopyCount = items.length;
   for (let i = 0; i < petals; i += 1) {
@@ -705,7 +767,7 @@ export function buildLayout(quality: Quality): SceneLayout {
   fillButtonBand(midLilies, midDaisies, midLupins);
   fillLeftLawn(midLilies, midDaisies, midLupins);
   fillTabletLawn(midLilies, midDaisies, midLupins);
-  fillTreeFoot(midLilies, midDaisies);
+  fillTreeFoot(midLilies, midDaisies, midLupins);
   fillRightShoulder(midLilies, midDaisies);
   mixHedge(nearLilies, nearDaisies, nearLupins);
   mixHedge(midLilies, midDaisies, midLupins);
