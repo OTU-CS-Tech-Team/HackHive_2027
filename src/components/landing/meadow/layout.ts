@@ -166,9 +166,17 @@ function frameEdge(z: number, compact: boolean) {
   return (0.98 + Math.max(0, 5.05 - z) * 0.67) * 1.02;
 }
 
-function sideX(rng: () => number, side: number, z: number, clear: number, compact: boolean, outer: boolean) {
+function sideX(
+  rng: () => number,
+  side: number,
+  z: number,
+  clear: number,
+  compact: boolean,
+  outer: boolean,
+  inward: boolean,
+) {
   const edge = Math.max(clear + 0.22, frameEdge(z, compact));
-  const along = outer ? 0.74 + rng() * 0.26 : rng();
+  const along = inward ? Math.pow(rng(), 1.65) : outer ? 0.74 + rng() * 0.26 : rng();
   let x = side * (clear + 0.05 + along * (edge - clear));
   if (Math.abs(x) < clear) x = side * (clear + 0.08 + rng() * 0.15);
   return x;
@@ -186,6 +194,7 @@ function scatterFull(
   family: boolean,
   lean: number,
   yawSpan: number,
+  inward = false,
 ) {
   const rng = mulberry32(seed);
   const items: Item[] = [];
@@ -193,7 +202,7 @@ function scatterFull(
     const side = i % 2 === 0 ? -1 : 1;
     const depth = i % 5 === 0 ? rng() * 0.4 : rng();
     const z = z0 + depth * (z1 - z0);
-    const x = sideX(rng, side, z, clear, compact, i % 5 === 1);
+    const x = sideX(rng, side, z, clear, compact, i % 5 === 1, inward);
     const tint = paint(rng, family);
     const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
     placeFlower(items, rng, x, 0.02, z, size, size, tint.color, tint.tip, lean, yawSpan);
@@ -201,8 +210,8 @@ function scatterFull(
   return items;
 }
 
-function splitCount(total: number) {
-  const near = Math.max(4, Math.round(total * 0.34));
+function splitCount(total: number, nearShare: number) {
+  const near = Math.max(4, Math.round(total * nearShare));
   return { near, mid: Math.max(4, total - near) };
 }
 
@@ -210,17 +219,19 @@ export function buildLayout(quality: Quality): SceneLayout {
   const counts = countsFor(quality);
   const compact = quality === "low";
   const flowerClear = compact ? 0.62 : FLOWER_CLEAR;
-  const lilySplit = splitCount(counts.lilies);
-  const daisySplit = splitCount(counts.daisies);
-  const lupinSplit = splitCount(counts.lupins);
-  const lilyScale = compact ? ([0.18, 0.26] as [number, number]) : ([0.26, 0.38] as [number, number]);
-  const daisyScale = [0.16, 0.26] as [number, number];
-  const lupinScale = compact ? ([0.38, 0.55] as [number, number]) : ([0.46, 0.66] as [number, number]);
-  const nearLilies = scatterFull(lilySplit.near, 11, 4.75, 1.55, lilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const lilySplit = splitCount(counts.lilies, compact ? 0.58 : 0.34);
+  const daisySplit = splitCount(counts.daisies, compact ? 0.58 : 0.34);
+  const lupinSplit = splitCount(counts.lupins, compact ? 0.58 : 0.34);
+  const lilyScale = compact ? ([0.22, 0.32] as [number, number]) : ([0.26, 0.38] as [number, number]);
+  const daisyScale = compact ? ([0.2, 0.3] as [number, number]) : ([0.16, 0.26] as [number, number]);
+  const lupinScale = compact ? ([0.42, 0.6] as [number, number]) : ([0.46, 0.66] as [number, number]);
+  // On a phone the ground past about z=3.9 is below the frame, so the near row sits inside it.
+  const nearZ = compact ? ([3.85, 1.35] as const) : ([4.75, 1.55] as const);
+  const nearLilies = scatterFull(lilySplit.near, 11, nearZ[0], nearZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, compact);
   const midLilies = scatterFull(lilySplit.mid, 13, -3.9, 1.9, lilyScale, flowerClear, compact, false, 0.92, 0.5);
-  const nearDaisies = scatterFull(daisySplit.near, 29, 4.75, 1.55, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const nearDaisies = scatterFull(daisySplit.near, 29, nearZ[0], nearZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, compact);
   const midDaisies = scatterFull(daisySplit.mid, 31, -3.9, 1.9, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
-  const nearLupins = scatterFull(lupinSplit.near, 47, 4.75, 1.55, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, compact);
   const midLupins = scatterFull(lupinSplit.mid, 53, -3.9, 1.9, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
 
   const grassRng = mulberry32(101);
@@ -238,7 +249,7 @@ export function buildLayout(quality: Quality): SceneLayout {
       const side = grassRng() < 0.5 ? -1 : 1;
       z = 4.15 - grassRng() * 1.7;
       const along = Math.pow(grassRng(), compact ? 1.45 : 0.62);
-      const reach = compact ? 2.2 : 4.6;
+      const reach = compact ? 1.15 : 4.6;
       x = side * (grassClear + along * reach);
     } else if (shoulder) {
       const side = grassRng() < 0.5 ? -1 : 1;
@@ -259,7 +270,8 @@ export function buildLayout(quality: Quality): SceneLayout {
       z = 2.1 - depth * 7.2;
       x = side * (grassClear + Math.pow(grassRng(), 0.55) * 6.4 * widthMul);
     }
-    const height = foreground ? 0.12 + grassRng() * 0.16 : 0.11 + grassRng() * 0.22;
+    const phoneGrass = !compact || z <= 1.35 ? 1 : Math.max(0.1, 0.7 - Math.max(0, z - 1.2) * 0.22);
+    const height = (foreground ? 0.12 + grassRng() * 0.16 : 0.11 + grassRng() * 0.22) * phoneGrass;
     const shade = 0.82 + grassRng() * 0.18;
     const warm = grassRng();
     grass.push({
@@ -268,9 +280,9 @@ export function buildLayout(quality: Quality): SceneLayout {
       z,
       yaw: (grassRng() - 0.5) * Math.PI * 2,
       pitch: (grassRng() - 0.5) * 0.44,
-      sx: 0.55 + grassRng() * 0.85,
+      sx: (0.55 + grassRng() * 0.85) * phoneGrass,
       sy: height,
-      sz: 0.5 + grassRng() * 0.9,
+      sz: (0.5 + grassRng() * 0.9) * phoneGrass,
       color: [(0.4 + warm * 0.14) * shade, (0.58 + (1 - warm) * 0.12) * shade, (0.16 + grassRng() * 0.08) * shade],
       phase: grassRng() * Math.PI * 2,
     });

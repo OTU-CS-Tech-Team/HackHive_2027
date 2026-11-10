@@ -105,8 +105,11 @@ void settlePortrait(inout vec3 world, vec3 origin) {
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
   float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
-  float shoulder = mix(1.05, 0.42, narrow) + 0.12;
+  float nearBand = smoothstep(1.15, 2.05, origin.z);
+  float shoulder = mix(1.05, 0.42, narrow) + mix(0.12, 0.02, phone * nearBand);
   float along = clamp((ax - placedInner) / max(0.25, placedOuter - placedInner), 0.0, 1.0);
+  float span = fract(sin(origin.z * 17.13 + ax * 9.2) * 43758.5453);
+  along = mix(along, span, phone * nearBand);
   float nx = mix(shoulder, visible * 0.96, along);
   world.x += origin.x * (nx / ax - 1.0);
 }
@@ -185,8 +188,11 @@ void settlePortrait(inout vec3 world, vec3 origin) {
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
   float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
-  float shoulder = mix(1.05, 0.42, narrow) + 0.12;
+  float nearBand = smoothstep(1.15, 2.05, origin.z);
+  float shoulder = mix(1.05, 0.42, narrow) + mix(0.12, 0.02, phone * nearBand);
   float along = clamp((ax - placedInner) / max(0.25, placedOuter - placedInner), 0.0, 1.0);
+  float span = fract(sin(origin.z * 17.13 + ax * 9.2) * 43758.5453);
+  along = mix(along, span, phone * nearBand);
   float nx = mix(shoulder, visible * 0.96, along);
   world.x += origin.x * (nx / ax - 1.0);
 }
