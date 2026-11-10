@@ -118,5 +118,41 @@ describe("meadow layout", () => {
     expect(low.triangles).toBeLessThan(high.triangles);
     expect(low.instances.lilies).toBe(high.instances.lilies);
     expect(low.instances.lupins).toBe(high.instances.lupins);
+    expect(low.instances.blossoms).toBe(high.instances.blossoms);
+  });
+
+  it("keeps the low foreground and the tablet shoulder under the tree", () => {
+    const low = buildLayout("low");
+    const near = low.patches[0];
+    expect(near).toBeTruthy();
+    if (!near) return;
+    expect(near.lupins.count).toBeGreaterThan(20);
+    let foreground = 0;
+    for (const group of [near.lilies, near.lupins]) {
+      for (let index = 0; index < group.count; index += 1) {
+        const z = group.matrices[index * 16 + 14] ?? 0;
+        if (z > 3.4) foreground += 1;
+      }
+    }
+    expect(foreground).toBeGreaterThan(12);
+    const high = buildLayout("high");
+    let shoulder = 0;
+    for (const patch of high.patches.slice(0, 2)) {
+      for (const group of [patch.lilies, patch.lupins, patch.daisies]) {
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          if (z < 0.35 || z > 2.35) continue;
+          const dist = Math.abs(x - pathCenterMid(z));
+          if (dist > 0.28 && dist < 0.9) shoulder += 1;
+        }
+      }
+    }
+    expect(shoulder).toBeGreaterThan(8);
+    for (let index = 0; index < high.sparks.count; index += 1) {
+      const x = high.sparks.matrices[index * 16 + 12] ?? 0;
+      const z = high.sparks.matrices[index * 16 + 14] ?? 0;
+      expect(Math.abs(x - pathCenterAt(z))).toBeGreaterThan(0.7);
+    }
   });
 });

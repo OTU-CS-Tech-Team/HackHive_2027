@@ -49,7 +49,9 @@ export function sceneBudget(quality: Quality): SceneBudget {
     lupin: triangles(createLupinGeometry(undefined, "full", "near")),
     lupinMid: triangles(createLupinGeometry(undefined, "full", "mid")),
     lupinSpeck: triangles(createLupinGeometry(undefined, "speck")),
-    card: triangles(createCardGeometry()),
+    card: triangles(createCardGeometry(undefined, "blossom")),
+    cloud: triangles(createCardGeometry(undefined, "cloud")),
+    glow: triangles(createCardGeometry(undefined, "glow")),
     hill: triangles(createHillsGeometry()),
     trunk: triangles(createTrunkGeometry()),
     sky: triangles(new SphereGeometry(48, SKY_SEGMENTS[0], SKY_SEGMENTS[1])),
@@ -95,11 +97,11 @@ export function sceneBudget(quality: Quality): SceneBudget {
   });
   if (layout.clouds.count > 0) {
     draws += 1;
-    tris += unit.card * layout.clouds.count;
+    tris += unit.cloud * layout.clouds.count;
   }
   if (layout.glows.count > 0) {
     draws += 1;
-    tris += unit.card * layout.glows.count;
+    tris += unit.glow * layout.glows.count;
   }
   if (layout.sparks.count > 0) draws += 1;
   if (layout.blossoms.count > 0) {

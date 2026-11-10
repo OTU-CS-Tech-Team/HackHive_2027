@@ -312,6 +312,16 @@ function sideX(
   return span[0] + (span[1] - span[0]) * t;
 }
 
+/** Just outside the tablet path, in the grass band under the tree at 768. */
+function tabletShoulder(z: number, side: number, rng: () => number) {
+  const center = pathCenterMid(z);
+  const narrow = 1 - smooth01(0.62, 1.15, 0.75);
+  const base = 1.05 * (1 - narrow) + 0.42 * narrow;
+  const half = base * (1 - 0.38 * pathEaseAt(z));
+  const gap = half * 0.7 + 0.1 + rng() * 0.24;
+  return center + side * gap;
+}
+
 /** Full meshes, spread from the path shoulder out to the frame edge. */
 function scatterFull(
   count: number,
@@ -332,7 +342,8 @@ function scatterFull(
     const side = i % 2 === 0 ? -1 : 1;
     const depth = i % 5 === 0 ? rng() * 0.4 : rng();
     const z = z0 + depth * (z1 - z0);
-    const x = sideX(rng, side, z, clear, compact, i % 5 === 1, inward);
+    const nearTree = z > 0.35 && z < 2.35;
+    const x = nearTree && i % 4 === 0 ? tabletShoulder(z, side, rng) : sideX(rng, side, z, clear, compact, i % 5 === 1, inward);
     const tint = paint(rng, family);
     const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
     placeFlower(items, rng, x, 0.02, z, size, size, tint.color, tint.tip, lean, yawSpan);
@@ -380,34 +391,20 @@ function placeShell(
   }
 }
 
-/** Layered blossom cloud: shadow, warm rim, three depths, then a few falling petals. */
-function buildBlossoms(quality: Quality) {
-  const compact = quality === "low";
-  const glows = compact ? 3 : 4;
-  const petals = compact ? 16 : 26;
+/**
+ * One crown for both tiers. Closer cards are first so the depth test
+ * rejects the shells behind them. No stacked glow quads.
+ */
+function buildBlossoms() {
+  const petals = 26;
   const items: Item[] = [];
-  for (let i = 0; i < glows; i += 1) {
-    const angle = (i / glows) * Math.PI * 2;
-    items.push({
-      x: TREE.x + Math.cos(angle) * 0.16,
-      y: TREE.baseY + TREE.canopyY + 0.04,
-      z: TREE.z - 0.42,
-      yaw: 0,
-      pitch: 0,
-      sx: 0.95,
-      sy: 0.7,
-      sz: 1,
-      color: hexToRgb("#ffd2b8"),
-      phase: 11 + i * 0.15,
-    });
-  }
-  const back = compact ? 40 : 64;
-  const mid = compact ? 48 : 76;
-  const front = compact ? 32 : 56;
-  placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 1.02, -0.22, 0.25, BLOSSOM_ROSE, 0.32, 0.44);
-  placeShell(items, mid, TREE.canopyY + 0.02, TREE.canopyRadius * 0.88, 0.0, 2.7, BLOSSOM_MID, 0.28, 0.4);
-  placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.68, 0.18, 5.3, BLOSSOM_PALE, 0.24, 0.34);
-  const sprigs = compact ? 8 : 14;
+  const back = 64;
+  const mid = 76;
+  const front = 56;
+  placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.72, 0.18, 5.3, BLOSSOM_PALE, 0.26, 0.38);
+  placeShell(items, mid, TREE.canopyY + 0.0, TREE.canopyRadius * 0.92, 0.0, 2.7, BLOSSOM_MID, 0.3, 0.44);
+  placeShell(items, back, TREE.canopyY - 0.12, TREE.canopyRadius * 1.08, -0.18, 0.25, BLOSSOM_ROSE, 0.36, 0.5);
+  const sprigs = 14;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < sprigs; i += 1) {
     const angle = golden * i * 2.4 + 0.4;
@@ -428,6 +425,8 @@ function buildBlossoms(quality: Quality) {
       phase: 6.4 + (i % 3) * 0.04,
     });
   }
+  items.sort((a, b) => b.z - a.z);
+  const canopyCount = items.length;
   for (let i = 0; i < petals; i += 1) {
     const angle = golden * i * 1.7;
     const radius = 0.18 + (i % 5) * 0.12;
@@ -446,7 +445,7 @@ function buildBlossoms(quality: Quality) {
       phase: 30 + i * 0.37,
     });
   }
-  return { scatter: toScatter(items), canopyCount: glows + back + mid + front + sprigs };
+  return { scatter: toScatter(items), canopyCount };
 }
 
 function splitCount(total: number, nearShare: number) {
@@ -457,30 +456,30 @@ function splitCount(total: number, nearShare: number) {
 export function buildLayout(quality: Quality): SceneLayout {
   const counts = countsFor(quality);
   const compact = quality === "low";
-  const flowerClear = compact ? 0.62 : FLOWER_CLEAR;
-  const lilySplit = splitCount(counts.lilies, compact ? 0.58 : 0.34);
-  const daisySplit = splitCount(counts.daisies, compact ? 0.58 : 0.34);
-  const lupinSplit = splitCount(counts.lupins, compact ? 0.58 : 0.34);
+  const flowerClear = FLOWER_CLEAR;
+  const lilySplit = splitCount(counts.lilies, 0.34);
+  const daisySplit = splitCount(counts.daisies, 0.34);
+  const lupinSplit = splitCount(counts.lupins, 0.34);
   const lilyScale: [number, number] = [0.26, 0.38];
   const daisyScale: [number, number] = [0.16, 0.26];
   const lupinScale: [number, number] = [0.46, 0.66];
-  // On a phone the ground past about z=3.9 is below the frame, so the near row sits inside it.
-  const nearZ = compact ? ([3.7, 1.2] as const) : ([4.05, 1.35] as const);
-  const midZ = compact ? ([3.5, 0.15] as const) : ([3.85, 0.05] as const);
-  const nearLilies = scatterFull(lilySplit.near, 11, nearZ[0], nearZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, true);
-  const midLilies = scatterFull(lilySplit.mid, 13, midZ[0], midZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, true);
-  const nearDaisies = scatterFull(daisySplit.near, 29, nearZ[0], nearZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, true);
-  const midDaisies = scatterFull(daisySplit.mid, 31, midZ[0], midZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, true);
-  const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, true);
-  const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, true);
+  const nearZ = [4.05, 1.35] as const;
+  const midZ = [3.85, 0.05] as const;
+  const spread = false;
+  const nearLilies = scatterFull(lilySplit.near, 11, nearZ[0], nearZ[1], lilyScale, flowerClear, spread, false, 0.92, 0.5, true);
+  const midLilies = scatterFull(lilySplit.mid, 13, midZ[0], midZ[1], lilyScale, flowerClear, spread, false, 0.92, 0.5, true);
+  const nearDaisies = scatterFull(daisySplit.near, 29, nearZ[0], nearZ[1], daisyScale, flowerClear, spread, false, 0, Math.PI * 2, true);
+  const midDaisies = scatterFull(daisySplit.mid, 31, midZ[0], midZ[1], daisyScale, flowerClear, spread, false, 0, Math.PI * 2, true);
+  const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
+  const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];
   const farLupinScale: [number, number] = [lupinScale[0] * farScale, lupinScale[1] * farScale];
-  const farLilies = scatterFull(counts.farLilies, 71, -1.9, -3.75, farLilyScale, flowerClear, compact, false, 0.92, 0.5);
-  const farDaisies = scatterFull(counts.farDaisies, 73, -1.9, -3.75, farDaisyScale, flowerClear, compact, false, 0, Math.PI * 2);
-  const farLupins = scatterFull(counts.farLupins, 79, -1.9, -3.75, farLupinScale, flowerClear, compact, true, 0, Math.PI * 2);
-  const blossoms = buildBlossoms(quality);
+  const farLilies = scatterFull(counts.farLilies, 71, -1.9, -3.75, farLilyScale, flowerClear, spread, false, 0.92, 0.5);
+  const farDaisies = scatterFull(counts.farDaisies, 73, -1.9, -3.75, farDaisyScale, flowerClear, spread, false, 0, Math.PI * 2);
+  const farLupins = scatterFull(counts.farLupins, 79, -1.9, -3.75, farLupinScale, flowerClear, spread, true, 0, Math.PI * 2);
+  const blossoms = buildBlossoms();
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
@@ -537,15 +536,18 @@ export function buildLayout(quality: Quality): SceneLayout {
   }
 
   const glowItems: Item[] = [];
-  const glowLilies = [...nearLilies, ...midLilies].sort((a, b) => b.z - a.z).slice(0, 20);
+  const glowLilies = [...nearLilies, ...midLilies]
+    .filter((flower) => Math.abs(flower.x - pathCenterAt(flower.z)) > 1.05 && Math.abs(flower.x - pathCenterMid(flower.z)) > 0.55)
+    .sort((a, b) => b.z - a.z)
+    .slice(0, 8);
   for (const flower of glowLilies) {
     glowItems.push({
       ...flower,
-      y: 0.72 * flower.sy,
-      sx: flower.sx * 0.62,
-      sy: flower.sy * 0.62,
+      y: flower.sy * 0.92,
+      sx: flower.sx * 0.2,
+      sy: flower.sy * 0.2,
       sz: 1,
-      color: [1, 1, 1],
+      color: [1, 0.98, 0.92],
     });
   }
   const cloudRng = mulberry32(7);
@@ -593,10 +595,18 @@ export function buildLayout(quality: Quality): SceneLayout {
     const edge = compact ? 0.28 : 1.02;
     const reach = middle ? (compact ? 0.95 : 2.2) : (compact ? 1.8 : 4.8);
     const color = sparkColors[Math.floor(sparkRng() * sparkColors.length)] ?? [1, 0.98, 0.94];
-    const size = 0.14 + sparkRng() * (middle ? 0.16 : 0.1);
+    const size = 0.045 + sparkRng() * 0.04;
+    let x = side * (edge + Math.pow(sparkRng(), 0.62) * reach);
+    const clearOf = (center: number, gap: number) => {
+      if (Math.abs(x - center) >= gap) return;
+      x = center + (x >= center ? 1 : -1) * gap;
+    };
+    clearOf(pathCenterAt(z), 1.05);
+    clearOf(pathCenterMid(z), 0.62);
+    clearOf(pathCenterAt(z), 1.05);
     sparks.push({
-      x: side * (edge + Math.pow(sparkRng(), 0.62) * reach),
-      y: 0.1 + sparkRng() * (middle ? 0.42 : 0.62),
+      x,
+      y: 0.42 + sparkRng() * (middle ? 0.55 : 0.7),
       z,
       yaw: 0,
       pitch: 0,

@@ -5,7 +5,7 @@ import { Canvas } from "@react-three/fiber";
 import { LinearSRGBColorSpace, NoToneMapping } from "three";
 import MeadowWorld from "@/components/landing/meadow/World";
 import { VIEW } from "@/components/landing/meadow/palette";
-import { countsFor, detectQuality, webglAvailable, type Quality } from "@/components/landing/meadow/quality";
+import { countsFor, detectQuality, readForcedQuality, webglAvailable, type Quality } from "@/components/landing/meadow/quality";
 
 const FALLBACK =
   "linear-gradient(180deg, #e2f2f8 0%, #d7eef8 20%, #f4e4b4 48%, #c5de8a 70%, #78a84a 100%)";
@@ -83,7 +83,11 @@ export default function MeadowScene({
   const [lost, setLost] = useState(false);
   const [running, setRunning] = useState(true);
   const [settled, setSettled] = useState(false);
-  const [tier] = useState<Quality>(() => quality ?? detectQuality());
+  const [tier] = useState<Quality>(() => {
+    if (quality) return quality;
+    if (typeof window === "undefined") return "high";
+    return readForcedQuality(window.location.search) ?? detectQuality();
+  });
   const reduced = useSystemReducedMotion(reducedMotion);
   const counts = countsFor(quality ?? tier);
 

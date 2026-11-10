@@ -2,7 +2,6 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   InstancedBufferAttribute,
-  PlaneGeometry,
 } from "three";
 import type { Scatter } from "@/components/landing/meadow/layout";
 
@@ -673,10 +672,62 @@ export function createSparkPoints(scatter: Scatter): BufferGeometry {
   return geometry;
 }
 
-/** Soft card. The shader draws the blob; the quad itself is never a hard edge. */
-export function createCardGeometry(scatter?: Scatter) {
-  const geometry = new PlaneGeometry(1, 1);
-  const count = geometry.getAttribute("position").count;
+export type CardKind = "blossom" | "cloud" | "glow";
+
+/**
+ * A polygon tight to the painted shape. UVs stay in the old unit-quad space
+ * so the shader's blob does not scale up to the cropped edge.
+ */
+function cardPolygon(kind: CardKind) {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const push = (x: number, y: number) => {
+    positions.push(x, y, 0);
+    uvs.push(x + 0.5, y + 0.5);
+  };
+  const fan = (steps: number) => {
+    for (let i = 0; i < steps; i += 1) indices.push(0, 1 + i, 1 + ((i + 1) % steps));
+  };
+  switch (kind) {
+    case "cloud": {
+      const steps = 12;
+      push(0, -0.02);
+      for (let i = 0; i < steps; i += 1) {
+        const angle = (i / steps) * Math.PI * 2;
+        push(Math.cos(angle) * 0.48, Math.sin(angle) * 0.34 - 0.02);
+      }
+      fan(steps);
+      break;
+    }
+    case "glow":
+    case "blossom": {
+      const radius = kind === "glow" ? 0.46 : 0.4;
+      const steps = 8;
+      push(0, 0);
+      for (let i = 0; i < steps; i += 1) {
+        const angle = (i / steps) * Math.PI * 2 + Math.PI / 8;
+        push(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      }
+      fan(steps);
+      break;
+    }
+    default: {
+      const unknown: never = kind;
+      return unknown;
+    }
+  }
+  return { positions, uvs, indices };
+}
+
+/** Cropped card. Empty corners of the old quad are not rasterized. */
+export function createCardGeometry(scatter?: Scatter, kind: CardKind = "blossom") {
+  const polygon = cardPolygon(kind);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(polygon.positions, 3));
+  geometry.setAttribute("uv", new Float32BufferAttribute(polygon.uvs, 2));
+  geometry.setIndex(polygon.indices);
+  const count = polygon.positions.length / 3;
   if (scatter && scatter.count > 0) {
     geometry.setAttribute("aPhase", new InstancedBufferAttribute(scatter.phases, 1));
     geometry.setAttribute("aTint", new InstancedBufferAttribute(scatter.colors, 3));
@@ -686,5 +737,6 @@ export function createCardGeometry(scatter?: Scatter) {
     tint.fill(1);
     geometry.setAttribute("aTint", new Float32BufferAttribute(tint, 3));
   }
+  geometry.computeBoundingSphere();
   return geometry;
 }

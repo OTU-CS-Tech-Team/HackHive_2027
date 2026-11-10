@@ -56,6 +56,22 @@ export function countsFor(quality: Quality): SceneCounts {
   }
 }
 
+/** Opt-in tier override (`?meadow=low|high`) so a weak machine can still show both scenes. */
+export function readForcedQuality(search: string): Quality | null {
+  const value = new URLSearchParams(search).get("meadow");
+  if (value === "low" || value === "high") return value;
+  return null;
+}
+
+/** Opt-in canvas scale (`?meadowDpr=0.5`) for fill-rate checks. Ignored when absent. */
+export function readForcedDpr(search: string): number | null {
+  const value = new URLSearchParams(search).get("meadowDpr");
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0.25 || parsed > 2) return null;
+  return parsed;
+}
+
 export function detectQuality(): Quality {
   if (typeof window === "undefined") return "high";
   const nav = navigator as Navigator & { deviceMemory?: number };

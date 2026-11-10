@@ -61,7 +61,7 @@ import {
 import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
 import { TREE } from "@/components/landing/meadow/tree";
 import { readForcedTrim, trimmedInstances, trimmedSparks, type TrimKind } from "@/components/landing/meadow/trim";
-import type { Quality } from "@/components/landing/meadow/quality";
+import { readForcedDpr, type Quality } from "@/components/landing/meadow/quality";
 
 const FULL_COUNT = "fullCount";
 const KIND = "meadowKind";
@@ -146,7 +146,9 @@ function plantMaterial(
   side: Side = DoubleSide,
   rim = 0,
   soft = false,
+  cutout = false,
 ) {
+  // MSAA is off, so alpha-to-coverage would not soften the cut.
   return new ShaderMaterial({
     uniforms: {
       ...baseUniforms(),
@@ -159,11 +161,11 @@ function plantMaterial(
     fragmentShader: PLANT_FRAG,
     vertexColors: true,
     side,
-    transparent: soft,
+    transparent: soft && !cutout,
     depthWrite: true,
-    alphaToCoverage: soft,
-    premultipliedAlpha: soft,
-    alphaTest: soft && sss < 0.2 ? 0.12 : 0,
+    alphaToCoverage: false,
+    premultipliedAlpha: soft && !cutout,
+    alphaTest: cutout ? 0.5 : 0,
   });
 }
 
@@ -213,7 +215,7 @@ function buildMaterials(): Materials {
     vertexColors: true,
     side: DoubleSide,
   });
-  const grass = plantMaterial(0.08, [0, 0, 0], DoubleSide, 0, true);
+  const grass = plantMaterial(0.08, [0, 0, 0], DoubleSide, 0, false, true);
   const lily = plantMaterial(0.92, [1, 0.98, 0.94], DoubleSide, 0.34, true);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = new ShaderMaterial({
@@ -260,9 +262,9 @@ function buildMaterials(): Materials {
     uniforms: { ...baseUniforms(), uAspect: { value: 1.6 } },
     vertexShader: BLOSSOM_VERT,
     fragmentShader: BLOSSOM_FRAG,
-    transparent: true,
-    depthWrite: false,
-    premultipliedAlpha: true,
+    transparent: false,
+    depthWrite: true,
+    alphaTest: 0.45,
   });
   return {
     sky,
@@ -295,9 +297,9 @@ function buildGeometries(layout: SceneLayout, quality: Quality) {
     }),
     hills: createHillsGeometry(),
     trunk: createTrunkGeometry(),
-    blossoms: createCardGeometry(layout.blossoms),
-    clouds: createCardGeometry(layout.clouds),
-    glows: createCardGeometry(layout.glows),
+    blossoms: createCardGeometry(layout.blossoms, "blossom"),
+    clouds: createCardGeometry(layout.clouds, "cloud"),
+    glows: createCardGeometry(layout.glows, "glow"),
     sparks: createSparkPoints(layout.sparks),
   };
 }
@@ -328,7 +330,11 @@ function Instances({
     mesh.userData[KIND] = kind;
     if (canopy !== undefined) mesh.userData.canopy = canopy;
     mesh.computeBoundingSphere();
-    mesh.frustumCulled = true;
+    // The flower and crown shaders move vertices after the instance matrix
+    // (sway, portrait settle, the tree's aspect shift). A tight sphere was
+    // slicing the right-hand lupins and lilies. Draw them anyway.
+    if (mesh.boundingSphere) mesh.boundingSphere.radius += 2.6;
+    mesh.frustumCulled = false;
     if (!liveMeshes.includes(mesh)) liveMeshes.push(mesh);
     return () => {
       const index = liveMeshes.indexOf(mesh);
@@ -340,7 +346,7 @@ function Instances({
     <instancedMesh
       ref={ref}
       args={[geometry, material, scatter.count]}
-      frustumCulled
+      frustumCulled={false}
       renderOrder={renderOrder}
     />
   );
@@ -391,6 +397,9 @@ function FrameDriver({
   const perf = useRef({ warm: 0, hot: 0 });
   const trimStage = useRef(0);
   const forcedTrim = useRef<0 | 1 | 2 | 3 | null>(null);
+  const forcedDpr = useRef<number | null>(null);
+  const lockTrim = useRef(false);
+  const logStats = useRef(false);
   const reducedRef = useRef(reduced);
   const onReadyRef = useRef(onReady);
   const onDoneRef = useRef(onDone);
@@ -474,9 +483,23 @@ function FrameDriver({
     }
 
     const stats = perf.current;
-    if (forcedTrim.current === null) forcedTrim.current = readForcedTrim(window.location.search);
+    if (forcedTrim.current === null) {
+      const search = window.location.search;
+      forcedTrim.current = readForcedTrim(search);
+      lockTrim.current = process.env.NODE_ENV !== "production" && new URLSearchParams(search).has("meadowTrim");
+      forcedDpr.current = readForcedDpr(search) ?? 0;
+      logStats.current = new URLSearchParams(search).has("meadowStats");
+    }
     const forced = forcedTrim.current;
-    if (forced !== 0 && trimStage.current === 0) {
+    const pinnedDpr = forcedDpr.current;
+    if (pinnedDpr !== null && pinnedDpr > 0) {
+      if (trimStage.current === 0) {
+        gl.setPixelRatio(pinnedDpr);
+        trimStage.current = 3;
+      }
+    } else if (lockTrim.current && forced === 0) {
+      // `?meadowTrim=0` holds the full scene for a screenshot. Production ignores it.
+    } else if (forced !== 0 && trimStage.current === 0) {
       applyTrim(forced);
       gl.setPixelRatio(forced === 1 ? 1 : 0.85);
       trimStage.current = 3;
@@ -491,6 +514,27 @@ function FrameDriver({
         stats.hot = 0;
         stats.warm = 0;
       }
+    }
+
+    if (logStats.current) {
+      const info = gl.info.render;
+      const report = {
+        triangles: info.triangles,
+        calls: info.calls,
+        dpr: gl.getPixelRatio(),
+        width: gl.domElement.width,
+        height: gl.domElement.height,
+        meshes: liveMeshes.map((mesh) => {
+          const indexCount = mesh.geometry.index?.count ?? 0;
+          return {
+            kind: String(mesh.userData[KIND] ?? ""),
+            count: mesh.count,
+            index: indexCount,
+            tris: (indexCount / 3) * mesh.count,
+          };
+        }),
+      };
+      (window as Window & { __meadow?: typeof report }).__meadow = report;
     }
 
     frames.current += 1;
@@ -582,9 +626,9 @@ export default function MeadowWorld({
         kind="tree"
         canopy={layout.canopyCount}
       />
-      <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
+      <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} kind="cloud" />
       <SparkPoints geometry={geometries.sparks} material={materials.spark} />
-      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={4} />
+      <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={4} kind="glow" />
     </>
   );
 }
