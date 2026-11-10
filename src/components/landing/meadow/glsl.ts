@@ -135,7 +135,10 @@ void settlePortrait(inout vec3 world, vec3 origin) {
   float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
   if (ax <= visible) return;
-  world.x += origin.x * (visible * 0.94 / ax - 1.0);
+  float edge = visible * 0.97;
+  float over = clamp((ax - visible) / max(visible, 0.2), 0.0, 1.0);
+  float pulled = mix(edge, visible * 0.72, over * 0.85);
+  world.x += origin.x * (pulled / ax - 1.0);
 }
 
 void main() {
@@ -209,7 +212,10 @@ void settlePortrait(inout vec3 world, vec3 origin) {
   float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
   if (ax <= visible) return;
-  world.x += origin.x * (visible * 0.94 / ax - 1.0);
+  float edge = visible * 0.97;
+  float over = clamp((ax - visible) / max(visible, 0.2), 0.0, 1.0);
+  float pulled = mix(edge, visible * 0.72, over * 0.85);
+  world.x += origin.x * (pulled / ax - 1.0);
 }
 
 void main() {
@@ -755,21 +761,6 @@ float cluster(vec2 p, float ang) {
   return alpha;
 }
 
-vec2 nearestPetal(vec2 p, float ang) {
-  vec2 best = vec2(0.0, -0.01);
-  float bestD = length(p - best);
-  for (int i = 0; i < 5; i += 1) {
-    float t = ang + float(i) * 1.256637;
-    vec2 c = vec2(cos(t), sin(t)) * 0.11;
-    float d = length(p - c);
-    if (d < bestD) {
-      bestD = d;
-      best = c;
-    }
-  }
-  return best;
-}
-
 void main() {
   vec2 p = vUv - 0.5;
   float shadow = step(20.5, vKind) * (1.0 - step(22.0, vKind));
@@ -792,12 +783,13 @@ void main() {
   }
   alpha = saturate(alpha) * (1.0 - uVeil);
   if (alpha < 0.02) discard;
-  // Colour comes from the solid petal, then that pink is what the alpha cut
-  // writes. A fringe sample was coming out white.
-  vec2 q = glow > 0.5 ? p : nearestPetal(p, ang);
-  float shade = saturate(0.88 - length(q) * 0.55);
-  vec3 deep = vec3(0.62, 0.2, 0.36);
-  vec3 col = mix(vTint, deep, 0.18 + shade * 0.1);
+  // One colour for the whole card, so the alpha cut matches the body.
+  // A lighter edge on a darker card was reading as a white rim. White
+  // blossoms stay white; pink stays a light pink.
+  float pale = step(0.9, min(vTint.r, min(vTint.g, vTint.b)));
+  vec3 deep = vec3(0.78, 0.38, 0.52);
+  vec3 pink = mix(vTint, deep, 0.06);
+  vec3 col = mix(pink, vTint, pale);
   col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.04);
   gl_FragColor = vec4(col, 1.0);
 }

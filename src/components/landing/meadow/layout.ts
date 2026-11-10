@@ -354,6 +354,31 @@ function fillTabletGap(lilies: Item[], daisies: Item[], lupins: Item[]) {
   }
 }
 
+/**
+ * A few mid flowers in the lawn just off the wide path. That grass is
+ * the band behind the button at 1280. z stays in the mid patch.
+ */
+function fillButtonBand(lilies: Item[], daisies: Item[], lupins: Item[]) {
+  const rng = mulberry32(1201);
+  const count = 8;
+  for (let i = 0; i < count; i += 1) {
+    const z = 1.55 + (i % 4) * 0.18 + (rng() - 0.5) * 0.05;
+    const side = i < 5 ? -1 : 1;
+    const x = pathCenterAt(z) + side * (0.82 + (i % 3) * 0.16 + rng() * 0.06);
+    if (i % 4 === 0) {
+      const tint = paint(rng, true);
+      const size = 0.5 + rng() * 0.1;
+      placeFlower(lupins, rng, x, 0.02, z, size, size, tint.color, tint.tip, 0, Math.PI * 2);
+    } else if (i % 4 === 1) {
+      const size = 0.28 + rng() * 0.06;
+      placeFlower(lilies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0.92, 0.5);
+    } else {
+      const size = 0.18 + rng() * 0.06;
+      placeFlower(daisies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0, Math.PI * 2);
+    }
+  }
+}
+
 /** Full meshes, spread from the path shoulder out to the frame edge. */
 function scatterFull(
   count: number,
@@ -383,9 +408,17 @@ function scatterFull(
   return items;
 }
 
-const BLOSSOM_ROSE: RGB[] = [hexToRgb("#d45078"), hexToRgb("#c44870"), hexToRgb("#e06088")];
-const BLOSSOM_MID: RGB[] = [hexToRgb("#e07090"), hexToRgb("#e888a4"), hexToRgb("#ee9eb4")];
-const BLOSSOM_PALE: RGB[] = [hexToRgb("#f0b4c6"), hexToRgb("#e8a0b6"), hexToRgb("#f4c0d0")];
+const BLOSSOM_WHITE: RGB[] = [hexToRgb("#fffdfb"), hexToRgb("#fff6f8"), hexToRgb("#ffffff")];
+const BLOSSOM_PINK: RGB[] = [hexToRgb("#f6b7c8"), hexToRgb("#f3a4ba"), hexToRgb("#f8c6d4")];
+const BLOSSOM_ROSE: RGB[] = [hexToRgb("#f0a0b8"), hexToRgb("#fff8f9"), hexToRgb("#ee94ae"), hexToRgb("#f7c2d0")];
+const BLOSSOM_MIXED: RGB[] = [
+  hexToRgb("#fffdfb"),
+  hexToRgb("#f6b7c8"),
+  hexToRgb("#fff7f8"),
+  hexToRgb("#f3a4ba"),
+  hexToRgb("#ffffff"),
+  hexToRgb("#f8c6d4"),
+];
 
 function placeShell(
   items: Item[],
@@ -403,9 +436,9 @@ function placeShell(
     const yNorm = 0.92 - ((i + 0.5) / count) * 1.08;
     const ring = Math.sqrt(Math.max(0, 1 - yNorm * yNorm));
     const theta = golden * i;
-    const jitter = 0.76 + (i % 5) * 0.06;
+    const jitter = 0.94 + (i % 3) * 0.02;
     const reach = radius * ring * jitter;
-    const color = colors[i % colors.length] ?? BLOSSOM_PALE[0];
+    const color = colors[i % colors.length] ?? BLOSSOM_PINK[0];
     if (!color) continue;
     const size = sizeMin + (i % 7) * ((sizeMax - sizeMin) / 6);
     items.push({
@@ -415,7 +448,7 @@ function placeShell(
       yaw: 0,
       pitch: 0,
       sx: size,
-      sy: size * (0.84 + (i % 3) * 0.08),
+      sy: size * (0.92 + (i % 3) * 0.03),
       sz: 1,
       color,
       phase: phase + (i % 5) * 0.03,
@@ -433,16 +466,16 @@ function buildBlossoms() {
   const back = 64;
   const mid = 76;
   const front = 56;
-  placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.72, 0.18, 5.3, BLOSSOM_PALE, 0.26, 0.38);
-  placeShell(items, mid, TREE.canopyY + 0.0, TREE.canopyRadius * 0.92, 0.0, 2.7, BLOSSOM_MID, 0.3, 0.44);
-  placeShell(items, back, TREE.canopyY - 0.12, TREE.canopyRadius * 1.08, -0.18, 0.25, BLOSSOM_ROSE, 0.36, 0.5);
+  placeShell(items, front, TREE.canopyY + 0.06, TREE.canopyRadius * 0.8, 0.12, 5.3, BLOSSOM_WHITE, 0.28, 0.34);
+  placeShell(items, mid, TREE.canopyY + 0.0, TREE.canopyRadius * 0.9, 0.0, 2.7, BLOSSOM_MIXED, 0.3, 0.36);
+  placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 0.98, -0.1, 0.25, BLOSSOM_ROSE, 0.32, 0.38);
   const sprigs = 14;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < sprigs; i += 1) {
     const angle = golden * i * 2.4 + 0.4;
-    const reach = TREE.canopyRadius * (1.12 + (i % 4) * 0.07);
-    const lift = ((i % 5) - 2) * 0.11;
-    const color = i % 3 === 0 ? BLOSSOM_PALE[i % BLOSSOM_PALE.length] : BLOSSOM_MID[i % BLOSSOM_MID.length];
+    const reach = TREE.canopyRadius * (1.0 + (i % 4) * 0.015);
+    const lift = ((i % 5) - 2) * 0.07;
+    const color = i % 2 === 0 ? BLOSSOM_WHITE[i % BLOSSOM_WHITE.length] : BLOSSOM_PINK[i % BLOSSOM_PINK.length];
     if (!color) continue;
     items.push({
       x: TREE.x + Math.cos(angle) * reach,
@@ -450,8 +483,8 @@ function buildBlossoms() {
       z: TREE.z + Math.sin(angle) * reach * 0.9,
       yaw: 0,
       pitch: 0,
-      sx: 0.16 + (i % 3) * 0.03,
-      sy: 0.2 + (i % 4) * 0.02,
+      sx: 0.15,
+      sy: 0.17,
       sz: 1,
       color,
       phase: 6.4 + (i % 3) * 0.04,
@@ -462,7 +495,7 @@ function buildBlossoms() {
   for (let i = 0; i < petals; i += 1) {
     const angle = golden * i * 1.7;
     const radius = 0.18 + (i % 5) * 0.12;
-    const color = BLOSSOM_PALE[i % BLOSSOM_PALE.length] ?? BLOSSOM_MID[0];
+    const color = i % 2 === 0 ? BLOSSOM_WHITE[i % BLOSSOM_WHITE.length] : BLOSSOM_PINK[i % BLOSSOM_PINK.length];
     if (!color) continue;
     items.push({
       x: TREE.x + Math.cos(angle) * radius,
@@ -505,6 +538,7 @@ export function buildLayout(quality: Quality): SceneLayout {
   const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
   const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
   fillTabletGap(midLilies, midDaisies, midLupins);
+  fillButtonBand(midLilies, midDaisies, midLupins);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];

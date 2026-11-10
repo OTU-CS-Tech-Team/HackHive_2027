@@ -220,9 +220,74 @@ function addLilyLeaf(mesh: Bag, yaw: number, y0: number) {
 export type FlowerLod = "full" | "speck";
 export type LilyDetail = "near" | "mid";
 
-/** A tiny soft bloom. Far flowers should melt into the wash, not stand up as bars. */
+/** A ribbon wide enough to read as a stem once the instance is small on screen. */
+function addStemRibbon(mesh: Bag, height: number, width: number) {
+  const stem: RGB = [0.2, 0.34, 0.12];
+  const stemTip: RGB = [0.42, 0.58, 0.22];
+  const steps = 4;
+  let previousLeft = -1;
+  let previousRight = -1;
+  for (let step = 0; step <= steps; step += 1) {
+    const t = step / steps;
+    const y = t * height;
+    const curve = Math.sin(t * Math.PI) * 0.035;
+    const half = width * (1 - t * 0.4);
+    const color = mix(stem, stemTip, t);
+    const left = vert(mesh, curve - half, y, 0, color, 0.35);
+    const right = vert(mesh, curve + half, y, 0, color, 0.35);
+    if (previousLeft >= 0) {
+      mesh.indices.push(previousLeft, left, previousRight, previousRight, left, right);
+    }
+    previousLeft = left;
+    previousRight = right;
+  }
+}
+
+/** A flat blossom, crossed so it reads from the path and from the side. */
+function addCrossBloom(mesh: Bag, ox: number, oy: number, oz: number, radius: number, spikeT: number) {
+  const color: RGB = [spikeT, 0, 2];
+  const planes: [number, number][] = [
+    [1, 0],
+    [0, 1],
+  ];
+  for (const [across, depth] of planes) {
+    const center = vert(mesh, ox, oy, oz, color, 0.06);
+    const petals = 8;
+    const ring: number[] = [];
+    for (let i = 0; i < petals; i += 1) {
+      const angle = (i / petals) * Math.PI * 2 - Math.PI / 2;
+      const dx = Math.cos(angle) * radius;
+      const dy = Math.sin(angle) * radius;
+      ring.push(vert(mesh, ox + dx * across, oy + dy, oz + dx * depth, color, 0.06));
+    }
+    for (let i = 0; i < petals; i += 1) {
+      mesh.indices.push(center, ring[i] ?? center, ring[(i + 1) % petals] ?? center);
+    }
+  }
+}
+
+/**
+ * A short spike for the mid and far lupins. Crossed blossoms on a
+ * ribbon stem, so a phone sees a flower rather than a floating square.
+ * Cheaper than the old 8-floret teardrop, which pays for the stem.
+ */
+function addVisibleSpike(mesh: Bag, florets: number, height: number, floretSize: number) {
+  addStemRibbon(mesh, height, 0.046);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let floret = 0; floret < florets; floret += 1) {
+    const t = florets === 1 ? 0.55 : floret / (florets - 1);
+    const y = 0.18 + Math.pow(t, 0.9) * (height - 0.22);
+    const size = floretSize * (0.7 + 0.3 * (1 - t));
+    const yaw = floret * golden;
+    const curve = Math.sin(t * Math.PI) * 0.04;
+    addCrossBloom(mesh, Math.cos(yaw) * size * 0.15 + curve, y, Math.sin(yaw) * size * 0.15, size, t);
+  }
+}
+
+/** A tiny bloom on a stem. Far flowers should read as flowers, not dots. */
 function addSpeckBloom(mesh: Bag, color: RGB) {
-  const center = vert(mesh, 0, 0.06, 0, color, 0.04, [0, 0.35]);
+  addStemRibbon(mesh, 0.52, 0.04);
+  const center = vert(mesh, 0, 0.54, 0, color, 0.04, [0, 0.35]);
   const petals = 5;
   const ring: number[] = [];
   for (let i = 0; i < petals; i += 1) {
@@ -230,9 +295,9 @@ function addSpeckBloom(mesh: Bag, color: RGB) {
     ring.push(
       vert(
         mesh,
-        Math.cos(angle) * 0.14,
-        0.06,
-        Math.sin(angle) * 0.14,
+        Math.cos(angle) * 0.2,
+        0.54,
+        Math.sin(angle) * 0.2,
         color,
         0.04,
         [Math.cos(angle) * 0.98, 0.4 + Math.sin(angle) * 0.18],
@@ -253,7 +318,7 @@ function addSpeckDaisy(mesh: Bag) {
 }
 
 function addSpeckLupin(mesh: Bag) {
-  addSpeckBloom(mesh, [0.45, 0, 2]);
+  addVisibleSpike(mesh, 4, 0.82, 0.05);
 }
 
 function attachTips(geometry: BufferGeometry, scatter?: Scatter) {
@@ -441,10 +506,10 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full", 
       addLupinSpike(mesh, 22, 6, 3);
       break;
     case "mid":
-      addLupinSpike(mesh, 8, 5, 2);
+      addVisibleSpike(mesh, 7, 1.05, 0.058);
       break;
     case "far":
-      addLupinSpike(mesh, 8, 5, 2);
+      addVisibleSpike(mesh, 7, 1.05, 0.058);
       break;
     default: {
       const unknown: never = density;
