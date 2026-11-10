@@ -201,7 +201,7 @@ export function Scanner({ events, items }: { events: EventOption[]; items: ItemO
               run(() => awardPoints(hacker.id, Number(form.get("amount")), String(form.get("reason"))));
             }}
           >
-            <h2 className="font-semibold">Custom points (Bee games, corrections…)</h2>
+            <h2 className="font-semibold">Custom points (games, corrections…)</h2>
             <div className="flex gap-2">
               <input name="amount" type="number" step={1} required placeholder="±pts" className={`${field} w-24`} />
               <input name="reason" required placeholder="Reason" className={`${field} flex-1`} />

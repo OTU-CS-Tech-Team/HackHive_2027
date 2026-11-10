@@ -1,14 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/auth/helpers";
 import { signOut } from "@/app/actions/auth";
 import { getAccountLinks, links } from "@/components/navbar/links";
 import MobileNavMenu from "@/components/navbar/MobileNavMenu";
 
 export async function Navbar() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const isSignedIn = !!user;
+  // Same check the pages use, so an unverified account doesn't show "Log out"
+  // while every page treats it as signed out.
+  const isSignedIn = !!(await getVerifiedUser());
   const accountLinks = getAccountLinks(isSignedIn);
 
   return (

@@ -7,11 +7,11 @@
 
 /* Over the meadow the bar stays clear of the canvas and fades out, so it
    reads on the sky without a solid band. Other pages keep the white bar. */
-:global(html:has([data-path-scroll])) .header {
+:global(html:has([data-hero-scroll])) .header {
   background: transparent;
 }
 
-:global(html:has([data-path-scroll])) .header::before {
+:global(html:has([data-hero-scroll])) .header::before {
   content: "";
   position: absolute;
   z-index: -1;

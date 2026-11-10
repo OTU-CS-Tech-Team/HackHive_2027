@@ -1,35 +1,27 @@
 # HackHive_2027
 HackHive 2027 website
 
-## Walk the path
+## Reviewing applicants
 
-The homepage is a scroll-driven walk. Chapters and their art live in
-`src/components/path/chapters.ts`. Display plates are WebP in `public/path/`
-so the blur is already in the pixels. The SVG sources sit beside them.
+Open **Review applicants** from `/admin`, or visit `/admin/applicants`. Pending
+applicants are listed oldest first. Use the tabs to switch status, and search by
+name, email or school. **View application** shows the full application and resume.
 
-Each chapter has an `id`, a `title`, a `light` colour (morning through sunset),
-and a `layers` list. Each layer has:
+**Accept**, **Waitlist** and **Reject** save straight away and email the applicant
+through Resend, so they ask for confirmation first. Only accepted applicants (and
+admins) get the full `/dashboard`; the email to accepted applicants links to it.
+**Move to pending** emails nobody. If an email fails the decision stays saved and
+the page says so; use **Resend email** to try again.
 
-| Field | Meaning |
-| --- | --- |
-| `id` | Stable name, unique across the path |
-| `slot` | `sky`, `far`, `mid`, `near`, or `foreground` |
-| `depth` | `0` at the horizon to `1` at the camera. Nearer layers scale faster |
-| `src` | WebP URL for the plate |
-| `alt` | Image description. Use `""` for decorative plates |
-| `mobile` | `false` hides the layer below 768px |
+**Delete** permanently removes someone's account, application, profile, points,
+team posts and uploaded files, after you type `DELETE` to confirm. It can't be
+undone, and admin accounts are refused. Accounts with no application don't appear
+here, so remove those in Supabase.
 
-Draw each plate as a full-bleed frame, centred, with spare bleed at the edges.
-Plates with a `speed` scale from the horizon (`50% 49.8%`) by `1 + speed`.
-Keep type out of the art — copy stays in the chapter panels so it can stay
-readable. Chapter 1 uses `public/path/ch1/`. Chapters 2–7 use `ch2` through
-`ch7` (clearing, fork, oak, stream, fence, hive entrance). The HackHive
-wordmark is an HTML heading, not part of a plate. The petal wall is
-`public/path/transition/` and mounts after the walk passes 35% of the first
-chapter. Layers after the trailhead load as their pin approaches.
-
-`prefers-reduced-motion` skips pinning, zoom, and the curtain. The same chapters
-stack as still scenes with the copy in normal document flow.
+Decision emails need `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `NEXT_PUBLIC_SITE_URL`
+(the live site's origin; the accepted email's dashboard link is built
+from it) on the host, and resume links need `SUPABASE_SERVICE_ROLE_KEY`. See
+`.env.example` for the full list.
 
 ## Schedule deployment
 
