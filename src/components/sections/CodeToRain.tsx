@@ -123,6 +123,8 @@ export function CodeToRain() {
 
     let sp = 0; // smoothed scroll progress
     let auto = 0; // how far the code has typed itself, 0..1
+    let lastTop: number | null = null; // previous frame's track top, to tell scroll direction
+    let held = false; // true after scrolling up: no self-typing until the next downward scroll
     let last = performance.now();
     let raf = 0;
     let running = true;
@@ -312,9 +314,22 @@ export function CodeToRain() {
       sp = reduced ? target : Math.abs(target - sp) < 1e-4 ? target : sp + (target - sp) * Math.min(1, dt * 10);
       const p = sp;
       // The code types itself once most of the stage is in view, and starts over if scrolled back above it.
-      if (top > window.innerHeight) auto = 0;
-      else if (top < window.innerHeight * 0.35) auto = reduced ? 1 : cl(auto + (dt * 1000) / TYPE_MS);
+      const vh = window.innerHeight;
+      const dTop = lastTop === null ? 0 : top - lastTop; // > 0: scrolling up, < 0: scrolling down
+      lastTop = top;
+      if (dTop > 0.5) held = true;
+      else if (dTop < -0.5) held = false;
 
+      if (top > vh) {
+        auto = 0;
+      } else if (reduced) {
+        if (top < vh * 0.35) auto = 1;
+      } else if (dTop > 0.5 && top > 0) {
+        // scrolling back up toward the start: un-type in step with the scroll
+        auto = cl(auto - dTop / (vh * 0.5));
+      } else if (top < vh * 0.35 && !held) {
+        auto = cl(auto + (dt * 1000) / TYPE_MS);
+      }
       const typeP = Math.max(cl(p / TYPE_END), auto);
       const blink = typeP < 1 && Math.floor(now / 450) % 2;
       // Nothing to redraw: same scroll, same typing, same cursor.
@@ -323,7 +338,7 @@ export function CodeToRain() {
       drawn = state;
 
       ctx!.clearRect(0, 0, W, H);
-      ctx!.fillStyle = "#14110b";
+      ctx!.fillStyle = "#0a1207";
       ctx!.fillRect(0, 0, W, H);
       const showHint = p < 0.02;
       if (hint && showHint !== hintOn) {
