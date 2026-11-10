@@ -31,7 +31,7 @@ const linkedinUrlSchemaForDraft = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://linkedin.com/') || val.startsWith('https://www.linkedin.com/'),
-      { message: 'Must be a valid LinkedIn URL' }
+      { message: 'Must start with https://linkedin.com/ or https://www.linkedin.com/' }
     )
     .optional()
     .nullable()
@@ -43,7 +43,7 @@ const linkedinUrlSchemaForSubmit = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://linkedin.com/') || val.startsWith('https://www.linkedin.com/'),
-      { message: 'Must be a valid LinkedIn URL' }
+      { message: 'Must start with https://linkedin.com/ or https://www.linkedin.com/' }
     )
     .optional()
 );
@@ -54,7 +54,7 @@ const githubUrlSchemaForDraft = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://github.com/'),
-      { message: 'Must be a valid GitHub URL' }
+      { message: 'Must start with https://github.com/' }
     )
     .optional()
     .nullable()
@@ -66,7 +66,7 @@ const githubUrlSchemaForSubmit = z.preprocess(
     .max(500)
     .refine(
       (val) => !val || val.startsWith('https://github.com/'),
-      { message: 'Must be a valid GitHub URL' }
+      { message: 'Must start with https://github.com/' }
     )
     .optional()
 );
@@ -172,6 +172,7 @@ export const applicationDraftSchema = z.object({
   
   consent_coc: z.boolean().optional().nullable(),
   consent_privacy: z.boolean().optional().nullable(),
+  consent_indemnification: z.boolean().optional().nullable(),
   consent_photo: z.boolean().optional().nullable(),
   share_resume_with_sponsors: z.boolean().optional().nullable(),
 });
@@ -250,6 +251,9 @@ export const applicationSubmitSchema = z
     consent_privacy: z.literal(true, {
       error: 'You must agree to the Privacy Policy',
     }),
+    consent_indemnification: z.literal(true, {
+      error: 'You must accept the indemnification form',
+    }),
     consent_photo: z.boolean().optional().nullable(),
     share_resume_with_sponsors: z.boolean().optional().nullable(),
   })
@@ -290,6 +294,15 @@ export const applicationSubmitSchema = z
     }
   });
 
+export const indemnificationPreviewSchema = z.object({
+  first_name: z.string().max(100),
+  last_name: z.string().max(100),
+  university: z.string().max(200),
+  linkedin_url: z.string().max(500),
+  github_url: z.string().max(500),
+  portfolio_url: z.string().max(500),
+});
+
 export const ERROR_CODES = [
   'validation',
   'rate_limited',
@@ -314,6 +327,10 @@ export type GetResumeUploadUrlResult =
 export type SubmitApplicationResult =
   | { ok: true; applicationId: string; submittedAt: string }
   | { ok: false; code: ErrorCode; error: string; fieldErrors?: Record<string, string[]> };
+
+export type PreviewIndemnificationResult =
+  | { ok: true; pdfBase64: string }
+  | { ok: false; code: ErrorCode; error: string };
 
 export type Application = {
   id: string;
@@ -356,6 +373,7 @@ export type Application = {
   guardian_relationship: string | null;
   consent_coc: boolean | null;
   consent_privacy: boolean | null;
+  consent_indemnification: boolean | null;
   consent_photo: boolean | null;
   share_resume_with_sponsors: boolean | null;
 };

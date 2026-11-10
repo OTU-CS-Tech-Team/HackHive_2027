@@ -1,11 +1,20 @@
+import Link from "next/link";
 import type { Application } from "@/lib/application/schema";
 
 const BADGES = {
   draft: ["Draft", "bg-neutral-100 text-neutral-800"],
-  applied: ["Applied", "bg-blue-100 text-blue-800"],
+  applied: ["Submitted · Pending review", "bg-blue-100 text-blue-800"],
   accepted: ["Accepted", "bg-green-100 text-green-800"],
   waitlisted: ["Waitlisted", "bg-yellow-100 text-yellow-800"],
-  rejected: ["Rejected", "bg-red-100 text-red-800"],
+  rejected: ["Not accepted", "bg-red-100 text-red-800"],
+} as const;
+
+const NEXT_STEPS = {
+  draft: "Your application is saved but not submitted yet. We can't review it until you submit.",
+  applied: "We've got your application and will email you a decision. The rest of the dashboard unlocks if you're accepted.",
+  accepted: "You're in! The full hacker dashboard is unlocked: schedule, your pass, teammates, hardware and points.",
+  waitlisted: "You're on the waitlist. We'll email you if a spot opens up.",
+  rejected: "We couldn't offer you a spot this year. Thanks for applying, and we hope to see you next time.",
 } as const;
 
 export function applicantStatus(application: Pick<Application, "status" | "decision">): keyof typeof BADGES {
@@ -15,6 +24,23 @@ export function applicantStatus(application: Pick<Application, "status" | "decis
 function StatusBadge({ application }: { application: Application }) {
   const [label, styles] = BADGES[applicantStatus(application)];
   return <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${styles}`}>{label}</span>;
+}
+
+// Hacker-facing only; the admin list reuses ApplicationView without it.
+export function ApplicationNextSteps({ application }: { application: Application }) {
+  return (
+    <div className="mb-8 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-neutral-700">
+      <p>{NEXT_STEPS[applicantStatus(application)]}</p>
+      {application.status === "draft" && (
+        <Link
+          href="/apply"
+          className="mt-3 inline-flex rounded-lg bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-800"
+        >
+          Edit draft
+        </Link>
+      )}
+    </div>
+  );
 }
 
 function FieldDisplay({ label, value }: { label: string; value: string | null | undefined }) {
@@ -45,12 +71,12 @@ export function ApplicationView({ application }: { application: Application }) {
       <section className="rounded-lg border border-neutral-200 bg-white p-6">
         <h3 className="mb-4 text-lg font-semibold">Personal Information</h3>
         <dl className="grid gap-4 sm:grid-cols-2">
-          <FieldDisplay label="Name" value={`${application.first_name} ${application.last_name}`} />
+          <FieldDisplay label="Name" value={[application.first_name, application.last_name].filter(Boolean).join(" ")} />
           <FieldDisplay label="Email" value={application.email} />
           <FieldDisplay label="Phone" value={application.phone} />
           <FieldDisplay label="Age" value={application.age?.toString()} />
           <FieldDisplay label="Pronouns" value={application.pronouns} />
-          <FieldDisplay label="Location" value={`${application.city}, ${application.country}`} />
+          <FieldDisplay label="Location" value={[application.city, application.country].filter(Boolean).join(", ")} />
         </dl>
       </section>
 

@@ -58,6 +58,7 @@ This file contains:
 | guardian_relationship | string | conditional | 100 | Required if age < 18 |
 | consent_coc | boolean | yes | - | Must be true |
 | consent_privacy | boolean | yes | - | Must be true |
+| consent_indemnification | boolean | yes | - | Must be true |
 | consent_photo | boolean | no | - | |
 | share_resume_with_sponsors | boolean | no | - | |
 

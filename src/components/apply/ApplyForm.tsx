@@ -11,7 +11,13 @@ import { RadioGroupField } from "./RadioGroupField";
 import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
-import { saveDraft, submitApplication, ERROR_MESSAGES, type ErrorCode } from "@/lib/application/api";
+import {
+  saveDraft,
+  submitApplication,
+  previewIndemnification,
+  ERROR_MESSAGES,
+  type ErrorCode,
+} from "@/lib/application/api";
 import {
   saveDraftToLocalStorage,
   loadDraftFromLocalStorage,
@@ -78,6 +84,21 @@ function mergeLocalDraft(baseData: FormData, localData: Record<string, unknown>)
   } as FormData;
 }
 
+// Server keys are paths like "teammate_emails.0"; each input shows one message.
+function firstErrors(fieldErrors: Record<string, string[]>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(fieldErrors).map(([path, messages]) => [path.split(".")[0], messages[0]])
+  );
+}
+
+function focusField(name: string) {
+  const element = document.querySelector(`[name="${name}"]`);
+  if (element instanceof HTMLElement) {
+    element.focus();
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
 export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, serverNow, deadlinePassed }: ApplyFormProps) {
   const router = useRouter();
   const formStartedAt = useRef<number>(serverNow);
@@ -93,6 +114,38 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isDeadlinePassed] = useState<boolean>(deadlinePassed);
+  const [isLoadingIndemnification, setIsLoadingIndemnification] = useState(false);
+  const [indemnificationError, setIndemnificationError] = useState<string | null>(null);
+
+  const viewIndemnification = async () => {
+    setIsLoadingIndemnification(true);
+    setIndemnificationError(null);
+    try {
+      const result = await previewIndemnification({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        university: formData.university,
+        linkedin_url: formData.linkedin_url,
+        github_url: formData.github_url,
+        portfolio_url: formData.portfolio_url,
+      });
+      if (!result.ok) {
+        setIndemnificationError("Couldn't open the form. Please try again.");
+        return;
+      }
+      const bytes = Uint8Array.from(atob(result.pdfBase64), (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        setIndemnificationError("Allow pop-ups to view the form.");
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setIndemnificationError("Couldn't open the form. Please try again.");
+    } finally {
+      setIsLoadingIndemnification(false);
+    }
+  };
 
   useEffect(() => {
     if (localDraftMergedRef.current) return;
@@ -117,13 +170,20 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
 
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const performSaveDraft = useCallback(async (data: FormData) => {
-    const draftFields = buildDraftPayload(data);
-    const result = await saveDraft(draftFields);
-    if (result.ok) {
-      setLastSaved(new Date(result.savedAt));
-      setSaveError(null);
-    } else {
+  const persistDraft = useCallback(async (fields: Record<string, unknown>) => {
+    try {
+      const result = await saveDraft(fields);
+      if (result.ok) {
+        setLastSaved(new Date(result.savedAt));
+        setSaveError(null);
+        return;
+      }
+      const { fieldErrors } = result;
+      if (fieldErrors) {
+        setErrors((prev) => ({ ...prev, ...firstErrors(fieldErrors) }));
+      }
+      setSaveError(fieldErrors ? "Couldn't save draft. Check the highlighted fields." : "Couldn't save draft");
+    } catch {
       setSaveError("Couldn't save draft");
     }
   }, []);
@@ -136,24 +196,16 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current, userId);
 
     saveTimeoutRef.current = setTimeout(() => {
-      enqueueSaveDraft(() => performSaveDraft(data));
+      enqueueSaveDraft(() => persistDraft(buildDraftPayload(data)));
     }, 2000);
-  }, [performSaveDraft, userId]);
+  }, [persistDraft, userId]);
 
   const saveResumePath = useCallback((path: string | null, currentData: FormData) => {
     const updatedData = { ...currentData, resume_path: path };
     saveDraftToLocalStorage(updatedData as unknown as Record<string, unknown>, submissionIdRef.current, userId);
-    
-    enqueueSaveDraft(async () => {
-      const result = await saveDraft({ resume_path: path });
-      if (result.ok) {
-        setLastSaved(new Date(result.savedAt));
-        setSaveError(null);
-      } else {
-        setSaveError("Couldn't save draft");
-      }
-    });
-  }, [userId]);
+
+    enqueueSaveDraft(() => persistDraft({ resume_path: path }));
+  }, [persistDraft, userId]);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => {
@@ -201,8 +253,10 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
       newErrors.q_anything_else = `Maximum ${WORD_LIMITS.q_anything_else} words`;
     if (!formData.team_status) newErrors.team_status = "Please select your team status";
     if (!formData.tshirt_size) newErrors.tshirt_size = "T-shirt size is required";
-    if (!formData.consent_coc) newErrors.consent_coc = "You must agree to the Code of Conduct";
-    if (!formData.consent_privacy) newErrors.consent_privacy = "You must agree to the Privacy Policy";
+    if (!formData.consent_coc || !formData.consent_privacy)
+      newErrors.consent_coc = "You must agree to the Code of Conduct and Privacy Policy";
+    if (!formData.consent_indemnification)
+      newErrors.consent_indemnification = "You must accept the indemnification form";
 
     if (isUnder18) {
       if (!formData.guardian_name.trim()) newErrors.guardian_name = "Guardian name is required";
@@ -214,20 +268,17 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      const firstErrorField = Object.keys(newErrors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element instanceof HTMLElement) {
-        element.focus();
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      focusField(Object.keys(newErrors)[0]);
       return false;
     }
 
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Read now: currentTarget is gone once this handler awaits.
+    const website = String(new FormData(e.currentTarget).get("website") ?? "");
 
     if (isSubmitting) return;
 
@@ -281,12 +332,13 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           guardian_relationship: isUnder18 ? formData.guardian_relationship : null,
           consent_coc: formData.consent_coc,
           consent_privacy: formData.consent_privacy,
+          consent_indemnification: formData.consent_indemnification,
           consent_photo: formData.consent_photo || null,
           share_resume_with_sponsors: formData.share_resume_with_sponsors || null,
         },
         turnstileToken,
         startedAt: formStartedAt.current || Date.now(),
-        website: "",
+        website,
         submissionId: submissionIdRef.current,
       });
 
@@ -295,14 +347,15 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         router.push("/apply/confirmation");
       } else {
         const errorCode = result.code as ErrorCode;
-        setSubmitError(ERROR_MESSAGES[errorCode] || result.error);
+        const fieldErrors = result.fieldErrors ? firstErrors(result.fieldErrors) : null;
+        const [firstField, firstMessage] = Object.entries(fieldErrors ?? {})[0] ?? [];
+        // "server" covers several failures, so keep the reason visible in reports.
+        const summary = errorCode === "server" ? `${ERROR_MESSAGES.server} (${result.error})` : ERROR_MESSAGES[errorCode] || result.error;
+        setSubmitError([summary, firstMessage].filter(Boolean).join(" "));
 
-        if (result.fieldErrors) {
-          setErrors(
-            Object.fromEntries(
-              Object.entries(result.fieldErrors).map(([k, v]) => [k, v[0]])
-            )
-          );
+        if (fieldErrors) {
+          setErrors(fieldErrors);
+          focusField(firstField);
         }
 
         setTurnstileToken(null);
@@ -315,8 +368,9 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           router.push("/apply/status");
         }
       }
-    } catch {
-      setSubmitError(ERROR_MESSAGES.server);
+    } catch (error) {
+      console.error("submitApplication failed:", error);
+      setSubmitError(ERROR_MESSAGES.network);
       setTurnstileToken(null);
       turnstileRef.current?.reset();
     } finally {
@@ -510,6 +564,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           min={0}
           max={100}
           description="Including this one, if accepted"
+          error={errors.hackathons_count}
         />
         <FormField
           label="LinkedIn URL"
@@ -519,6 +574,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("linkedin_url", v)}
           maxLength={FIELD_LIMITS.linkedin_url}
           placeholder="https://linkedin.com/in/..."
+          error={errors.linkedin_url}
         />
         <FormField
           label="GitHub URL"
@@ -528,6 +584,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("github_url", v)}
           maxLength={FIELD_LIMITS.github_url}
           placeholder="https://github.com/..."
+          error={errors.github_url}
         />
         <FormField
           label="Portfolio URL"
@@ -537,6 +594,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("portfolio_url", v)}
           maxLength={FIELD_LIMITS.portfolio_url}
           placeholder="https://..."
+          error={errors.portfolio_url}
         />
         <ResumeUpload
           value={formData.resume_path}
@@ -591,6 +649,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           <TeammateEmails
             value={formData.teammate_emails}
             onChange={(v) => updateField("teammate_emails", v)}
+            error={errors.teammate_emails}
           />
         )}
       </FormSection>
@@ -712,33 +771,48 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
 
       <FormSection title="Consent">
         <CheckboxField
-          label="I agree to the HackHive Code of Conduct"
+          label="I agree to the HackHive Code of Conduct and Privacy Policy"
           name="consent_coc"
-          checked={formData.consent_coc}
-          onChange={(v) => updateField("consent_coc", v)}
+          checked={formData.consent_coc && formData.consent_privacy}
+          onChange={(v) => {
+            updateField("consent_coc", v);
+            updateField("consent_privacy", v);
+          }}
           required
-          error={errors.consent_coc}
+          error={errors.consent_coc || errors.consent_privacy}
         />
-        <CheckboxField
-          label="I agree to the HackHive Privacy Policy"
-          name="consent_privacy"
-          checked={formData.consent_privacy}
-          onChange={(v) => updateField("consent_privacy", v)}
-          required
-          error={errors.consent_privacy}
-        />
-        <CheckboxField
-          label="I consent to being photographed/recorded at the event"
-          name="consent_photo"
-          checked={formData.consent_photo}
-          onChange={(v) => updateField("consent_photo", v)}
-        />
+        <div className="space-y-2">
+          <CheckboxField
+            label="I accept the external guest indemnification form"
+            name="consent_indemnification"
+            checked={formData.consent_indemnification}
+            onChange={(v) => updateField("consent_indemnification", v)}
+            required
+            error={errors.consent_indemnification}
+          />
+          {formData.consent_indemnification && (
+            <div className="ml-7 text-sm">
+              <button
+                type="button"
+                onClick={() => void viewIndemnification()}
+                disabled={isLoadingIndemnification}
+                className="font-medium text-neutral-900 underline disabled:opacity-50"
+              >
+                {isLoadingIndemnification ? "Opening form..." : "View form"}
+              </button>
+              {indemnificationError && (
+                <p className="mt-1 text-red-600" role="alert">
+                  {indemnificationError}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
         <CheckboxField
           label="I'd like to share my resume with event sponsors"
           name="share_resume_with_sponsors"
           checked={formData.share_resume_with_sponsors}
           onChange={(v) => updateField("share_resume_with_sponsors", v)}
-          description="Sponsors may contact you about internship and job opportunities"
         />
       </FormSection>
 

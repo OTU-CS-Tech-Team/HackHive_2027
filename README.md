@@ -1,6 +1,28 @@
 # HackHive_2027
 HackHive 2027 website
 
+## Reviewing applicants
+
+Open **Review applicants** from `/admin`, or visit `/admin/applicants`. Pending
+applicants are listed oldest first. Use the tabs to switch status, and search by
+name, email or school. **View application** shows the full application and resume.
+
+**Accept**, **Waitlist** and **Reject** save straight away and email the applicant
+through Resend, so they ask for confirmation first. Only accepted applicants (and
+admins) get the full `/dashboard`; the email to accepted applicants links to it.
+**Move to pending** emails nobody. If an email fails the decision stays saved and
+the page says so; use **Resend email** to try again.
+
+**Delete** permanently removes someone's account, application, profile, points,
+team posts and uploaded files, after you type `DELETE` to confirm. It can't be
+undone, and admin accounts are refused. Accounts with no application don't appear
+here, so remove those in Supabase.
+
+Decision emails need `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `NEXT_PUBLIC_SITE_URL`
+(the live site's origin; the accepted email's dashboard link is built
+from it) on the host, and resume links need `SUPABASE_SERVICE_ROLE_KEY`. See
+`.env.example` for the full list.
+
 ## Schedule deployment
 
 Apply the schedule migrations before deploying PR #15:
@@ -109,10 +131,21 @@ to work as before.
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
 open `/hackhive/archive`. The route is defined by
 `src/app/hackhive/archive/page.tsx`, which imports the museum component and archive
-data. A sticky year menu lets visitors jump straight to any collection on mobile
-and desktop. The museum includes
-all 21 projects from 2026, 2025, and 2024, click-to-play videos, project thumbnails,
-and the scroll-driven puzzle navigation.
+data. Each year is a constellation on a black star field. The Museum keeps the
+site navigation, honey-amber accents, warm text, and restrained typography. A clockwise tour highlights
+project stars and updates the featured thumbnail and demo player. Choose any
+star, use previous/next, or pause the tour. Playing a demo holds the selection;
+leaving the year, hiding the tab, or navigating away removes the player.
+
+The first project and its polygon constellation appear immediately. Each year has
+a distinct silhouette: a stellar burst, a long diamond, or a faceted comet. The project
+preview has generous space beside the map, with a compact stacked layout on
+smaller screens. A persistent star travels smoothly from node to node in two
+seconds without restarting at each project. The year marker writes each year,
+then scribbles over and replaces it in one slot. Year links stay fixed at the
+bottom for direct navigation at any scroll position. Hovering a line highlights
+it. Reduced-motion mode uses manual selection and immediate position updates.
+Existing shared project data and thumbnails remain the source of truth.
 
 ### Shared content, independent design
 
@@ -132,7 +165,7 @@ the build rather than silently publishing stale data.
 `src/data/generated/hackhive.json` and `public/museum/projects/` are generated and
 gitignored. The JSON records its source commit. Do not edit generated files.
 `src/data/hackhive.ts` groups the generated projects into local archive collections.
-HackHive's components, CSS, puzzle animation, year menu, and homepage section live
+HackHive's components, CSS, constellation animation, year menu, and homepage section live
 in this repository. CS Club's presentation fields (rotation, pins, annotations)
 are excluded from the shared content.
 

@@ -31,6 +31,7 @@ export interface DraftFormData {
   guardian_relationship: string;
   consent_coc: boolean;
   consent_privacy: boolean;
+  consent_indemnification: boolean;
   consent_photo: boolean;
   share_resume_with_sponsors: boolean;
 }
@@ -68,6 +69,7 @@ export const initialFormData: DraftFormData = {
   guardian_relationship: "",
   consent_coc: false,
   consent_privacy: false,
+  consent_indemnification: false,
   consent_photo: false,
   share_resume_with_sponsors: false,
 };
@@ -106,6 +108,7 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
     guardian_relationship: data.guardian_relationship || "",
     consent_coc: data.consent_coc,
     consent_privacy: data.consent_privacy,
+    consent_indemnification: data.consent_indemnification,
     consent_photo: data.consent_photo,
     share_resume_with_sponsors: data.share_resume_with_sponsors,
   };

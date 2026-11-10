@@ -6,19 +6,22 @@ import { createClient } from "@/lib/supabase/server";
 import { parseSlackProfileUrl } from "@/lib/team/profiles";
 import { LISTING_COLUMNS, teammateListingIssue } from "@/lib/team/listing";
 
-async function requireUser() {
+// The page hides these tabs, but actions can be called directly, so check here too.
+async function requireHubUser() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not signed in");
+  const { data: hasHubAccess } = await supabase.rpc("has_hub_access");
+  if (!hasHubAccess) throw new Error("Only accepted hackers can do this");
   return { supabase, user };
 }
 
 // Mints a fresh 5-minute token and wipes the old one, so only one QR per
 // hacker works at a time and a shared screenshot goes stale fast.
 export async function mintCheckinToken() {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requireHubUser();
   await supabase.from("checkin_tokens").delete().eq("user_id", user.id);
   const { data, error } = await supabase
     .from("checkin_tokens")
@@ -40,7 +43,7 @@ function webUrl(formData: FormData, key: string) {
 }
 
 export async function saveProfile(formData: FormData) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requireHubUser();
   try {
     if (formData.get("looking_for_team") === "on") {
       const { data: current, error } = await supabase.from("profiles").select(LISTING_COLUMNS).eq("id", user.id).maybeSingle();
@@ -72,7 +75,7 @@ export async function saveProfile(formData: FormData) {
 }
 
 export async function saveEmergencyInfo(formData: FormData) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requireHubUser();
   const contact_name = text(formData, "contact_name");
   const contact_phone = text(formData, "contact_phone");
   if (!contact_name || !contact_phone) return "Contact name and phone are required.";
@@ -92,7 +95,7 @@ export async function saveEmergencyInfo(formData: FormData) {
 // The browser uploads to Storage itself (RLS keeps hackers in their own
 // folder); this just records the URL, and only if it's in that folder.
 export async function saveAvatarUrl(avatarUrl: string) {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requireHubUser();
   if (!avatarUrl.includes(`/storage/v1/object/public/avatars/${user.id}/`)) {
     throw new Error("That image does not belong to your account.");
   }

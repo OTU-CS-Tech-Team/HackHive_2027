@@ -1,20 +1,28 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { sendApplicationReceivedEmail } from '@/lib/email';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getVerifiedUser } from '@/lib/auth/helpers';
 import {
   applicationDraftSchema,
   applicationSubmitSchema,
+  indemnificationPreviewSchema,
   type ApplicationDraft,
   type SaveDraftResult,
   type GetResumeUploadUrlResult,
   type SubmitApplicationResult,
+  type PreviewIndemnificationResult,
   type GetMyApplicationResult,
   type Application,
 } from '@/lib/application/schema';
+import { previewFilledForm, type IndemnificationApplicant } from '@/lib/indemnification';
 import crypto from 'crypto';
+import { z } from 'zod';
 
+const REQUIRED_SUBMIT_ENV = ['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_HASH_SECRET', 'TURNSTILE_SECRET_KEY'];
 const MIN_SUBMIT_TIME_MS = 3000;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_IP_MAX_ATTEMPTS = 100;
@@ -252,6 +260,53 @@ async function verifyResumeExists(supabase: Awaited<ReturnType<typeof createClie
   return { exists: true };
 }
 
+function toIndemnificationApplicant(fields: {
+  first_name: string;
+  last_name: string;
+  university: string;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
+}): IndemnificationApplicant {
+  return {
+    firstName: fields.first_name,
+    lastName: fields.last_name,
+    university: fields.university,
+    linkedinUrl: fields.linkedin_url ?? '',
+    githubUrl: fields.github_url ?? '',
+    portfolioUrl: fields.portfolio_url ?? '',
+  };
+}
+
+export async function previewIndemnification(input: {
+  first_name: string;
+  last_name: string;
+  university: string;
+  linkedin_url: string;
+  github_url: string;
+  portfolio_url: string;
+}): Promise<PreviewIndemnificationResult> {
+  try {
+    const user = await getVerifiedUser();
+
+    if (!user) {
+      return { ok: false, code: 'not_verified', error: 'Email not verified' };
+    }
+
+    const result = indemnificationPreviewSchema.safeParse(input);
+    if (!result.success) {
+      return { ok: false, code: 'validation', error: 'Validation failed' };
+    }
+
+    const pdf = await previewFilledForm(toIndemnificationApplicant(result.data), new Date());
+
+    return { ok: true, pdfBase64: Buffer.from(pdf).toString('base64') };
+  } catch (error) {
+    console.error('previewIndemnification error:', error);
+    return { ok: false, code: 'server', error: 'An unexpected error occurred' };
+  }
+}
+
 export async function submitApplication(input: {
   fields: Record<string, unknown>;
   turnstileToken: string;
@@ -266,8 +321,15 @@ export async function submitApplication(input: {
       return { ok: false, code: 'not_verified', error: 'Email not verified' };
     }
 
+    // Names only, so a misconfigured deploy says what to fix instead of a generic error.
+    const missingEnv = REQUIRED_SUBMIT_ENV.filter((name) => !process.env[name]);
+    if (missingEnv.length > 0) {
+      console.error('submitApplication missing env:', missingEnv.join(', '));
+      return { ok: false, code: 'server', error: `Server is missing ${missingEnv.join(', ')}` };
+    }
+
     const serviceClient = createServiceClient();
-    
+
     const { data: existingSubmission } = await serviceClient
       .from('applications')
       .select('id, submitted_at')
@@ -302,9 +364,22 @@ export async function submitApplication(input: {
       return { ok: false, code: 'validation', error: 'Invalid submission' };
     }
 
-    const elapsed = Date.now() - input.startedAt;
-    if (elapsed < MIN_SUBMIT_TIME_MS) {
-      return { ok: false, code: 'too_fast', error: 'Please take more time to fill out the form' };
+    // startedAt is when this page loaded, so someone reopening a finished draft
+    // can trip it. The draft's age is the real time they've been applying.
+    if (Date.now() - input.startedAt < MIN_SUBMIT_TIME_MS) {
+      const { data: draft } = await serviceClient
+        .from('applications')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!draft || Date.now() - Date.parse(draft.created_at) < MIN_SUBMIT_TIME_MS) {
+        return { ok: false, code: 'too_fast', error: 'Please wait a few seconds, then try again.' };
+      }
+    }
+
+    if (!z.uuid().safeParse(input.submissionId).success) {
+      return { ok: false, code: 'validation', error: 'Invalid submission' };
     }
 
     const result = applicationSubmitSchema.safeParse(input.fields);
@@ -363,6 +438,18 @@ export async function submitApplication(input: {
       };
     }
 
+    const stampedAt = new Date();
+    const indemnificationPath = `${user.id}/${input.submissionId}.pdf`;
+    const indemnificationPdf = await previewFilledForm(toIndemnificationApplicant(data), stampedAt);
+    const { error: uploadError } = await serviceClient.storage
+      .from('indemnifications')
+      .upload(indemnificationPath, indemnificationPdf, { contentType: 'application/pdf', upsert: true });
+
+    if (uploadError) {
+      console.error('Indemnification upload error:', uploadError);
+      return { ok: false, code: 'server', error: 'Failed to store the indemnification form' };
+    }
+
     const { data: rpcResult, error: rpcError } = await serviceClient.rpc('reg_submit_application', {
       p_submission_id: input.submissionId,
       p_first_name: data.first_name,
@@ -399,6 +486,10 @@ export async function submitApplication(input: {
       p_consent_privacy: data.consent_privacy,
       p_consent_photo: data.consent_photo ?? null,
       p_share_resume_with_sponsors: data.share_resume_with_sponsors ?? null,
+      p_consent_indemnification: data.consent_indemnification,
+      p_indemnification_path: indemnificationPath,
+      p_stamped_at: stampedAt.toISOString(),
+      p_email: user.email.toLowerCase(),
       p_user_id: user.id,
     });
 
@@ -416,13 +507,30 @@ export async function submitApplication(input: {
       if (response.error === 'applications_closed') {
         return { ok: false, code: 'locked', error: 'Applications are closed' };
       }
-      if (response.error === 'no_draft_found') {
-        return { ok: false, code: 'server', error: 'No draft application found. Please save a draft first.' };
+      if (response.error === 'indemnification_required') {
+        return {
+          ok: false,
+          code: 'validation',
+          error: 'You must accept the indemnification form',
+          fieldErrors: { consent_indemnification: ['You must accept the indemnification form'] },
+        };
       }
       return { ok: false, code: 'server', error: response.error };
     }
 
     if (response.ok && response.application_id) {
+      // cacheComponents keeps visited pages alive, so without this the back
+      // button reopens the editable form for an application that's already in.
+      for (const path of ['/apply', '/apply/status', '/dashboard']) {
+        revalidatePath(path);
+      }
+      // The RPC hands back the original submitted_at when this was a repeat submit, so
+      // only a fresh submission (stamped with our time) gets the email. Sent after the
+      // response, so a slow or failed email never holds up the form.
+      if (response.submitted_at && new Date(response.submitted_at).getTime() === stampedAt.getTime()) {
+        const to = user.email;
+        after(() => sendApplicationReceivedEmail(to, { firstName: data.first_name, pdf: indemnificationPdf }));
+      }
       return {
         ok: true,
         applicationId: response.application_id,
