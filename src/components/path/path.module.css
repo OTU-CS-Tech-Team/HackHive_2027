@@ -32,12 +32,16 @@
   inset: 0;
   z-index: 12;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
+  /* Centre in the band under the 4rem bar, then lift 12svh. Exact
+     centring leaves the wordmark on the horizon, where the far tree
+     will stand. This offset keeps the letters in the sky and drops
+     that point toward the button, without sitting on the navbar. */
   padding:
-    calc(5.25rem + env(safe-area-inset-top, 0px))
+    calc(4rem + env(safe-area-inset-top, 0px))
     1.25rem
-    1.5rem;
+    calc(24svh + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
 }
 
