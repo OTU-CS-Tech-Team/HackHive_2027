@@ -114,78 +114,45 @@ function addDisc(mesh: Bag, y: number, radius: number, color: RGB, bend: number)
   }
 }
 
-function addStamen(mesh: Bag, yaw: number, color: RGB) {
-  const cosY = Math.cos(yaw);
-  const sinY = Math.sin(yaw);
-  const steps = 3;
-  let previousLeft = -1;
-  let previousRight = -1;
-  for (let i = 0; i <= steps; i += 1) {
-    const t = i / steps;
-    const py = 0.05 + t * 0.16;
-    const pz = 0.015 + Math.sin(t * Math.PI) * 0.03;
-    const width = t > 0.72 ? 0.018 : 0.006;
-    const filament: RGB = t > 0.72 ? color : [0.86, 0.72, 0.28];
-    const left = vert(mesh, -width * cosY + pz * sinY, py, width * sinY + pz * cosY, filament, 0.08);
-    const right = vert(mesh, width * cosY + pz * sinY, py, -width * sinY + pz * cosY, filament, 0.08);
-    if (previousLeft >= 0) {
-      mesh.indices.push(previousLeft, left, previousRight, previousRight, left, right);
-    }
-    previousLeft = left;
-    previousRight = right;
-  }
-}
-
-/** One scooped petal of a trumpet. The throat stays narrow; the lip curls back. */
-function addTrumpetPetal(mesh: Bag, yaw: number, length: number, radius: number, bend: number) {
-  const across = 4;
-  const along = 7;
-  const ids: number[] = [];
-  const throat: RGB = [1, 0.98, 0.86];
-  const body: RGB = [0.9, 0.84, 0.68];
-  const edge: RGB = [0.42, 0.36, 0.28];
+/** One lathed bell. A single surface, so the rim cannot break into petals. */
+function addBell(mesh: Bag, length: number, radius: number) {
+  const around = 16;
+  const along = 9;
+  const rings: number[][] = [];
   for (let yStep = 0; yStep <= along; yStep += 1) {
     const v = yStep / along;
-    const reflexT = Math.max(0, (v - 0.68) / 0.32);
-    const reflex = reflexT * reflexT;
-    const flare = 0.28 + v * v * 0.95 + reflex * 0.55;
-    const half = 0.3 + v * 0.2;
-    for (let xStep = 0; xStep <= across; xStep += 1) {
-      const u = (xStep / across) * 2 - 1;
-      const channel = 1 - u * u;
-      const ang = yaw + u * half;
-      const r = radius * flare * (1 - channel * 0.22);
-      const x = Math.cos(ang) * r;
-      const z = Math.sin(ang) * r;
-      const y = length * (v * (1 - reflex * 0.55) + 0.02);
-      const alongShade = Math.pow(v, 0.75);
-      const edgeShade = Math.pow(Math.abs(u), 1.35) * (0.62 + v * 0.38) + reflex * 0.28;
-      const col = mix(mix(throat, body, alongShade), edge, Math.min(1, edgeShade));
-      ids.push(vert(mesh, x, y, z, col, bend * (0.12 + v * 0.7)));
+    const flare = 0.18 + Math.pow(v, 1.45) * 0.82;
+    const r = radius * flare;
+    const y = length * (0.04 + v * 0.96);
+    const ring: number[] = [];
+    for (let step = 0; step < around; step += 1) {
+      const ang = (step / around) * Math.PI * 2;
+      ring.push(vert(mesh, Math.cos(ang) * r, y, Math.sin(ang) * r, [1, 1, 1], 0.04 + v * 0.08));
     }
+    rings.push(ring);
   }
-  const stride = across + 1;
+  const cap = vert(mesh, 0, length * 0.04, 0, [1, 1, 1], 0.02);
+  const first = rings[0] ?? [];
+  for (let step = 0; step < around; step += 1) {
+    mesh.indices.push(cap, first[step] ?? cap, first[(step + 1) % around] ?? cap);
+  }
   for (let yStep = 0; yStep < along; yStep += 1) {
-    for (let xStep = 0; xStep < across; xStep += 1) {
-      const a = ids[yStep * stride + xStep] ?? 0;
-      const b = ids[yStep * stride + xStep + 1] ?? 0;
-      const c = ids[(yStep + 1) * stride + xStep] ?? 0;
-      const d = ids[(yStep + 1) * stride + xStep + 1] ?? 0;
-      mesh.indices.push(a, b, c, b, d, c);
+    const lower = rings[yStep] ?? [];
+    const upper = rings[yStep + 1] ?? [];
+    for (let step = 0; step < around; step += 1) {
+      const next = (step + 1) % around;
+      const a = lower[step] ?? cap;
+      const b = lower[next] ?? cap;
+      const c = upper[step] ?? cap;
+      const d = upper[next] ?? cap;
+      mesh.indices.push(a, b, d, a, d, c);
     }
   }
 }
 
 export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const petals = 6;
-  for (let i = 0; i < petals; i += 1) {
-    addTrumpetPetal(mesh, (i / petals) * Math.PI * 2, 0.34, 0.2, 0.3);
-  }
-  for (let i = 0; i < 5; i += 1) {
-    addStamen(mesh, (i / 5) * Math.PI * 2 + 0.3, [0.72, 0.38, 0.1]);
-  }
-  addDisc(mesh, 0.05, 0.04, [0.98, 0.78, 0.28], 0.04);
+  addBell(mesh, 0.22, 0.09);
   return finish(mesh, scatter);
 }
 
@@ -280,26 +247,31 @@ export function createLupinGeometry(scatter?: Scatter) {
   return finish(mesh, scatter);
 }
 
-/** Two triangles. Dark at the root, pale at the tip. */
+function addBlade(mesh: Bag, ox: number, lean: number) {
+  const root: RGB = [0.06, 0.13, 0.04];
+  const mid: RGB = [0.22, 0.4, 0.11];
+  const tip: RGB = [0.74, 0.9, 0.42];
+  const width = 0.016;
+  const left = vert(mesh, ox - width, 0, 0, root, 1);
+  const right = vert(mesh, ox + width, 0, 0, root, 1);
+  const midL = vert(mesh, ox - width * 0.42, 0.4, lean, mid, 1);
+  const midR = vert(mesh, ox + width * 0.42, 0.4, lean, mid, 1);
+  const top = vert(mesh, ox + lean, 1, lean * 2.4, tip, 1);
+  mesh.indices.push(left, midL, right, right, midL, midR, midL, top, midR);
+}
+
+/** A facing pair. Dark at the root, pale at the tip, wide enough to read as a tuft. */
 export function createGrassGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const root: RGB = [0.08, 0.16, 0.05];
-  const mid: RGB = [0.28, 0.46, 0.14];
-  const tip: RGB = [0.84, 0.95, 0.5];
-  const left = vert(mesh, -0.006, 0, 0, root, 1);
-  const right = vert(mesh, 0.006, 0, 0, root, 1);
-  const midL = vert(mesh, -0.0035, 0.46, 0.025, mid, 1);
-  const midR = vert(mesh, 0.0035, 0.46, 0.025, mid, 1);
-  const top = vert(mesh, 0.001, 1, 0.12, tip, 1);
-  mesh.indices.push(left, midL, right, right, midL, midR, midL, top, midR);
+  addBlade(mesh, -0.018, -0.035);
+  addBlade(mesh, 0.02, 0.04);
   return finish(mesh, scatter);
 }
 
 function ridge(x: number, phase: number) {
   return (
-    Math.sin(x * 0.22 + phase) * 0.58 +
-    Math.sin(x * 0.55 + phase * 1.4) * 0.3 +
-    Math.sin(x * 1.18 + phase * 0.55) * 0.14
+    Math.sin(x * 0.33 + phase) * 0.26 +
+    Math.sin(x * 0.71 + phase * 1.5) * 0.12
   );
 }
 
@@ -315,7 +287,7 @@ function addRollingHill(mesh: Bag, zNear: number, zFar: number, height: number, 
     for (let column = 0; column <= columns; column += 1) {
       const u = column / columns;
       const x = (u - 0.5) * 90;
-      const y = Math.max(0, height * (0.48 + ridge(x, phase)) * lift);
+      const y = Math.max(0, height * (0.84 + ridge(x, phase)) * lift);
       const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.31 + phase) * 0.85 * lift;
       const up = Math.min(1, y / Math.max(height, 0.001));
       ids.push(vert(mesh, x, y, z, mix(foot, crest, up), 0));
@@ -336,9 +308,9 @@ function addRollingHill(mesh: Bag, zNear: number, zFar: number, height: number, 
 /** Three ridges. Near one starts in the meadow; far ones fade toward the sky. */
 export function createHillsGeometry() {
   const mesh = bag();
-  addRollingHill(mesh, 2, -16, 2.05, [0.86, 0.91, 0.7], 0.6);
-  addRollingHill(mesh, -8, -28, 2.55, [0.9, 0.92, 0.78], 2.1);
-  addRollingHill(mesh, -18, -44, 1.85, [0.94, 0.93, 0.84], 3.4);
+  addRollingHill(mesh, -4, -16, 1.8, [0.7, 0.82, 0.5], 0.2);
+  addRollingHill(mesh, -16, -30, 2.05, [0.78, 0.86, 0.58], 2.5);
+  addRollingHill(mesh, -28, -46, 1.55, [0.86, 0.9, 0.7], 4.4);
   return finish(mesh);
 }
 

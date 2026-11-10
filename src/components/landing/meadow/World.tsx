@@ -30,8 +30,6 @@ import {
   SPARK_VERT,
   SKY_FRAG,
   SKY_VERT,
-  TREE_FRAG,
-  TREE_VERT,
 } from "@/components/landing/meadow/glsl";
 import { buildLayout, type Scatter, type SceneLayout } from "@/components/landing/meadow/layout";
 import {
@@ -60,7 +58,6 @@ import type { Quality } from "@/components/landing/meadow/quality";
 const FULL_COUNT = "fullCount";
 const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
-const treeOffset = new Vector3();
 
 function thinEvenly() {
   for (const mesh of liveMeshes) {
@@ -145,7 +142,6 @@ type Materials = {
   cloud: ShaderMaterial;
   glow: ShaderMaterial;
   spark: ShaderMaterial;
-  tree: ShaderMaterial;
 };
 
 function buildMaterials(): Materials {
@@ -180,7 +176,7 @@ function buildMaterials(): Materials {
     side: DoubleSide,
   });
   const grass = plantMaterial(0.08, [0, 0, 0], FrontSide);
-  const lily = plantMaterial(0.22, [1, 0.94, 0.72], DoubleSide, 0.9);
+  const lily = plantMaterial(0.35, [1, 1, 1], DoubleSide, 1);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({
@@ -206,15 +202,6 @@ function buildMaterials(): Materials {
     depthWrite: false,
     blending: AdditiveBlending,
   });
-  const tree = new ShaderMaterial({
-    uniforms: { ...baseUniforms(), uSpread: { value: 0 } },
-    vertexShader: TREE_VERT,
-    fragmentShader: TREE_FRAG,
-    transparent: true,
-    depthWrite: false,
-    depthTest: false,
-    side: DoubleSide,
-  });
   return {
     sky,
     ground,
@@ -226,8 +213,7 @@ function buildMaterials(): Materials {
     cloud,
     glow,
     spark,
-    tree,
-    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark, tree],
+    all: [sky, ground, hill, grass, lily, daisy, lupin, cloud, glow, spark],
   };
 }
 
@@ -304,7 +290,6 @@ function SparkPoints({ geometry, material }: { geometry: BufferGeometry; materia
 function FrameDriver({
   materialsRef,
   sky,
-  tree,
   progress,
   pointer,
   reduced,
@@ -313,7 +298,6 @@ function FrameDriver({
 }: {
   materialsRef: RefObject<ShaderMaterial[]>;
   sky: RefObject<Mesh | null>;
-  tree: RefObject<Mesh | null>;
   progress: RefObject<number>;
   pointer: RefObject<{ x: number; y: number }>;
   reduced: boolean;
@@ -393,20 +377,6 @@ function FrameDriver({
       z - VIEW.lookAhead,
     );
     if (sky.current) sky.current.position.set(x, y, z);
-    const frame = tree.current;
-    if (frame) {
-      const dist = 7.2;
-      const vSize = 2 * Math.tan((VIEW.fov * Math.PI) / 360) * dist;
-      const hSize = vSize * Math.max(aspect, 0.35);
-      const cardW = hSize * (portrait ? 0.7 : 0.26);
-      const cardH = vSize * (portrait ? 0.26 : 0.24);
-      const localX = -hSize * 0.5 + cardW * (portrait ? 0.38 : 0.46);
-      const localY = vSize * 0.5 - cardH * (portrait ? 1.15 : 0.62);
-      treeOffset.set(localX, localY, -dist).applyQuaternion(camera.quaternion);
-      frame.position.copy(camera.position).add(treeOffset);
-      frame.quaternion.copy(camera.quaternion);
-      frame.scale.set(cardW, cardH, 1);
-    }
     if (!still) clock.current += step;
     writeUniforms(
       materialsRef.current,
@@ -477,7 +447,6 @@ export default function MeadowWorld({
   const materials = useMemo(() => buildMaterials(), []);
   const materialsRef = useRef(materials.all);
   const sky = useRef<Mesh>(null);
-  const tree = useRef<Mesh>(null);
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
@@ -495,7 +464,6 @@ export default function MeadowWorld({
       <FrameDriver
         materialsRef={materialsRef}
         sky={sky}
-        tree={tree}
         progress={progress}
         pointer={pointer}
         reduced={reduced}
@@ -506,8 +474,8 @@ export default function MeadowWorld({
         <sphereGeometry args={[48, SKY_SEGMENTS[0], SKY_SEGMENTS[1]]} />
         <primitive object={materials.sky} attach="material" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -18]} frustumCulled={false}>
-        <planeGeometry args={[80, 90, 1, 1]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -40]} frustumCulled={false}>
+        <planeGeometry args={[160, 200, 1, 1]} />
         <primitive object={materials.ground} attach="material" />
       </mesh>
       <mesh geometry={geometries.hills} frustumCulled={false}>
@@ -527,10 +495,6 @@ export default function MeadowWorld({
       })}
       <Instances geometry={geometries.clouds} material={materials.cloud} scatter={layout.clouds} renderOrder={1} />
       <SparkPoints geometry={geometries.sparks} material={materials.spark} />
-      <mesh ref={tree} frustumCulled={false} renderOrder={5}>
-        <planeGeometry args={[1, 1]} />
-        <primitive object={materials.tree} attach="material" />
-      </mesh>
       <Instances geometry={geometries.glows} material={materials.glow} scatter={layout.glows} renderOrder={3} />
     </>
   );
