@@ -21,7 +21,7 @@ describe("hero CTA", () => {
     const markup = renderToStaticMarkup(await HeroCta());
 
     expect(markup).toContain('href="/signup"');
-    expect(markup).toContain("Sign up as a hacker");
+    expect(markup).toContain("Apply now!");
     expect(markup).not.toContain("My Application");
     expect(markup).not.toContain('href="/apply"');
   });
@@ -32,7 +32,7 @@ describe("hero CTA", () => {
 
     expect(markup).toContain('href="/apply"');
     expect(markup).toContain("My Application");
-    expect(markup).not.toContain("Sign up as a hacker");
+    expect(markup).not.toContain("Apply now!");
     expect(markup).not.toContain('href="/signup"');
   });
 
@@ -40,6 +40,6 @@ describe("hero CTA", () => {
     const markup = renderToStaticMarkup(createElement(HeroCtaFallback));
 
     expect(markup).toContain('href="/signup"');
-    expect(markup).toContain("Sign up as a hacker");
+    expect(markup).toContain("Apply now!");
   });
 });

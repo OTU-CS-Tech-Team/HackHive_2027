@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { HeroMeadow } from "@/components/landing/HeroMeadow";
 import { TrailheadPanel } from "@/components/path/panels";
 import styles from "@/components/path/path.module.css";
@@ -18,10 +18,11 @@ function smoothstep(value: number) {
   return t * t * (3 - 2 * t);
 }
 
-// The meadow warms toward cream from 0.7. This covers it with white by 0.9,
-// a short beat before .dawn, which itself opens on white.
+// Starts once the walk is underway and is still sheer at progress 1.
+// .dawn is already over the stage by then, so the meadow dissolves into
+// its white top instead of sitting behind a blank white band.
 function veilAmount(progress: number) {
-  return smoothstep((progress - 0.7) / 0.2);
+  return smoothstep((progress - 0.58) / 0.72);
 }
 
 function channel(from: number, to: number, amount: number) {
@@ -36,97 +37,18 @@ function veilColor(progress: number) {
   return `rgba(${channel(CREAM.r, WHITE.r, t)}, ${channel(CREAM.g, WHITE.g, t)}, ${channel(CREAM.b, WHITE.b, t)}, ${t.toFixed(3)})`;
 }
 
-function trackPointer(
-  root: HTMLElement,
-  pointerRef: RefObject<{ x: number; y: number }>,
-  mobile: boolean,
-  now: () => number,
-) {
-  const target = { x: 0, y: 0 };
-  const current = pointerRef.current;
-  let gyro = false;
-  let hovering = false;
-  const hero = root.querySelector<HTMLElement>("[data-hero-parallax]");
-
-  const onPointer = (event: PointerEvent) => {
-    if (event.pointerType === "touch") return;
-    hovering = true;
-    const width = window.innerWidth || 1;
-    const height = window.innerHeight || 1;
-    target.x = clamp((event.clientX / width) * 2 - 1, -1, 1);
-    target.y = clamp((event.clientY / height) * 2 - 1, -1, 1);
-  };
-  const onLeave = () => {
-    hovering = false;
-    target.x = 0;
-    target.y = 0;
-  };
-  const onOrient = (event: DeviceOrientationEvent) => {
-    if (event.gamma == null) return;
-    gyro = true;
-    target.x = clamp(event.gamma / 28, -1, 1);
-    target.y = clamp(((event.beta ?? 0) - 40) / 35, -1, 1);
-  };
-  const askGyro = () => {
-    const orientation = DeviceOrientationEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    if (typeof orientation.requestPermission !== "function") return;
-    orientation
-      .requestPermission()
-      .then((state) => {
-        if (state === "granted") window.addEventListener("deviceorientation", onOrient, { passive: true });
-      })
-      .catch(() => {});
-  };
-
-  window.addEventListener("pointermove", onPointer, { passive: true });
-  document.documentElement.addEventListener("pointerleave", onLeave);
-  if (mobile) {
-    window.addEventListener("deviceorientation", onOrient, { passive: true });
-    window.addEventListener("pointerdown", askGyro, { once: true, passive: true });
-  }
-
-  const step = () => {
-    if (!current) return;
-    if (mobile && !gyro && !hovering) {
-      const time = now() / 1000;
-      target.x = Math.sin(time * 0.32) * 0.16;
-      target.y = Math.cos(time * 0.24) * 0.1;
-    }
-    const dx = target.x - current.x;
-    const dy = target.y - current.y;
-    if (Math.abs(dx) < 0.0015 && Math.abs(dy) < 0.0015) return;
-    current.x += dx * 0.35;
-    current.y += dy * 0.35;
-    if (hero) {
-      hero.style.transform = `translate3d(${(current.x * 14).toFixed(2)}px, ${(current.y * 8).toFixed(2)}px, 0)`;
-    }
-  };
-
-  return {
-    step,
-    stop: () => {
-      window.removeEventListener("pointermove", onPointer);
-      document.documentElement.removeEventListener("pointerleave", onLeave);
-      window.removeEventListener("deviceorientation", onOrient);
-      window.removeEventListener("pointerdown", askGyro);
-      if (hero) hero.style.transform = "";
-    },
-  };
-}
-
 export function HeroScroll({ poster, children }: { poster: boolean; children: ReactNode }) {
   const rootRef = useRef<HTMLElement>(null);
   const progressRef = useRef(0);
+  // MeadowScene still reads this for camera aim. We leave it at rest so the
+  // flowers keep their wind and nothing follows the cursor. Jiwoo drops the
+  // camera term on their side.
   const pointerRef = useRef({ x: 0, y: 0 });
 
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const veil = root.querySelector<HTMLElement>("[data-hero-veil]");
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const mobile = window.matchMedia("(max-width: 767px)").matches;
     let scrollY = window.scrollY;
     let start = 0;
     let end = 1;
@@ -145,8 +67,6 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
       scrollY = window.scrollY;
     };
 
-    const pointer = reduce ? null : trackPointer(root, pointerRef, mobile, () => performance.now());
-
     const frame = () => {
       if (!running) return;
       const progress = clamp((scrollY - start) / (end - start), 0, 1);
@@ -157,7 +77,6 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
         veil.style.backgroundColor = color;
         lastVeil = color;
       }
-      pointer?.step();
       requestAnimationFrame(frame);
     };
 
@@ -170,7 +89,6 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
     return () => {
       running = false;
       cancelAnimationFrame(id);
-      pointer?.stop();
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", measure);
     };

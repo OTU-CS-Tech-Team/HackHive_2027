@@ -16,7 +16,7 @@ function Wordmark() {
 
 export function TrailheadPanel({ children }: { children: ReactNode }) {
   return (
-    <div data-hero-parallax="" className={`${styles.hero} will-change-transform`}>
+    <div data-hero-parallax="" className={styles.hero}>
       <h1 className={`${styles.heroTitle} ${styles.display}`}>
         <span className={styles.heroFrost} aria-hidden="true">
           <Wordmark />

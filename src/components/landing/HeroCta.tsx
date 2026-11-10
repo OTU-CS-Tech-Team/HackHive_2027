@@ -20,7 +20,7 @@ export async function HeroCta() {
 
   return (
     <Link href="/signup" className={ctaClassName}>
-      Sign up as a hacker
+      Apply now!
     </Link>
   );
 }
@@ -28,7 +28,7 @@ export async function HeroCta() {
 export function HeroCtaFallback() {
   return (
     <Link href="/signup" className={ctaClassName}>
-      Sign up as a hacker
+      Apply now!
     </Link>
   );
 }
