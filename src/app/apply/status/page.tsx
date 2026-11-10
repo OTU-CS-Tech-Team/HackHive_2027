@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getVerifiedUser } from "@/lib/auth/helpers";
 import { getMyApplication } from "@/lib/application/api";
-import { ApplicationView } from "@/components/ApplicationView";
+import { ApplicationNextSteps, ApplicationView } from "@/components/ApplicationView";
 
 function LoadingSpinner() {
   return (
@@ -70,6 +70,7 @@ async function StatusPageContent() {
             Review your application details below.
           </p>
         </div>
+        <ApplicationNextSteps application={result.application} />
         <ApplicationView application={result.application} />
         <div className="mt-8 text-center">
           <Link

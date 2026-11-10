@@ -4,55 +4,22 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import styles from "./museum.module.css";
 
-type YouTubeFacadeProps = {
-  videoId: string;
-  title: string;
-};
+type YouTubeFacadeProps = { videoId: string; title: string; thumbnail?: string; onPlay?: () => void };
 
-export default function YouTubeFacade({ videoId, title }: YouTubeFacadeProps) {
+export default function YouTubeFacade({ videoId, title, thumbnail, onPlay }: YouTubeFacadeProps) {
   const [playing, setPlaying] = useState(false);
-
   useEffect(() => {
-    // Cached pages are hidden by Activity, which runs effect cleanup.
+    // Next Activity cleans up effects when a cached route is hidden.
     return () => setPlaying(false);
   }, []);
 
-  if (playing) {
-    return (
-      <iframe
-        className={styles.cardEmbed}
-        src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`}
-        title={title}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-      />
-    );
-  }
+  if (playing) return <iframe className={styles.cardEmbed}
+    src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`}
+    title={`${title} demo`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />;
 
-  return (
-    <button
-      type="button"
-      className={styles.facade}
-      onClick={() => setPlaying(true)}
-      aria-label={`Play ${title}`}
-    >
-      <Image
-        className={styles.facadeImage}
-        src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-        alt=""
-        fill
-        unoptimized
-        sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 25vw"
-      />
-      <span className={styles.facadePlay} aria-hidden>
-        <svg viewBox="0 0 64 72" width="54" height="61">
-          <path d="M32 2 62 19v34L32 70 2 53V19Z" fill="currentColor" />
-          <path d="m27 25 18 11-18 11Z" fill="#231c10" />
-        </svg>
-      </span>
-      <span className={styles.demoLabel} aria-hidden="true">
-        Watch demo <span>↗</span>
-      </span>
-    </button>
-  );
+  return <button type="button" className={styles.facade} onClick={() => { setPlaying(true); onPlay?.(); }} aria-label={`Play ${title}`}>
+    <Image className={styles.poster} src={thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} alt="" fill unoptimized sizes="(max-width: 760px) 100vw, 360px" />
+    <span className={styles.playIcon} aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19"><path d="m9 5 11 7-11 7Z" fill="currentColor" /></svg></span>
+    <span className={styles.demoLabel}>Watch demo <span aria-hidden="true">↗</span></span>
+  </button>;
 }

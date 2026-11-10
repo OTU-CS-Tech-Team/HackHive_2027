@@ -119,7 +119,11 @@ export function ResumeUpload({ value, onChange, disabled = false, error }: Resum
           </svg>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-neutral-900">{displayName}</p>
-            <p className="text-xs text-neutral-500">Uploaded successfully</p>
+            {error ? (
+              <p className="text-xs text-red-600" role="alert">{error}</p>
+            ) : (
+              <p className="text-xs text-neutral-500">Uploaded successfully</p>
+            )}
           </div>
           <button
             type="button"

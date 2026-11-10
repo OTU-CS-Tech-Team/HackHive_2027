@@ -1,0 +1,691 @@
+/* A hand-drawn, cartoony honeycomb: flat colours, thick dark-brown outlines, solid
+   offset shadows instead of glows, and a light grain so it looks painted. Each
+   question is a honey bar with amber hexes stuck to its edges; opening it slides
+   out a framed answer panel underneath with honey dripping down over it. */
+.faq-page {
+  --hive-yellow: #fff29c;
+  --hive-blue: #6495ed;
+  --hive-black: #000000;
+  --hive-purple: #1b003f;
+  --ink: #3b1f00;
+  --honey: #ffc21a;
+  --honey-light: #ffd95a;
+  --honey-deep: #e89a00;
+  /* The darker "side" under each piece, so it reads as a chunky cut-out on black. */
+  --side: #a65f00;
+  --line: 3px;
+  --cell: 2.75rem;
+  --hex-clip: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  /* How tall the fade from the judges section above into the purple is, and how much
+     plain purple follows it before the heading. */
+  --fade: clamp(16rem, 45vh, 26rem);
+  --lead: 6rem;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .23 0 0 0 0 .12 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
+
+  /* Its own stacking context, so the stream and grain behind the questions
+     (z-index: -1) still sit above its background. */
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100svh;
+  /* Tucks up over the section above's bottom border, so the judges ink runs straight
+     into the fade with no line between them. */
+  margin-top: -1px;
+  padding: calc(var(--fade) + var(--lead)) 1rem 5rem;
+  /* Jumping to #faq skips the fade and lands just above the heading, under the navbar. */
+  scroll-margin-top: calc(6rem - var(--fade) - var(--lead));
+  /* The hexes hang off the bars' edges, and the stream's layer reaches a screen past
+     the top and bottom (see .faq-stream), so never let either show outside or make
+     the page scroll further. Clip, not hidden, so the stream's view can still pin. */
+  overflow: clip;
+  /* Deep hive purple into cornflower blue, with a warm honey glow rising from the
+     bottom and soft blue and honey light off the upper corners. Kept dark in the
+     middle so the honey bars stand out. */
+  background:
+    radial-gradient(ellipse 60% 45% at 12% 18%, rgb(100 149 237 / 0.45), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 90% 30%, rgb(255 194 26 / 0.22), transparent 70%),
+    radial-gradient(ellipse 90% 50% at 50% 105%, rgb(255 194 26 / 0.4), transparent 70%),
+    linear-gradient(170deg, #1b003f 0%, #2a1366 35%, #3b3f9e 65%, #2a1366 85%, #1b003f 100%);
+  color: var(--ink);
+}
+
+/* The stream of light (HexStream), over the gradient. Its canvases sit in a
+   screen-sized view that stays pinned to the screen the whole time any of the
+   section is showing, so they never need resizing as the section changes height;
+   HexStream draws the stream through the middle of the questions wherever they've
+   scrolled to. The view uses the largest screen height, so it doesn't resize as a
+   phone's address bar shows and hides. */
+.faq-stream {
+  --reach: 100vh;
+  --reach: 100lvh;
+  position: absolute;
+  /* Under the fade, so the stream rises out of it rather than over the judges ink. */
+  z-index: -3;
+  /* A sticky view only pins while there's room for it inside its parent, so on its
+     own it would ride in with the section's top and out with its bottom. This
+     reaches a screen past both, so it's pinned throughout; the section clips off
+     what's outside it. */
+  inset: calc(-1 * var(--reach)) 0;
+  pointer-events: none;
+}
+
+/* The light falling out of the fade into the stream (HexStream's drawFalling): over
+   the fade, so it shows as the fade turns purple, and under the grain. */
+.faq-falling {
+  z-index: -1;
+}
+
+.faq-stream-view {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+}
+
+.faq-stream canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Its veils, drawn at half size and blurred, so they're smooth with no seams. */
+.faq-stream canvas.is-soft {
+  filter: blur(5px);
+}
+
+/* The fade in from the judges section above: from its exact ink, through a deep
+   violet into the purple, easing out at both ends and thinning out at the bottom
+   so it melts into the background and its glows instead of ending in a line. */
+.faq-page::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: 0 0 auto;
+  height: var(--fade);
+  background: linear-gradient(
+    #14110b 0%,
+    #161018 14%,
+    #1a0c2c 32%,
+    #1c0840 52%,
+    rgb(36 12 84 / 0.72) 70%,
+    rgb(27 0 63 / 0.28) 86%,
+    rgb(27 0 63 / 0) 100%
+  );
+  pointer-events: none;
+}
+
+/* The same grain as the cards, over the stream. It comes in gradually through the
+   fade, since the judges section above has none and it would draw a line there. */
+.faq-page::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--grain);
+  mask-image: linear-gradient(transparent, #000 var(--fade));
+  pointer-events: none;
+}
+
+/* Cream lettering with a dark-brown outline and a solid shadow, like the bars. */
+.faq-page h1,
+.faq-contact {
+  position: relative;
+}
+
+.faq-page h1 {
+  margin: 0.5rem 0 3rem;
+  text-align: center;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #fff8d6;
+  -webkit-text-stroke: 6px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 5px 0 var(--ink);
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2.75rem 3.5rem;
+  align-items: start;
+  width: 100%;
+  max-width: 66rem;
+  /* Room for the hexes that stick out past the bars' sides. */
+  padding: 0 1.75rem;
+}
+
+.faq-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+}
+
+.faq-item {
+  position: relative;
+}
+
+.faq-item h3 {
+  margin: 0;
+}
+
+/* The question bar */
+.faq-bar {
+  position: relative;
+}
+
+.faq-question {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  /* Tall enough for two lines of question, so every bar is the same height
+     whether its question wraps or not. */
+  min-height: calc(2lh + 2.75rem + 2 * var(--line));
+  /* Clears any hexes on the bar's left edge. */
+  padding: 1.375rem 1.25rem 1.375rem 2.75rem;
+  border: var(--line) solid var(--ink);
+  border-radius: 0.875rem;
+  background: var(--grain), var(--honey);
+  box-shadow: 0 6px 0 var(--side);
+  color: var(--ink);
+  text-align: left;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms;
+}
+
+/* Pressing it squashes it down onto its shadow, like a chunky toy button. */
+/* Only where there's a real hover, or a tap leaves the bar stuck lightened. */
+@media (hover: hover) {
+  .faq-question:hover {
+    background-color: var(--honey-light);
+  }
+}
+
+.faq-question:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--side);
+}
+
+/* Open, the bar and the answer panel join into one piece: the bar loses its bottom
+   corners, outline and shadow, and stays put when pressed. The outline is removed
+   rather than made transparent (which leaves slanted spikes where the side outlines
+   meet it), and the padding grows to keep the bar the same height. */
+.faq-item[data-open="true"] .faq-question {
+  border-bottom-width: 0;
+  padding-bottom: calc(1.375rem + var(--line));
+  /* Hovering mustn't lighten it, or it would stop matching the honey below. */
+  background-color: var(--honey);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.faq-question:focus-visible {
+  outline: 3px solid var(--hive-blue);
+  outline-offset: 4px;
+}
+
+/* A dark hex holding the + / −. */
+.faq-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.125rem;
+  height: calc(2.125rem * 1.1547);
+  clip-path: var(--hex-clip);
+  background: var(--ink);
+  color: var(--hive-yellow);
+  font-size: 1.375rem;
+  line-height: 1;
+}
+
+/* Amber hexes stuck to the bar's edges. Each card places its own (see HEX_LAYOUTS).
+   A filter on the wrapper gives them all one solid shadow, since the clipped hexes
+   can't have a box-shadow of their own. */
+.faq-hexes {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 0 var(--side));
+}
+
+/* Each hex is the outline colour, with a two-tone amber hex inset inside it. */
+.faq-hexes > span {
+  position: absolute;
+  width: calc(var(--cell) * var(--size, 1));
+  height: calc(var(--cell) * var(--size, 1) * 1.1547);
+  clip-path: var(--hex-clip);
+  background: var(--ink);
+  transition: transform 350ms ease, opacity 300ms ease;
+}
+
+.faq-hexes > span::after {
+  content: "";
+  position: absolute;
+  inset: var(--line);
+  clip-path: var(--hex-clip);
+  background:
+    var(--grain),
+    linear-gradient(160deg, var(--honey-light) 0 42%, var(--honey-deep) 42%);
+}
+
+/* Opening the answer melts the bottom hexes away. */
+.faq-item[data-open="true"] .faq-hexes > span[data-melt="true"] {
+  opacity: 0;
+  transform: scale(0.4) translateY(-1rem);
+}
+
+/* The answer */
+/* Animating grid rows from 0fr to 1fr slides the answer open to its natural height. */
+.faq-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 350ms ease;
+}
+
+.faq-item[data-open="true"] .faq-answer {
+  grid-template-rows: 1fr;
+}
+
+.faq-answer > div {
+  overflow: hidden;
+}
+
+/* An amber frame with a pale card set into it. It hangs
+   straight off the bar, sharing the bar's bottom outline. */
+.faq-panel {
+  position: relative;
+  /* The bottom margin leaves room for the shadow inside the clipped wrapper. */
+  margin: 0 0 6px;
+  padding: 1.5rem 1.75rem;
+  border: var(--line) solid var(--ink);
+  border-top: 0;
+  border-radius: 0 0 0.875rem 0.875rem;
+  background: var(--grain), var(--honey);
+  box-shadow: 0 6px 0 var(--side);
+}
+
+.faq-panel p {
+  position: relative;
+  margin: 0;
+  padding: 1rem 1.25rem 1.125rem;
+  border-radius: 0.375rem;
+  background: var(--grain), #fff8d6;
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.6;
+  /* Slightly uneven corners, as if the card was cut out by hand. */
+  clip-path: polygon(0.5% 2%, 99.2% 0, 100% 97%, 1.2% 100%);
+  /* The answer and the invisible copies of the others share one cell, so the card
+     is as tall as the longest of them. */
+  display: grid;
+}
+
+/* The same for the questions, so every bar is as tall as the longest. */
+.faq-question-text {
+  display: grid;
+  flex: 1;
+}
+
+.faq-panel p > span,
+.faq-question-text > span {
+  grid-area: 1 / 1;
+}
+
+/* A short question sits in the middle of its bar, not at the top. */
+.faq-question-text > span {
+  align-self: center;
+}
+
+.faq-sizer {
+  visibility: hidden;
+}
+
+/* Honey */
+/* Covers the whole card (bar and answer) inside its outline, so the drips run from
+   the very top of the bar down the sides, clear of the question and the text box.
+   The bottom stops short of the panel's shadow. */
+.faq-drips {
+  position: absolute;
+  inset: var(--line) var(--line) calc(var(--line) + 6px);
+  z-index: 2;
+  overflow: hidden;
+  border-radius: calc(0.875rem - var(--line));
+  pointer-events: none;
+}
+
+/* Each drip is an outlined stream of the same grainy honey as the bar, carrying a
+   rounder drop at its tip all the way down. */
+.faq-drips > span {
+  position: absolute;
+  top: 0;
+  width: var(--w);
+  height: 0;
+  border-inline: var(--line) solid var(--ink);
+  background: var(--grain), var(--honey);
+  transition: height 300ms ease-in;
+}
+
+.faq-drips > span::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  bottom: calc(var(--w) * -0.55);
+  left: 50%;
+  width: calc(var(--w) * 1.45);
+  aspect-ratio: 1;
+  border: var(--line) solid var(--ink);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 34%, #ffffff 0 14%, transparent 15%),
+    var(--grain),
+    var(--honey);
+  translate: -50% 0;
+  scale: 0;
+  transition: scale 200ms ease;
+}
+
+/* Honey is slow: the drips ooze down from the top as the panel slides open, the
+   drop forming at the start and riding the tip down. Each card sets its own drips'
+   size, length and timing (see DRIP_LAYOUTS). */
+.faq-item[data-open="true"] .faq-drips > span {
+  height: var(--len);
+  transition: height 1400ms cubic-bezier(0.3, 0, 0.2, 1) var(--delay);
+}
+
+.faq-item[data-open="true"] .faq-drips > span::after {
+  scale: 1;
+  transition: scale 200ms ease var(--delay);
+}
+
+.faq-contact {
+  margin: 3.5rem 0 0;
+  max-width: 40rem;
+  text-align: center;
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+/* On a pale card like the answers, so it reads clearly over the background, with
+   the copy button tucked in at its right end. */
+.faq-contact p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+  border: var(--line) solid var(--ink);
+  border-radius: 0.875rem;
+  background: var(--grain), #fff8d6;
+  box-shadow: 0 6px 0 var(--side);
+  font-weight: 600;
+}
+
+.faq-contact p a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.faq-contact p a:hover {
+  color: var(--honey-deep);
+}
+
+/* "Copy email": a small chunky honey button like the FAQ bars. Its shadow is
+   shallower than the pill's so it sits inside it. */
+.faq-contact button {
+  flex-shrink: 0;
+  margin-bottom: 3px;
+  padding: 0.35rem 1rem;
+  border: var(--line) solid var(--ink);
+  border-radius: 0.5rem;
+  background: var(--grain), var(--honey);
+  box-shadow: 0 3px 0 var(--side);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms;
+}
+
+@media (hover: hover) {
+  .faq-contact button:hover {
+    background-color: var(--honey-light);
+  }
+}
+
+.faq-contact button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--side);
+}
+
+.faq-contact a:focus-visible,
+.faq-contact button:focus-visible {
+  outline: 3px solid var(--hive-blue);
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .faq-page {
+    --cell: 2.25rem;
+  }
+
+  .faq-page h1 {
+    margin-bottom: 2.25rem;
+    font-size: 1.875rem;
+  }
+
+  .faq-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+    padding: 0 1.25rem;
+  }
+
+  .faq-column {
+    gap: 2.5rem;
+  }
+
+  .faq-question {
+    min-height: calc(2lh + 2.25rem + 2 * var(--line));
+    padding: 1.125rem 1rem 1.125rem 2.25rem;
+    font-size: 1rem;
+  }
+
+  .faq-item[data-open="true"] .faq-question {
+    padding-bottom: calc(1.125rem + var(--line));
+  }
+
+  .faq-panel {
+    padding: 1.25rem;
+  }
+
+  .faq-panel p {
+    padding: 0.875rem 1rem 1rem;
+  }
+
+  /* In one column there's nothing to line up with, and the longest question and
+     answer wrap so far that every card would be mostly empty. Each card fits its own. */
+  .faq-sizer {
+    display: none;
+  }
+
+  .faq-contact {
+    margin-top: 2.5rem;
+  }
+}
+
+/* Phones: less stacked padding, so the questions and answers get the width. The
+   panel keeps its 1.25rem sides so the drips stay clear of the text box. */
+@media (max-width: 480px) {
+  .faq-page {
+    --cell: 2rem;
+    --fade: clamp(13rem, 40vh, 19rem);
+    --lead: 4rem;
+    padding: calc(var(--fade) + var(--lead)) 0.75rem 4rem;
+  }
+
+  .faq-page h1 {
+    margin-bottom: 2rem;
+    font-size: 1.625rem;
+    -webkit-text-stroke-width: 5px;
+    text-shadow: 0 4px 0 var(--ink);
+  }
+
+  .faq-grid,
+  .faq-column {
+    gap: 2rem;
+  }
+
+  .faq-grid {
+    padding: 0 0.75rem;
+  }
+
+  .faq-question {
+    gap: 0.75rem;
+    padding-left: 2rem;
+    font-size: 0.9375rem;
+  }
+
+  .faq-icon {
+    width: 1.875rem;
+    height: calc(1.875rem * 1.1547);
+    font-size: 1.25rem;
+  }
+
+  .faq-panel {
+    padding-block: 1rem;
+  }
+
+  .faq-panel p {
+    padding: 0.75rem 0.875rem 0.875rem;
+    font-size: 0.9375rem;
+  }
+
+  .faq-contact {
+    font-size: 1rem;
+  }
+
+  /* The copy button drops below the address, so pad the card evenly. */
+  .faq-contact p {
+    padding: 0.875rem 1rem;
+  }
+}
+
+/* Boot-up */
+/* Like a PS3 starting, in two stages that FaqSection sets on data-boot as the
+   section scrolls in. At "dawn", as the fade comes up, the stream swells up out of a
+   thin band of light and light starts falling into it out of the fade. At "awake",
+   once the fade is mostly past, the heading comes into focus, then the questions
+   slide in one after another like the menu's icons, and the contact card last.
+   "asleep" is before all that. Without data-boot everything just shows. */
+.faq-page[data-boot="asleep"] .faq-stream-view {
+  opacity: 0;
+}
+
+/* The main stream waits for the cards. */
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-stream:not(.faq-falling) .faq-stream-view {
+  opacity: 0;
+  transform: scaleY(0.15);
+}
+
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) h1 {
+  opacity: 0;
+  filter: blur(8px);
+  transform: scale(1.06);
+}
+
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-item {
+  opacity: 0;
+  transform: translateX(2.5rem);
+}
+
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-contact {
+  opacity: 0;
+  transform: translateY(1rem);
+}
+
+/* Powering down, when scrolled back up: quicker than booting, all at once, then the
+   stream sinking back into its band and the falling light going out once scrolled
+   back up past the fade. */
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) :is(h1, .faq-item, .faq-contact) {
+  transition:
+    opacity 0.4s ease,
+    filter 0.4s ease,
+    transform 0.5s ease-in;
+}
+
+.faq-page:is([data-boot="asleep"], [data-boot="dawn"]) .faq-stream:not(.faq-falling) .faq-stream-view {
+  transition:
+    opacity 0.8s ease,
+    transform 0.9s ease-in;
+}
+
+.faq-page[data-boot="awake"] .faq-stream:not(.faq-falling) .faq-stream-view {
+  transition:
+    opacity 2.2s ease,
+    transform 2.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The falling light comes on ahead of the stream, as the fade comes up, and goes
+   out once scrolled back up past it. */
+.faq-page[data-boot="asleep"] .faq-falling .faq-stream-view {
+  transition: opacity 0.8s ease;
+}
+
+.faq-page:is([data-boot="dawn"], [data-boot="awake"]) .faq-falling .faq-stream-view {
+  transition: opacity 1.2s ease;
+}
+
+.faq-page[data-boot="awake"] h1 {
+  transition:
+    opacity 1s ease 0.5s,
+    filter 1s ease 0.5s,
+    transform 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.5s;
+}
+
+/* Each question waits its turn (--step, set per card), a beat after the heading. */
+.faq-page[data-boot="awake"] .faq-item {
+  --boot-delay: calc(1s + var(--step) * 120ms);
+  transition:
+    opacity 0.7s ease var(--boot-delay),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--boot-delay);
+}
+
+.faq-page[data-boot="awake"] .faq-contact {
+  transition:
+    opacity 0.8s ease 1.9s,
+    transform 0.8s ease 1.9s;
+}
+
+/* Stacked into one column, they come in straight down the list. */
+@media (max-width: 760px) {
+  .faq-page[data-boot="awake"] .faq-item {
+    --boot-delay: calc(1s + var(--step-narrow) * 120ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-question,
+  .faq-answer,
+  .faq-hexes > span,
+  .faq-drips > span,
+  .faq-drips > span::after,
+  .faq-item[data-open="true"] .faq-drips > span,
+  .faq-item[data-open="true"] .faq-drips > span::after {
+    transition: none;
+  }
+}

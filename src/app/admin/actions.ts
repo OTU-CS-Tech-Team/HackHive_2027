@@ -1,9 +1,14 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
+import { after } from "next/server";
+import { sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
+import { HISTORY_PAGE_SIZE, REQUEST_COLUMNS, type HistoryCursor } from "./requests/query";
+import type { ItemRequest } from "./requests/RequestQueue";
 
 export type ScannedHacker = {
   id: string;
@@ -108,20 +113,80 @@ export async function redeemItem(userId: string, itemId: string): Promise<Action
   return insertTransaction(supabase, { user_id: userId, amount: -1, reason: item.name, shop_item_id: itemId }, `Redeemed ${item.name}`);
 }
 
-const DECISIONS = ["accepted", "waitlisted", "rejected"];
+const DECISIONS: readonly string[] = ["accepted", "waitlisted", "rejected"];
 
-// Empty decision = back to "applied".
-export async function setDecision(formData: FormData): Promise<string> {
+// null = back to "applied", which emails nobody.
+export async function setDecision(id: string, decision: Decision | null): Promise<ActionResult> {
   const supabase = await requireAdmin();
-  const decision = String(formData.get("decision") ?? "");
-  if (decision && !DECISIONS.includes(decision)) return "Pick a decision.";
-  const { error } = await supabase
-    .from("applications")
-    .update({ decision: decision || null })
-    .eq("id", String(formData.get("id") ?? ""));
-  if (error) return error.message;
-  revalidatePath("/admin");
-  return "Saved.";
+  if (!UUID.test(id) || (decision !== null && !DECISIONS.includes(decision))) return { ok: false, message: "Pick a decision." };
+
+  // Only a real change matches a row, so a double click can't send two emails.
+  const change = supabase.from("applications").update({ decision }).eq("id", id).eq("status", "submitted");
+  const { data, error } = await (decision ? change.or(`decision.is.null,decision.neq.${decision}`) : change.not("decision", "is", null))
+    .select("email, first_name");
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin", "layout");
+
+  const applicant = data[0];
+  if (!applicant) return { ok: true, message: "Already saved. No email sent." };
+  if (!decision) return { ok: true, message: "Moved back to pending. No email sent." };
+  const { sent, error: emailError } = await sendDecisionEmail({ to: applicant.email, firstName: applicant.first_name, decision });
+  return sent
+    ? { ok: true, message: `Saved as ${decision} and emailed ${applicant.email}.` }
+    : { ok: false, message: `Saved as ${decision}, but the email to ${applicant.email} failed (${emailError}). Use Resend email to try again.` };
+}
+
+export async function resendDecisionEmail(id: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
+  const { data: applicant } = await supabase.from("applications").select("email, first_name, decision").eq("id", id).maybeSingle();
+  if (!applicant?.decision) return { ok: false, message: "There's no decision to email yet." };
+  const { sent, error } = await sendDecisionEmail({ to: applicant.email, firstName: applicant.first_name, decision: applicant.decision });
+  return sent
+    ? { ok: true, message: `Emailed ${applicant.email} again.` }
+    : { ok: false, message: `The email to ${applicant.email} failed (${error}). Try again in a moment.` };
+}
+
+// Resumes, avatars and indemnification forms live in Storage, so the account's cascade doesn't reach them.
+async function removeUserFiles(service: ReturnType<typeof createServiceClient>, userId: string) {
+  const buckets = await Promise.all(
+    ["resumes", "avatars", "indemnifications"].map(async (bucket) => {
+      const { data, error } = await service.storage.from(bucket).list(userId, { limit: 1000 });
+      if (error) return false;
+      if (!data.length) return true;
+      const { error: removeError } = await service.storage.from(bucket).remove(data.map((file) => `${userId}/${file.name}`));
+      return !removeError;
+    }),
+  );
+  return buckets.every(Boolean);
+}
+
+// Permanent. Removes the account, and the application, profile, points and team
+// posts cascade from it. Admins are refused, which also stops deleting yourself.
+export async function deleteApplicant(id: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
+  const { data: applicant } = await supabase.from("applications").select("user_id, email").eq("id", id).maybeSingle();
+  if (!applicant) return { ok: false, message: "Applicant not found." };
+
+  // admin_users only lets admins read their own row, so this needs the service role.
+  const service = createServiceClient();
+  const { data: targetAdmin, error: lookupError } = await service
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", applicant.user_id)
+    .maybeSingle();
+  if (lookupError) return { ok: false, message: `Couldn't check ${applicant.email}: ${lookupError.message}` };
+  if (targetAdmin) return { ok: false, message: `${applicant.email} is an admin and can't be deleted here.` };
+
+  // Account first, so a failure here leaves their resume in place.
+  const { error } = await service.auth.admin.deleteUser(applicant.user_id);
+  if (error) return { ok: false, message: `Couldn't delete ${applicant.email}: ${error.message}` };
+  revalidatePath("/admin", "layout");
+
+  return (await removeUserFiles(service, applicant.user_id))
+    ? { ok: true, message: `Deleted ${applicant.email}.` }
+    : { ok: false, message: `Deleted ${applicant.email}, but some of their files couldn't be removed from Storage.` };
 }
 
 // Creates an event, or updates one when the form carries an id.
@@ -206,6 +271,92 @@ export async function saveRow(table: TableName, formData: FormData): Promise<str
   if ("cacheTag" in config) updateTag(config.cacheTag);
   revalidatePath("/admin");
   return id ? "Saved." : `Added ${row.name}.`;
+}
+
+// First come, first served: only the oldest pending request can be reviewed.
+export async function reviewItemRequest(id: string, decision: "accepted" | "rejected", note: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (decision !== "accepted" && decision !== "rejected") return { ok: false, message: "Unknown decision." };
+
+  const { data: next } = await supabase
+    .from("item_requests")
+    .select("id")
+    .eq("status", "pending")
+    .order("queue_number")
+    .limit(1)
+    .maybeSingle();
+  if (next?.id !== id) return { ok: false, message: "That's not the next request in line. Refresh the page." };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // The status filter stops two admins reviewing the same request at once.
+  const { data, error } = await supabase
+    .from("item_requests")
+    .update({ status: decision, reviewed_by: user!.id, reviewed_at: new Date().toISOString(), admin_note: note.trim() || null })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id, items, admin_note, requester:profiles!user_id(email)");
+  if (error) return { ok: false, message: error.message };
+  if (!data.length) return { ok: false, message: "Someone already reviewed this one. Refresh the page." };
+  revalidatePath("/admin/requests");
+
+  // Tell the hacker, after the response so a slow or failed email never holds up the review.
+  const [reviewed] = data;
+  const requester = reviewed.requester as { email: string | null } | { email: string | null }[] | null;
+  const email = Array.isArray(requester) ? requester[0]?.email : requester?.email;
+  if (email) {
+    after(() => sendItemRequestReviewedEmail(email, { items: reviewed.items, decision, note: reviewed.admin_note }));
+  }
+  return { ok: true, message: decision === "accepted" ? "Accepted." : "Rejected." };
+}
+
+// Only reviewed requests can be deleted; pending ones have to go through the queue.
+export type HistoryPage =
+  | { ok: true; requests: ItemRequest[]; hasMore: boolean }
+  | { ok: false; message: string };
+
+// One page of reviewed requests, most recently reviewed first, starting just after
+// `cursor` (or from the top without one). Keyset pagination on (reviewed_at, id)
+// rather than offsets, so reviewing or deleting requests between pages can't make
+// one skip or repeat. Asks for one extra row to tell whether there's another page.
+export async function loadRequestHistory(cursor: HistoryCursor | null): Promise<HistoryPage> {
+  const supabase = await requireAdmin();
+  let query = supabase
+    .from("item_requests")
+    .select(REQUEST_COLUMNS)
+    .neq("status", "pending")
+    .order("reviewed_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .limit(HISTORY_PAGE_SIZE + 1);
+
+  if (cursor) {
+    if (!UUID.test(cursor.id)) return { ok: false, message: "Unknown request." };
+    if (cursor.reviewedAt === null) {
+      // Past the last reviewed request: only the ones with no review time are left.
+      query = query.is("reviewed_at", null).lt("id", cursor.id);
+    } else {
+      if (Number.isNaN(Date.parse(cursor.reviewedAt))) return { ok: false, message: "Unknown request." };
+      const at = `"${cursor.reviewedAt}"`;
+      query = query.or(`reviewed_at.lt.${at},and(reviewed_at.eq.${at},id.lt.${cursor.id}),reviewed_at.is.null`);
+    }
+  }
+
+  const { data, error } = await query;
+  if (error) return { ok: false, message: error.message };
+  const rows = (data ?? []) as unknown as ItemRequest[];
+  return { ok: true, requests: rows.slice(0, HISTORY_PAGE_SIZE), hasMore: rows.length > HISTORY_PAGE_SIZE };
+}
+
+export async function deleteItemRequest(id: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Unknown request." };
+
+  const { data, error } = await supabase.from("item_requests").delete().eq("id", id).neq("status", "pending").select("id");
+  if (error) return { ok: false, message: error.message };
+  if (!data.length) return { ok: false, message: "That request is gone or still pending. Refresh the page." };
+  revalidatePath("/admin/requests");
+  return { ok: true, message: "Deleted." };
 }
 
 export async function deleteRow(table: TableName, id: string): Promise<string> {

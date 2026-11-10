@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
-import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
+import { SiteFooter } from "@/components/sections/SiteFooter";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
 import { createClient } from "@/lib/supabase/server";
@@ -45,24 +46,29 @@ function HeroCTAFallback() {
 
 export default function Home() {
   return (
-    <main>
-      <section className="flex min-h-[80vh] flex-col items-center justify-center px-4 pt-16 text-center">
-        <h1 className="mb-6 text-[clamp(3rem,9vw,8.5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
-          HackHive 2027
-        </h1>
-        <p className="mb-8 max-w-2xl text-lg text-neutral-600">
-          Join Ontario Tech University&apos;s premier hackathon. Build, learn, and connect with
-          fellow hackers from across the globe.
-        </p>
-        <Suspense fallback={<HeroCTAFallback />}>
-          <HeroCTA />
-        </Suspense>
-      </section>
-      
-      <SponsorsSection />
-      <SpeakersSection />
-      <HackHive2025Section />
-      <FaqSection />
-    </main>
+    <>
+      <main>
+        <section className="flex min-h-[80vh] flex-col items-center justify-center px-4 pt-16 text-center">
+          <h1 className="mb-6 text-[clamp(3rem,9vw,8.5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
+            HackHive 2027
+          </h1>
+          <p className="mb-8 max-w-2xl text-lg text-neutral-600">
+            Join Ontario Tech University&apos;s premier hackathon. Build, learn, and connect with
+            fellow hackers from across the globe.
+          </p>
+          <Suspense fallback={<HeroCTAFallback />}>
+            <HeroCTA />
+          </Suspense>
+        </section>
+
+        <SponsorsSection />
+        <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
+        <SpeakersSection />
+        <div className="relative max-sm:[&>#faq]:pb-[8.5rem]!">
+          <FaqSection />
+          <SiteFooter />
+        </div>
+      </main>
+    </>
   );
 }
