@@ -191,9 +191,9 @@ function scatterFull(
   const items: Item[] = [];
   for (let i = 0; i < count; i += 1) {
     const side = i % 2 === 0 ? -1 : 1;
-    const depth = i % 2 === 0 ? rng() * 0.38 : rng();
+    const depth = i % 5 === 0 ? rng() * 0.4 : rng();
     const z = z0 + depth * (z1 - z0);
-    const x = sideX(rng, side, z, clear, compact, i % 4 === 0);
+    const x = sideX(rng, side, z, clear, compact, i % 5 === 1);
     const tint = paint(rng, family);
     const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
     placeFlower(items, rng, x, 0.02, z, size, size, tint.color, tint.tip, lean, yawSpan);
@@ -235,7 +235,7 @@ export function buildLayout(quality: Quality): SceneLayout {
     let x = 0;
     let z = 0;
     if (foreground) {
-      const side = grassRng() < 0.42 ? -1 : 1;
+      const side = grassRng() < 0.5 ? -1 : 1;
       z = 4.15 - grassRng() * 1.7;
       const along = Math.pow(grassRng(), compact ? 1.45 : 0.62);
       const reach = compact ? 2.2 : 4.6;

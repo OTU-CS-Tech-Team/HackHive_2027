@@ -43,6 +43,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     daisy: triangles(createDaisyGeometry()),
     daisySpeck: triangles(createDaisyGeometry(undefined, "speck")),
     lupin: triangles(createLupinGeometry()),
+    lupinFar: triangles(createLupinGeometry(undefined, "full", "far")),
     lupinSpeck: triangles(createLupinGeometry(undefined, "speck")),
     card: triangles(createCardGeometry()),
     hill: triangles(createHillsGeometry()),
@@ -81,7 +82,8 @@ export function sceneBudget(quality: Quality): SceneBudget {
     }
     if (patch.lupins.count > 0) {
       draws += 1;
-      tris += (far ? unit.lupinSpeck : unit.lupin) * patch.lupins.count;
+      const lupinUnit = far ? unit.lupinSpeck : index === 0 ? unit.lupin : unit.lupinFar;
+      tris += lupinUnit * patch.lupins.count;
     }
   });
   if (layout.clouds.count > 0) {

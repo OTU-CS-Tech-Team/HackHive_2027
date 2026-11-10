@@ -379,9 +379,9 @@ function addTeardrop(
   yaw: number,
   tilt: number,
   spikeT: number,
+  around: number,
+  along: number,
 ) {
-  const around = 5;
-  const along = 2;
   const ct = Math.cos(tilt);
   const st = Math.sin(tilt);
   const cy = Math.cos(yaw);
@@ -430,17 +430,9 @@ function addTeardrop(
   }
 }
 
-/** One spike: florets spiral up the stem, large and deep at the base, small and pale at the tip. */
-export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full") {
-  const mesh = bag();
-  if (lod === "speck") {
-    addSpeckLupin(mesh);
-    return attachTips(finish(mesh, scatter), scatter);
-  }
-  if (lod !== "full") {
-    const unknown: never = lod;
-    return unknown;
-  }
+export type LupinDensity = "near" | "far";
+
+function addLupinSpike(mesh: Bag, florets: number, around: number, along: number) {
   const stem: RGB = [0.2, 0.34, 0.12];
   const stemTip: RGB = [0.38, 0.52, 0.2];
   let previous = vert(mesh, 0, 0, 0, stem, 0.2);
@@ -453,17 +445,41 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full") 
     mesh.indices.push(previous, next, side);
     previous = next;
   }
-  const florets = 26;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
     const y = 0.06 + Math.pow(t, 0.82) * 1.02;
-    const size = (0.028 * Math.pow(1 - t, 0.4) + 0.012) * 1.28;
+    const size = 0.028 * Math.pow(1 - t, 0.4) + 0.012;
     const yaw = floret * golden;
     const tilt = 1.2 - t * 0.55;
     const curve = Math.sin(t * Math.PI) * 0.045;
     const stalk = 0.018 + size * 0.28;
-    addTeardrop(mesh, Math.cos(yaw) * stalk + curve, y, Math.sin(yaw) * stalk, size, yaw, tilt, t);
+    addTeardrop(mesh, Math.cos(yaw) * stalk + curve, y, Math.sin(yaw) * stalk, size, yaw, tilt, t, around, along);
+  }
+}
+
+/** One spike: florets spiral up the stem, large and deep at the base, small and pale at the tip. */
+export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full", density: LupinDensity = "near") {
+  const mesh = bag();
+  if (lod === "speck") {
+    addSpeckLupin(mesh);
+    return attachTips(finish(mesh, scatter), scatter);
+  }
+  if (lod !== "full") {
+    const unknown: never = lod;
+    return unknown;
+  }
+  switch (density) {
+    case "near":
+      addLupinSpike(mesh, 36, 8, 4);
+      break;
+    case "far":
+      addLupinSpike(mesh, 12, 8, 3);
+      break;
+    default: {
+      const unknown: never = density;
+      return unknown;
+    }
   }
   return attachTips(finish(mesh, scatter), scatter);
 }

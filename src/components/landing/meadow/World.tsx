@@ -256,11 +256,11 @@ function buildMaterials(): Materials {
 
 function buildGeometries(layout: SceneLayout) {
   return {
-    patches: layout.patches.map((patch) => ({
+    patches: layout.patches.map((patch, index) => ({
       grass: createGrassGeometry(patch.grass),
       lilies: createLilyGeometry(patch.lilies),
       daisies: createDaisyGeometry(patch.daisies),
-      lupins: createLupinGeometry(patch.lupins),
+      lupins: createLupinGeometry(patch.lupins, "full", index === 0 ? "near" : "far"),
     })),
     hills: createHillsGeometry(),
     clouds: createCardGeometry(layout.clouds),

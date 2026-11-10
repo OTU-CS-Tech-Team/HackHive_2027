@@ -27,12 +27,32 @@ describe("meadow layout", () => {
         expect(Math.abs(x)).toBeGreaterThan(GRASS_CLEAR - 0.05);
       }
     }
-    expect(grass).toBeGreaterThan(1000);
+    expect(grass).toBeGreaterThan(800);
     expect(layout.patches.reduce((sum, patch) => sum + patch.lupins.count, 0)).toBeGreaterThanOrEqual(110);
     expect(flowers).toBeGreaterThan(250);
     expect(layout.clouds.count).toBeGreaterThan(0);
     expect(layout.sparks.count).toBeGreaterThan(100);
     expect(layout.leaves.count).toBe(0);
+  });
+
+  it("fills the middle of the garden on both sides", () => {
+    const layout = buildLayout("high");
+    let left = 0;
+    let right = 0;
+    for (const patch of layout.patches) {
+      for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          if (z < -1.2 || z > 3.2) continue;
+          if (x < 0) left += 1;
+          else right += 1;
+        }
+      }
+    }
+    expect(left).toBeGreaterThan(40);
+    expect(right).toBeGreaterThan(40);
+    expect(Math.abs(left - right) / Math.max(left, right)).toBeLessThan(0.25);
   });
 
   it("thins a shuffled prefix across the depth of every patch", () => {
