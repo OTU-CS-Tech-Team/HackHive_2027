@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FLOWER_CLEAR, GRASS_CLEAR, buildLayout } from "@/components/landing/meadow/layout";
 import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
 import { sceneBudget } from "@/components/landing/meadow/stats";
+import { readForcedTrim, trimmedInstances, trimmedSparks } from "@/components/landing/meadow/trim";
 
 function column(matrices: Float32Array, count: number, offset: number) {
   const values: number[] = [];
@@ -27,7 +28,7 @@ describe("meadow layout", () => {
       }
     }
     expect(grass).toBeGreaterThan(1500);
-    expect(flowers).toBeGreaterThan(2000);
+    expect(flowers).toBeGreaterThan(250);
     expect(layout.clouds.count).toBeGreaterThan(0);
     expect(layout.sparks.count).toBeGreaterThan(100);
     expect(layout.leaves.count).toBe(0);
@@ -57,11 +58,24 @@ describe("meadow layout", () => {
     expect(handoffVeil(1)).toBe(1);
   });
 
+  it("trims grass and sparks before it touches a flower", () => {
+    expect(trimmedInstances(1800, "grass", 1)).toBe(900);
+    expect(trimmedInstances(1800, "grass", 2)).toBe(450);
+    expect(trimmedSparks(280, 1)).toBe(140);
+    expect(trimmedSparks(280, 2)).toBe(70);
+    expect(trimmedInstances(104, "flower", 1)).toBe(104);
+    expect(trimmedInstances(104, "flower", 2)).toBe(104);
+    expect(trimmedInstances(7, "other", 2)).toBe(7);
+    expect(readForcedTrim("?meadowTrim=1")).toBe(1);
+    expect(readForcedTrim("?meadowTrim=2")).toBe(2);
+    expect(readForcedTrim("")).toBe(0);
+  });
+
   it("keeps both quality levels on a small draw budget", () => {
     const high = sceneBudget("high");
     const low = sceneBudget("low");
-    expect(high.draws).toBe(18);
-    expect(low.draws).toBe(18);
+    expect(high.draws).toBe(15);
+    expect(low.draws).toBe(15);
     expect(high.triangles).toBeLessThan(350_000);
     expect(low.triangles).toBeLessThan(high.triangles);
     expect(low.instances.lilies).toBeLessThan(high.instances.lilies);

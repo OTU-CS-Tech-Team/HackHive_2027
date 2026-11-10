@@ -54,6 +54,7 @@ import {
   windScale,
 } from "@/components/landing/meadow/palette";
 import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
+import { readForcedTrim, trimmedInstances, trimmedSparks, type TrimKind } from "@/components/landing/meadow/trim";
 import type { Quality } from "@/components/landing/meadow/quality";
 
 const FULL_COUNT = "fullCount";
@@ -63,27 +64,19 @@ const VEIL_HOLD = 0.9;
 const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
 
-function thinEvenly() {
-  for (const mesh of liveMeshes) {
-    const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
-    mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.5)));
-  }
-  for (const geometry of livePoints) {
-    const full = geometry.getAttribute("position").count;
-    geometry.setDrawRange(0, Math.max(8, Math.floor(full * 0.5)));
-  }
+function kindOf(value: unknown): TrimKind {
+  if (value === "grass" || value === "flower") return value;
+  return "other";
 }
 
-function thinFurther() {
+function applyTrim(level: 1 | 2) {
   for (const mesh of liveMeshes) {
-    const kind = mesh.userData[KIND];
     const full = Number(mesh.userData[FULL_COUNT] ?? mesh.count);
-    if (kind === "grass") mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.25)));
-    else if (kind === "flower") mesh.count = Math.min(full, Math.max(4, Math.floor(full * 0.18)));
+    mesh.count = trimmedInstances(full, kindOf(mesh.userData[KIND]), level);
   }
   for (const geometry of livePoints) {
     const full = geometry.getAttribute("position").count;
-    geometry.setDrawRange(0, Math.max(8, Math.floor(full * 0.25)));
+    geometry.setDrawRange(0, trimmedSparks(full, level));
   }
 }
 
@@ -262,15 +255,12 @@ function buildMaterials(): Materials {
 
 function buildGeometries(layout: SceneLayout) {
   return {
-    patches: layout.patches.map((patch, index) => {
-      const lod = index === 2 ? "speck" : "full";
-      return {
-        grass: createGrassGeometry(patch.grass),
-        lilies: createLilyGeometry(patch.lilies, lod),
-        daisies: createDaisyGeometry(patch.daisies, lod),
-        lupins: createLupinGeometry(patch.lupins, lod),
-      };
-    }),
+    patches: layout.patches.map((patch) => ({
+      grass: createGrassGeometry(patch.grass),
+      lilies: createLilyGeometry(patch.lilies),
+      daisies: createDaisyGeometry(patch.daisies),
+      lupins: createLupinGeometry(patch.lupins),
+    })),
     hills: createHillsGeometry(),
     clouds: createCardGeometry(layout.clouds),
     glows: createCardGeometry(layout.glows),
@@ -362,6 +352,7 @@ function FrameDriver({
   const ready = useRef(false);
   const settled = useRef(false);
   const perf = useRef({ warm: 0, hot: 0, dropped: false, trimmed: false });
+  const forcedTrim = useRef<0 | 1 | 2 | null>(null);
   const reducedRef = useRef(reduced);
   const onReadyRef = useRef(onReady);
   const onDoneRef = useRef(onDone);
@@ -445,18 +436,25 @@ function FrameDriver({
     }
 
     const stats = perf.current;
-    if (!stats.trimmed) {
+    if (forcedTrim.current === null) forcedTrim.current = readForcedTrim(window.location.search);
+    const forced = forcedTrim.current;
+    if ((forced === 1 || forced === 2) && !stats.trimmed) {
+      applyTrim(forced);
+      gl.setPixelRatio(forced === 1 ? 1 : 0.85);
+      stats.dropped = true;
+      stats.trimmed = true;
+    } else if (!stats.trimmed) {
       stats.warm += 1;
       if (stats.warm > 1 && frameMs > 0.018) stats.hot += 1;
       if (!stats.dropped && stats.hot >= 3) {
         stats.dropped = true;
         stats.hot = 0;
         stats.warm = 0;
-        thinEvenly();
+        applyTrim(1);
         gl.setPixelRatio(1);
       } else if (stats.dropped && stats.hot >= 3) {
         stats.trimmed = true;
-        thinFurther();
+        applyTrim(2);
         gl.setPixelRatio(0.85);
       }
     }

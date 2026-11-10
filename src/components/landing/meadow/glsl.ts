@@ -26,6 +26,39 @@ vec3 atmospheric(vec3 color, float dist) {
   soft = mix(soft, uHandoff, uVeil);
   return soft;
 }
+
+float washHash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float washNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = washHash(i);
+  float b = washHash(i + vec2(1.0, 0.0));
+  float c = washHash(i + vec2(0.0, 1.0));
+  float d = washHash(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+/* Soft colour in the far meadow. Broad and low contrast, with no hard islands. */
+vec3 driftTint(vec3 grass, vec2 xz, float mask) {
+  float center = sin(xz.y * 0.33) * 0.14 + sin(xz.y * 0.91 + 1.7) * 0.06;
+  float lateral = abs(xz.x - center);
+  float side = mix(0.55, 1.0, smoothstep(0.4, 2.6, lateral));
+  float far = smoothstep(1.4, -1.2, xz.y);
+  far *= 1.0 - smoothstep(-4.0, -11.0, xz.y);
+  float n = washNoise(xz * 0.55);
+  float n2 = washNoise(xz * 1.15 + 4.2);
+  vec3 rose = vec3(0.82, 0.58, 0.56);
+  vec3 gold = vec3(0.88, 0.74, 0.44);
+  vec3 lilac = vec3(0.68, 0.6, 0.82);
+  vec3 tint = mix(rose, gold, n);
+  tint = mix(tint, lilac, smoothstep(0.2, 0.8, n2));
+  float amount = side * far * (0.22 + 0.16 * n2) * mask * (1.0 - uVeil);
+  return mix(grass, tint, amount);
+}
 `;
 
 /** Path centre and width, shared by the ground and the grass discard. */
@@ -72,7 +105,7 @@ void main() {
   #else
     vec3 origin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   #endif
-  if (abs(origin.x) > 0.8) {
+  if (abs(origin.x) > 0.8 && origin.y < 0.2) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
     float outer = mix(0.98, 0.42, narrow);
     float squeeze = min(1.0, (outer + 0.1) / 0.84);
@@ -130,7 +163,7 @@ void main() {
   #else
     vec3 origin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   #endif
-  if (abs(origin.x) > 0.8) {
+  if (abs(origin.x) > 0.8 && origin.y < 0.2) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
     float outer = mix(0.98, 0.42, narrow);
     float squeeze = min(1.0, (outer + 0.1) / 0.84);
@@ -290,7 +323,7 @@ vec3 meadowColor(vec3 world, float dist) {
   vec3 mote = vec3(0.28, 0.46, 0.18);
   float cover = down * (1.0 - smoothstep(16.0, 62.0, dist));
   grass = mix(grass, mote, field * cover * 0.22);
-  return grass;
+  return driftTint(grass, world.xz, 1.0);
 }
 
 float valueNoise(vec2 p) {
@@ -395,7 +428,9 @@ void main() {
   col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
-  gl_FragColor = vec4(atmospheric(lit, dist), 1.0);
+  vec3 shaded = atmospheric(lit, dist);
+  float foot = (1.0 - smoothstep(0.35, 1.25, vWorld.y)) * (1.0 - crest);
+  gl_FragColor = vec4(driftTint(shaded, vWorld.xz, foot), 1.0);
 }
 `;
 
@@ -444,11 +479,19 @@ void main() {
   #endif
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-  vec3 world = center + (right * position.x * size.x + up * position.y * size.y);
-  world.x += sin(uTime * 0.035 + aPhase) * uWind * 0.7;
   float narrow = 1.0 - smoothstep(0.72, 1.05, max(uAspect, 0.3));
-  world.y -= narrow * 0.7 + step(uAspect, 0.6) * 0.4;
-  world.x *= mix(1.0, 0.84, narrow);
+  float phone = step(uAspect, 0.6);
+  vec2 fitted = size * mix(1.0, 0.56, narrow);
+  fitted.x = mix(fitted.x, fitted.y * 1.35, narrow);
+  fitted *= mix(1.0, 0.58, phone);
+  vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
+  float xScale = mix(1.0, 0.48, narrow);
+  vec3 world = center + puff;
+  world.x += sin(uTime * 0.035 + aPhase) * uWind * 0.7;
+  world.y -= narrow * 0.18;
+  world.x = center.x * xScale + (world.x - center.x) * mix(xScale, 1.0, phone);
+  world.x += phone * (sign(center.x) * 0.92 - center.x * xScale);
+  world.y += phone * 0.24;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `;

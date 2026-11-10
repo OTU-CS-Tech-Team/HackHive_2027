@@ -160,15 +160,16 @@ function placeFlower(
   });
 }
 
-/** World half-width of the ground the 1280 camera actually sees, at y = 0. */
-function visibleHalf(z: number) {
-  return 0.98 + Math.max(0, 5.05 - z) * 0.67;
+/** Ground half-width at the frame edge. High matches the 1280 camera; low matches a 390 after the portrait squeeze. */
+function frameEdge(z: number, compact: boolean) {
+  if (compact) return 0.9 + Math.max(0, 4.1 - z) * 0.31;
+  return (0.98 + Math.max(0, 5.05 - z) * 0.67) * 1.02;
 }
 
-function sideX(rng: () => number, side: number, z: number, clear: number, spreadMul: number) {
-  const edge = clear + Math.max(0.12, visibleHalf(z) * 0.96 - FLOWER_CLEAR) * spreadMul;
-  const along = rng();
-  let x = side * (clear + 0.04 + along * Math.max(0.12, edge - clear));
+function sideX(rng: () => number, side: number, z: number, clear: number, compact: boolean, outer: boolean) {
+  const edge = Math.max(clear + 0.22, frameEdge(z, compact));
+  const along = outer ? 0.74 + rng() * 0.26 : rng();
+  let x = side * (clear + 0.05 + along * (edge - clear));
   if (Math.abs(x) < clear) x = side * (clear + 0.08 + rng() * 0.15);
   return x;
 }
@@ -181,7 +182,7 @@ function scatterFull(
   z1: number,
   scaleRange: [number, number],
   clear: number,
-  spreadMul: number,
+  compact: boolean,
   family: boolean,
   lean: number,
   yawSpan: number,
@@ -191,52 +192,10 @@ function scatterFull(
   for (let i = 0; i < count; i += 1) {
     const side = i % 2 === 0 ? -1 : 1;
     const z = z0 + rng() * (z1 - z0);
-    const x = sideX(rng, side, z, clear, spreadMul);
+    const x = sideX(rng, side, z, clear, compact, i % 4 === 0);
     const tint = paint(rng, family);
     const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
     placeFlower(items, rng, x, 0.02, z, size, size, tint.color, tint.tip, lean, yawSpan);
-  }
-  return items;
-}
-
-/** Same curve as the near ridge in createHillsGeometry. */
-function nearRidge(x: number, v: number) {
-  const phase = 0.2;
-  const lift = Math.pow(Math.sin(v * Math.PI), 0.7);
-  const crest = Math.sin(x * 0.33 + phase) * 0.26 + Math.sin(x * 0.71 + phase * 1.5) * 0.12;
-  const y = Math.max(0, 1.8 * (0.84 + crest) * lift);
-  const z = -4 - 12 * v + Math.sin(x * 0.31 + phase) * 0.85 * lift;
-  return { y: y + 0.05, z };
-}
-
-/** Low-poly flowers in wide drifts from the mid field to the lower hill. */
-function scatterSpecks(
-  count: number,
-  seed: number,
-  scaleRange: [number, number],
-  syMul: number,
-  clear: number,
-  spreadMul: number,
-  family: boolean,
-  lean: number,
-) {
-  const rng = mulberry32(seed);
-  const items: Item[] = [];
-  const groundCount = Math.round(count * 0.74);
-  for (let i = 0; i < count; i += 1) {
-    const tint = paint(rng, family);
-    const size = scaleRange[0] + rng() * (scaleRange[1] - scaleRange[0]);
-    if (i < groundCount) {
-      const z = 0.15 - rng() * 3.55;
-      const x = sideX(rng, i % 2 === 0 ? -1 : 1, z, clear, spreadMul);
-      placeFlower(items, rng, x, 0.04, z, size, size * syMul, tint.color, tint.tip, lean, Math.PI * 2);
-    } else {
-      const side = i % 2 === 0 ? -1 : 1;
-      const v = 0.02 + rng() * 0.1;
-      const x = sideX(rng, side, -4 - 12 * v, clear, spreadMul);
-      const spot = nearRidge(x, v);
-      placeFlower(items, rng, x, spot.y, spot.z, size, size * syMul, tint.color, tint.tip, lean, Math.PI * 2);
-    }
   }
   return items;
 }
@@ -249,23 +208,19 @@ function splitCount(total: number) {
 export function buildLayout(quality: Quality): SceneLayout {
   const counts = countsFor(quality);
   const compact = quality === "low";
-  const flowerClear = compact ? 0.32 : FLOWER_CLEAR;
-  const spreadMul = compact ? 0.42 : 1;
+  const flowerClear = compact ? 0.62 : FLOWER_CLEAR;
   const lilySplit = splitCount(counts.lilies);
   const daisySplit = splitCount(counts.daisies);
   const lupinSplit = splitCount(counts.lupins);
   const lilyScale = compact ? ([0.18, 0.26] as [number, number]) : ([0.26, 0.38] as [number, number]);
   const daisyScale = [0.16, 0.26] as [number, number];
   const lupinScale = compact ? ([0.38, 0.55] as [number, number]) : ([0.46, 0.66] as [number, number]);
-  const nearLilies = scatterFull(lilySplit.near, 11, 2.55, 5.05, lilyScale, flowerClear, spreadMul, false, 0.92, 0.5);
-  const midLilies = scatterFull(lilySplit.mid, 13, -2.85, 2.2, lilyScale, flowerClear, spreadMul, false, 0.92, 0.5);
-  const nearDaisies = scatterFull(daisySplit.near, 29, 2.55, 5.05, daisyScale, flowerClear, spreadMul, false, 0, Math.PI * 2);
-  const midDaisies = scatterFull(daisySplit.mid, 31, -2.85, 2.2, daisyScale, flowerClear, spreadMul, false, 0, Math.PI * 2);
-  const nearLupins = scatterFull(lupinSplit.near, 47, 2.55, 5.05, lupinScale, flowerClear, spreadMul, true, 0, Math.PI * 2);
-  const midLupins = scatterFull(lupinSplit.mid, 53, -2.85, 2.2, lupinScale, flowerClear, spreadMul, true, 0, Math.PI * 2);
-  const speckLilies = scatterSpecks(counts.farLilies, 17, [0.18, 0.28], 1, flowerClear, spreadMul, false, 0.25);
-  const speckDaisies = scatterSpecks(counts.farDaisies, 19, [0.11, 0.18], 1, flowerClear, spreadMul, false, 1.02);
-  const speckLupins = scatterSpecks(counts.farLupins, 23, [0.11, 0.18], 1.2, flowerClear, spreadMul, true, 0);
+  const nearLilies = scatterFull(lilySplit.near, 11, 2.15, 4.5, lilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const midLilies = scatterFull(lilySplit.mid, 13, -2.6, 2.35, lilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const nearDaisies = scatterFull(daisySplit.near, 29, 2.15, 4.5, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const midDaisies = scatterFull(daisySplit.mid, 31, -2.6, 2.35, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const nearLupins = scatterFull(lupinSplit.near, 47, 2.15, 4.5, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const midLupins = scatterFull(lupinSplit.mid, 53, -2.6, 2.35, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
 
   const grassRng = mulberry32(101);
   const grass: Item[] = [];
@@ -273,16 +228,22 @@ export function buildLayout(quality: Quality): SceneLayout {
   const widthMul = compact ? 0.42 : 1;
   for (let i = 0; i < counts.grass; i += 1) {
     const roll = grassRng();
-    const foreground = roll < 0.46;
-    const clump = !foreground && roll < 0.74;
+    const foreground = roll < 0.3;
+    const shoulder = !foreground && roll < 0.48;
+    const clump = !foreground && !shoulder && roll < 0.74;
     let x = 0;
     let z = 0;
     if (foreground) {
       const side = grassRng() < 0.42 ? -1 : 1;
-      z = 4.75 - grassRng() * 2.15;
+      z = 4.15 - grassRng() * 1.7;
       const along = Math.pow(grassRng(), compact ? 1.45 : 0.62);
       const reach = compact ? 2.2 : 4.6;
       x = side * (grassClear + along * reach);
+    } else if (shoulder) {
+      const side = grassRng() < 0.5 ? -1 : 1;
+      z = 2.25 + grassRng() * 1.35;
+      const along = Math.pow(grassRng(), 0.8);
+      x = side * (grassClear + 0.02 + along * (compact ? 0.7 : 0.9));
     } else if (clump) {
       const id = Math.floor(grassRng() * 9);
       const side = id % 2 === 0 ? -1 : 1;
@@ -395,9 +356,9 @@ export function buildLayout(quality: Quality): SceneLayout {
       },
       {
         grass: grassPatches[2] ?? emptyScatter(),
-        lilies: toScatter(shuffle(speckLilies, 571)),
-        daisies: toScatter(shuffle(speckDaisies, 581)),
-        lupins: toScatter(shuffle(speckLupins, 591)),
+        lilies: emptyScatter(),
+        daisies: emptyScatter(),
+        lupins: emptyScatter(),
       },
     ],
     clouds: toScatter(shuffle(clouds, 13)),
