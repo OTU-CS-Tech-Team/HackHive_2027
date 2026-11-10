@@ -6,8 +6,9 @@
   position: relative;
   z-index: 0;
   isolation: isolate;
-  height: calc(var(--path-vh, 100svh) * 1.85);
-  background: #0b2419;
+  /* Was 1.85. 0.45vh of scroll; the veil is white at progress 0.9. */
+  height: calc(var(--path-vh, 100svh) * 1.45);
+  background: #fff;
 }
 
 .heroStage {

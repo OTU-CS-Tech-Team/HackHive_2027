@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { HeroMeadow } from "@/components/landing/HeroMeadow";
 import { TrailheadPanel } from "@/components/path/panels";
 import styles from "@/components/path/path.module.css";
@@ -9,34 +9,33 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Path dirt from the meadow palette. Late progress mixes it into the forest.
+// Path dirt from the meadow palette.
 const PATH_TAN = { r: 0xc9, g: 0x96, b: 0x4e };
-// Top stop of the sponsors woods gradient.
-const FOREST = { r: 0x0b, g: 0x24, b: 0x19 };
+const WHITE = { r: 0xff, g: 0xff, b: 0xff };
 
 function smoothstep(value: number) {
   const t = clamp(value, 0, 1);
   return t * t * (3 - 2 * t);
 }
 
-// Same window as the meadow: fog, hills, and path leave the tan at 0.56
-// and are fully forest at 0.84, before the next section can enter.
+// The meadow warms toward cream from 0.7. This covers it with white by 0.9,
+// a short beat before .dawn, which itself opens on white.
 function veilAmount(progress: number) {
-  return smoothstep((progress - 0.56) / 0.28);
+  return smoothstep((progress - 0.7) / 0.2);
 }
 
 function channel(from: number, to: number, amount: number) {
   return Math.round(from + (to - from) * amount);
 }
 
-// Transparent, then the path tan, then solid forest. Never white.
+// Transparent, then the path tan, then solid white. Never the forest green.
 function veilColor(progress: number) {
   const t = veilAmount(progress);
   if (t <= 0) return "rgba(201, 150, 78, 0)";
-  if (t >= 1) return "rgb(11, 36, 25)";
+  if (t >= 1) return "rgb(255, 255, 255)";
   if (t < 0.5) return `rgba(201, 150, 78, ${(t / 0.5).toFixed(3)})`;
   const u = (t - 0.5) / 0.5;
-  return `rgb(${channel(PATH_TAN.r, FOREST.r, u)}, ${channel(PATH_TAN.g, FOREST.g, u)}, ${channel(PATH_TAN.b, FOREST.b, u)})`;
+  return `rgb(${channel(PATH_TAN.r, WHITE.r, u)}, ${channel(PATH_TAN.g, WHITE.g, u)}, ${channel(PATH_TAN.b, WHITE.b, u)})`;
 }
 
 function trackPointer(
@@ -119,7 +118,7 @@ function trackPointer(
   };
 }
 
-export function HeroScroll({ poster }: { poster: boolean }) {
+export function HeroScroll({ poster, children }: { poster: boolean; children: ReactNode }) {
   const rootRef = useRef<HTMLElement>(null);
   const progressRef = useRef(0);
   const pointerRef = useRef({ x: 0, y: 0 });
@@ -184,7 +183,7 @@ export function HeroScroll({ poster }: { poster: boolean }) {
       <div className={styles.heroStage} data-hero-stage="">
         <HeroMeadow progress={progressRef} pointer={pointerRef} poster={poster} />
         <div className={styles.content}>
-          <TrailheadPanel />
+          <TrailheadPanel>{children}</TrailheadPanel>
         </div>
         <div className={styles.heroVeil} data-hero-veil="" />
       </div>
