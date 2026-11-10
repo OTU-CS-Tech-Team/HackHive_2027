@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Person } from "@/lib/content";
 import { getCompactHoneycombPosition } from "@/lib/honeycomb-layout";
 import styles from "./SpeakersSection.module.css";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 // A row is "open" once its centre rises above this line, given as a fraction
 // of viewport height. Opening a row queues its cards, which then flip one at
 // a time, left to right.
@@ -108,6 +108,14 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
   const firstNameInitial = person.name.trim().match(/\p{L}/u)?.[0]?.toUpperCase() ?? "?";
   const photoUnavailable = photoSrc !== null && failedPhotoSrc === photoSrc;
   const photoLoaded = loadedPhotoSrc === photoSrc;
+  // A photo that finishes (or fails) before React takes over the page, as a cached one usually does, never
+  // fires onLoad/onError here. So each one is also checked as it mounts, or it would stay hidden behind
+  // the initial on some visits and not others.
+  const checkPhoto = useCallback((img: HTMLImageElement | null) => {
+    if (!img?.complete) return;
+    if (img.naturalWidth) setLoadedPhotoSrc(photoSrc);
+    else setFailedPhotoSrc(photoSrc);
+  }, [photoSrc]);
 
   const avatar = (
     <span className={styles.avatarFrame}>
@@ -119,6 +127,7 @@ function PersonHexCard({ person, revealed, onFlipEnd }: {
       </span>
       {!photoUnavailable && (
         <img
+          ref={checkPhoto}
           src={photoSrc}
           alt=""
           className={`${styles.avatar}${photoLoaded ? ` ${styles.avatarLoaded}` : ""}`}

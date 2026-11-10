@@ -65,8 +65,9 @@ const GROUP_MIN = 3; // characters per flying chunk of text (min)
 const GROUP_MAX = 5; // ... and max. Bigger groups = fewer draw calls = less lag, chunkier look
 const ANIM_VH = 1.8; // scroll distance (in screen heights) the whole sequence is scrubbed over
 const MAX_DPR = 2; // canvas resolution cap: the glows cost per pixel, and 3x phone screens gain little past 2x
-// Blurring on every frame (canvas shadowBlur) is what made this lag, so nothing here does: the code's glow is
-// blurred once into a sprite sheet and stamped on, and the box and shards glow with wide faint strokes.
+// Blurs (canvas shadowBlur) are what made this lag, one per shard and per chunk of code every frame. Now each
+// frame blurs at most once: the shards' outlines are stroked as one path, and the code's glow is blurred once
+// into a sprite sheet and stamped on.
 const GLOW_REACH = 24; // how far a chunk's glow spreads past its text, px
 const GLOW_BLUR = 16; // the glow's blur, baked into the sheet at full strength
 const GLOW_FULL = 24; // the old shadowBlur (d * 10 + e * 14) that counts as full strength
@@ -93,17 +94,6 @@ type Chunk = { pts: Pt[]; ccx: number; ccy: number; s: number; s2: number };
 // Where a group's glow sits in the sprite sheet, in sheet px at full size.
 type Sprite = { sx: number; sy: number; w: number; h: number };
 
-// A soft glow around the current path without a blur: two wide, very faint strokes under the line itself
-// (a blur spreads its colour thin, so these are kept faint to match).
-function haloStroke(ctx: CanvasRenderingContext2D, rgb: string, alpha: number, reach: number) {
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = `rgba(${rgb},${alpha * 0.025})`;
-  ctx.lineWidth = reach * 0.8;
-  ctx.stroke();
-  ctx.strokeStyle = `rgba(${rgb},${alpha * 0.05})`;
-  ctx.lineWidth = reach * 0.3;
-  ctx.stroke();
-}
 
 export function CodeToRain() {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -377,35 +367,45 @@ export function CodeToRain() {
           ctx!.closePath();
           ctx!.fillStyle = "#090a03";
           ctx!.fill();
-          haloStroke(ctx!, "80,255,140", 0.2 + d * 0.6, 14 + d * 40);
+          ctx!.shadowColor = `rgba(80,255,140,${0.2 + d * 0.6})`;
+          ctx!.shadowBlur = 14 + d * 40;
           ctx!.strokeStyle = `rgba(125,255,160,${0.35 + d * 0.4})`;
           ctx!.lineWidth = 2;
           ctx!.stroke();
+          ctx!.shadowBlur = 0;
         } else {
+          // Each shard is placed (moved, spun and tumbled) here rather than with a canvas transform, so all
+          // their outlines can go in one path: filled one by one as before, then stroked once, glow and all,
+          // so the glow is one blur per frame instead of one per shard.
+          const outline = new Path2D();
+          ctx!.globalAlpha = fade;
+          ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#090a03";
           for (const c of chunks) {
             const wc = warp(c.ccx, c.ccy, d, 0.5, 0.5);
             const ang = Math.atan2(wc[1], wc[0]) + (c.s - 0.5) * 0.5;
             const spd = (0.12 + c.s2 * 0.38) * diag * ee; // stays on screen
-            ctx!.save();
-            ctx!.globalAlpha = fade;
-            ctx!.translate(cx + wc[0] + Math.cos(ang) * spd, cy + wc[1] + Math.sin(ang) * spd);
-            ctx!.rotate((c.s - 0.5) * 3 * ee);
-            ctx!.scale(Math.cos((c.s2 - 0.3) * 9 * ee), 1); // edge-on tumble
-            ctx!.beginPath();
+            const tx = cx + wc[0] + Math.cos(ang) * spd, ty = cy + wc[1] + Math.sin(ang) * spd;
+            const turn = (c.s - 0.5) * 3 * ee, cr = Math.cos(turn), sr = Math.sin(turn);
+            const tumble = Math.cos((c.s2 - 0.3) * 9 * ee); // edge-on tumble
+            const shard = new Path2D();
             c.pts.forEach((q, i) => {
               const w = warp(q[0], q[1], d, 0.5, 0.5);
-              if (i) ctx!.lineTo(w[0] - wc[0], w[1] - wc[1]);
-              else ctx!.moveTo(w[0] - wc[0], w[1] - wc[1]);
+              const lx = (w[0] - wc[0]) * tumble, ly = w[1] - wc[1];
+              const X = tx + lx * cr - ly * sr, Y = ty + lx * sr + ly * cr;
+              if (i) shard.lineTo(X, Y);
+              else shard.moveTo(X, Y);
             });
-            ctx!.closePath();
-            ctx!.fillStyle = e > 0 ? `rgba(16,70,38,${0.25 + e * 0.35})` : "#090a03";
-            ctx!.fill();
-            haloStroke(ctx!, "240,255,80", 0.9, 10 + d * 30 + e * 10);
-            ctx!.strokeStyle = `rgba(150,255,185,${0.3 + d * 0.3 + e * 0.4})`;
-            ctx!.lineWidth = 1.5 + e * 1.5;
-            ctx!.stroke();
-            ctx!.restore();
+            shard.closePath();
+            ctx!.fill(shard);
+            outline.addPath(shard);
           }
+          ctx!.shadowColor = "rgba(240, 255, 80, 0.9)";
+          ctx!.shadowBlur = 10 + d * 30 + e * 10;
+          ctx!.strokeStyle = `rgba(150,255,185,${0.3 + d * 0.3 + e * 0.4})`;
+          ctx!.lineWidth = 1.5 + e * 1.5;
+          ctx!.stroke(outline);
+          ctx!.shadowBlur = 0;
+          ctx!.globalAlpha = 1;
         }
 
         // ---- code text ----
