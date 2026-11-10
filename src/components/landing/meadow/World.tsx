@@ -71,7 +71,7 @@ const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
 
 function kindOf(value: unknown): TrimKind {
-  if (value === "grass" || value === "flower" || value === "far" || value === "tree") return value;
+  if (value === "grass" || value === "flower" || value === "mid" || value === "far" || value === "tree") return value;
   return "other";
 }
 
@@ -285,9 +285,9 @@ function buildGeometries(layout: SceneLayout) {
   return {
     patches: layout.patches.map((patch, index) => ({
       grass: createGrassGeometry(patch.grass),
-      lilies: createLilyGeometry(patch.lilies, index === 2 ? "speck" : "full"),
+      lilies: createLilyGeometry(patch.lilies, index === 2 ? "speck" : "full", index === 0 ? "near" : "mid"),
       daisies: createDaisyGeometry(patch.daisies, index === 2 ? "speck" : "full"),
-      lupins: createLupinGeometry(patch.lupins, index === 2 ? "speck" : "full", index === 0 ? "near" : "far"),
+      lupins: createLupinGeometry(patch.lupins, index === 2 ? "speck" : "full", index === 0 ? "near" : "mid"),
     })),
     hills: createHillsGeometry(),
     trunk: createTrunkGeometry(),
@@ -561,9 +561,9 @@ export default function MeadowWorld({
         return (
           <group key={index}>
             <Instances geometry={patch.grass} material={materials.grass} scatter={scatter.grass} kind="grass" />
-            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} kind={index === 2 ? "far" : "flower"} />
-            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} kind={index === 2 ? "far" : "flower"} />
-            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} kind={index === 2 ? "far" : "flower"} />
+            <Instances geometry={patch.lilies} material={materials.lily} scatter={scatter.lilies} renderOrder={2} kind={index === 0 ? "flower" : index === 1 ? "mid" : "far"} />
+            <Instances geometry={patch.daisies} material={materials.daisy} scatter={scatter.daisies} kind={index === 0 ? "flower" : index === 1 ? "mid" : "far"} />
+            <Instances geometry={patch.lupins} material={materials.lupin} scatter={scatter.lupins} kind={index === 0 ? "flower" : index === 1 ? "mid" : "far"} />
           </group>
         );
       })}

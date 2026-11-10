@@ -91,43 +91,22 @@ float pathBase(float aspect) {
   return mix(1.05, 0.42, narrow);
 }
 
-float pathCenter(float z, float aspect) {
-  return pathLine(z);
-}
-
-float pathHalfWidth(float aspect, float z) {
-  return pathBase(aspect);
-}
-
-float pathEndFade(float z) {
-  return smoothstep(-2.8, -1.15, z);
-}
-
-float ribbonEase(float z) {
-  float approach = 1.0 - smoothstep(1.05, 3.15, z);
+float pathEase(float z) {
+  float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, z);
   return approach * approach * (3.0 - 2.0 * approach);
 }
 
-float ribbonCenter(float z, float aspect) {
-  float line = pathLine(z);
-  float shoulder = line + pathBase(aspect) * 0.62;
-  return mix(shoulder, treeAnchor(aspect), ribbonEase(z));
+float pathCenter(float z, float aspect) {
+  return mix(pathLine(z), treeAnchor(aspect), pathEase(z));
 }
 
-float ribbonHalf(float aspect, float z) {
-  float base = pathBase(aspect);
-  return mix(base * 0.3, base * 0.1, ribbonEase(z));
+float pathHalfWidth(float aspect, float z) {
+  return pathBase(aspect) * mix(1.0, 0.62, pathEase(z));
 }
 
-float ribbonMask(float x, float z, float aspect) {
-  float halfW = max(ribbonHalf(aspect, z), 0.04);
-  float dist = abs(x - ribbonCenter(z, aspect));
-  float body = 1.0 - smoothstep(halfW * 0.5, halfW * 1.5, dist);
+float pathEndFade(float z) {
   float treeZ = ${TREE.z.toFixed(2)};
-  float along = body * smoothstep(treeZ - 0.25, treeZ + 0.45, z);
-  vec2 toTrunk = vec2(x - treeAnchor(aspect), z - treeZ);
-  float worn = (1.0 - smoothstep(0.03, 0.22, length(toTrunk))) * 0.62;
-  return max(along, worn);
+  return smoothstep(treeZ - 0.75, treeZ + 0.2, z);
 }
 `;
 
@@ -149,23 +128,14 @@ uniform float uSss;
 
 void settlePortrait(inout vec3 world, vec3 origin) {
   float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+  if (narrow < 0.02 || origin.y >= 0.2) return;
   float ax = abs(origin.x);
-  if (narrow < 0.02 || ax < 0.5 || origin.y >= 0.2) return;
-  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float placedInner = mix(1.12, 0.62, phone);
-  float wide = (0.98 + max(0.0, 5.05 - origin.z) * 0.67) * 1.02;
-  float compactEdge = 0.9 + max(0.0, 4.1 - origin.z) * 0.31;
-  float placedOuter = mix(wide, compactEdge, phone);
+  if (ax < 0.05) return;
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
   float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
-  float nearBand = smoothstep(1.15, 2.05, origin.z);
-  float shoulder = mix(1.05, 0.42, narrow) + mix(0.12, 0.02, phone * nearBand);
-  float along = clamp((ax - placedInner) / max(0.25, placedOuter - placedInner), 0.0, 1.0);
-  float span = fract(sin(origin.z * 17.13 + ax * 9.2) * 43758.5453);
-  along = mix(along, span, phone * nearBand);
-  float nx = mix(shoulder, visible * 0.96, along);
-  world.x += origin.x * (nx / ax - 1.0);
+  if (ax <= visible) return;
+  world.x += origin.x * (visible * 0.94 / ax - 1.0);
 }
 
 void main() {
@@ -232,23 +202,14 @@ uniform float uAspect;
 
 void settlePortrait(inout vec3 world, vec3 origin) {
   float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
+  if (narrow < 0.02 || origin.y >= 0.2) return;
   float ax = abs(origin.x);
-  if (narrow < 0.02 || ax < 0.5 || origin.y >= 0.2) return;
-  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float placedInner = mix(1.12, 0.62, phone);
-  float wide = (0.98 + max(0.0, 5.05 - origin.z) * 0.67) * 1.02;
-  float compactEdge = 0.9 + max(0.0, 4.1 - origin.z) * 0.31;
-  float placedOuter = mix(wide, compactEdge, phone);
+  if (ax < 0.05) return;
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
   float visible = mix(1.3 - origin.z * 0.191, 2.12 - origin.z * 0.31, min(aspectT, 1.0));
   visible += max(0.0, aspectT - 1.0) * 0.4;
-  float nearBand = smoothstep(1.15, 2.05, origin.z);
-  float shoulder = mix(1.05, 0.42, narrow) + mix(0.12, 0.02, phone * nearBand);
-  float along = clamp((ax - placedInner) / max(0.25, placedOuter - placedInner), 0.0, 1.0);
-  float span = fract(sin(origin.z * 17.13 + ax * 9.2) * 43758.5453);
-  along = mix(along, span, phone * nearBand);
-  float nx = mix(shoulder, visible * 0.96, along);
-  world.x += origin.x * (nx / ax - 1.0);
+  if (ax <= visible) return;
+  world.x += origin.x * (visible * 0.94 / ax - 1.0);
 }
 
 void main() {
@@ -296,8 +257,7 @@ uniform float uRim;
 uniform float uAspect;
 
 void main() {
-  float ease = ribbonEase(vWorld.z);
-  if (ease > 0.15 && abs(vWorld.x - ribbonCenter(vWorld.z, uAspect)) < ribbonHalf(uAspect, vWorld.z) * 0.7) discard;
+  if (pathEndFade(vWorld.z) > 0.12 && abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < pathHalfWidth(uAspect, vWorld.z) * 0.72) discard;
   vec3 n = normalize(vNormal);
   if (!gl_FrontFacing) n = -n;
   vec3 albedo = vColor.b > 1.5 ? mix(vTint, vTip, saturate(vColor.r)) : vColor.rgb;
@@ -323,16 +283,12 @@ uniform float uAspect;
 uniform vec3 uEmissive;
 
 void main() {
-  float ease = ribbonEase(vWorld.z);
-  float ribbonOff = abs(vWorld.x - ribbonCenter(vWorld.z, uAspect));
-  float halfR = ribbonHalf(uAspect, vWorld.z);
+  float fade = pathEndFade(vWorld.z);
+  float offPath = abs(vWorld.x - pathCenter(vWorld.z, uAspect));
+  float halfPath = pathHalfWidth(uAspect, vWorld.z);
   if (uSss < 0.2) {
-    float fade = pathEndFade(vWorld.z);
-    float onPath = fade > 0.12 && abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < pathHalfWidth(uAspect, vWorld.z) * 0.72 ? 1.0 : 0.0;
-    float onRibbon = ease > 0.04 && ribbonOff < halfR * 1.25 ? 1.0 : 0.0;
-    float atTrunk = distance(vWorld.xz, vec2(treeAnchor(uAspect), ${TREE.z.toFixed(2)})) < 0.16 ? 1.0 : 0.0;
-    if (onPath + onRibbon + atTrunk > 0.2) discard;
-  } else if (ease > 0.15 && ribbonOff < halfR * 0.8) {
+    if (fade > 0.12 && offPath < halfPath * 0.78) discard;
+  } else if (fade > 0.2 && offPath < halfPath * 0.92) {
     discard;
   }
   vec3 n = normalize(vNormal);
@@ -470,7 +426,6 @@ void main() {
   float edge = mix(0.2, 0.62, 1.0 - smoothstep(-6.5, 0.3, vWorld.z));
   edge += (valueNoise(vWorld.xz * 0.73 + 3.1) - 0.5) * 0.2;
   float pathMask = (1.0 - smoothstep(pathHalf * 0.42, pathHalf + edge, abs(lateral))) * pathEndFade(vWorld.z);
-  pathMask = max(pathMask, ribbonMask(vWorld.x, vWorld.z, uAspect));
   vec3 pathCol = mix(uPath, uPathEdge, 0.22);
   float tone = valueNoise(vWorld.xz * 0.16);
   pathCol *= mix(0.93, 1.07, tone);
@@ -508,6 +463,16 @@ void main() {
   scale = mix(scale, 0.84, phone);
   float range = 1.0 - smoothstep(-15.0, -5.0, world.z);
   world.y *= mix(1.0, scale, range);
+  // The near hill is taller on the right of a tablet and hides the ranges.
+  float nearRight = (1.0 - phone) * portrait * smoothstep(3.0, 12.0, world.x) * smoothstep(-14.0, -4.0, world.z);
+  world.y *= mix(1.0, 0.22, nearRight);
+  // Lift the right-hand ranges back up. Farther layers a little more, and the
+  // lift is flat in x so the ridge line stays a range.
+  float farRight = (1.0 - phone) * portrait * smoothstep(1.2, 6.0, world.x);
+  float distant = 1.0 - smoothstep(-11.0, -6.5, world.z);
+  float layer = smoothstep(-18.0, -50.0, world.z);
+  float back = mix(0.64, 0.9, layer);
+  world.y *= mix(1.0, mix(1.0, 1.0 / max(scale, 0.2), back), farRight * distant);
   vWorld = world.xyz;
   vColor = color;
   vLift = aSpan.x;
@@ -594,22 +559,14 @@ void main() {
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   float narrow = 1.0 - smoothstep(0.72, 1.05, max(uAspect, 0.3));
-  float phone = step(uAspect, 0.6);
-  vec2 fitted = size * mix(1.0, 0.56, narrow);
-  fitted.x = mix(fitted.x, fitted.y * 1.35, narrow);
-  fitted *= mix(1.0, 0.58, phone);
+  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  vec2 fitted = size * mix(1.0, 0.7, narrow);
   vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
-  float xScale = mix(1.0, 0.48, narrow);
   vec3 world = center + puff;
   world.x += sin(uTime * 0.035 + aPhase) * uWind * 0.7;
-  world.y -= narrow * 0.18;
-  world.x = center.x * xScale + (world.x - center.x) * mix(xScale, 1.0, phone);
-  world.x += phone * (sign(center.x) * 0.92 - center.x * xScale);
-  world.y += phone * 0.24;
-  float wide = 1.0 - narrow;
-  float clearTitle = (1.0 - smoothstep(4.0, 10.5, abs(center.x))) * wide;
-  world.x += sign(center.x + 0.0001) * clearTitle * 5.5;
-  world.y += clearTitle * 1.25 + wide * 0.2;
+  world.x *= mix(1.0, 0.38, narrow);
+  world.x *= mix(1.0, 0.62, phone);
+  world.y -= narrow * 0.85 + phone * 0.15;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `;
@@ -696,9 +653,14 @@ void main() {
   float h = clamp(position.y, 0.0, 1.2);
   p.x += sin(uTime * 0.7) * uWind * h * h * 0.012;
   vec4 world = modelMatrix * vec4(p, 1.0);
-  world.x += treeAnchor(uAspect) - ${TREE.x.toFixed(3)};
+  float anchor = treeAnchor(uAspect);
+  world.x += anchor - ${TREE.x.toFixed(3)};
+  float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  world.y -= phone * 0.16;
+  float squeeze = mix(1.0, 0.42, narrow);
+  squeeze = mix(squeeze, 0.3, phone);
+  world.x = anchor + (world.x - anchor) * squeeze;
+  world.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.78, phone);
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -748,10 +710,11 @@ void main() {
   center.x += anchor - ${TREE.x.toFixed(3)};
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float squeeze = mix(1.0, 0.52, narrow);
-  squeeze = mix(squeeze, 0.74, phone);
+  float squeeze = mix(1.0, 0.42, narrow);
+  squeeze = mix(squeeze, 0.3, phone);
   center.x = anchor + (center.x - anchor) * squeeze;
-  center.y -= phone * 0.16;
+  center.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.78, phone);
+  size *= squeeze;
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;
@@ -783,7 +746,7 @@ varying float vKind;
 
 float puff(vec2 p, vec2 c, vec2 r) {
   vec2 q = (p - c) / r;
-  return smoothstep(1.0, 0.38, length(q));
+  return smoothstep(1.0, 0.78, length(q));
 }
 
 float blossomPetal(vec2 p, float ang) {
@@ -808,8 +771,8 @@ void main() {
     return;
   }
   if (glow > 0.5) {
-    alpha = puff(p, vec2(0.0, 0.02), vec2(0.42, 0.3));
-    alpha *= 0.28;
+    alpha = puff(p, vec2(0.0, 0.02), vec2(0.36, 0.26));
+    alpha *= 0.12;
   } else {
     float n = fract(sin(dot(vTint.rg, vec2(19.7, 73.1))) * 43758.5);
     float ang = n * 6.28318;
@@ -829,13 +792,14 @@ void main() {
   float lift = saturate(length(p) * 1.8);
   float front = saturate(vKind / 6.2);
   vec3 pale = vec3(1.0, 0.97, 0.95);
-  vec3 col = mix(vTint, pale, lift * mix(0.22, 0.62, max(front, glow)));
-  col = mix(col, vTint * vec3(0.62, 0.4, 0.46), (1.0 - lift) * (1.0 - front) * (1.0 - glow) * 0.65);
+  vec3 col = mix(vTint, pale, lift * mix(0.18, 0.48, max(front, glow)));
+  col = mix(col, vTint * vec3(0.55, 0.34, 0.4), (1.0 - front) * (1.0 - glow) * 0.55);
+  col *= mix(vec3(0.78, 0.7, 0.74), vec3(1.0), front);
   col = mix(col, vec3(1.0, 0.82, 0.68), throat * 0.55);
   float backlight = saturate(p.x * 0.85 + p.y * 0.6 + 0.2);
-  col = mix(col, vec3(1.0, 0.94, 0.91), backlight * 0.32 * (1.0 - glow));
-  col += vec3(1.0, 0.7, 0.52) * pow(saturate(0.38 - length(p)), 2.0) * mix(0.08, 0.2, glow);
-  col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), mix(0.16, 0.34, glow));
+  col = mix(col, vec3(1.0, 0.94, 0.91), backlight * 0.28 * (1.0 - glow));
+  col += vec3(1.0, 0.7, 0.52) * pow(saturate(0.32 - length(p)), 2.0) * 0.08;
+  col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.05);
   gl_FragColor = vec4(col * alpha, alpha);
 }
 `;

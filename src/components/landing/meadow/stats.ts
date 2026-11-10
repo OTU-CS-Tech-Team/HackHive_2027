@@ -40,12 +40,13 @@ export function sceneBudget(quality: Quality): SceneBudget {
   const layout = buildLayout(quality);
   const unit = {
     grass: triangles(createGrassGeometry()),
-    lily: triangles(createLilyGeometry()),
+    lily: triangles(createLilyGeometry(undefined, "full", "near")),
+    lilyMid: triangles(createLilyGeometry(undefined, "full", "mid")),
     lilySpeck: triangles(createLilyGeometry(undefined, "speck")),
     daisy: triangles(createDaisyGeometry()),
     daisySpeck: triangles(createDaisyGeometry(undefined, "speck")),
-    lupin: triangles(createLupinGeometry()),
-    lupinFar: triangles(createLupinGeometry(undefined, "full", "far")),
+    lupin: triangles(createLupinGeometry(undefined, "full", "near")),
+    lupinMid: triangles(createLupinGeometry(undefined, "full", "mid")),
     lupinSpeck: triangles(createLupinGeometry(undefined, "speck")),
     card: triangles(createCardGeometry()),
     hill: triangles(createHillsGeometry()),
@@ -78,7 +79,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     }
     if (patch.lilies.count > 0) {
       draws += 1;
-      tris += (far ? unit.lilySpeck : unit.lily) * patch.lilies.count;
+      tris += (far ? unit.lilySpeck : index === 0 ? unit.lily : unit.lilyMid) * patch.lilies.count;
     }
     if (patch.daisies.count > 0) {
       draws += 1;
@@ -86,7 +87,7 @@ export function sceneBudget(quality: Quality): SceneBudget {
     }
     if (patch.lupins.count > 0) {
       draws += 1;
-      const lupinUnit = far ? unit.lupinSpeck : index === 0 ? unit.lupin : unit.lupinFar;
+      const lupinUnit = far ? unit.lupinSpeck : index === 0 ? unit.lupin : unit.lupinMid;
       tris += lupinUnit * patch.lupins.count;
     }
   });

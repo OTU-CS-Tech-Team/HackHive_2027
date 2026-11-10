@@ -164,9 +164,31 @@ function placeFlower(
   });
 }
 
+function smooth01(edge0: number, edge1: number, value: number) {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+function pathEaseAt(z: number) {
+  const approach = 1 - smooth01(TREE.z, 4.6, z);
+  return approach * approach * (3 - 2 * approach);
+}
+
+/** Centre of the path that climbs to the wide-frame tree. Matches the ground shader. */
+export function pathCenterAt(z: number) {
+  const line = Math.sin(z * 0.33) * 0.14 + Math.sin(z * 0.91 + 1.7) * 0.06;
+  const ease = pathEaseAt(z);
+  return line * (1 - ease) + (TREE.x + TREE.shiftWide) * ease;
+}
+
+/** How far a flower stays from that centre. The path narrows as it reaches the tree. */
+export function flowerMargin(z: number) {
+  return Math.min(FLOWER_CLEAR, 1.05 * (1 - 0.38 * pathEaseAt(z)) + 0.08);
+}
+
 /** Ground half-width at the frame edge. High matches the 1280 camera; low matches a 390 after the portrait squeeze. */
 function frameEdge(z: number, compact: boolean) {
-  if (compact) return 0.9 + Math.max(0, 4.1 - z) * 0.31;
+  if (compact) return 1.35 + Math.max(0, 4.4 - z) * 0.42;
   return (0.98 + Math.max(0, 5.05 - z) * 0.67) * 1.02;
 }
 
@@ -179,11 +201,23 @@ function sideX(
   outer: boolean,
   inward: boolean,
 ) {
-  const edge = Math.max(clear + 0.22, frameEdge(z, compact));
-  const along = inward ? Math.pow(rng(), 1.65) : outer ? 0.74 + rng() * 0.26 : rng();
-  let x = side * (clear + 0.05 + along * (edge - clear));
-  if (Math.abs(x) < clear) x = side * (clear + 0.08 + rng() * 0.15);
-  return x;
+  const center = pathCenterAt(z);
+  const shoulderClear = Math.min(clear, flowerMargin(z));
+  const edge = Math.max(Math.abs(center) + shoulderClear + 0.4, frameEdge(z, compact));
+  const wideShoulder = center + side * (shoulderClear + 0.04);
+  if (side < 0) {
+    // The wide path bends right, so a shoulder on that path leaves the centre
+    // as lawn on a narrower frame. Keep most of the left bed in that wedge,
+    // and send the rest out to the frame edge.
+    // Half the left bed sits in the shoulder the wide path covers and the
+    // tablet path does not. The fragment shader hides those on a wide frame.
+    const wedge = Math.min(center - 0.52, center * 0.34 - 0.05);
+    if (outer) return -edge + rng() * Math.min(1.1, edge * 0.45);
+    if (rng() < 0.58) return wedge - rng() * 0.7;
+    return Math.min(wedge, wideShoulder) - 0.7 - Math.pow(rng(), 1.2) * 1.8;
+  }
+  const along = inward ? Math.pow(rng(), 1.65) : outer ? 0.62 + rng() * 0.38 : Math.pow(rng(), 1.2);
+  return wideShoulder + along * Math.max(0.16, edge - wideShoulder);
 }
 
 /** Full meshes, spread from the path shoulder out to the frame edge. */
@@ -287,9 +321,9 @@ function buildBlossoms(quality: Quality) {
       phase: 11 + i * 0.15,
     });
   }
-  const back = compact ? 34 : 56;
-  const mid = compact ? 42 : 68;
-  const front = compact ? 28 : 48;
+  const back = compact ? 40 : 64;
+  const mid = compact ? 48 : 76;
+  const front = compact ? 32 : 56;
   placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 1.02, -0.22, 0.25, BLOSSOM_ROSE, 0.32, 0.44);
   placeShell(items, mid, TREE.canopyY + 0.02, TREE.canopyRadius * 0.88, 0.0, 2.7, BLOSSOM_MID, 0.28, 0.4);
   placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.68, 0.18, 5.3, BLOSSOM_PALE, 0.24, 0.34);
@@ -352,12 +386,13 @@ export function buildLayout(quality: Quality): SceneLayout {
   const lupinScale = compact ? ([0.42, 0.6] as [number, number]) : ([0.46, 0.66] as [number, number]);
   // On a phone the ground past about z=3.9 is below the frame, so the near row sits inside it.
   const nearZ = compact ? ([3.85, 1.35] as const) : ([4.75, 1.55] as const);
+  const midZ = compact ? ([2.55, 0.2] as const) : ([-3.9, 1.9] as const);
   const nearLilies = scatterFull(lilySplit.near, 11, nearZ[0], nearZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5, compact);
-  const midLilies = scatterFull(lilySplit.mid, 13, -3.9, 1.9, lilyScale, flowerClear, compact, false, 0.92, 0.5);
+  const midLilies = scatterFull(lilySplit.mid, 13, midZ[0], midZ[1], lilyScale, flowerClear, compact, false, 0.92, 0.5);
   const nearDaisies = scatterFull(daisySplit.near, 29, nearZ[0], nearZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2, compact);
-  const midDaisies = scatterFull(daisySplit.mid, 31, -3.9, 1.9, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
+  const midDaisies = scatterFull(daisySplit.mid, 31, midZ[0], midZ[1], daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
   const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, compact);
-  const midLupins = scatterFull(lupinSplit.mid, 53, -3.9, 1.9, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
+  const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];
@@ -405,7 +440,7 @@ export function buildLayout(quality: Quality): SceneLayout {
     }
     const phoneGrass = !compact || z <= 1.35 ? 1 : Math.max(0.1, 0.7 - Math.max(0, z - 1.2) * 0.22);
     const height = (foreground ? 0.12 + grassRng() * 0.16 : 0.11 + grassRng() * 0.22) * phoneGrass;
-    const shade = 0.82 + grassRng() * 0.18;
+    const shade = 0.92 + grassRng() * 0.08;
     const warm = grassRng();
     grass.push({
       x,
@@ -416,7 +451,7 @@ export function buildLayout(quality: Quality): SceneLayout {
       sx: (0.55 + grassRng() * 0.85) * phoneGrass,
       sy: height,
       sz: (0.5 + grassRng() * 0.9) * phoneGrass,
-      color: [(0.4 + warm * 0.14) * shade, (0.58 + (1 - warm) * 0.12) * shade, (0.16 + grassRng() * 0.08) * shade],
+      color: [(0.52 + warm * 0.1) * shade, (0.7 + (1 - warm) * 0.08) * shade, (0.24 + grassRng() * 0.05) * shade],
       phase: grassRng() * Math.PI * 2,
     });
   }
@@ -435,18 +470,29 @@ export function buildLayout(quality: Quality): SceneLayout {
   }
   const cloudRng = mulberry32(7);
   const clouds: Item[] = [];
-  const gutter = compact ? 2.05 : 5.2;
+  const cloudSpots: [number, number, number][] = [
+    [-6.2, 3.9, -6.5],
+    [6.4, 3.95, -7],
+    [-2.6, 4.5, -12.4],
+    [2.9, 4.45, -12.8],
+  ];
+  const cloudSize: [number, number][] = [
+    [4.0, 1.5],
+    [4.0, 1.5],
+    [3.2, 1.15],
+    [3.2, 1.15],
+  ];
   for (let i = 0; i < counts.clouds; i += 1) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const depth = i / Math.max(1, counts.clouds - 1);
+    const spot = cloudSpots[i % cloudSpots.length] ?? [-5, 4.6, -8];
+    const size = cloudSize[i % cloudSize.length] ?? [3.4, 1.2];
     clouds.push({
-      x: side * (gutter + (i % 3) * (compact ? 0.55 : 1.15) + cloudRng() * (compact ? 0.7 : 1.4)),
-      y: 2.85 + cloudRng() * 0.7,
-      z: -2.2 - depth * 6.4 - cloudRng() * 0.8,
+      x: spot[0] + (cloudRng() - 0.5) * 0.12,
+      y: spot[1] + cloudRng() * 0.08,
+      z: spot[2],
       yaw: 0,
       pitch: 0,
-      sx: (compact ? 3.4 : 4.6) + cloudRng() * 1.6,
-      sy: 1.9 + cloudRng() * 0.7,
+      sx: size[0] + cloudRng() * 0.12,
+      sy: size[1] + cloudRng() * 0.06,
       sz: 1,
       color: [1, 1, 1],
       phase: cloudRng() * Math.PI * 2,

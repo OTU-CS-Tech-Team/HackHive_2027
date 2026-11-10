@@ -126,9 +126,7 @@ function addDisc(mesh: Bag, y: number, radius: number, color: RGB, bend: number)
 }
 
 /** A cupped trumpet petal. The surface opens outward, then the tip bends back. */
-function addLilyPetal(mesh: Bag, yaw: number) {
-  const across = 6;
-  const along = 8;
+function addLilyPetal(mesh: Bag, yaw: number, across = 6, along = 8) {
   const length = 0.38;
   const width = 0.086;
   const lift = 0.62;
@@ -168,12 +166,11 @@ function addLilyPetal(mesh: Bag, yaw: number) {
   }
 }
 
-function addLilyStem(mesh: Bag) {
+function addLilyStem(mesh: Bag, steps = 6) {
   const root: RGB = [0.1, 0.32, 0.08];
   const top: RGB = [0.24, 0.48, 0.16];
   let previousLeft = -1;
   let previousRight = -1;
-  const steps = 6;
   for (let step = 0; step <= steps; step += 1) {
     const t = step / steps;
     const y = t * 0.64;
@@ -222,6 +219,7 @@ function addLilyLeaf(mesh: Bag, yaw: number, y0: number) {
 }
 
 export type FlowerLod = "full" | "speck";
+export type LilyDetail = "near" | "mid";
 
 /** A tiny soft bloom. Far flowers should melt into the wash, not stand up as bars. */
 function addSpeckBloom(mesh: Bag, color: RGB) {
@@ -271,18 +269,25 @@ function attachTips(geometry: BufferGeometry, scatter?: Scatter) {
   return geometry;
 }
 
-export function createLilyGeometry(scatter?: Scatter, lod: FlowerLod = "full") {
+export function createLilyGeometry(scatter?: Scatter, lod: FlowerLod = "full", detail: LilyDetail = "near") {
   const mesh = bag();
   switch (lod) {
     case "speck":
       addSpeckLily(mesh);
       break;
     case "full":
-      for (let i = 0; i < 6; i += 1) addLilyPetal(mesh, (i / 6) * Math.PI * 2);
-      addDisc(mesh, 0.64, 0.032, [0.84, 0.91, 0.48], 0.02);
-      addLilyStem(mesh);
-      addLilyLeaf(mesh, 0.7, 0.05);
-      addLilyLeaf(mesh, 2.5, 0.1);
+      if (detail === "mid") {
+        for (let i = 0; i < 6; i += 1) addLilyPetal(mesh, (i / 6) * Math.PI * 2, 3, 4);
+        addDisc(mesh, 0.64, 0.028, [0.84, 0.91, 0.48], 0.02);
+        addLilyStem(mesh, 3);
+        addLilyLeaf(mesh, 0.7, 0.08);
+      } else {
+        for (let i = 0; i < 6; i += 1) addLilyPetal(mesh, (i / 6) * Math.PI * 2, 6, 8);
+        addDisc(mesh, 0.64, 0.032, [0.84, 0.91, 0.48], 0.02);
+        addLilyStem(mesh, 6);
+        addLilyLeaf(mesh, 0.7, 0.05);
+        addLilyLeaf(mesh, 2.5, 0.1);
+      }
       break;
     default: {
       const unknown: never = lod;
@@ -386,7 +391,7 @@ function addTeardrop(
   }
 }
 
-export type LupinDensity = "near" | "far";
+export type LupinDensity = "near" | "mid" | "far";
 
 function addLupinSpike(mesh: Bag, florets: number, around: number, along: number) {
   const stem: RGB = [0.2, 0.34, 0.12];
@@ -427,10 +432,13 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full", 
   }
   switch (density) {
     case "near":
-      addLupinSpike(mesh, 36, 8, 4);
+      addLupinSpike(mesh, 36, 7, 3);
+      break;
+    case "mid":
+      addLupinSpike(mesh, 8, 5, 2);
       break;
     case "far":
-      addLupinSpike(mesh, 12, 8, 3);
+      addLupinSpike(mesh, 8, 5, 2);
       break;
     default: {
       const unknown: never = density;
@@ -665,26 +673,26 @@ export function createTrunkGeometry() {
     }
   };
   const trunk = [
-    { x: 0, y: 0.14, z: 0, r: 0.09 },
-    { x: 0.02, y: 0.36, z: 0.01, r: 0.07 },
-    { x: 0.03, y: 0.58, z: -0.01, r: 0.05 },
-    { x: 0.0, y: 0.8, z: 0.015, r: 0.032 },
-    { x: -0.02, y: 1.0, z: 0.0, r: 0.018 },
+    { x: 0, y: 0.14, z: 0, r: 0.1 },
+    { x: 0.02, y: 0.4, z: 0.01, r: 0.078 },
+    { x: 0.02, y: 0.66, z: -0.01, r: 0.055 },
+    { x: 0.0, y: 0.92, z: 0.01, r: 0.034 },
+    { x: -0.01, y: 1.14, z: 0.0, r: 0.016 },
   ];
   const left = [
-    { x: 0.0, y: 0.56, z: 0.01, r: 0.03 },
-    { x: -0.18, y: 0.76, z: 0.06, r: 0.016 },
-    { x: -0.34, y: 0.96, z: 0.03, r: 0.008 },
+    { x: 0.0, y: 0.62, z: 0.01, r: 0.028 },
+    { x: -0.1, y: 0.78, z: 0.04, r: 0.014 },
+    { x: -0.16, y: 0.9, z: 0.02, r: 0.007 },
   ];
   const right = [
-    { x: 0.02, y: 0.64, z: 0.0, r: 0.028 },
-    { x: 0.22, y: 0.86, z: -0.05, r: 0.014 },
-    { x: 0.38, y: 1.06, z: -0.02, r: 0.007 },
+    { x: 0.02, y: 0.68, z: 0.0, r: 0.026 },
+    { x: 0.12, y: 0.84, z: -0.03, r: 0.012 },
+    { x: 0.18, y: 0.96, z: -0.01, r: 0.006 },
   ];
   const back = [
-    { x: 0.01, y: 0.5, z: 0.0, r: 0.022 },
-    { x: 0.05, y: 0.72, z: -0.16, r: 0.012 },
-    { x: 0.04, y: 0.94, z: -0.28, r: 0.006 },
+    { x: 0.01, y: 0.58, z: 0.0, r: 0.02 },
+    { x: 0.03, y: 0.74, z: -0.08, r: 0.01 },
+    { x: 0.02, y: 0.88, z: -0.12, r: 0.005 },
   ];
   addCurve(trunk);
   addCurve(left);
