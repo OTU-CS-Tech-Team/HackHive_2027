@@ -9,8 +9,8 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Path dirt from the meadow palette.
-const PATH_TAN = { r: 0xc9, g: 0x96, b: 0x4e };
+// Jiwoo's late cream. The veil never goes darker or browner than this.
+const CREAM = { r: 0xff, g: 0xf6, b: 0xea };
 const WHITE = { r: 0xff, g: 0xff, b: 0xff };
 
 function smoothstep(value: number) {
@@ -28,14 +28,12 @@ function channel(from: number, to: number, amount: number) {
   return Math.round(from + (to - from) * amount);
 }
 
-// Transparent, then the path tan, then solid white. Never the forest green.
+// Transparent cream to solid white. No tan stage.
 function veilColor(progress: number) {
   const t = veilAmount(progress);
-  if (t <= 0) return "rgba(201, 150, 78, 0)";
+  if (t <= 0) return "rgba(255, 246, 234, 0)";
   if (t >= 1) return "rgb(255, 255, 255)";
-  if (t < 0.5) return `rgba(201, 150, 78, ${(t / 0.5).toFixed(3)})`;
-  const u = (t - 0.5) / 0.5;
-  return `rgb(${channel(PATH_TAN.r, WHITE.r, u)}, ${channel(PATH_TAN.g, WHITE.g, u)}, ${channel(PATH_TAN.b, WHITE.b, u)})`;
+  return `rgba(${channel(CREAM.r, WHITE.r, t)}, ${channel(CREAM.g, WHITE.g, t)}, ${channel(CREAM.b, WHITE.b, t)}, ${t.toFixed(3)})`;
 }
 
 function trackPointer(
