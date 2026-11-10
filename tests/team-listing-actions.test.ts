@@ -20,7 +20,7 @@ function setup(profile: object | null = complete) {
     maybeSingle: vi.fn(async () => ({ data: updating ? { id: 'self' } : profile, error: null })),
     then: (resolve: (result: { error: null }) => unknown) => Promise.resolve({ error: null }).then(resolve),
   };
-  const session = { from: vi.fn(() => query), rpc: vi.fn(async () => ({ error: null })),
+  const session = { from: vi.fn(() => query), rpc: vi.fn(async (name: string) => ({ data: name === 'has_hub_access', error: null })),
     auth: { getUser: vi.fn(async () => ({ data: { user: { id: 'self' } } })) } };
   vi.mocked(requireTeamAccess).mockResolvedValue({ ok: true, session, user: { id: 'self' } } as unknown as Awaited<ReturnType<typeof requireTeamAccess>>);
   vi.mocked(createClient).mockResolvedValue(session as unknown as Awaited<ReturnType<typeof createClient>>);

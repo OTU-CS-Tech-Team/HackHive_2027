@@ -1,0 +1,578 @@
+<!doctype html>
+<!-- Paints the sponsors forest. Open from any local server (?only=wall,mist to
+     preview a few layers; output is deterministic), tune PAL and the scene functions,
+     then run exportAll() in the console and move the downloads to public/sponsors/.
+     Clear .next's image cache afterwards, or the old art keeps being served. -->
+<meta charset="utf-8" />
+<title>Paint forest</title>
+<style>
+  body { margin: 0; padding: 16px; background: #3b4a3a; color: #fff; font: 14px sans-serif; }
+  canvas { display: block; max-width: 100%; margin-bottom: 16px; background: #d9a441; }
+</style>
+<script>
+const TAU = Math.PI * 2;
+
+const rng = (seed) => () => {
+  seed = (seed + 0x6d2b79f5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+const HASH = (() => {
+  const r = rng(7);
+  return Array.from({ length: 65536 }, () => r());
+})();
+const lattice = (x, y) => HASH[((x & 255) * 257 + (y & 255) * 131 + ((x * y) & 255)) & 65535];
+const smooth = (t) => t * t * (3 - 2 * t);
+const lerp = (a, b, t) => a + (b - a) * t;
+function noise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const u = smooth(x - xi), v = smooth(y - yi);
+  return lerp(
+    lerp(lattice(xi, yi), lattice(xi + 1, yi), u),
+    lerp(lattice(xi, yi + 1), lattice(xi + 1, yi + 1), u),
+    v,
+  );
+}
+const fbm = (x, y) => noise(x, y) * 0.55 + noise(x * 2.1, y * 2.1) * 0.3 + noise(x * 4.3, y * 4.3) * 0.15;
+
+function canvas(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
+// Shadow to highlight. Hexes are honey-lit: the top end leans gold, not white.
+const PAL = {
+  deep: "#0b2419",
+  dark: "#123a24",
+  shade: "#1d5230",
+  mid: "#2f7236",
+  leaf: "#4a9038",
+  light: "#7fae3a",
+  lime: "#b4c63f",
+  rim: "#ecd15a",
+  barkDark: "#3d1c0e",
+  bark: "#7c3814",
+  barkLight: "#bb5c1c",
+  barkRim: "#eda23e",
+};
+const RAMP = [PAL.dark, PAL.shade, PAL.mid, PAL.leaf, PAL.light, PAL.lime, PAL.rim];
+
+// One pointed leaf dab, added to a shared path so thousands fill in one call.
+function leaf(p, x, y, len, ang) {
+  const w = len * 0.42;
+  const cx = Math.cos(ang), sx = Math.sin(ang);
+  const tipX = x + cx * len, tipY = y + sx * len;
+  const midX = x + cx * len * 0.5, midY = y + sx * len * 0.5;
+  p.moveTo(x, y);
+  p.quadraticCurveTo(midX - sx * w, midY + cx * w, tipX, tipY);
+  p.quadraticCurveTo(midX + sx * w, midY - cx * w, x, y);
+}
+
+function fillBuckets(ctx, buckets, colours) {
+  buckets.forEach((path, i) => {
+    ctx.fillStyle = colours[i];
+    ctx.fill(path);
+  });
+}
+
+// A mass of foliage: dark airbrushed core, dabs lightening toward the sun, and a
+// broken leafy edge. `light` is a unit vector pointing at the sun.
+function clump(ctx, x, y, r, light, R, tone = 0) {
+  const phase = R() * 1000;
+  const outline = new Path2D();
+  const edge = [];
+  for (let i = 0; i < 90; i++) {
+    const a = (i / 90) * TAU;
+    const px = Math.cos(a), py = Math.sin(a);
+    const big = fbm(px * 1.3 + phase, py * 1.3 + phase);
+    const fine = noise(px * 7 + phase, py * 7 + phase);
+    const k = r * (0.72 + big * 0.5 + fine * 0.13);
+    const ex = x + px * k, ey = y + py * k * 0.86;
+    edge.push([ex, ey, a]);
+    i ? outline.lineTo(ex, ey) : outline.moveTo(ex, ey);
+  }
+  outline.closePath();
+
+  // Soft shadow on whatever sits behind, so masses read as overlapping.
+  const cast = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 1.3);
+  cast.addColorStop(0, "rgba(6,22,15,.55)");
+  cast.addColorStop(1, "rgba(6,22,15,0)");
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.fillStyle = cast;
+  ctx.fillRect(x - r * 1.4, y - r * 1.4, r * 2.8, r * 2.8);
+  ctx.restore();
+
+  ctx.save();
+  ctx.clip(outline);
+  const lit = ctx.createRadialGradient(
+    x + light.x * r * 0.75, y + light.y * r * 0.75, r * 0.05,
+    x + light.x * r * 0.2, y + light.y * r * 0.2, r * 1.5,
+  );
+  lit.addColorStop(0, RAMP[Math.min(4, 3 + tone)]);
+  lit.addColorStop(0.42, RAMP[Math.min(3, 2 + tone)]);
+  lit.addColorStop(0.75, PAL.shade);
+  lit.addColorStop(1, PAL.dark);
+  ctx.fillStyle = lit;
+  ctx.fillRect(x - r * 1.6, y - r * 1.6, r * 3.2, r * 3.2);
+
+  // The soft dark heart of the clump.
+  const hx = x - light.x * r * 0.2, hy = y - light.y * r * 0.15;
+  const core = ctx.createRadialGradient(hx, hy, 0, hx, hy, r * 0.72);
+  core.addColorStop(0, "rgba(9,34,23,.92)");
+  core.addColorStop(0.55, "rgba(12,44,28,.55)");
+  core.addColorStop(1, "rgba(12,44,28,0)");
+  ctx.fillStyle = core;
+  ctx.fillRect(x - r * 1.6, y - r * 1.6, r * 3.2, r * 3.2);
+
+  const buckets = RAMP.map(() => new Path2D());
+  const count = Math.min(9000, r * r * 0.5);
+  for (let i = 0; i < count; i++) {
+    const a = R() * TAU;
+    const d = Math.sqrt(R()) * r * 1.15;
+    const nx = Math.cos(a) * (d / r), ny = Math.sin(a) * (d / r);
+    const facing = nx * light.x + ny * light.y;
+    const speck = fbm(nx * 2.4 + phase, ny * 2.4 + phase);
+    const v = facing * 0.62 + (speck - 0.5) * 1.5 + 0.1 + d / r * 0.12 + tone * 0.1;
+    if (v < -0.42 && R() < 0.75) continue;
+    const idx = Math.max(0, Math.min(RAMP.length - 1, Math.round((v + 0.5) * 4.2)));
+    if (idx >= 5 && R() < 0.6) continue;
+    leaf(buckets[idx], x + nx * r, y + ny * r, 3 + R() * Math.min(9, r * 0.08), R() * TAU);
+  }
+  fillBuckets(ctx, buckets, RAMP);
+  ctx.restore();
+
+  // Broken edge: leaves past the outline, picked by how much sun they catch.
+  const rimBuckets = RAMP.map(() => new Path2D());
+  edge.forEach(([ex, ey, a]) => {
+    const facing = Math.cos(a) * light.x + Math.sin(a) * light.y;
+    const n = 3 + (R() * 4) | 0;
+    for (let i = 0; i < n; i++) {
+      const out = R() * r * 0.09 - r * 0.02;
+      const idx = Math.max(0, Math.min(6, Math.round(2 + facing * 2.4 + (R() - 0.5) * 1.6 + tone * 0.5)));
+      leaf(
+        rimBuckets[idx],
+        ex + Math.cos(a) * out + (R() - 0.5) * 8,
+        ey + Math.sin(a) * out + (R() - 0.5) * 8,
+        4 + R() * 7,
+        a + (R() - 0.5) * 1.9,
+      );
+    }
+  });
+  fillBuckets(ctx, rimBuckets, RAMP);
+}
+
+function limb(ctx, x, y, ang, len, w0, w1, light, R) {
+  const steps = Math.max(6, (len / 14) | 0);
+  const left = [], right = [];
+  let px = x, py = y, a = ang;
+  const wobble = (R() - 0.5) * 0.05;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const w = lerp(w0, w1, t) * 0.5 * (i === 0 ? 1.25 : 1);
+    const nx = -Math.sin(a), ny = Math.cos(a);
+    left.push([px + nx * w, py + ny * w]);
+    right.push([px - nx * w, py - ny * w]);
+    if (i === steps) break;
+    a += wobble + (noise(t * 3 + x * 0.01, y * 0.01) - 0.5) * 0.09;
+    px += Math.cos(a) * (len / steps);
+    py += Math.sin(a) * (len / steps);
+  }
+  const paint = () => {
+  const body = new Path2D();
+  [...left, ...right.reverse()].forEach(([qx, qy], i) => (i ? body.lineTo(qx, qy) : body.moveTo(qx, qy)));
+  body.closePath();
+  ctx.fillStyle = PAL.bark;
+  ctx.fill(body);
+
+  ctx.save();
+  ctx.clip(body);
+  right.reverse();
+  // Which edge faces the sun decides where the warm stripe sits.
+  const sunnyLeft = -Math.sin(ang) * light.x + Math.cos(ang) * light.y > 0;
+  const lit = sunnyLeft ? left : right, dim = sunnyLeft ? right : left;
+  const stroke = (pts, colour, width) => {
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    pts.forEach(([qx, qy], i) => (i ? ctx.lineTo(qx, qy) : ctx.moveTo(qx, qy)));
+    ctx.stroke();
+  };
+  stroke(dim, PAL.barkDark, w0 * 0.75);
+  stroke(lit, PAL.barkLight, w0 * 0.42);
+  stroke(lit, PAL.barkRim, Math.max(1.5, w0 * 0.1));
+  // Bark grain runs along the limb.
+  for (let i = 0; i < len * w0 * 0.012; i++) {
+    const t = R() * steps | 0;
+    const [ax, ay] = left[t], [bx, by] = right[t];
+    const m = R();
+    ctx.fillStyle = R() < 0.65 ? "rgba(40,16,8,.3)" : "rgba(235,160,70,.2)";
+    ctx.save();
+    ctx.translate(lerp(ax, bx, m), lerp(ay, by, m));
+    ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 20 + R() * 46, 1 + R() * 2.5, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  };
+  return { x: px, y: py, a, paint };
+}
+
+function fork(ctx, x, y, ang, len, w, depth, light, R, tips) {
+  const end = limb(ctx, x, y, ang, len, w, w * 0.7, light, R);
+  tips.push({ x: end.x, y: end.y, depth });
+  if (depth > 0) {
+    const n = R() < 0.35 ? 3 : 2;
+    for (let i = 0; i < n; i++) {
+      // Pull every limb back toward vertical so the crown domes instead of flattening.
+      const upright = (-Math.PI / 2 - end.a) * 0.32;
+      const spread = (i - (n - 1) / 2) * (0.5 + R() * 0.28) + upright;
+      fork(ctx, end.x, end.y, end.a + spread, len * (0.72 + R() * 0.16), w * 0.66, depth - 1, light, R, tips);
+    }
+  }
+  // Painted after its children so the parent's end laps over them, forming the crotch.
+  end.paint();
+}
+
+// Forked rusty trunk showing between foliage masses: some behind, most in front.
+function oak(ctx, x, base, h, light, R, tone = 0) {
+  const limbs = canvas(ctx.canvas.width, ctx.canvas.height);
+  const nodes = [];
+  fork(limbs.getContext("2d"), x, base, -Math.PI / 2 + (R() - 0.5) * 0.12, h * 0.3, h * 0.05, 3, light, R, nodes);
+  const tips = nodes.filter((n) => n.depth === 0);
+  const inner = nodes.filter((n) => n.depth === 1);
+  const size = () => h * (0.08 + R() * 0.05);
+  const behind = [...tips, ...inner].map((n) => ({
+    x: n.x + (R() - 0.5) * h * 0.1, y: n.y - h * 0.05 - R() * h * 0.05, r: size() * 1.2,
+  }));
+  const front = [...tips, ...tips.filter(() => R() < 0.6).map((n) => ({
+    x: n.x + (R() - 0.5) * h * 0.12, y: n.y - h * (0.08 + R() * 0.08),
+  }))].map((n) => ({ x: n.x, y: n.y, r: size() }));
+  // Shaded undersides first, sunlit masses last.
+  const sunward = (c) => c.x * light.x + c.y * light.y;
+  behind.sort((a, b) => sunward(a) - sunward(b));
+  front.sort((a, b) => sunward(a) - sunward(b));
+  behind.forEach((c) => clump(ctx, c.x, c.y, c.r, light, R, Math.max(0, tone - 1)));
+  ctx.drawImage(limbs, 0, 0);
+  front.forEach((c) => clump(ctx, c.x, c.y, c.r, light, R, tone));
+}
+
+// One drooping bough: a leaf-shaped plane, lit along its top, fringed with needles.
+function bough(ctx, x0, y0, x1, y1, light, R, tone) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+  const nx = -dy / len, ny = dx / len;
+  const up = ny < 0 ? 1 : -1;
+  const belly = len * (0.2 + R() * 0.08);
+  const midX = x0 + dx * 0.55, midY = y0 + dy * 0.55;
+  const topX = midX + nx * up * belly, topY = midY + ny * up * belly;
+  const lowX = midX - nx * up * belly * 0.75, lowY = midY - ny * up * belly * 0.75;
+  const shape = new Path2D();
+  shape.moveTo(x0, y0);
+  shape.quadraticCurveTo(topX, topY, x1, y1);
+  shape.quadraticCurveTo(lowX, lowY, x0, y0);
+
+  const sunny = Math.sign(dx) === Math.sign(light.x);
+  const top = Math.max(0, Math.min(5, (sunny ? 2 : 1) + tone + (R() < 0.22 ? 1 : 0)));
+  const g = ctx.createLinearGradient(topX, topY, lowX, lowY);
+  g.addColorStop(0, RAMP[top]);
+  g.addColorStop(0.55, RAMP[Math.max(0, top - 2)]);
+  g.addColorStop(1, PAL.deep);
+  ctx.fillStyle = g;
+  ctx.fill(shape);
+
+  const needles = RAMP.map(() => new Path2D());
+  const count = len * 2.6;
+  for (let i = 0; i < count; i++) {
+    const k = R();
+    const off = (R() * 1.5 - 0.55) * belly * Math.sin(Math.min(1, k * 1.1) * Math.PI) ** 0.6;
+    const px = x0 + dx * k + nx * up * off, py = y0 + dy * k + ny * up * off;
+    const idx = Math.max(0, Math.min(6, Math.round(top - 1.2 + (off / belly) * 2.2 + (R() - 0.5) * 2)));
+    leaf(needles[idx], px, py, 5 + R() * 10, ang + (R() - 0.5) * 0.8 + Math.sign(dx) * 0.28);
+  }
+  // Drooping fringe along the underside and the tip.
+  for (let i = 0; i < len * 0.9; i++) {
+    const k = 0.25 + R() * 0.8;
+    const px = x0 + dx * k - nx * up * belly * 0.3 * (1 - k), py = y0 + dy * k - ny * up * belly * 0.3 * (1 - k);
+    leaf(needles[Math.max(0, top - 2 - (R() * 2 | 0))], px, py, 8 + R() * 13, Math.PI / 2 - Math.sign(dx) * (0.5 + R() * 0.5));
+  }
+  fillBuckets(ctx, needles, RAMP);
+}
+
+// Conifer built like a real one: boughs whorled around the stem, bottom to top.
+function pine(ctx, x, base, h, light, R, tone = 0) {
+  const half = h * (0.19 + R() * 0.05);
+  const top = base - h;
+  limb(ctx, x, base, -Math.PI / 2, h * 0.22, h * 0.026, h * 0.02, light, R).paint();
+  const shade = new Path2D();
+  shade.moveTo(x, top + h * 0.14);
+  shade.lineTo(x + half * 0.42, base - h * 0.16);
+  shade.lineTo(x - half * 0.42, base - h * 0.16);
+  shade.closePath();
+  ctx.fillStyle = PAL.deep;
+  ctx.fill(shade);
+
+  // Whorls crowd together toward the tip, as they do on a real tree.
+  const tiers = 15 + (R() * 4) | 0;
+  for (let t = 0; t < tiers; t++) {
+    const u = Math.pow(t / (tiers - 1), 0.82);
+    const y = base - h * 0.13 - u * h * 0.84;
+    const reach = half * Math.pow(1 - u, 0.8) * (0.86 + R() * 0.32) + h * 0.03;
+    const n = 3 + ((1 - u) * 3) | 0;
+    const boughs = [];
+    for (let i = 0; i < n; i++) {
+      for (const dir of [-1, 1]) boughs.push({ dir, k: 1 - i / n + (R() - 0.5) * 0.12 });
+    }
+    // Outermost first so inner boughs lap over them toward the viewer.
+    boughs.sort((a, b) => b.k - a.k);
+    boughs.forEach(({ dir, k }) => {
+      const r = reach * k;
+      const startY = y - reach * (0.34 - k * 0.1) + (R() - 0.5) * 10;
+      bough(ctx, x + dir * r * 0.1, startY, x + dir * r, y + r * (0.2 + R() * 0.16), light, R, tone + (u > 0.72 ? 1 : 0));
+    });
+    // Short boughs hanging straight at the viewer hide the stem.
+    for (let i = 0; i < 2; i++) {
+      const dir = i ? 1 : -1;
+      bough(ctx, x, y - reach * 0.36, x + dir * reach * (0.1 + R() * 0.2), y + reach * (0.14 + R() * 0.12), light, R, Math.max(0, tone - 1));
+    }
+  }
+  // Leader at the very top.
+  for (const dir of [-1, 1]) bough(ctx, x, top, x + dir * h * 0.014, top + h * 0.075, light, R, tone + 1);
+}
+
+function grain(c, seed, strength = 0.22) {
+  const ctx = c.getContext("2d");
+  const R = rng(seed);
+  const tile = canvas(512, 512);
+  const t = tile.getContext("2d");
+  const img = t.createImageData(512, 512);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = R() * 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  t.putImageData(img, 0, 0);
+  const speck = canvas(c.width, c.height);
+  const s = speck.getContext("2d");
+  s.fillStyle = s.createPattern(tile, "repeat");
+  s.fillRect(0, 0, c.width, c.height);
+  s.globalCompositeOperation = "destination-in";
+  s.drawImage(c, 0, 0);
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = strength;
+  ctx.drawImage(speck, 0, 0);
+  ctx.restore();
+}
+
+// Tints only what's painted, pushing a row back into the warm air.
+function haze(c, colour, alpha) {
+  const ctx = c.getContext("2d");
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = colour;
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.restore();
+}
+
+function sink(c, from, to, colour) {
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, from, 0, to);
+  g.addColorStop(0, colour + "00");
+  g.addColorStop(1, colour);
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.fillStyle = g;
+  ctx.fillRect(0, from, c.width, c.height - from);
+  ctx.restore();
+}
+
+function row(w, h, { seed, spacing, tall, tone = 0, pineOdds = 0.45, light }) {
+  const c = canvas(w, h);
+  const ctx = c.getContext("2d");
+  const R = rng(seed);
+  const stems = [];
+  for (let x = -80; x < w + 80; x += spacing * (0.65 + R() * 0.7)) stems.push(x);
+  stems.forEach((x) => {
+    const height = tall * (0.62 + R() * 0.62);
+    const base = h + height * 0.1;
+    if (R() < pineOdds) pine(ctx, x, base, height * 1.4, light, R, tone);
+    else oak(ctx, x, base, height, light, R, tone);
+  });
+  return c;
+}
+
+const SUN = { x: 0.62, y: -0.78 };
+
+const LAYERS = {
+  // Distant ridge of trees, nearly dissolved into the sky.
+  far() {
+    const c = row(2600, 460, { seed: 11, spacing: 96, tall: 240, tone: 1, pineOdds: 0.7, light: SUN });
+    haze(c, "#e9bf63", 0.62);
+    grain(c, 2, 0.12);
+    return c;
+  },
+
+  // The tree wall: three rows, each sitting further into the haze.
+  wall() {
+    const w = 3000, h = 1120;
+    const c = canvas(w, h);
+    const ctx = c.getContext("2d");
+    const back = row(w, h, { seed: 21, spacing: 150, tall: 720, tone: 1, pineOdds: 0.72, light: SUN });
+    haze(back, "#c9b256", 0.34);
+    const mid = row(w, h, { seed: 22, spacing: 190, tall: 640, pineOdds: 0.5, light: SUN });
+    haze(mid, "#6f9440", 0.13);
+    const front = row(w, h, { seed: 23, spacing: 230, tall: 500, pineOdds: 0.85, light: SUN });
+    // Solid backing, so no sky shows through low in the wall.
+    const backing = ctx.createLinearGradient(0, h * 0.52, 0, h * 0.64);
+    backing.addColorStop(0, PAL.deep + "00");
+    backing.addColorStop(1, PAL.deep);
+    ctx.fillStyle = backing;
+    ctx.fillRect(0, h * 0.52, w, h * 0.48);
+    ctx.drawImage(back, 0, 0);
+    ctx.drawImage(mid, 0, 0);
+    ctx.drawImage(front, 0, 0);
+    sink(c, h * 0.56, h * 0.82, PAL.deep);
+    grain(c, 3);
+    return c;
+  },
+
+  // Forest interior behind the panels; wraps vertically so it can repeat.
+  depth() {
+    const w = 1600, h = 1600;
+    const c = canvas(w, h);
+    const ctx = c.getContext("2d");
+    const R = rng(31);
+    ctx.fillStyle = PAL.deep;
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 12; i++) {
+      const x = R() * w, width = 18 + R() * 44;
+      ctx.fillStyle = `rgba(52,30,16,${0.25 + R() * 0.3})`;
+      ctx.fillRect(x, 0, width, h);
+    }
+    for (let i = 0; i < 46; i++) {
+      const x = R() * w, y = R() * h, r = 90 + R() * 170;
+      for (const oy of [y - h, y, y + h]) {
+        const g = ctx.createRadialGradient(x, oy, 0, x, oy, r);
+        const colour = R() < 0.55 ? "29,82,48" : "18,58,36";
+        g.addColorStop(0, `rgba(${colour},.8)`);
+        g.addColorStop(1, `rgba(${colour},0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(x - r, oy - r, r * 2, r * 2);
+      }
+    }
+    const dabs = [new Path2D(), new Path2D(), new Path2D()];
+    for (let i = 0; i < 26000; i++) {
+      const x = R() * w, y = R() * h;
+      const v = fbm(x * 0.006, y * 0.006);
+      if (v < 0.47) continue;
+      const bucket = dabs[v > 0.6 ? 2 : v > 0.53 ? 1 : 0];
+      for (const oy of [y - h, y, y + h]) leaf(bucket, x, oy, 4 + (i % 7), i);
+    }
+    fillBuckets(ctx, dabs, ["#163f28", "#1d5230", "#2a6a35"]);
+    grain(c, 4, 0.16);
+    return c;
+  },
+
+  "oak-a"() {
+    const c = canvas(1100, 1300);
+    oak(c.getContext("2d"), 520, 1310, 1040, SUN, rng(41), 1);
+    grain(c, 5);
+    return c;
+  },
+  "oak-b"() {
+    const c = canvas(1000, 1000);
+    oak(c.getContext("2d"), 470, 1010, 800, SUN, rng(58));
+    grain(c, 6);
+    return c;
+  },
+  "pine-a"() {
+    const c = canvas(820, 1500);
+    pine(c.getContext("2d"), 410, 1500, 1460, SUN, rng(43), 1);
+    grain(c, 7);
+    return c;
+  },
+  "pine-b"() {
+    const c = canvas(640, 1100);
+    pine(c.getContext("2d"), 320, 1100, 1070, SUN, rng(44));
+    grain(c, 8);
+    return c;
+  },
+
+  // Low mist: sage dabs thinning upward over cream, so it dissolves like dry brush.
+  mist() {
+    const w = 3000, h = 380;
+    const c = canvas(w, h);
+    const ctx = c.getContext("2d");
+    const R = rng(61);
+    const veil = ctx.createLinearGradient(0, h * 0.45, 0, h * 0.86);
+    veil.addColorStop(0, "#faf8f100");
+    veil.addColorStop(1, "#faf8f1");
+    ctx.fillStyle = veil;
+    ctx.fillRect(0, 0, w, h);
+    const shades = ["#faf8f1", "#eeeeda", "#dbe0bb", "#b7c592"];
+    const dabs = shades.map(() => new Path2D());
+    for (let i = 0; i < 90000; i++) {
+      const t = R();
+      const x = R() * w, y = h * (0.92 - t * 0.72);
+      if (R() > (1 - t) ** 2.4) continue;
+      // Patchy, so the edge comes in drifts instead of one even line.
+      if (fbm(x * 0.003, y * 0.012) < 0.28 + t * 0.34) continue;
+      leaf(dabs[Math.min(3, (t * 5.5) | 0)], x, y, 4 + R() * 9, R() * TAU);
+    }
+    for (let i = 3; i >= 0; i--) {
+      ctx.fillStyle = shades[i];
+      ctx.fill(dabs[i]);
+    }
+    return c;
+  },
+
+  // Foreground undergrowth with dogwood flecks, running out of the frame.
+  floor() {
+    const w = 3000, h = 560;
+    const c = canvas(w, h);
+    const ctx = c.getContext("2d");
+    const R = rng(51);
+    ctx.fillStyle = PAL.deep;
+    ctx.fillRect(0, h - 170, w, 170);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let x = -60; x < w + 60; x += 80 + R() * 70) {
+        const r = pass ? 80 + R() * 70 : 120 + R() * 110;
+        clump(ctx, x, h - (pass ? 80 : 150) - R() * 110, r, SUN, R, pass);
+      }
+    }
+    const petals = [new Path2D(), new Path2D()];
+    for (let i = 0; i < 90; i++) {
+      const x = R() * w, y = h * 0.45 + R() * h * 0.5, spin = R() * TAU;
+      const bucket = petals[i % 2];
+      for (let p = 0; p < 4; p++) leaf(bucket, x, y, 9 + R() * 3, spin + (p * TAU) / 4);
+    }
+    fillBuckets(ctx, petals, ["#f7ecd0", "#f3b9a4"]);
+    grain(c, 9);
+    return c;
+  },
+};
+
+window.exportAll = async () => {
+  for (const [name, paint] of Object.entries(LAYERS)) {
+    const blob = await new Promise((done) => paint().toBlob(done, "image/webp", 0.82));
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${name}.webp`;
+    link.click();
+  }
+};
+
+window.addEventListener("DOMContentLoaded", () => {
+  for (const name of new URLSearchParams(location.search).get("only")?.split(",") ?? Object.keys(LAYERS)) {
+    document.body.append(name, LAYERS[name]());
+  }
+});
+</script>

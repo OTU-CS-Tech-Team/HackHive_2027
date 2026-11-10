@@ -3,6 +3,9 @@ import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.7' }) }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/server', () => ({ after: (task: () => unknown) => task() }));
+vi.mock('@/lib/email', () => ({ sendApplicationReceivedEmail: vi.fn() }));
 vi.mock('@/lib/auth/helpers', () => ({ getVerifiedUser: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(), createServiceClient: vi.fn() }));
 vi.mock('@/lib/indemnification', async (importOriginal) => {
@@ -13,11 +16,13 @@ vi.mock('@/lib/indemnification', async (importOriginal) => {
 import { getVerifiedUser } from '@/lib/auth/helpers';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { previewFilledForm } from '@/lib/indemnification';
+import { sendApplicationReceivedEmail } from '@/lib/email';
 import { previewIndemnification, submitApplication } from '@/app/actions/applications';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const SUBMISSION_ID = '22222222-2222-4222-8222-222222222222';
 
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
 process.env.RATE_LIMIT_HASH_SECRET = 'test-secret';
 process.env.TURNSTILE_SECRET_KEY = '1x0000000000000000000000000000000AA';
 
@@ -29,13 +34,17 @@ function query(result: unknown) {
   return q;
 }
 
-function setup({ submittedRow = null as object | null, uploadError = null as object | null } = {}) {
+function setup({
+  submittedRow = null as object | null,
+  uploadError = null as object | null,
+  rpcSubmittedAt = null as string | null,
+} = {}) {
   const calls: string[] = [];
   const upload = vi.fn(async () => { calls.push('upload'); return { error: uploadError }; });
   const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
     if (name === 'reg_check_rate_limit') return { data: true, error: null };
     calls.push('submit');
-    return { data: { ok: true, application_id: 'app-1', submitted_at: args.p_stamped_at }, error: null };
+    return { data: { ok: true, application_id: 'app-1', submitted_at: rpcSubmittedAt ?? args.p_stamped_at }, error: null };
   });
   const service = {
     from: vi.fn(() => query({ data: submittedRow, error: null })),
@@ -128,6 +137,14 @@ describe('submitApplication with the indemnification form', () => {
     const torontoDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date(args.p_stamped_at as string));
     expect(await guestLine(bytes)).toBe(`Ada Lovelace Date: ${torontoDate}`);
     expect(result.ok && result.submittedAt).toBe(args.p_stamped_at);
+    expect(sendApplicationReceivedEmail).toHaveBeenCalledWith('Ada@Example.com', { firstName: 'Ada', pdf: bytes });
+  });
+
+  it('does not email again when the RPC reports an earlier submission', async () => {
+    setup({ rpcSubmittedAt: '2027-01-02T03:04:05+00:00' });
+
+    expect(await submit()).toMatchObject({ ok: true, submittedAt: '2027-01-02T03:04:05+00:00' });
+    expect(sendApplicationReceivedEmail).not.toHaveBeenCalled();
   });
 
   it('returns the original success without rendering or uploading when the path is already set', async () => {
@@ -152,6 +169,7 @@ describe('submitApplication with the indemnification form', () => {
 
     expect(await submit()).toMatchObject({ ok: false, code: 'server' });
     expect(calls).toEqual(['upload']);
+    expect(sendApplicationReceivedEmail).not.toHaveBeenCalled();
   });
 
   it('rejects a submit without the indemnification consent before rendering', async () => {

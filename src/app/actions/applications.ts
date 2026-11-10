@@ -1,6 +1,9 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { sendApplicationReceivedEmail } from '@/lib/email';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getVerifiedUser } from '@/lib/auth/helpers';
 import {
@@ -19,6 +22,7 @@ import { previewFilledForm, type IndemnificationApplicant } from '@/lib/indemnif
 import crypto from 'crypto';
 import { z } from 'zod';
 
+const REQUIRED_SUBMIT_ENV = ['SUPABASE_SERVICE_ROLE_KEY', 'RATE_LIMIT_HASH_SECRET', 'TURNSTILE_SECRET_KEY'];
 const MIN_SUBMIT_TIME_MS = 3000;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_IP_MAX_ATTEMPTS = 100;
@@ -317,8 +321,15 @@ export async function submitApplication(input: {
       return { ok: false, code: 'not_verified', error: 'Email not verified' };
     }
 
+    // Names only, so a misconfigured deploy says what to fix instead of a generic error.
+    const missingEnv = REQUIRED_SUBMIT_ENV.filter((name) => !process.env[name]);
+    if (missingEnv.length > 0) {
+      console.error('submitApplication missing env:', missingEnv.join(', '));
+      return { ok: false, code: 'server', error: `Server is missing ${missingEnv.join(', ')}` };
+    }
+
     const serviceClient = createServiceClient();
-    
+
     const { data: existingSubmission } = await serviceClient
       .from('applications')
       .select('id, submitted_at')
@@ -353,9 +364,18 @@ export async function submitApplication(input: {
       return { ok: false, code: 'validation', error: 'Invalid submission' };
     }
 
-    const elapsed = Date.now() - input.startedAt;
-    if (elapsed < MIN_SUBMIT_TIME_MS) {
-      return { ok: false, code: 'too_fast', error: 'Please take more time to fill out the form' };
+    // startedAt is when this page loaded, so someone reopening a finished draft
+    // can trip it. The draft's age is the real time they've been applying.
+    if (Date.now() - input.startedAt < MIN_SUBMIT_TIME_MS) {
+      const { data: draft } = await serviceClient
+        .from('applications')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!draft || Date.now() - Date.parse(draft.created_at) < MIN_SUBMIT_TIME_MS) {
+        return { ok: false, code: 'too_fast', error: 'Please wait a few seconds, then try again.' };
+      }
     }
 
     if (!z.uuid().safeParse(input.submissionId).success) {
@@ -499,6 +519,18 @@ export async function submitApplication(input: {
     }
 
     if (response.ok && response.application_id) {
+      // cacheComponents keeps visited pages alive, so without this the back
+      // button reopens the editable form for an application that's already in.
+      for (const path of ['/apply', '/apply/status', '/dashboard']) {
+        revalidatePath(path);
+      }
+      // The RPC hands back the original submitted_at when this was a repeat submit, so
+      // only a fresh submission (stamped with our time) gets the email. Sent after the
+      // response, so a slow or failed email never holds up the form.
+      if (response.submitted_at && new Date(response.submitted_at).getTime() === stampedAt.getTime()) {
+        const to = user.email;
+        after(() => sendApplicationReceivedEmail(to, { firstName: data.first_name, pdf: indemnificationPdf }));
+      }
       return {
         ok: true,
         applicationId: response.application_id,

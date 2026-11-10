@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { OAuthButtons, OrDivider } from "@/components/auth/OAuthButtons";
 
 export function SignupForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -43,7 +41,9 @@ export function SignupForm() {
       }
 
       if (data.session) {
-        router.push("/apply");
+        // Full page load so the navbar picks up the new session (see LoginForm).
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign("/apply");
         return;
       }
 

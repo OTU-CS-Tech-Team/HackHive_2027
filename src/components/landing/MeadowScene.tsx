@@ -5,7 +5,7 @@ import { useEffect, useRef, type RefObject } from "react";
 /**
  * STUB for Jiwoo's Three.js meadow. This file must not import three.
  * Replace the whole component; keep the props. One warm light, no sunset shift.
- * `progress` is only the hero walk and is 1 at the hand-off into chapter 2.
+ * `progress` is only the hero walk and is 1 at the hand-off into the next section.
  * The scene pauses while it is off screen so a later render loop can stop with it.
  */
 export type MeadowSceneProps = {

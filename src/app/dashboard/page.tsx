@@ -4,9 +4,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
-import { ApplicationView } from "@/components/ApplicationView";
+import { ApplicationNextSteps, ApplicationView } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
-import { signOut } from "@/app/actions/auth";
 import { getMyApplication } from "@/lib/application/api";
 import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
 import { formatDateTime } from "@/lib/time";
@@ -74,15 +73,10 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
         )}
         <h1 className="flex-1 text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
         {admin && (
-          <Link href="/admin" className="rounded border px-4 py-2">
+          <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
             Admin
           </Link>
         )}
-        <form action={signOut}>
-          <button type="submit" className="rounded border px-4 py-2">
-            Sign out
-          </button>
-        </form>
       </header>
 
       <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
@@ -118,7 +112,10 @@ async function ApplicationTab() {
     <section>
       <h2 className="mb-4 text-2xl font-bold">My application</h2>
       {result.ok && result.application ? (
-        <ApplicationView application={result.application} />
+        <>
+          <ApplicationNextSteps application={result.application} />
+          <ApplicationView application={result.application} />
+        </>
       ) : (
         <p className={muted}>
           {result.ok ? "You haven't started an application yet. " : `${result.error}. `}

@@ -1,16 +1,30 @@
 .section {
   box-sizing: border-box;
   width: 100%;
+  height: 100%;
+  /* The comb hangs into the forest above this section. The card starts
+     below that seam, on the same ink, so the icon and title stay clear. */
+  margin-top: 0;
+  z-index: 3;
   background: #14110b;
   color: #fff6e0;
   padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  overflow: clip; /* clip, not hidden: hidden makes this a scroll container and can break sticky */
 }
 
 .judgesSection {
+  /* Parked under the pinned code stage; CodeToRain drives --judges-in (0 -> 1) so the whole
+     section (banner, honeycomb, gavel rain) slides up over it while fading in. */
+  margin-top: -100vh;
+  z-index: 3;
+  transform: translateY(calc((1 - var(--judges-in, 1)) * 100vh));
+  opacity: min(1, calc(var(--judges-in, 1) * 1.5));
+  will-change: transform, opacity;
+  /* The banner + honeycomb stay hidden until the slide-in passes this point (0 = at the start, 1 = at the very end). */
+  --judges-threshold: 0.4;
   padding-bottom: calc(clamp(3rem, 6vw, 6rem) + 120px);
 }
 
@@ -32,8 +46,11 @@
 .stage {
   position: relative;
   z-index: 1;
+  /* Only has an effect inside the judges section (needs --judges-in); fully visible everywhere else. */
+  opacity: clamp(0, calc((var(--judges-in, 1) - var(--judges-threshold, 0)) / (1 - var(--judges-threshold, 0))), 1);
   container-type: inline-size;
   width: 100%;
+  height: 100%;
   max-width: 2200px;
   margin: 0 auto;
 }
@@ -296,6 +313,36 @@
   object-fit: cover;
 }
 
+.avatarFrame {
+  position: relative;
+  display: flex;
+  width: calc(var(--tile-width) * 0.3);
+  height: calc(var(--tile-width) * 0.3);
+  flex: 0 0 auto;
+  margin-bottom: 0.4em;
+}
+
+.avatarFrame .avatarFallback,
+.avatarFrame .avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.avatarFrame .avatar {
+  visibility: hidden;
+}
+
+.avatarFrame .avatarLoaded {
+  visibility: visible;
+}
+
+.avatarFallbackHidden {
+  visibility: hidden;
+}
+
 .bio {
   display: block;
   max-width: 100%;
@@ -463,6 +510,12 @@
   font-size: clamp(0.8rem, 4.2cqw, 0.9rem);
   }
 
+  .prioritizeLinkedIn .company,
+  /* hides elements so that linkedin link is always visible */
+  .prioritizeLinkedIn .rule {
+    display: none;
+  }
+
   .face {
   gap: 0.2em;
   padding: 25px;
@@ -539,4 +592,38 @@
   .hive.ready {
   animation: none;
 }
+}
+.codeRainTrack {
+  position: relative;
+  height: 670vh;            /* 100vh pinned + ANIM_VH * FADE_END (0.94) screens, so it ends right as the shards are gone */
+  background: #14110b;      /* never let the page background show through */
+  pointer-events: none;
+}
+
+.codeRainStage {
+  position: sticky;         /* keeps the animation pinned while you scroll */
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.codeRainCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.codeRainHint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4vh;
+  text-align: center;
+  color: #7dffa0;
+  font: 12px/1 ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 0.3em;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+  pointer-events: none;
 }
