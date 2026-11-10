@@ -2,13 +2,17 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState, type RefObject } from "react";
+import styles from "@/components/path/path.module.css";
 
-const MeadowScene = dynamic(() => import("@/components/landing/MeadowScene"), {
-  ssr: false,
-});
+function loadMeadowScene() {
+  return import("@/components/landing/MeadowScene");
+}
 
-const FALLBACK =
-  "linear-gradient(180deg, #d7eef8 0%, #f4e4b4 40%, #b7d57a 72%, #8fbe58 100%)";
+const MeadowScene = dynamic(loadMeadowScene, { ssr: false });
+
+if (typeof window !== "undefined") {
+  void loadMeadowScene();
+}
 
 export function HeroMeadow({
   progress,
@@ -24,6 +28,7 @@ export function HeroMeadow({
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
+    void loadMeadowScene();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => setReducedMotion(reduce.matches);
     sync();
@@ -40,15 +45,28 @@ export function HeroMeadow({
         reducedMotion={reducedMotion}
         onReady={markReady}
       />
-      <div
-        className={`absolute inset-0 ${ready ? "opacity-0" : "opacity-100"} ${reducedMotion ? "" : "transition-opacity duration-700"}`}
-        style={{
-          backgroundColor: "#d7eef8",
-          backgroundImage: poster ? `url(/path/poster.webp), ${FALLBACK}` : FALLBACK,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      />
+      <div className={styles.poster} data-hero-poster="" data-ready={ready ? "true" : "false"}>
+        {poster ? (
+          <picture>
+            <source media="(max-width: 767px)" srcSet="/path/poster-phone.avif" type="image/avif" />
+            <source media="(max-width: 767px)" srcSet="/path/poster-phone.webp" type="image/webp" />
+            <source media="(max-width: 1023px)" srcSet="/path/poster-tablet.avif" type="image/avif" />
+            <source media="(max-width: 1023px)" srcSet="/path/poster-tablet.webp" type="image/webp" />
+            <source srcSet="/path/poster.avif" type="image/avif" />
+            <source srcSet="/path/poster.webp" type="image/webp" />
+            <img
+              className={styles.posterImg}
+              src="/path/poster.webp"
+              alt=""
+              width={1280}
+              height={800}
+              fetchPriority="high"
+            />
+          </picture>
+        ) : (
+          <div className={styles.posterFallback} />
+        )}
+      </div>
     </div>
   );
 }

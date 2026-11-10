@@ -4,11 +4,12 @@
 
 .heroScroll {
   position: relative;
-  z-index: 0;
   isolation: isolate;
-  /* Was 1.85. 0.45vh of scroll; the veil is white at progress 0.9. */
+  /* 0.45vh of walk. The veil starts at progress 0.75, over .dawn. */
   height: calc(var(--path-vh, 100svh) * 1.45);
-  background: #fff;
+  /* .dawn overlaps the sticky stage. --hero-overlap is set from OVERLAP. */
+  margin-bottom: calc(var(--path-vh, 100svh) * -1 * var(--hero-overlap, 0.16));
+  background: transparent;
 }
 
 .heroStage {
@@ -43,13 +44,32 @@
     1.25rem
     calc(24svh + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
+  animation: heroEnter 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.content > * {
+@keyframes heroEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.copy {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.copy > * {
   pointer-events: auto;
 }
 
-.content > .hero {
+.copy > .hero {
   max-height: none;
   overflow: visible;
 }
@@ -144,5 +164,56 @@
     text-shadow:
       0 1px 0 rgba(16, 42, 28, 0.28),
       0 10px 20px rgba(16, 42, 28, 0.42);
+  }
+}
+
+.poster {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 600ms ease;
+  pointer-events: none;
+}
+
+.poster[data-ready="true"] {
+  opacity: 0;
+}
+
+.posterImg,
+.posterFallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #d7eef8;
+  background-position: center;
+  background-size: cover;
+  /* Blurred first frame, inlined so it paints before the poster request. */
+  background-image: url("data:image/webp;base64,UklGRuAAAABXRUJQVlA4INQAAACwBQCdASogABQAPslWoUynpSMiN/qoAPAZCWoAnTMhpb8XuhdeL/38cQDFhlywkGANNCTo2wAA/vNwA5rex4pDtR3I17g3RoKsAV+TA3coQT4EZStOPD8uf+J41ZoFRVXEhCuZToKkSuVWvHgydID/ltrAC2vN62DNa5yLZSWIdJ2k2Bo/D357sijH4uks7DCK9jmdCvtwup5KbwPuxOwhPO6tOvkKW31ftz8sLPzt2Dvkd9NO0VAapRAkjk+hezBZlrmzWY5ZQddZeo2JWv4pQyAAAA==");
+}
+
+.posterFallback {
+  background-image: linear-gradient(180deg, #d7eef8 0%, #f4e4b4 40%, #b7d57a 72%, #8fbe58 100%);
+}
+
+@media (max-width: 1023px) {
+  .posterImg {
+    background-image: url("data:image/webp;base64,UklGRpgBAABXRUJQVlA4IIwBAADQCACdASogACoAPt1WpkyopKOiNVgIARAbiWYArDL0jLehrCrzwhNDqvdvh41e5xCCjbbzy0WT1hBK/5GuHVW+V78KZGaxxZKk+p2qEDIAAP79Pimj2TtZT+uNYDSMVlHAdP3/KzAnBVHRtUtJf+fn/RTwVulkQOiyRUfNOzTLkHKWNhXGFFF3kUqTHfvOOrcmc3GvYxZWUdZE0MmpJh7O8UCNnOcmQazp541dwtit64HkMuJcmsPtRmJ8wHSok9OejjDBIR3gFHZVrZ3byibZ1myWpQJWF9pmEi74hneWVr4Oq1GR2eiBvMfIFunQiKq2VhifjvquRtU3QR7cBkKIrbSc2M5B9C5+GWTBAyrjSbZP+mxAi5GU06r//aymadFk1HgH3vFbqqa4rjWZHGR+DHkrQeUz8fLNyX5c5YlLNOdow2TuS86ulBMSrbRAD3/+5bnNJjes8OjgfpMYoYiRxG19DmNQk8N9IniRqovzd0mZpfD69K1Rmj3W4s6ypl+5YTGMqgNWsmaAAAA=");
+  }
+}
+
+@media (max-width: 767px) {
+  .posterImg {
+    background-image: url("data:image/webp;base64,UklGRi4CAABXRUJQVlA4ICICAABwCgCdASogAEYAPt1aok0opSMiLMwBEBuJbACdOUFV3oCUkDwPl2sDNNCzuqKAcvHsrTgMYCm29hD4mDIoR30VOpJDQFNVsTGs4nOWQ/RN3hpg/TVFmUL1f7rwAAD+/NX1k6aX11JqsiEimX5R5/pcaT6mKQqzyqZwmPzhr/ge4Yp4ztBa9kVbraxtBqZ+e/bBIZs9UjzNCG6SZKINXlp3z/0UhQ5ca3TCvQLhPbYcW1PWVGTUKBNr9cZ3v0qZuj/Un4FxCVs4OjEY1eCTag6djDj/lZvcMEGehz30eQ7PMIvgjhEufF4TUsFWHcKawTIjVtW0luEqWg+jMpDFoW1LieGua8eDmDJC3hAbKsKAfRPH4PnqNgAs97qAWqIHMzuArTjhxQ/1ksU1u/3KfxDErGH34a2wKFXTl2L1OlJTScagG3qOq/4LDGI161FNsrTWGrL+WlLSpzLMW8KLtTrgYaOXcFZadxJpMTdAM73KAJRPT5jH7ZVcjVYF0M+rGghwCJS8Swt578e7GyQ7uGuVpjr397ldfHJ4c2C2aWH++jq3bn00DCc/aVoNzItSVDbWkoR89deClfETBSkilSGejb/nO9MVnbt0v0HLNLIW/8lipY7NrQZxRZnpM/9yDOH+/XtFk9V9mahS0WQI1n7OzZzwTpCu5peW4GXO0rq4Iug8NT/7B6VUtwZ0LHmOkcuS1EfRMGBv2p2723VF4VPz3AA=");
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content,
+  .poster {
+    animation: none;
+    transition: none;
   }
 }

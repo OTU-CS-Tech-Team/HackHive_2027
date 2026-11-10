@@ -10,11 +10,23 @@ import { links } from "@/components/navbar/links";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "optional",
+  adjustFontFallback: true,
+  preload: true,
+});
 
 // Used by the section CSS modules as var(--font-grotesk).
-const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
+// optional: use the face if it is ready for first paint, and do not swap later.
+const grotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-grotesk",
+  display: "optional",
+  adjustFontFallback: true,
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "HackHive 2027",
