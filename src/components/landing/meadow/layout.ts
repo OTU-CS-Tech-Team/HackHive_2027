@@ -214,76 +214,105 @@ function scatterFull(
   return items;
 }
 
-const BLOSSOM_PINKS: RGB[] = [
-  hexToRgb("#e24b78"),
-  hexToRgb("#f27a98"),
-  hexToRgb("#ffd0dc"),
-  hexToRgb("#fffaf6"),
-  hexToRgb("#d63d68"),
-  hexToRgb("#f7b3c4"),
-];
+const BLOSSOM_ROSE: RGB[] = [hexToRgb("#c43a62"), hexToRgb("#a83254"), hexToRgb("#d24e72")];
+const BLOSSOM_MID: RGB[] = [hexToRgb("#e87898"), hexToRgb("#f0a0b6"), hexToRgb("#f6c4d0")];
+const BLOSSOM_PALE: RGB[] = [hexToRgb("#ffe4ee"), hexToRgb("#ffd0e0"), hexToRgb("#fff0f4")];
 
-/** One instanced cloud: warm backlight, blossom clusters, then the falling petals. */
-function buildBlossoms(quality: Quality) {
-  const compact = quality === "low";
-  const clusters = compact ? 110 : 180;
-  const glows = compact ? 3 : 4;
-  const petals = compact ? 24 : 40;
-  const items: Item[] = [];
+function placeShell(
+  items: Item[],
+  count: number,
+  yCenter: number,
+  radius: number,
+  zBias: number,
+  phase: number,
+  colors: RGB[],
+  sizeMin: number,
+  sizeMax: number,
+) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < glows; i += 1) {
-    const angle = (i / glows) * Math.PI * 2;
-    items.push({
-      x: TREE.x + Math.cos(angle) * 0.18,
-      y: TREE.baseY + TREE.canopyY + 0.05,
-      z: TREE.z - 0.35,
-      yaw: 0,
-      pitch: 0,
-      sx: 0.7,
-      sy: 0.48,
-      sz: 1,
-      color: hexToRgb("#ffd2b8"),
-      phase: 10 + i * 0.2,
-    });
-  }
-  for (let i = 0; i < clusters; i += 1) {
-    const t = clusters <= 1 ? 0.5 : i / (clusters - 1);
-    const y = 0.85 - t * 1.15;
-    const ring = Math.sqrt(Math.max(0.04, 1 - (y / 0.9) * (y / 0.9)));
+  for (let i = 0; i < count; i += 1) {
+    const yNorm = 0.92 - ((i + 0.5) / count) * 1.08;
+    const ring = Math.sqrt(Math.max(0, 1 - yNorm * yNorm));
     const theta = golden * i;
-    const radius = TREE.canopyRadius * (0.28 + 0.72 * Math.pow(ring, 0.85));
-    const size = 0.16 + (1 - t) * 0.2 + (i % 4) * 0.025;
-    const pink = BLOSSOM_PINKS[i % BLOSSOM_PINKS.length] ?? ([1, 0.95, 0.96] as RGB);
+    const jitter = 0.76 + (i % 5) * 0.06;
+    const reach = radius * ring * jitter;
+    const color = colors[i % colors.length] ?? BLOSSOM_PALE[0];
+    if (!color) continue;
+    const size = sizeMin + (i % 7) * ((sizeMax - sizeMin) / 6);
     items.push({
-      x: TREE.x + Math.cos(theta) * radius,
-      y: TREE.baseY + TREE.canopyY + y * TREE.canopySquash * TREE.canopyRadius,
-      z: TREE.z + Math.sin(theta) * radius * 0.78,
+      x: TREE.x + Math.cos(theta) * reach,
+      y: TREE.baseY + yCenter + yNorm * radius * TREE.canopySquash,
+      z: TREE.z + Math.sin(theta) * reach * 0.92 + zBias,
       yaw: 0,
       pitch: 0,
       sx: size,
-      sy: size * (0.78 + (i % 3) * 0.08),
+      sy: size * (0.84 + (i % 3) * 0.08),
       sz: 1,
-      color: pink,
-      phase: (i % 7) * 0.65,
+      color,
+      phase: phase + (i % 5) * 0.03,
     });
   }
+}
+
+/** Layered blossom cloud: shadow, warm rim, three depths, then a few falling petals. */
+function buildBlossoms(quality: Quality) {
+  const compact = quality === "low";
+  const glows = compact ? 3 : 4;
+  const petals = compact ? 16 : 26;
+  const items: Item[] = [];
+  items.push({
+    x: TREE.x,
+    y: TREE.baseY + 0.02,
+    z: TREE.z,
+    yaw: 0,
+    pitch: 0,
+    sx: 1.35,
+    sy: 0.85,
+    sz: 1,
+    color: hexToRgb("#243018"),
+    phase: 21,
+  });
+  for (let i = 0; i < glows; i += 1) {
+    const angle = (i / glows) * Math.PI * 2;
+    items.push({
+      x: TREE.x + Math.cos(angle) * 0.16,
+      y: TREE.baseY + TREE.canopyY + 0.04,
+      z: TREE.z - 0.42,
+      yaw: 0,
+      pitch: 0,
+      sx: 0.95,
+      sy: 0.7,
+      sz: 1,
+      color: hexToRgb("#ffd2b8"),
+      phase: 11 + i * 0.15,
+    });
+  }
+  const back = compact ? 34 : 56;
+  const mid = compact ? 42 : 68;
+  const front = compact ? 28 : 48;
+  placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 1.02, -0.22, 0.25, BLOSSOM_ROSE, 0.32, 0.44);
+  placeShell(items, mid, TREE.canopyY + 0.02, TREE.canopyRadius * 0.88, 0.0, 2.7, BLOSSOM_MID, 0.28, 0.4);
+  placeShell(items, front, TREE.canopyY + 0.08, TREE.canopyRadius * 0.68, 0.18, 5.3, BLOSSOM_PALE, 0.24, 0.34);
+  const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < petals; i += 1) {
     const angle = golden * i * 1.7;
-    const radius = 0.2 + (i % 5) * 0.16;
+    const radius = 0.18 + (i % 5) * 0.12;
+    const color = BLOSSOM_PALE[i % BLOSSOM_PALE.length] ?? BLOSSOM_MID[0];
+    if (!color) continue;
     items.push({
       x: TREE.x + Math.cos(angle) * radius,
-      y: TREE.baseY + TREE.canopyY + 0.15 + (i % 4) * 0.08,
+      y: TREE.baseY + TREE.canopyY + 0.12 + (i % 4) * 0.06,
       z: TREE.z + Math.sin(angle) * radius,
       yaw: 0,
       pitch: 0,
-      sx: 0.1 + (i % 3) * 0.02,
-      sy: 0.14,
+      sx: 0.09 + (i % 3) * 0.02,
+      sy: 0.12,
       sz: 1,
-      color: BLOSSOM_PINKS[i % 3] ?? ([1, 0.9, 0.93] as RGB),
+      color,
       phase: 30 + i * 0.37,
     });
   }
-  return { scatter: toScatter(items), canopyCount: glows + clusters };
+  return { scatter: toScatter(items), canopyCount: 1 + glows + back + mid + front };
 }
 
 function splitCount(total: number, nearShare: number) {
@@ -309,7 +338,7 @@ export function buildLayout(quality: Quality): SceneLayout {
   const midDaisies = scatterFull(daisySplit.mid, 31, -3.9, 1.9, daisyScale, flowerClear, compact, false, 0, Math.PI * 2);
   const nearLupins = scatterFull(lupinSplit.near, 47, nearZ[0], nearZ[1], lupinScale, flowerClear, compact, true, 0, Math.PI * 2, compact);
   const midLupins = scatterFull(lupinSplit.mid, 53, -3.9, 1.9, lupinScale, flowerClear, compact, true, 0, Math.PI * 2);
-  const farScale = 0.72;
+  const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];
   const farLupinScale: [number, number] = [lupinScale[0] * farScale, lupinScale[1] * farScale];

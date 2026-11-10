@@ -16,7 +16,7 @@ export type SceneCounts = {
 
 const COUNTS: Record<Quality, SceneCounts> = {
   high: {
-    grass: 870,
+    grass: 830,
     lilies: 180,
     daisies: 90,
     lupins: 110,

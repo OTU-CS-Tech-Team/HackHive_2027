@@ -205,8 +205,6 @@ function buildMaterials(): Materials {
   const hill = new ShaderMaterial({
     uniforms: {
       ...baseUniforms(),
-      uGrassNear: { value: colorOf(GRASS_NEAR) },
-      uGrassFar: { value: colorOf(GRASS_FAR) },
       uPath: { value: colorOf(PATH) },
       uPathEdge: { value: colorOf(PATH_EDGE) },
       uAspect: { value: 1.6 },
@@ -255,13 +253,13 @@ function buildMaterials(): Materials {
     blending: AdditiveBlending,
   });
   const bark = new ShaderMaterial({
-    uniforms: baseUniforms(),
+    uniforms: { ...baseUniforms(), uAspect: { value: 1.6 } },
     vertexShader: BARK_VERT,
     fragmentShader: BARK_FRAG,
     side: DoubleSide,
   });
   const blossom = new ShaderMaterial({
-    uniforms: baseUniforms(),
+    uniforms: { ...baseUniforms(), uAspect: { value: 1.6 } },
     vertexShader: BLOSSOM_VERT,
     fragmentShader: BLOSSOM_FRAG,
     transparent: true,

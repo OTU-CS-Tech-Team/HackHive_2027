@@ -63,32 +63,45 @@ vec3 driftTint(vec3 grass, vec2 xz, float mask) {
 }
 `;
 
+/** Where the trunk stands once the aspect shift is applied. Shared by the path, bark, and blossoms. */
+const TREE_PLACE = /* glsl */ `
+float treeAnchor(float aspect) {
+  float wide = smoothstep(0.95, 1.45, max(aspect, 0.3));
+  float phone = 1.0 - smoothstep(0.5, 0.72, aspect);
+  float midBand = (1.0 - wide) * (1.0 - phone);
+  return ${TREE.x.toFixed(3)}
+    + midBand * ${TREE.shiftMid.toFixed(3)}
+    + wide * ${TREE.shiftWide.toFixed(3)}
+    + phone * ${TREE.shiftPhone.toFixed(3)};
+}
+`;
+
 /** Path centre and width, shared by the ground and the grass discard. */
-const PATH = /* glsl */ `
+const PATH = TREE_PLACE + /* glsl */ `
 float meadowHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
-float pathCenter(float z) {
+float pathCenter(float z, float aspect) {
   float nearLine = sin(z * 0.33) * 0.14 + sin(z * 0.91 + 1.7) * 0.06;
-  float treeX = ${TREE.x.toFixed(3)};
   float treeZ = ${TREE.z.toFixed(2)};
-  float approach = 1.0 - smoothstep(treeZ + 0.15, 1.7, z);
-  float climb = 1.0 - smoothstep(-7.8, treeZ - 0.15, z);
-  float sway = sin(z * 0.7 + 0.4) * 0.55 * approach * (1.0 - climb);
-  float aim = mix(treeX, treeX + 0.42, climb);
-  return mix(nearLine, aim, approach) + sway;
+  float approach = 1.0 - smoothstep(treeZ + 0.25, 4.7, z);
+  float ease = approach * approach * (3.0 - 2.0 * approach);
+  float sway = sin(z * 0.9 + 0.4) * 0.2 * ease * (1.0 - ease);
+  return mix(nearLine, treeAnchor(aspect), ease) + sway;
 }
 
 float pathHalfWidth(float aspect, float z) {
   float narrow = 1.0 - smoothstep(0.62, 1.15, max(aspect, 0.3));
   float base = mix(1.05, 0.42, narrow);
-  float far = 1.0 - smoothstep(-6.5, 2.3, z);
-  return base * mix(1.0, 0.18, far);
+  float treeZ = ${TREE.z.toFixed(2)};
+  float far = 1.0 - smoothstep(treeZ + 0.1, 3.5, z);
+  return base * mix(1.0, 0.58, far);
 }
 
 float pathEndFade(float z) {
-  return smoothstep(-8.2, -3.6, z);
+  float treeZ = ${TREE.z.toFixed(2)};
+  return smoothstep(treeZ - 0.7, treeZ + 0.45, z);
 }
 `;
 
@@ -283,7 +296,7 @@ uniform vec3 uEmissive;
 void main() {
   if (uSss < 0.2) {
     float core = pathHalfWidth(uAspect, vWorld.z) * 0.7;
-    if (abs(vWorld.x - pathCenter(vWorld.z)) < core) discard;
+    if (abs(vWorld.x - pathCenter(vWorld.z, uAspect)) < core) discard;
   }
   vec3 n = normalize(vNormal);
   if (uRim > 0.5 && uSss < 0.5 && !gl_FrontFacing) n = -n;
@@ -407,7 +420,10 @@ float pebbleDot(vec2 xz) {
 void main() {
   float dist = distance(vWorld, uCamPos);
   vec3 grass = meadowColor(vWorld, dist);
-  float lateral = vWorld.x - pathCenter(vWorld.z);
+  vec2 fromTree = vWorld.xz - vec2(treeAnchor(uAspect), ${TREE.z.toFixed(2)});
+  float touch = 1.0 - smoothstep(0.18, 1.05, length(fromTree * vec2(0.82, 1.25)));
+  grass = mix(grass, grass * vec3(0.55, 0.64, 0.46), touch * 0.55 * (1.0 - uVeil));
+  float lateral = vWorld.x - pathCenter(vWorld.z, uAspect);
   float wobble = (valueNoise(vWorld.xz * 0.42) - 0.5) * 0.36;
   float pathHalf = pathHalfWidth(uAspect, vWorld.z) + wobble * pathEndFade(vWorld.z);
   float edge = mix(0.2, 0.62, 1.0 - smoothstep(-6.5, 0.3, vWorld.z));
@@ -437,70 +453,42 @@ void main() {
 
 export const HILL_FRAG = COMMON + PATH + /* glsl */ `
 varying vec3 vWorld;
-uniform vec3 uGrassNear;
-uniform vec3 uGrassFar;
+varying vec3 vColor;
 uniform vec3 uPath;
 uniform vec3 uPathEdge;
 uniform float uAspect;
 
-float grassHash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float grassBlade(vec2 xz, float scale, float salt) {
-  vec2 g = xz * scale;
-  float pixels = max(fwidth(g.x), fwidth(g.y));
-  vec2 cell = floor(g);
-  vec2 f = fract(g);
-  float n = grassHash(cell + salt);
-  float n2 = grassHash(cell + salt + 3.7);
-  vec2 center = vec2(0.12 + n * 0.76, 0.12 + n2 * 0.76);
-  vec2 d = (f - center) * vec2(1.0, 1.85);
-  float detail = 1.0 - smoothstep(0.4, 1.15, pixels);
-  return smoothstep(0.78, 0.22, length(d)) * detail;
-}
-
-float grassTuft(vec2 xz) {
-  float a = grassBlade(xz, 46.0, 1.1);
-  float b = grassBlade(xz + 0.07, 71.0, 4.8);
-  return clamp(a * 0.58 + b * 0.42, 0.0, 1.0);
-}
-
-vec3 meadowColor(vec3 world, float dist) {
-  vec3 ray = normalize(world - uCamPos);
-  float down = saturate((-ray.y - 0.004) / 0.46);
-  down = down * down * (3.0 - 2.0 * down);
-  vec3 grass = mix(uHorizon, uGrassNear, down);
-  float field = grassTuft(world.xz);
-  vec3 mote = vec3(0.28, 0.46, 0.18);
-  float cover = down * (1.0 - smoothstep(16.0, 62.0, dist));
-  grass = mix(grass, mote, field * cover * 0.22);
-  return grass;
-}
-
 void main() {
   float dist = distance(vWorld, uCamPos);
-  vec3 grass = meadowColor(vWorld, dist);
-  float nearHill = smoothstep(-22.0, -12.0, vWorld.z);
-  float body = smoothstep(0.3, 0.8, vWorld.y) * (1.0 - smoothstep(1.15, 1.9, vWorld.y)) * nearHill;
-  vec3 col = mix(grass, vec3(0.4, 0.62, 0.28), body * 0.55);
-  float crest = smoothstep(1.2, 2.15, vWorld.y) * nearHill;
-  col = mix(col, uHorizon, crest * 0.55);
-  float farRange = 1.0 - smoothstep(-62.0, -14.0, vWorld.z);
-  vec3 blue = vec3(0.62, 0.73, 0.86);
-  col = mix(col, blue, farRange * 0.82);
-  col = mix(col, uSkyMid, farRange * smoothstep(1.6, 5.5, vWorld.y) * 0.4);
-  float lateral = vWorld.x - pathCenter(vWorld.z);
+  float y = max(vWorld.y, 0.0);
+  vec3 col = vColor;
+  float n = washNoise(vWorld.xz * 0.18);
+  float n2 = washNoise(vWorld.xz * 0.42 + 3.0);
+  col *= mix(0.84, 1.14, n);
+  col = mix(col, col * vec3(0.9, 0.98, 1.05), (n2 - 0.45) * 0.35);
+  float footLift = 1.0 - smoothstep(0.08, 1.8, y);
+  vec3 haze = mix(uSkyMid, vec3(0.8, 0.86, 0.92), 0.4);
+  col = mix(col, haze, footLift * mix(0.28, 0.7, n2));
+  float far = 1.0 - smoothstep(-62.0, -10.0, vWorld.z);
+  vec3 rangeTint = mix(vec3(0.58, 0.68, 0.6), vec3(0.76, 0.83, 0.92), smoothstep(0.2, 0.9, far));
+  col = mix(col, rangeTint, far * 0.38);
+  float ridge = smoothstep(1.5, 6.4, y);
+  col = mix(col, uSkyMid, ridge * mix(0.18, 0.72, far));
+  float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
+  float cream = smoothstep(0.45, 2.2, y) * nearHill;
+  col = mix(col, mix(col, uHorizon, 0.42), cream * 0.5);
+  float title = (1.0 - smoothstep(0.2, 7.0, abs(vWorld.x))) * smoothstep(0.25, 1.35, y) * (1.0 - smoothstep(1.45, 2.4, y));
+  col = mix(col, mix(uHorizon, uSkyTop, 0.42), title * nearHill * 0.84);
+  float lateral = vWorld.x - pathCenter(vWorld.z, uAspect);
   float pathHalf = pathHalfWidth(uAspect, vWorld.z);
   float trail = 1.0 - smoothstep(pathHalf * 0.35, pathHalf + 0.48, abs(lateral));
-  float onSlope = smoothstep(-8.6, -3.2, vWorld.z) * (1.0 - smoothstep(0.05, 1.55, vWorld.y));
-  col = mix(col, mix(uPath, uPathEdge, 0.3), trail * onSlope * 0.88);
+  float onSlope = smoothstep(-8.6, -3.2, vWorld.z) * (1.0 - smoothstep(0.05, 1.55, y));
+  col = mix(col, mix(uPath, uPathEdge, 0.3), trail * onSlope * pathEndFade(vWorld.z) * 0.88);
   col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   vec3 shaded = atmospheric(lit, dist);
-  shaded = mix(shaded, vec3(0.52, 0.64, 0.8), farRange * 0.62);
-  float foot = (1.0 - smoothstep(0.35, 1.25, vWorld.y)) * (1.0 - crest) * nearHill * (1.0 - trail * onSlope);
+  float foot = (1.0 - smoothstep(0.2, 1.15, y)) * nearHill * (1.0 - trail * onSlope);
   gl_FragColor = vec4(driftTint(shaded, vWorld.xz, foot), 1.0);
 }
 `;
@@ -639,19 +627,21 @@ void main() {
 }
 `;
 
-export const BARK_VERT = /* glsl */ `
+export const BARK_VERT = TREE_PLACE + /* glsl */ `
 attribute vec3 color;
 varying vec3 vColor;
 varying vec3 vNormal;
 varying vec3 vWorld;
 uniform float uTime;
 uniform float uWind;
+uniform float uAspect;
 
 void main() {
   vec3 p = position;
-  float h = clamp(position.y, 0.0, 1.0);
-  p.x += sin(uTime * 0.7) * uWind * h * h * 0.015;
+  float h = clamp(position.y, 0.0, 1.2);
+  p.x += sin(uTime * 0.7) * uWind * h * h * 0.012;
   vec4 world = modelMatrix * vec4(p, 1.0);
+  world.x += treeAnchor(uAspect) - ${TREE.x.toFixed(3)};
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -675,7 +665,7 @@ void main() {
 }
 `;
 
-export const BLOSSOM_VERT = /* glsl */ `
+export const BLOSSOM_VERT = TREE_PLACE + /* glsl */ `
 attribute float aPhase;
 attribute vec3 aTint;
 varying vec2 vUv;
@@ -684,6 +674,7 @@ varying vec3 vWorld;
 varying float vKind;
 uniform float uTime;
 uniform float uWind;
+uniform float uAspect;
 
 void main() {
   vUv = uv;
@@ -696,20 +687,31 @@ void main() {
     vec3 center = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec2 size = vec2(1.0);
   #endif
+  float anchor = treeAnchor(uAspect);
+  center.x += anchor - ${TREE.x.toFixed(3)};
+  float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
+  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  float squeeze = mix(1.0, 0.52, narrow);
+  squeeze = mix(squeeze, 0.68, phone);
+  center.x = anchor + (center.x - anchor) * squeeze;
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;
-  if (aPhase > 20.0) {
+  bool shadow = aPhase > 20.5 && aPhase < 22.0;
+  if (aPhase > 22.0) {
     float fall = fract(uTime * 0.055 * max(uWind, 0.0) + aPhase * 0.17);
     world.y -= fall * 1.15;
     world.x += sin(uTime * 0.7 + aPhase) * 0.28 * max(uWind, 0.0);
     world.z += cos(uTime * 0.5 + aPhase * 1.3) * 0.2 * max(uWind, 0.0);
     size *= mix(1.0, 0.4, fall);
+    world += right * position.x * size.x + up * position.y * size.y;
+  } else if (shadow) {
+    world = vec3(center.x + position.x * size.x, center.y + 0.025, center.z + position.y * size.y);
   } else {
-    world.x += sin(uTime * 0.55 + aPhase) * uWind * 0.02;
-    world.y += sin(uTime * 0.4 + aPhase * 1.7) * uWind * 0.012;
+    world.x += sin(uTime * 0.55 + aPhase) * uWind * 0.016;
+    world.y += sin(uTime * 0.4 + aPhase * 1.7) * uWind * 0.01;
+    world += right * position.x * size.x + up * position.y * size.y;
   }
-  world += right * position.x * size.x + up * position.y * size.y;
   vWorld = world;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
@@ -721,42 +723,56 @@ varying vec3 vTint;
 varying vec3 vWorld;
 varying float vKind;
 
-float blob(vec2 p, vec2 c, float r) {
-  return smoothstep(1.0, 0.28, length(p - c) / r);
+float puff(vec2 p, vec2 c, vec2 r) {
+  vec2 q = (p - c) / r;
+  return smoothstep(1.0, 0.38, length(q));
 }
 
-float petal(vec2 p, float ang, float len, float wid) {
+float blossomPetal(vec2 p, float ang) {
   float c = cos(ang);
   float s = sin(ang);
   vec2 q = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
-  q.y -= len * 0.45;
-  return smoothstep(1.0, 0.25, length(q / vec2(wid, len)));
+  q.y -= 0.1;
+  return puff(q, vec2(0.0), vec2(0.13, 0.24));
 }
 
 void main() {
   vec2 p = vUv - 0.5;
+  float shadow = step(20.5, vKind) * (1.0 - step(22.0, vKind));
   float glow = step(8.0, vKind) * (1.0 - step(20.0, vKind));
   float alpha = 0.0;
-  if (glow > 0.5) {
-    alpha = blob(p, vec2(0.0), 0.42);
-  } else {
-    float n = fract(vTint.r * 17.0 + vTint.b * 9.0);
-    alpha = petal(p, n * 6.2, 0.34, 0.13);
-    alpha = max(alpha, petal(p, n * 6.2 + 1.25, 0.3, 0.12));
-    alpha = max(alpha, petal(p, n * 6.2 + 2.5, 0.32, 0.11));
-    alpha = max(alpha, petal(p, n * 6.2 + 3.8, 0.28, 0.12));
-    alpha = max(alpha, petal(p, n * 6.2 + 5.0, 0.3, 0.1));
-    alpha = max(alpha, blob(p, vec2(0.0, -0.02), 0.1));
+  float throat = 0.0;
+  if (shadow > 0.5) {
+    alpha = smoothstep(0.5, 0.02, length(p * vec2(0.9, 1.25)));
+    alpha *= 0.42 * (1.0 - uVeil);
+    if (alpha < 0.02) discard;
+    gl_FragColor = vec4(vec3(0.14, 0.2, 0.09) * alpha, alpha);
+    return;
   }
-  alpha = saturate(alpha * 1.25) * (1.0 - uVeil);
-  if (alpha < 0.04) discard;
-  float light = saturate(p.y * 1.5 + 0.42);
-  float throat = blob(p, vec2(0.0, -0.02), 0.12);
-  vec3 white = vec3(1.0, 0.97, 0.96);
-  vec3 col = mix(vTint, white, light * mix(0.42, 0.15, glow));
-  col = mix(col, vTint * vec3(0.72, 0.45, 0.5), throat * (1.0 - glow));
-  col += vec3(1.0, 0.55, 0.4) * pow(saturate(0.22 - p.x), 2.0) * 0.16;
-  col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.28);
+  if (glow > 0.5) {
+    alpha = puff(p, vec2(0.0, 0.02), vec2(0.42, 0.3));
+    alpha *= 0.28;
+  } else {
+    float n = fract(sin(dot(vTint.rg, vec2(19.7, 73.1))) * 43758.5);
+    float ang = n * 6.28318;
+    alpha = blossomPetal(p, ang);
+    alpha = max(alpha, blossomPetal(p, ang + 1.26));
+    alpha = max(alpha, blossomPetal(p, ang + 2.51));
+    alpha = max(alpha, blossomPetal(p, ang + 3.77));
+    alpha = max(alpha, blossomPetal(p, ang + 5.03));
+    throat = puff(p, vec2(0.0, -0.01), vec2(0.1, 0.08));
+    alpha = max(alpha, throat * 0.9);
+  }
+  alpha = saturate(alpha) * (1.0 - uVeil);
+  if (alpha < 0.02) discard;
+  float lift = saturate(length(p) * 1.8);
+  float front = saturate(vKind / 6.2);
+  vec3 pale = vec3(1.0, 0.97, 0.95);
+  vec3 col = mix(vTint, pale, lift * mix(0.22, 0.62, max(front, glow)));
+  col = mix(col, vTint * vec3(0.62, 0.4, 0.46), (1.0 - lift) * (1.0 - front) * (1.0 - glow) * 0.65);
+  col = mix(col, vec3(1.0, 0.82, 0.68), throat * 0.55);
+  col += vec3(1.0, 0.7, 0.52) * pow(saturate(0.38 - length(p)), 2.0) * mix(0.08, 0.2, glow);
+  col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), mix(0.16, 0.34, glow));
   gl_FragColor = vec4(col * alpha, alpha);
 }
 `;

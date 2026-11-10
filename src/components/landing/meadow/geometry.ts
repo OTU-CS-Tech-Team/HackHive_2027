@@ -223,84 +223,40 @@ function addLilyLeaf(mesh: Bag, yaw: number, y0: number) {
 
 export type FlowerLod = "full" | "speck";
 
-/** Three hard-edged petals. At distance this reads as a white flower, not a soft disc. */
-function addSpeckLily(mesh: Bag) {
-  const petals = 3;
-  for (let petal = 0; petal < petals; petal += 1) {
-    const yaw = (petal / petals) * Math.PI * 2;
-    const cosY = Math.cos(yaw);
-    const sinY = Math.sin(yaw);
-    const corners: [number, number, number, number, number][] = [
-      [-0.11, 0.18, 0.02, -0.42, 0.04],
-      [0.11, 0.18, 0.02, 0.42, 0.04],
-      [0.035, 0.72, 0.2, 0.36, 0.72],
-      [-0.035, 0.72, 0.2, -0.36, 0.72],
-    ];
-    const ids = corners.map(([x, y, z, su, sv]) =>
-      vert(
-        mesh,
-        x * cosY + z * sinY,
-        y,
-        -x * sinY + z * cosY,
-        [1, 0.98, 0.94],
-        0.08,
-        [su, sv],
-      ),
-    );
-    const a = ids[0] ?? 0;
-    const b = ids[1] ?? 0;
-    const c = ids[2] ?? 0;
-    const d = ids[3] ?? 0;
-    mesh.indices.push(a, d, b, b, d, c);
-  }
-  addDisc(mesh, 0.22, 0.04, [0.84, 0.91, 0.48], 0.02);
-}
-
-/** A flat five-point star. Hard edges stay crisp when the flower is only a few pixels tall. */
-function addSpeckDaisy(mesh: Bag) {
-  const center = vert(mesh, 0, 0.04, 0, [0.96, 0.74, 0.16], 0.05, [0, 0.2]);
-  const points = 5;
+/** A tiny soft bloom. Far flowers should melt into the wash, not stand up as bars. */
+function addSpeckBloom(mesh: Bag, color: RGB) {
+  const center = vert(mesh, 0, 0.06, 0, color, 0.04, [0, 0.35]);
+  const petals = 5;
   const ring: number[] = [];
-  for (let i = 0; i < points * 2; i += 1) {
-    const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
-    const radius = i % 2 === 0 ? 0.48 : 0.16;
+  for (let i = 0; i < petals; i += 1) {
+    const angle = (i / petals) * Math.PI * 2;
     ring.push(
       vert(
         mesh,
-        Math.cos(angle) * radius,
+        Math.cos(angle) * 0.14,
+        0.06,
+        Math.sin(angle) * 0.14,
+        color,
         0.04,
-        Math.sin(angle) * radius,
-        i % 2 === 0 ? [1, 1, 1] : [0.98, 0.96, 0.9],
-        0.05,
-        [0.3, 0.6],
+        [Math.cos(angle) * 0.98, 0.4 + Math.sin(angle) * 0.18],
       ),
     );
   }
-  for (let i = 0; i < ring.length; i += 1) {
-    mesh.indices.push(center, ring[i] ?? center, ring[(i + 1) % ring.length] ?? center);
+  for (let i = 0; i < petals; i += 1) {
+    mesh.indices.push(center, ring[i] ?? center, ring[(i + 1) % petals] ?? center);
   }
 }
 
-/** Four crossed quads: a short coloured spike. */
+function addSpeckLily(mesh: Bag) {
+  addSpeckBloom(mesh, [1, 0.98, 0.94]);
+}
+
+function addSpeckDaisy(mesh: Bag) {
+  addSpeckBloom(mesh, [0.99, 0.94, 0.72]);
+}
+
 function addSpeckLupin(mesh: Bag) {
-  const yaws = [0, Math.PI / 4, Math.PI / 2, (Math.PI * 3) / 4];
-  for (const yaw of yaws) {
-    const cosY = Math.cos(yaw);
-    const sinY = Math.sin(yaw);
-    const width = 0.08;
-    const corners: [number, number][] = [
-      [-1, 0],
-      [1, 0],
-      [1, 1],
-      [-1, 1],
-    ];
-    const ids = corners.map(([u, v]) => vert(mesh, u * width * cosY, v * 0.92, u * width * sinY, [v, 0, 2], 0.22));
-    const a = ids[0] ?? 0;
-    const b = ids[1] ?? 0;
-    const c = ids[2] ?? 0;
-    const d = ids[3] ?? 0;
-    mesh.indices.push(a, d, b, b, d, c);
-  }
+  addSpeckBloom(mesh, [0.45, 0, 2]);
 }
 
 function attachTips(geometry: BufferGeometry, scatter?: Scatter) {
@@ -524,8 +480,10 @@ export function createGrassGeometry(scatter?: Scatter) {
 
 function ridge(x: number, phase: number) {
   return (
-    Math.sin(x * 0.33 + phase) * 0.26 +
-    Math.sin(x * 0.71 + phase * 1.5) * 0.12
+    Math.sin(x * 0.27 + phase) * 0.18 +
+    Math.sin(x * 0.61 + phase * 1.4) * 0.08 +
+    Math.sin(x * 1.55 + phase * 2.1) * 0.04 +
+    Math.sin(x * 2.9 + phase) * 0.018
   );
 }
 
@@ -536,16 +494,16 @@ function addRollingHill(
   zFar: number,
   height: number,
   crest: RGB,
+  foot: RGB,
   phase: number,
   columns: number,
   rows: number,
   saddle: boolean,
 ) {
   const ids: number[] = [];
-  const foot: RGB = [0.74, 0.86, 0.58];
   for (let row = 0; row <= rows; row += 1) {
     const v = row / rows;
-    const lift = Math.pow(Math.sin(v * Math.PI), 0.7);
+    const lift = Math.pow(Math.sin(v * Math.PI), 1.05);
     for (let column = 0; column <= columns; column += 1) {
       const u = column / columns;
       const x = (u - 0.5) * 90;
@@ -571,10 +529,10 @@ function addRollingHill(
 /** Four ridges. The near foot stays in the meadow; farther ones are taller and bluer. */
 export function createHillsGeometry() {
   const mesh = bag();
-  addRollingHill(mesh, -4, -16, 2.05, [0.7, 0.82, 0.5], 0.2, 56, 12, false);
-  addRollingHill(mesh, -14, -30, 4.6, [0.66, 0.76, 0.66], 1.7, 40, 10, true);
-  addRollingHill(mesh, -28, -48, 6.2, [0.6, 0.7, 0.8], 3.1, 36, 10, true);
-  addRollingHill(mesh, -46, -68, 7.6, [0.56, 0.66, 0.82], 4.6, 32, 8, true);
+  addRollingHill(mesh, -4, -16, 2.15, [0.58, 0.7, 0.4], [0.8, 0.86, 0.64], 0.2, 72, 14, false);
+  addRollingHill(mesh, -14, -30, 4.6, [0.56, 0.66, 0.6], [0.72, 0.78, 0.76], 1.7, 56, 12, true);
+  addRollingHill(mesh, -28, -48, 6.2, [0.64, 0.68, 0.78], [0.76, 0.8, 0.88], 3.1, 48, 12, true);
+  addRollingHill(mesh, -46, -68, 7.6, [0.76, 0.82, 0.9], [0.84, 0.88, 0.94], 4.6, 44, 10, true);
   return finish(mesh);
 }
 
@@ -598,11 +556,63 @@ function tubeFrame(tx: number, ty: number, tz: number) {
   };
 }
 
-/** A smooth curved trunk and two branches. One draw, shared vertices so the lighting stays soft. */
+function addRise(mesh: Bag) {
+  const segs = 14;
+  const rings = 4;
+  const green: RGB = [0.4, 0.6, 0.28];
+  const soil: RGB = [0.28, 0.4, 0.16];
+  const center = vert(mesh, 0, 0.16, 0, green, 0);
+  const rows: number[][] = [];
+  for (let ring = 1; ring <= rings; ring += 1) {
+    const v = ring / rings;
+    const rad = v * 0.78;
+    const y = Math.cos(v * Math.PI * 0.5) * 0.16;
+    const row: number[] = [];
+    for (let s = 0; s < segs; s += 1) {
+      const angle = (s / segs) * Math.PI * 2;
+      row.push(vert(mesh, Math.cos(angle) * rad, y, Math.sin(angle) * rad * 0.8, mix(green, soil, v), 0));
+    }
+    rows.push(row);
+  }
+  const first = rows[0] ?? [];
+  for (let s = 0; s < segs; s += 1) {
+    mesh.indices.push(center, first[s] ?? center, first[(s + 1) % segs] ?? center);
+  }
+  for (let ring = 0; ring < rows.length - 1; ring += 1) {
+    const lower = rows[ring] ?? [];
+    const upper = rows[ring + 1] ?? [];
+    for (let s = 0; s < segs; s += 1) {
+      const n = (s + 1) % segs;
+      const a = lower[s] ?? 0;
+      const b = lower[n] ?? 0;
+      const c = upper[s] ?? 0;
+      const d = upper[n] ?? 0;
+      mesh.indices.push(a, c, b, b, c, d);
+    }
+  }
+  const blade: RGB = [0.32, 0.52, 0.2];
+  const tip: RGB = [0.58, 0.74, 0.34];
+  for (let i = 0; i < 8; i += 1) {
+    const angle = (i / 8) * Math.PI * 2 + 0.3;
+    const rad = 0.28 + (i % 3) * 0.08;
+    const x = Math.cos(angle) * rad;
+    const z = Math.sin(angle) * rad * 0.8;
+    const lean = 0.04 + (i % 2) * 0.03;
+    const h = 0.16 + (i % 4) * 0.04;
+    const a = vert(mesh, x, 0.1, z, blade, 0.5);
+    const b = vert(mesh, x + 0.012, 0.1, z + 0.004, blade, 0.5);
+    const c = vert(mesh, x + lean, 0.1 + h, z, tip, 0.8);
+    const d = vert(mesh, x + 0.01 + lean, 0.1 + h, z + 0.004, tip, 0.8);
+    mesh.indices.push(a, c, b, b, c, d);
+  }
+}
+
+/** A dark forked trunk growing out of a low rise. One draw. */
 export function createTrunkGeometry() {
   const mesh = bag();
-  const dark: RGB = [0.42, 0.26, 0.16];
-  const warm: RGB = [0.62, 0.4, 0.24];
+  addRise(mesh);
+  const dark: RGB = [0.29, 0.173, 0.102];
+  const warm: RGB = [0.42, 0.227, 0.133];
   const addCurve = (points: { x: number; y: number; z: number; r: number }[]) => {
     const sides = 12;
     const rings: number[][] = [];
@@ -654,25 +664,31 @@ export function createTrunkGeometry() {
     }
   };
   const trunk = [
-    { x: 0, y: 0, z: 0, r: 0.1 },
-    { x: 0.02, y: 0.12, z: 0.01, r: 0.082 },
-    { x: 0.05, y: 0.24, z: -0.01, r: 0.064 },
-    { x: 0.02, y: 0.36, z: 0.02, r: 0.046 },
-    { x: -0.02, y: 0.46, z: 0.0, r: 0.03 },
+    { x: 0, y: 0.14, z: 0, r: 0.09 },
+    { x: 0.02, y: 0.36, z: 0.01, r: 0.07 },
+    { x: 0.03, y: 0.58, z: -0.01, r: 0.05 },
+    { x: 0.0, y: 0.8, z: 0.015, r: 0.032 },
+    { x: -0.02, y: 1.0, z: 0.0, r: 0.018 },
   ];
   const left = [
-    { x: 0.03, y: 0.28, z: 0.01, r: 0.026 },
-    { x: -0.12, y: 0.36, z: 0.04, r: 0.016 },
-    { x: -0.26, y: 0.44, z: 0.02, r: 0.01 },
+    { x: 0.0, y: 0.56, z: 0.01, r: 0.03 },
+    { x: -0.18, y: 0.76, z: 0.06, r: 0.016 },
+    { x: -0.34, y: 0.96, z: 0.03, r: 0.008 },
   ];
   const right = [
-    { x: 0.02, y: 0.32, z: 0.0, r: 0.024 },
-    { x: 0.16, y: 0.4, z: -0.03, r: 0.014 },
-    { x: 0.3, y: 0.48, z: -0.01, r: 0.008 },
+    { x: 0.02, y: 0.64, z: 0.0, r: 0.028 },
+    { x: 0.22, y: 0.86, z: -0.05, r: 0.014 },
+    { x: 0.38, y: 1.06, z: -0.02, r: 0.007 },
+  ];
+  const back = [
+    { x: 0.01, y: 0.5, z: 0.0, r: 0.022 },
+    { x: 0.05, y: 0.72, z: -0.16, r: 0.012 },
+    { x: 0.04, y: 0.94, z: -0.28, r: 0.006 },
   ];
   addCurve(trunk);
   addCurve(left);
   addCurve(right);
+  addCurve(back);
   return finish(mesh);
 }
 
