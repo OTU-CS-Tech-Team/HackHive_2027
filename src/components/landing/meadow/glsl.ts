@@ -49,11 +49,16 @@ void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
     vec3 n = normal;
   #endif
-  float ax = abs(world.x);
-  if (ax > 0.8) {
+  #ifdef USE_INSTANCING
+    vec3 origin = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  #else
+    vec3 origin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  #endif
+  if (abs(origin.x) > 0.8) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
     float outer = mix(0.98, 0.42, narrow);
-    world.x *= min(1.0, (outer + 0.1) / 0.84);
+    float squeeze = min(1.0, (outer + 0.1) / 0.84);
+    world.x += origin.x * (squeeze - 1.0);
   }
   float height = clamp(position.y, 0.0, 1.0);
   float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
@@ -128,14 +133,14 @@ float grassHash(vec2 p) {
 float grassBlade(vec2 xz, float scale, float salt) {
   vec2 g = xz * scale;
   float pixels = max(fwidth(g.x), fwidth(g.y));
-  if (pixels > 1.0) return 0.0;
   vec2 cell = floor(g);
   vec2 f = fract(g);
   float n = grassHash(cell + salt);
   float n2 = grassHash(cell + salt + 3.7);
   vec2 center = vec2(0.12 + n * 0.76, 0.12 + n2 * 0.76);
   vec2 d = (f - center) * vec2(1.0, 1.85);
-  return smoothstep(0.62, 0.05, length(d));
+  float detail = 1.0 - smoothstep(0.4, 1.15, pixels);
+  return smoothstep(0.78, 0.22, length(d)) * detail;
 }
 
 float grassTuft(vec2 xz) {
@@ -146,16 +151,13 @@ float grassTuft(vec2 xz) {
 
 vec3 meadowColor(vec3 world, float dist) {
   vec3 ray = normalize(world - uCamPos);
-  float down = saturate((-ray.y - 0.008) / 0.17);
+  float down = saturate((-ray.y - 0.004) / 0.46);
   down = down * down * (3.0 - 2.0 * down);
   vec3 grass = mix(uHorizon, uGrassNear, down);
   float field = grassTuft(world.xz);
-  float shade = 0.62;
-  vec3 root = vec3(0.1, 0.2, 0.05);
-  vec3 tip = vec3(0.78, 0.92, 0.46);
-  vec3 blade = mix(root, tip, shade);
-  float cover = smoothstep(0.04, 0.45, down) * (1.0 - smoothstep(20.0, 54.0, dist));
-  grass = mix(grass, blade, clamp(field * cover * 0.95, 0.0, 0.84));
+  vec3 mote = vec3(0.28, 0.46, 0.18);
+  float cover = down * (1.0 - smoothstep(16.0, 62.0, dist));
+  grass = mix(grass, mote, field * cover * 0.22);
   return grass;
 }
 
@@ -191,14 +193,14 @@ float grassHash(vec2 p) {
 float grassBlade(vec2 xz, float scale, float salt) {
   vec2 g = xz * scale;
   float pixels = max(fwidth(g.x), fwidth(g.y));
-  if (pixels > 1.0) return 0.0;
   vec2 cell = floor(g);
   vec2 f = fract(g);
   float n = grassHash(cell + salt);
   float n2 = grassHash(cell + salt + 3.7);
   vec2 center = vec2(0.12 + n * 0.76, 0.12 + n2 * 0.76);
   vec2 d = (f - center) * vec2(1.0, 1.85);
-  return smoothstep(0.62, 0.05, length(d));
+  float detail = 1.0 - smoothstep(0.4, 1.15, pixels);
+  return smoothstep(0.78, 0.22, length(d)) * detail;
 }
 
 float grassTuft(vec2 xz) {
@@ -209,16 +211,13 @@ float grassTuft(vec2 xz) {
 
 vec3 meadowColor(vec3 world, float dist) {
   vec3 ray = normalize(world - uCamPos);
-  float down = saturate((-ray.y - 0.008) / 0.17);
+  float down = saturate((-ray.y - 0.004) / 0.46);
   down = down * down * (3.0 - 2.0 * down);
   vec3 grass = mix(uHorizon, uGrassNear, down);
   float field = grassTuft(world.xz);
-  float shade = 0.62;
-  vec3 root = vec3(0.1, 0.2, 0.05);
-  vec3 tip = vec3(0.78, 0.92, 0.46);
-  vec3 blade = mix(root, tip, shade);
-  float cover = smoothstep(0.04, 0.45, down) * (1.0 - smoothstep(20.0, 54.0, dist));
-  grass = mix(grass, blade, clamp(field * cover * 0.95, 0.0, 0.84));
+  vec3 mote = vec3(0.28, 0.46, 0.18);
+  float cover = down * (1.0 - smoothstep(16.0, 62.0, dist));
+  grass = mix(grass, mote, field * cover * 0.22);
   return grass;
 }
 

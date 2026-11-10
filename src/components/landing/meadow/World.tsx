@@ -6,7 +6,6 @@ import {
   AdditiveBlending,
   BackSide,
   DoubleSide,
-  FrontSide,
   InstancedMesh,
   Mesh,
   Points,
@@ -178,8 +177,8 @@ function buildMaterials(): Materials {
     vertexColors: true,
     side: DoubleSide,
   });
-  const grass = plantMaterial(0.08, [0, 0, 0], FrontSide);
-  const lily = plantMaterial(0.9, [1, 0.98, 0.92], DoubleSide, 0.55);
+  const grass = plantMaterial(0.08, [0, 0, 0], DoubleSide);
+  const lily = plantMaterial(0.5, [1, 0.97, 0.9], DoubleSide, 0.18);
   const daisy = plantMaterial(0.45, [0.08, 0.07, 0.04]);
   const lupin = plantMaterial(0.5, [0.05, 0.04, 0.05]);
   const cloud = new ShaderMaterial({

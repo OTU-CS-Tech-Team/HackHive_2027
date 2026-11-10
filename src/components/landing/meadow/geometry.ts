@@ -114,33 +114,34 @@ function addDisc(mesh: Bag, y: number, radius: number, color: RGB, bend: number)
   }
 }
 
-/** One pointed petal. Wide through the lower half, curled, with the tip bent back. */
+/** A cupped trumpet petal. The surface opens outward, then the tip bends back. */
 function addLilyPetal(mesh: Bag, yaw: number) {
-  const across = 3;
-  const along = 6;
-  const length = 0.4;
-  const width = 0.1;
+  const across = 6;
+  const along = 8;
+  const length = 0.44;
+  const width = 0.12;
   const cosY = Math.cos(yaw);
   const sinY = Math.sin(yaw);
   const grid: number[][] = [];
   for (let yStep = 0; yStep <= along; yStep += 1) {
     const v = yStep / along;
-    const half = width * Math.pow(Math.sin(Math.PI * v), 0.55);
-    const recurve = Math.pow(Math.max(0, (v - 0.55) / 0.45), 1.2) * 0.14;
-    const cup = Math.sin(v * Math.PI) * 0.12;
+    const half = width * Math.pow(Math.sin(Math.PI * Math.pow(v, 0.5)), 0.4);
+    const open = Math.pow(v, 0.6) * 0.38;
+    const recurve = Math.pow(Math.max(0, (v - 0.58) / 0.42), 1.15) * 0.46;
     const row: number[] = [];
     for (let xStep = 0; xStep <= across; xStep += 1) {
       const u = (xStep / across) * 2 - 1;
+      const channel = (1 - u * u) * 0.07 * Math.sin(Math.PI * v);
       const x = u * half;
-      const y = v * length;
-      const z = cup * (1 - u * u * 0.65) - recurve - v * v * 0.04;
+      const y = length * (0.04 + v * 0.86) - recurve * 0.22;
+      const z = 0.02 + open + channel - recurve;
       const edge = Math.abs(u);
       const color: RGB = [
-        1 - edge * 0.12,
-        0.99 - edge * 0.08,
-        0.97 - edge * 0.05,
+        0.98 - edge * 0.2 - (1 - v) * 0.06,
+        0.99 - edge * 0.12,
+        0.95 - edge * 0.06,
       ];
-      row.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, color, 0.08 + v * 0.4));
+      row.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, color, 0.06 + v * 0.45));
     }
     grid.push(row);
   }
@@ -161,7 +162,7 @@ export function createLilyGeometry(scatter?: Scatter) {
   const mesh = bag();
   const petals = 6;
   for (let i = 0; i < petals; i += 1) addLilyPetal(mesh, (i / petals) * Math.PI * 2);
-  addDisc(mesh, 0.05, 0.03, [1, 0.97, 0.86], 0.02);
+  addDisc(mesh, 0.07, 0.04, [1, 0.97, 0.86], 0.02);
   return finish(mesh, scatter);
 }
 
@@ -186,94 +187,135 @@ export function createDaisyGeometry(scatter?: Scatter) {
   return finish(mesh, scatter);
 }
 
-function addBump(mesh: Bag, x: number, y: number, z: number, radius: number, lit: RGB, dark: RGB, bend: number, yScale = 1) {
-  const lon = 6;
-  const rings = [
-    { y: radius * 0.62 * yScale, r: radius * 0.78, shade: 0.12 },
-    { y: radius * 0.16 * yScale, r: radius, shade: 0.28 },
-    { y: -radius * 0.42 * yScale, r: radius * 0.82, shade: 0.55 },
-  ];
-  const top = vert(mesh, x, y + radius * 0.92 * yScale, z, lit, bend);
-  const bot = vert(mesh, x, y - radius * 0.86 * yScale, z, dark, bend);
-  const bands = rings.map((ring) => {
-    const ids: number[] = [];
-    for (let i = 0; i < lon; i += 1) {
-      const angle = (i / lon) * Math.PI * 2;
-      ids.push(
-        vert(
-          mesh,
-          x + Math.cos(angle) * ring.r,
-          y + ring.y,
-          z + Math.sin(angle) * ring.r,
-          mix(lit, dark, ring.shade),
-          bend,
-        ),
-      );
-    }
-    return ids;
-  });
-  const stitch = (above: number[], below: number[]) => {
-    for (let i = 0; i < lon; i += 1) {
-      const next = (i + 1) % lon;
-      const a0 = above[i] ?? top;
-      const a1 = above[next] ?? top;
-      const b0 = below[i] ?? bot;
-      const b1 = below[next] ?? bot;
-      mesh.indices.push(a0, a1, b1, a0, b1, b0);
-    }
+/** A pea-sized teardrop. Local +Y runs from the stem out to the rounded tip. */
+function addTeardrop(
+  mesh: Bag,
+  ox: number,
+  oy: number,
+  oz: number,
+  radius: number,
+  yaw: number,
+  tilt: number,
+  lit: RGB,
+  dark: RGB,
+) {
+  const around = 8;
+  const along = 4;
+  const ct = Math.cos(tilt);
+  const st = Math.sin(tilt);
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const place = (lx: number, ly: number, lz: number): [number, number, number] => {
+    const y1 = ly * ct - lz * st;
+    const z1 = ly * st + lz * ct;
+    return [ox + lx * cy + z1 * sy, oy + y1, oz - lx * sy + z1 * cy];
   };
-  const upper = bands[0] ?? [];
-  const equator = bands[1] ?? [];
-  const lower = bands[2] ?? [];
-  for (let i = 0; i < lon; i += 1) {
-    const next = (i + 1) % lon;
-    mesh.indices.push(top, upper[next] ?? top, upper[i] ?? top);
-    mesh.indices.push(lower[i] ?? bot, lower[next] ?? bot, bot);
+  const grid: number[][] = [];
+  for (let step = 0; step <= along; step += 1) {
+    const v = step / along;
+    const belly = Math.sin(Math.PI * v);
+    const rad = radius * belly;
+    const shade = 0.25 + v * 0.65;
+    const row: number[] = [];
+    for (let side = 0; side < around; side += 1) {
+      const angle = (side / around) * Math.PI * 2;
+      const [x, y, z] = place(Math.cos(angle) * rad, (v - 0.45) * radius * 1.35, Math.sin(angle) * rad);
+      row.push(vert(mesh, x, y, z, mix(dark, lit, shade), 0.06));
+    }
+    grid.push(row);
   }
-  stitch(upper, equator);
-  stitch(equator, lower);
+  const baseAt = place(0, -0.45 * radius * 1.35, 0);
+  const tipAt = place(0, 0.55 * radius * 1.35, 0);
+  const base = vert(mesh, baseAt[0], baseAt[1], baseAt[2], dark, 0.06);
+  const tip = vert(mesh, tipAt[0], tipAt[1], tipAt[2], lit, 0.06);
+  const first = grid[0] ?? [];
+  const last = grid[along] ?? [];
+  for (let side = 0; side < around; side += 1) {
+    const next = (side + 1) % around;
+    mesh.indices.push(base, first[next] ?? base, first[side] ?? base);
+    mesh.indices.push(tip, last[side] ?? tip, last[next] ?? tip);
+  }
+  for (let step = 0; step < along; step += 1) {
+    const lower = grid[step] ?? [];
+    const upper = grid[step + 1] ?? [];
+    for (let side = 0; side < around; side += 1) {
+      const next = (side + 1) % around;
+      const a = lower[side] ?? 0;
+      const b = lower[next] ?? 0;
+      const c = upper[side] ?? 0;
+      const d = upper[next] ?? 0;
+      mesh.indices.push(a, b, d, a, d, c);
+    }
+  }
 }
 
-/** One cone: big florets at the base, tiny ones at the tip, each sitting on the stem. */
+/** One spike: florets spiral up the stem, large and deep at the base, small and pale at the tip. */
 export function createLupinGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const stemBottom = vert(mesh, -0.01, 0, 0, [0.22, 0.36, 0.14], 0.2);
-  const stemTopL = vert(mesh, -0.003, 1.08, 0, [0.4, 0.55, 0.22], 0.55);
-  const stemTopR = vert(mesh, 0.003, 1.08, 0, [0.4, 0.55, 0.22], 0.55);
-  const stemBaseR = vert(mesh, 0.01, 0, 0, [0.22, 0.36, 0.14], 0.2);
-  mesh.indices.push(stemBottom, stemTopL, stemBaseR, stemBaseR, stemTopL, stemTopR);
-  const florets = 12;
-  const lit: RGB = [1, 0.98, 0.94];
-  const dark: RGB = [0.74, 0.66, 0.62];
+  const stem: RGB = [0.2, 0.34, 0.12];
+  const stemTip: RGB = [0.38, 0.52, 0.2];
+  let previous = vert(mesh, 0, 0, 0, stem, 0.2);
+  for (let step = 1; step <= 6; step += 1) {
+    const t = step / 6;
+    const y = t * 1.12;
+    const curve = Math.sin(t * Math.PI) * 0.04;
+    const next = vert(mesh, curve, y, 0.004, mix(stem, stemTip, t), 0.35);
+    const side = vert(mesh, curve + 0.007, y, -0.003, mix(stem, stemTip, t), 0.35);
+    mesh.indices.push(previous, next, side);
+    previous = next;
+  }
+  const florets = 44;
+  const golden = Math.PI * (3 - Math.sqrt(5));
   for (let floret = 0; floret < florets; floret += 1) {
     const t = floret / (florets - 1);
-    const y = 0.08 + t * 0.96;
-    const radius = 0.12 * Math.pow(1 - t, 0.8) + 0.028;
-    const spin = floret * 2.399;
-    const stalk = 0.0;
-    addBump(mesh, Math.cos(spin) * stalk, y, Math.sin(spin) * stalk, radius, lit, dark, 0.1, 0.62);
+    const y = 0.06 + Math.pow(t, 0.82) * 1.02;
+    const size = 0.028 * Math.pow(1 - t, 0.4) + 0.012;
+    const yaw = floret * golden;
+    const tilt = 1.2 - t * 0.55;
+    const curve = Math.sin(t * Math.PI) * 0.045;
+    const lit = mix([0.72, 0.66, 0.7], [1, 0.99, 0.97], Math.pow(t, 0.7));
+    const dark = mix([0.42, 0.36, 0.42], [0.82, 0.78, 0.8], t);
+    const stalk = 0.018 + size * 0.28;
+    addTeardrop(mesh, Math.cos(yaw) * stalk + curve, y, Math.sin(yaw) * stalk, size, yaw, tilt, lit, dark);
   }
   return finish(mesh, scatter);
 }
 
-function addBlade(mesh: Bag, ox: number, lean: number) {
-  const root: RGB = [0.14, 0.32, 0.09];
-  const mid: RGB = [0.32, 0.52, 0.16];
-  const tip: RGB = [0.74, 0.9, 0.42];
-  const width = 0.016;
-  const left = vert(mesh, ox - width, 0, 0, root, 1);
-  const right = vert(mesh, ox + width, 0, 0, root, 1);
-  const midL = vert(mesh, ox - width * 0.42, 0.4, lean, mid, 1);
-  const midR = vert(mesh, ox + width * 0.42, 0.4, lean, mid, 1);
-  const top = vert(mesh, ox + lean, 1, lean * 2.4, tip, 1);
-  mesh.indices.push(left, midL, right, right, midL, midR, midL, top, midR);
+function addCurvedBlade(mesh: Bag, yaw: number, lean: number) {
+  const root: RGB = [0.18, 0.38, 0.1];
+  const mid: RGB = [0.38, 0.6, 0.2];
+  const tip: RGB = [0.84, 0.95, 0.55];
+  const along = 4;
+  const cosY = Math.cos(yaw);
+  const sinY = Math.sin(yaw);
+  const ids: number[] = [];
+  for (let step = 0; step <= along; step += 1) {
+    const v = step / along;
+    const width = 0.0048 * (1 - v * 0.7);
+    const bow = Math.sin(v * Math.PI) * lean + v * v * lean;
+    const color = v < 0.4 ? mix(root, mid, v / 0.4) : mix(mid, tip, (v - 0.4) / 0.6);
+    const left = vert(mesh, -width * cosY + bow * sinY, v, width * sinY + bow * cosY, color, 0.35 + v * 0.65);
+    const right = vert(mesh, width * cosY + bow * sinY, v, -width * sinY + bow * cosY, color, 0.35 + v * 0.65);
+    ids.push(left, right);
+  }
+  for (let step = 0; step < along; step += 1) {
+    const a = ids[step * 2] ?? 0;
+    const b = ids[step * 2 + 1] ?? 0;
+    const c = ids[(step + 1) * 2] ?? 0;
+    const d = ids[(step + 1) * 2 + 1] ?? 0;
+    mesh.indices.push(a, c, b, b, c, d);
+  }
 }
 
-/** A facing pair. Dark at the root, pale at the tip, wide enough to read as a tuft. */
+/** Six thin blades in one tuft. Dark at the soil, pale at the tip. */
 export function createGrassGeometry(scatter?: Scatter) {
   const mesh = bag();
-  addBlade(mesh, -0.018, -0.035);
-  addBlade(mesh, 0.02, 0.04);
+  const blades = 6;
+  for (let blade = 0; blade < blades; blade += 1) {
+    const yaw = (blade / blades) * Math.PI + (blade % 2) * 0.18;
+    const lean = (0.03 + (blade % 3) * 0.018) * (blade % 2 === 0 ? 1 : -1);
+    addCurvedBlade(mesh, yaw, lean);
+  }
   return finish(mesh, scatter);
 }
 
