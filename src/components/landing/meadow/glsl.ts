@@ -110,7 +110,37 @@ float pathEndFade(float z) {
 }
 `;
 
-export const PLANT_VERT = /* glsl */ `
+/** Vertex-only. Flowers standing in the dirt slide to the right shoulder. */
+const PARK_FLOWER = /* glsl */ `
+uniform float uAspect;
+void parkOffPath(inout vec3 world, vec3 foot, float stem) {
+  if (foot.y > 0.2) return;
+  if (pathEndFade(foot.z) < 0.12) return;
+  float center = pathCenter(foot.z, uAspect);
+  float halfW = pathHalfWidth(uAspect, foot.z);
+  // Short flowers already on the right grass stay there, including the
+  // low lilies under the phone trunk. Tall spikes still leave the dirt.
+  if (stem < 0.32 && foot.x > center + halfW * 0.32) return;
+  float limit = halfW * 0.92 + 0.16;
+  if (abs(foot.x - center) >= limit) return;
+  float scatter = fract(sin(foot.z * 17.1 + foot.x * 9.3) * 43758.5453);
+  float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
+  float visible = mix(1.3 - foot.z * 0.191, 2.12 - foot.z * 0.31, min(aspectT, 1.0));
+  visible += max(0.0, aspectT - 1.0) * 0.4;
+  float edge = max(visible, 0.4) * 0.94;
+  float right = center + limit + 0.14 + scatter * 0.2;
+  float left = center - limit - 0.12 - scatter * 0.16;
+  float lane = right;
+  if (right > edge) {
+    // The right shoulder is off this frame. Stay on the right only when
+    // that edge is still grass. Otherwise the left lawn is the open bed.
+    lane = edge > center + limit * 0.82 ? edge - scatter * 0.05 : max(left, -edge);
+  }
+  world.x += lane - foot.x;
+}
+`;
+
+export const PLANT_VERT = PATH + PARK_FLOWER + /* glsl */ `
 attribute float aPhase;
 attribute float aBend;
 attribute vec3 aTint;
@@ -123,7 +153,6 @@ varying vec2 vSpan;
 
 uniform float uTime;
 uniform float uWind;
-uniform float uAspect;
 uniform float uSss;
 
 void settlePortrait(inout vec3 world, vec3 origin) {
@@ -157,12 +186,20 @@ void main() {
   if (uSss > 0.2) {
     vec3 shifted = world.xyz;
     settlePortrait(shifted, origin);
+    vec3 foot = origin;
+    settlePortrait(foot, origin);
     float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
-    if (phone > 0.85 && origin.y < 0.2 && origin.z > 0.9 && origin.z < 3.45) {
-      vec3 settledOrigin = origin;
-      settlePortrait(settledOrigin, origin);
+    #ifdef USE_INSTANCING
+      float stem = length(instanceMatrix[1].xyz);
+    #else
+      float stem = 1.0;
+    #endif
+    if (phone > 0.85 && foot.y < 0.2 && foot.z > 0.9 && foot.z < 3.45) {
       float trunkX = ${(TREE.x + TREE.shiftPhone).toFixed(2)};
-      float cover = 1.0 - smoothstep(0.42, 0.58, abs(settledOrigin.x - trunkX));
+      float cover = 1.0 - smoothstep(0.42, 0.58, abs(foot.x - trunkX));
+      // Short flowers already to the right of the trunk stay in the grass
+      // below it. Tall spikes in that column still slide left.
+      if (stem < 0.24 && foot.x > trunkX - 0.05) cover = 0.0;
       float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, origin.z);
       float ease = approach * approach * (3.0 - 2.0 * approach);
       float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
@@ -170,8 +207,11 @@ void main() {
       float halfW = 0.42 * mix(1.0, 0.62, ease);
       float scatter = fract(sin(origin.z * 12.3 + origin.x * 4.7) * 43758.5453);
       float lane = center - halfW - 0.28 - scatter * 0.5;
-      shifted.x += (lane - settledOrigin.x) * cover;
+      float delta = (lane - foot.x) * cover;
+      shifted.x += delta;
+      foot.x += delta;
     }
+    parkOffPath(shifted, foot, stem);
     world.xyz = shifted;
   } else if (abs(origin.x) > 0.8 && origin.y < 0.2) {
     float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
@@ -202,7 +242,7 @@ void main() {
  * base, aTip is the tip, and color.r is the height along the spike. A stem
  * vertex keeps its own green (color.b stays below 1).
  */
-export const LUPIN_VERT = /* glsl */ `
+export const LUPIN_VERT = PATH + PARK_FLOWER + /* glsl */ `
 attribute float aPhase;
 attribute float aBend;
 attribute vec3 aTint;
@@ -216,7 +256,6 @@ varying vec3 vWorld;
 
 uniform float uTime;
 uniform float uWind;
-uniform float uAspect;
 
 void settlePortrait(inout vec3 world, vec3 origin) {
   float narrow = 1.0 - smoothstep(0.62, 1.15, max(uAspect, 0.3));
@@ -248,15 +287,15 @@ void main() {
   #endif
   vec3 shifted = world.xyz;
   settlePortrait(shifted, origin);
+  vec3 foot = origin;
+  settlePortrait(foot, origin);
   // Phone only. The narrow settle stacks the right-hand lupins on the
   // trunk. Slide that column off to the left of the path. 768 and 1280
   // have phone at 0, so this is a no-op there.
   float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
-  if (phone > 0.85 && origin.y < 0.2 && origin.z > 0.9 && origin.z < 3.45) {
-    vec3 settledOrigin = origin;
-    settlePortrait(settledOrigin, origin);
+  if (phone > 0.85 && foot.y < 0.2 && foot.z > 0.9 && foot.z < 3.45) {
     float trunkX = ${(TREE.x + TREE.shiftPhone).toFixed(2)};
-    float cover = 1.0 - smoothstep(0.42, 0.58, abs(settledOrigin.x - trunkX));
+    float cover = 1.0 - smoothstep(0.42, 0.58, abs(foot.x - trunkX));
     float approach = 1.0 - smoothstep(${TREE.z.toFixed(2)}, 4.6, origin.z);
     float ease = approach * approach * (3.0 - 2.0 * approach);
     float line = sin(origin.z * 0.33) * 0.14 + sin(origin.z * 0.91 + 1.7) * 0.06;
@@ -264,8 +303,11 @@ void main() {
     float halfW = 0.42 * mix(1.0, 0.62, ease);
     float scatter = fract(sin(origin.z * 12.3 + origin.x * 4.7) * 43758.5453);
     float lane = center - halfW - 0.28 - scatter * 0.5;
-    shifted.x += (lane - settledOrigin.x) * cover;
+    float delta = (lane - foot.x) * cover;
+    shifted.x += delta;
+    foot.x += delta;
   }
+  parkOffPath(shifted, foot, 1.0);
   world.xyz = shifted;
   float height = clamp(position.y, 0.0, 1.0);
   float sway = sin(uTime * 1.32 + aPhase + world.x * 0.16) * uWind * aBend;
@@ -692,10 +734,12 @@ void main() {
   world.x += anchor - ${TREE.x.toFixed(3)};
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float squeeze = mix(1.0, 0.42, narrow);
-  squeeze = mix(squeeze, 0.5, phone);
+  // Keep the trunk a tree on a narrow frame. The old 0.42 squeeze
+  // turned the flare and the limbs into a stick.
+  float squeeze = mix(1.0, 0.82, narrow);
+  squeeze = mix(squeeze, 0.76, phone);
   world.x = anchor + (world.x - anchor) * squeeze;
-  world.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.78, phone);
+  world.y *= mix(1.0, 0.9, narrow) * mix(1.0, 0.94, phone);
   vWorld = world.xyz;
   vNormal = normalize(mat3(modelMatrix) * normal);
   vColor = color;
@@ -745,11 +789,12 @@ void main() {
   center.x += anchor - ${TREE.x.toFixed(3)};
   float narrow = 1.0 - smoothstep(0.72, 1.15, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float squeeze = mix(1.0, 0.42, narrow);
-  squeeze = mix(squeeze, 0.2, phone);
+  // Same anchor squeeze as the bark, so the limbs still meet the crown.
+  float squeeze = mix(1.0, 0.82, narrow);
+  squeeze = mix(squeeze, 0.76, phone);
   center.x = anchor + (center.x - anchor) * squeeze;
-  center.y *= mix(1.0, 0.62, narrow) * mix(1.0, 0.78, phone);
-  size *= mix(squeeze, 0.5, phone);
+  center.y *= mix(1.0, 0.9, narrow) * mix(1.0, 0.94, phone);
+  size *= mix(1.0, 0.92, narrow) * mix(1.0, 0.8, phone);
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;

@@ -12,6 +12,7 @@ const FALLBACK =
 
 export type MeadowSceneProps = {
   progress: RefObject<number>;
+  /** Accepted so the page can keep passing it. The scene never reads it. */
   pointer: RefObject<{ x: number; y: number }>;
   reducedMotion?: boolean;
   quality?: "low" | "high";
@@ -71,7 +72,6 @@ function useSystemReducedMotion(override: boolean | undefined) {
 
 export default function MeadowScene({
   progress,
-  pointer,
   reducedMotion,
   quality,
   onReady,
@@ -79,6 +79,7 @@ export default function MeadowScene({
 }: MeadowSceneProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
+  const mountedAt = useRef(0);
   const [supported] = useState(webglAvailable);
   const [lost, setLost] = useState(false);
   const [running, setRunning] = useState(true);
@@ -95,14 +96,30 @@ export default function MeadowScene({
   useEffect(() => {
     onReadyRef.current = onReady;
   }, [onReady]);
+  useEffect(() => {
+    mountedAt.current = performance.now();
+  }, []);
   const markReady = useCallback(() => {
     if (readyRef.current) return;
     readyRef.current = true;
+    const started = mountedAt.current;
+    if (started > 0) {
+      (window as Window & { __meadowReadyMs?: number }).__meadowReadyMs = performance.now() - started;
+    }
     onReadyRef.current?.();
   }, []);
 
   useEffect(() => {
-    if (!supported) markReady();
+    if (supported) return;
+    let pending = 0;
+    let id = 0;
+    const step = () => {
+      pending += 1;
+      if (pending >= 2) markReady();
+      else id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
   }, [markReady, supported]);
 
   useEffect(() => {
@@ -168,7 +185,6 @@ export default function MeadowScene({
             <MeadowWorld
               quality={quality ?? tier}
               progress={progress}
-              pointer={pointer}
               reduced={reduced}
               onReady={markReady}
               onDone={hold}

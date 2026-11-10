@@ -376,7 +376,6 @@ function FrameDriver({
   materialsRef,
   sky,
   progress,
-  pointer,
   reduced,
   onReady,
   onDone,
@@ -384,7 +383,6 @@ function FrameDriver({
   materialsRef: RefObject<ShaderMaterial[]>;
   sky: RefObject<Mesh | null>;
   progress: RefObject<number>;
-  pointer: RefObject<{ x: number; y: number }>;
   reduced: boolean;
   onReady?: () => void;
   onDone: (settled: boolean) => void;
@@ -392,7 +390,6 @@ function FrameDriver({
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
-  const eased = useRef({ x: 0, y: 0, snapped: false });
   const clock = useRef(0);
   const frames = useRef(0);
   const ready = useRef(false);
@@ -414,56 +411,37 @@ function FrameDriver({
 
   useEffect(() => {
     let lastP = Number.NaN;
-    let lastX = Number.NaN;
-    let lastY = Number.NaN;
     const tick = () => {
       const walked = progress.current ?? 0;
-      const aim = pointer.current ?? { x: 0, y: 0 };
       if (settled.current && walked < VEIL_HOLD) {
         settled.current = false;
         onDoneRef.current(false);
       }
       if (!reducedRef.current) return;
-      if (walked !== lastP || aim.x !== lastX || aim.y !== lastY) {
+      if (walked !== lastP) {
         lastP = walked;
-        lastX = aim.x;
-        lastY = aim.y;
         invalidate();
       }
     };
     tick();
     const id = window.setInterval(tick, 48);
     return () => window.clearInterval(id);
-  }, [invalidate, pointer, progress]);
+  }, [invalidate, progress]);
 
   useFrame((_, delta) => {
     const step = Math.min(delta, 0.05);
     const frameMs = Math.min(delta, 0.25);
     const walked = progress.current ?? 0;
     const t = walked;
-    const aim = pointer.current ?? { x: 0, y: 0 };
     const still = reducedRef.current;
-    if (!eased.current.snapped || still) {
-      eased.current.x = aim.x;
-      eased.current.y = aim.y;
-      eased.current.snapped = true;
-    } else {
-      const ease = 1 - Math.exp(-3.2 * step);
-      eased.current.x += (aim.x - eased.current.x) * ease;
-      eased.current.y += (aim.y - eased.current.y) * ease;
-    }
     const canvas = gl.domElement;
     const aspect = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
     const portrait = aspect < 0.85 ? 1 : 0;
-    const x = eased.current.x * 0.22;
+    const x = 0;
     const y = VIEW.eye + t * 0.04 + portrait * 0.72;
     const z = VIEW.startZ + (VIEW.endZ - VIEW.startZ) * t;
     camera.position.set(x, y, z);
-    camera.lookAt(
-      eased.current.x * 0.45,
-      VIEW.eye + VIEW.lookLift - portrait * 0.78 - eased.current.y * 0.1,
-      z - VIEW.lookAhead,
-    );
+    camera.lookAt(0, VIEW.eye + VIEW.lookLift - portrait * 0.78, z - VIEW.lookAhead);
     if (sky.current) sky.current.position.set(x, y, z);
     if (!still) clock.current += step;
     writeUniforms(
@@ -541,6 +519,8 @@ function FrameDriver({
     }
 
     frames.current += 1;
+    // The first useFrame is the first presented frame, after compile.
+    // Signal on the next one, which is two animation frames after commit.
     if (!ready.current && frames.current >= 2) {
       ready.current = true;
       onReadyRef.current?.();
@@ -555,14 +535,12 @@ function FrameDriver({
 export default function MeadowWorld({
   quality,
   progress,
-  pointer,
   reduced,
   onReady,
   onDone,
 }: {
   quality: Quality;
   progress: RefObject<number>;
-  pointer: RefObject<{ x: number; y: number }>;
   reduced: boolean;
   onReady?: () => void;
   onDone: (settled: boolean) => void;
@@ -590,7 +568,6 @@ export default function MeadowWorld({
         materialsRef={materialsRef}
         sky={sky}
         progress={progress}
-        pointer={pointer}
         reduced={reduced}
         onReady={onReady}
         onDone={onDone}

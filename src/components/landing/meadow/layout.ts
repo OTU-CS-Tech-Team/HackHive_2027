@@ -354,10 +354,93 @@ function fillTabletGap(lilies: Item[], daisies: Item[], lupins: Item[]) {
   }
 }
 
+/** Half the painted dirt. Flowers inside this are standing on the path. */
+function dirtLimit(z: number, aspect: number) {
+  const narrow = 1 - smooth01(0.62, 1.15, Math.max(aspect, 0.3));
+  const base = 1.05 * (1 - narrow) + 0.42 * narrow;
+  const half = base * (1 - 0.38 * pathEaseAt(z));
+  return half * 0.92 + 0.16;
+}
+
+function onAnyPath(x: number, z: number) {
+  const aspects = [1.6, 0.75, 0.46];
+  for (const aspect of aspects) {
+    if (Math.abs(x - centerFor(z, anchorFor(aspect))) < dirtLimit(z, aspect)) return true;
+  }
+  return false;
+}
+
 /**
- * A few mid flowers in the lawn just off the wide path. That grass is
- * the band behind the button at 1280. z stays in the mid patch.
+ * Mid flowers in the open lawn left of every path. The wide dirt sits
+ * well to the right here, so this band is grass at 1280, 768, and 390.
  */
+function fillLeftLawn(lilies: Item[], daisies: Item[], lupins: Item[]) {
+  const rng = mulberry32(1401);
+  const count = 16;
+  for (let i = 0; i < count; i += 1) {
+    const z = 0.95 + (i % 8) * 0.17 + (rng() - 0.5) * 0.04;
+    let x = -0.22 - Math.floor(i / 8) * 0.42 - rng() * 0.1;
+    for (let step = 0; step < 5 && onAnyPath(x, z); step += 1) x -= 0.14;
+    if (onAnyPath(x, z)) continue;
+    const visible = Math.max(0.45, 1.3 - z * 0.191);
+    if (x < -visible * 0.92) continue;
+    if (i % 5 === 0) {
+      const tint = paint(rng, true);
+      const size = 0.46 + rng() * 0.1;
+      placeFlower(lupins, rng, x, 0.02, z, size, size, tint.color, tint.tip, 0, Math.PI * 2);
+    } else if (i % 2 === 0) {
+      const size = 0.26 + rng() * 0.08;
+      placeFlower(lilies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0.4, 0.4);
+    } else {
+      const size = 0.16 + rng() * 0.06;
+      placeFlower(daisies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0, Math.PI * 2);
+    }
+  }
+}
+
+/**
+ * Short lilies and daisies in the grass right of the phone path, in
+ * front of the trunk so they sit below it. Tall spikes stay out of this
+ * band. z stays in the mid patch.
+ */
+function fillTreeFoot(lilies: Item[], daisies: Item[]) {
+  const rng = mulberry32(1601);
+  const count = 6;
+  for (let i = 0; i < count; i += 1) {
+    const z = 1.7 + i * 0.1 + (rng() - 0.5) * 0.03;
+    const aspect = 0.46;
+    const center = centerFor(z, anchorFor(aspect));
+    const narrow = 1 - smooth01(0.62, 1.15, aspect);
+    const base = 1.05 * (1 - narrow) + 0.42 * narrow;
+    const half = base * (1 - 0.38 * pathEaseAt(z));
+    const x = center + half * 0.58 + (i % 3) * 0.04;
+    const size = 0.24 + rng() * 0.04;
+    if (i % 2 === 0) {
+      placeFlower(lilies, rng, x, 0.02, z, size, size * 0.9, [1, 1, 1], undefined, 0.15, 0.2);
+    } else {
+      placeFlower(daisies, rng, x, 0.02, z, size * 0.85, size * 0.85, [1, 1, 1], undefined, 0, Math.PI * 2);
+    }
+  }
+}
+
+/** A few mid flowers in the grass just off the wide path, behind the button. */
+/** Lilies and daisies just past the right edge of the wide dirt. */
+function fillRightShoulder(lilies: Item[], daisies: Item[]) {
+  const rng = mulberry32(1701);
+  const count = 12;
+  for (let i = 0; i < count; i += 1) {
+    const z = 1.15 + (i % 6) * 0.22 + (rng() - 0.5) * 0.04;
+    const x = pathCenterAt(z) + dirtLimit(z, 1.6) + 0.16 + (i % 2) * 0.14 + rng() * 0.06;
+    const size = 0.22 + rng() * 0.08;
+    if (i % 2 === 0) {
+      placeFlower(lilies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0.35, 0.35);
+    } else {
+      placeFlower(daisies, rng, x, 0.02, z, size * 0.8, size * 0.8, [1, 1, 1], undefined, 0, Math.PI * 2);
+    }
+  }
+}
+
+/** A few mid flowers in the grass just off the wide path, behind the button. */
 function fillButtonBand(lilies: Item[], daisies: Item[], lupins: Item[]) {
   const rng = mulberry32(1201);
   const count = 8;
@@ -463,13 +546,15 @@ function placeShell(
 function buildBlossoms() {
   const petals = 26;
   const items: Item[] = [];
-  const back = 64;
-  const mid = 76;
-  const front = 56;
-  placeShell(items, front, TREE.canopyY + 0.06, TREE.canopyRadius * 0.8, 0.12, 5.3, BLOSSOM_WHITE, 0.28, 0.34);
-  placeShell(items, mid, TREE.canopyY + 0.0, TREE.canopyRadius * 0.9, 0.0, 2.7, BLOSSOM_MIXED, 0.3, 0.36);
-  placeShell(items, back, TREE.canopyY - 0.06, TREE.canopyRadius * 0.98, -0.1, 0.25, BLOSSOM_ROSE, 0.32, 0.38);
-  const sprigs = 14;
+  const core = 40;
+  const back = 72;
+  const mid = 86;
+  const front = 64;
+  placeShell(items, core, TREE.canopyY + 0.02, TREE.canopyRadius * 0.48, 0.02, 1.1, BLOSSOM_MIXED, 0.3, 0.38);
+  placeShell(items, front, TREE.canopyY + 0.06, TREE.canopyRadius * 0.78, 0.12, 5.3, BLOSSOM_WHITE, 0.36, 0.44);
+  placeShell(items, mid, TREE.canopyY + 0.0, TREE.canopyRadius * 0.92, 0.0, 2.7, BLOSSOM_MIXED, 0.4, 0.5);
+  placeShell(items, back, TREE.canopyY - 0.04, TREE.canopyRadius * 1.02, -0.08, 0.25, BLOSSOM_ROSE, 0.42, 0.52);
+  const sprigs = 18;
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < sprigs; i += 1) {
     const angle = golden * i * 2.4 + 0.4;
@@ -483,8 +568,8 @@ function buildBlossoms() {
       z: TREE.z + Math.sin(angle) * reach * 0.9,
       yaw: 0,
       pitch: 0,
-      sx: 0.15,
-      sy: 0.17,
+      sx: 0.22,
+      sy: 0.24,
       sz: 1,
       color,
       phase: 6.4 + (i % 3) * 0.04,
@@ -539,6 +624,9 @@ export function buildLayout(quality: Quality): SceneLayout {
   const midLupins = scatterFull(lupinSplit.mid, 53, midZ[0], midZ[1], lupinScale, flowerClear, spread, true, 0, Math.PI * 2, true);
   fillTabletGap(midLilies, midDaisies, midLupins);
   fillButtonBand(midLilies, midDaisies, midLupins);
+  fillLeftLawn(midLilies, midDaisies, midLupins);
+  fillTreeFoot(midLilies, midDaisies);
+  fillRightShoulder(midLilies, midDaisies);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];

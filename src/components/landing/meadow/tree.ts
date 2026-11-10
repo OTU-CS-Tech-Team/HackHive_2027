@@ -11,12 +11,12 @@ export const TREE = {
   z: 1.15,
   baseY: 0,
   /** Height of the blossom cloud above the trunk base. */
-  canopyY: 1.2,
-  canopyRadius: 0.8,
-  /** Round crown. The old 0.34 squash flattened it into a pink strip. */
-  canopySquash: 0.94,
+  canopyY: 1.55,
+  canopyRadius: 1.05,
+  /** Round crown. A squash below 1 flattens the blossom into a strip. */
+  canopySquash: 1,
   /** Extra world-x added on a wide frame (1280), a tablet (768), and a phone. */
   shiftWide: 1.74,
   shiftMid: 0.46,
-  shiftPhone: -0.04,
+  shiftPhone: 0.12,
 } as const;
