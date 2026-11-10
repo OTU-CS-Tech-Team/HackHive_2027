@@ -5,16 +5,27 @@ const EVENT_DATE = "January 29–31, 2027";
 const EVENT_PLACE = "In-person event";
 const HERO_APPLY_LINE = "Applications are open, join us as a hacker!";
 
+function Wordmark() {
+  return (
+    <>
+      <span className={styles.heroLine}>HackHive</span>
+      <span className={styles.heroYear}>2027</span>
+    </>
+  );
+}
+
 export function TrailheadPanel({ children }: { children: ReactNode }) {
   return (
     <div data-hero-parallax="" className={`${styles.hero} will-change-transform`}>
       <h1 className={`${styles.heroTitle} ${styles.display}`}>
         <span className={styles.heroFrost} aria-hidden="true">
-          HackHive
+          <Wordmark />
         </span>
-        <span className={styles.heroFace}>HackHive</span>
+        <span className={styles.heroFace}>
+          <Wordmark />
+        </span>
       </h1>
-      <div className="relative mt-8 flex flex-col items-center md:mt-10">
+      <div className="relative mt-5 flex flex-col items-center md:mt-8">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[190%] w-[min(38rem,150%)] -translate-x-1/2 -translate-y-[46%] bg-[radial-gradient(ellipse_at_center,rgba(255,247,224,0.82)_0%,rgba(255,236,196,0.38)_46%,transparent_72%)]"
