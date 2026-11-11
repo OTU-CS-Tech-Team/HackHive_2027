@@ -84,6 +84,8 @@ export default function MeadowScene({
   const [lost, setLost] = useState(false);
   const [running, setRunning] = useState(true);
   const [settled, setSettled] = useState(false);
+  const [compiled, setCompiled] = useState(false);
+  const markCompiled = useCallback(() => setCompiled(true), []);
   const [tier] = useState<Quality>(() => {
     if (quality) return quality;
     if (typeof window === "undefined") return "high";
@@ -148,7 +150,9 @@ export default function MeadowScene({
     setSettled((current) => (current === done ? current : done));
   }, []);
 
-  const frameLoop = lost || !running || settled ? "never" : reduced ? "demand" : "always";
+  // Parked until the shaders have compiled in the background, so the first
+  // draw never waits on the driver. The poster covers the canvas meanwhile.
+  const frameLoop = lost || !running || settled || !compiled ? "never" : reduced ? "demand" : "always";
 
   return (
     <div
@@ -188,6 +192,7 @@ export default function MeadowScene({
               reduced={reduced}
               onReady={markReady}
               onDone={hold}
+              onCompiled={markCompiled}
             />
           </Canvas>
         </SceneBoundary>

@@ -307,19 +307,36 @@ export function MegaphoneRain({ x = 0.5, y = 0.5, dim = 0.6 }: MegaphoneRainProp
       render();
     }
 
-    const resizeObserver = new ResizeObserver(setup);
+    // Nothing is built until the section is within a screen or so of the
+    // viewport. The mask reads pixels back off a full-size canvas, and doing
+    // that while the hero loads stalled the page. The resize observer also
+    // fires once on observe, so it only rebuilds after that first setup.
+    let armed = false;
+    const resizeObserver = new ResizeObserver(() => {
+      if (armed) setup();
+    });
     resizeObserver.observe(section);
+    const nearObserver = new IntersectionObserver(
+      (entries) => {
+        if (armed || !entries[0]?.isIntersecting) return;
+        armed = true;
+        nearObserver.disconnect();
+        setup();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    nearObserver.observe(section);
     const visibilityObserver = new IntersectionObserver((entries) => {
       running = entries[0].isIntersecting;
     });
     visibilityObserver.observe(section);
 
-    setup();
     raf = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
+      nearObserver.disconnect();
       visibilityObserver.disconnect();
     };
   }, [x, y, dim]);

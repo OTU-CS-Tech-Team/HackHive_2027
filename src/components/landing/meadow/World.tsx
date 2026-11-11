@@ -13,6 +13,7 @@ import {
   Vector3,
   type Side,
   type BufferGeometry,
+  type Object3D,
 } from "three";
 import { createCardGeometry, createDaisyGeometry, createGrassGeometry, createHillsGeometry, createLilyGeometry, createLupinGeometry, createSparkPoints, createTrunkGeometry } from "@/components/landing/meadow/geometry";
 import {
@@ -436,14 +437,14 @@ function FrameDriver({
     return () => window.cancelAnimationFrame(id);
   }, [invalidate, progress]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const step = Math.min(delta, 0.05);
     const frameMs = Math.min(delta, 0.25);
     const walked = progress.current ?? 0;
     const t = walked;
     const still = reducedRef.current;
-    const canvas = gl.domElement;
-    const aspect = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
+    // From r3f's measured size, not clientWidth, which can force a layout every frame.
+    const aspect = state.size.width / Math.max(state.size.height, 1);
     const portrait = aspect < 0.85 ? 1 : 0;
     const x = 0;
     const y = VIEW.eye + t * 0.04 + portrait * 0.72;
@@ -552,12 +553,15 @@ export default function MeadowWorld({
   reduced,
   onReady,
   onDone,
+  onCompiled,
 }: {
   quality: Quality;
   progress: RefObject<number>;
   reduced: boolean;
   onReady?: () => void;
   onDone: (settled: boolean) => void;
+  /** Once every program has compiled and linked off the main thread. */
+  onCompiled?: () => void;
 }) {
   const layout = useMemo(() => buildLayout(quality), [quality]);
   const geometries = useMemo(() => buildGeometries(layout, quality), [layout, quality]);
@@ -572,9 +576,51 @@ export default function MeadowWorld({
     materialsRef.current = materials.all;
   }, [materials]);
 
+  const invalidate = useThree((state) => state.invalidate);
+  const onCompiledRef = useRef(onCompiled);
+  useEffect(() => {
+    onCompiledRef.current = onCompiled;
+  }, [onCompiled]);
+
+  // Compile and link every program before the first draw, one object per
+  // animation frame, while the poster holds the frame. Chrome on Windows
+  // (ANGLE/D3D) reports KHR_parallel_shader_compile as done at once and
+  // really compiles each program on its first query, so compileAsync and a
+  // plain first render both froze the page for about half a second on a cold
+  // shader cache. Asking each program for its uniforms here moves that work
+  // into short, separate tasks. A warm cache makes every step near free.
   useLayoutEffect(() => {
-    gl.compile(scene, camera);
-  }, [camera, geometries, gl, scene]);
+    let live = true;
+    let frame = 0;
+    const objects: Object3D[] = [];
+    scene.traverse((object) => {
+      if ((object as Mesh).material) objects.push(object);
+    });
+    let next = 0;
+    const step = () => {
+      if (!live) return;
+      const started = performance.now();
+      while (next < objects.length && performance.now() - started < 6) {
+        const object = objects[next];
+        next += 1;
+        if (!object) continue;
+        for (const material of gl.compile(object, camera, scene)) {
+          (gl.properties.get(material) as { currentProgram?: { getUniforms: () => unknown } }).currentProgram?.getUniforms();
+        }
+      }
+      if (next < objects.length) {
+        frame = requestAnimationFrame(step);
+        return;
+      }
+      onCompiledRef.current?.();
+      invalidate();
+    };
+    frame = requestAnimationFrame(step);
+    return () => {
+      live = false;
+      cancelAnimationFrame(frame);
+    };
+  }, [camera, geometries, gl, invalidate, scene]);
 
   return (
     <>

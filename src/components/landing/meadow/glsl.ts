@@ -927,6 +927,11 @@ void main() {
   float type = floor(vPhase / 10.0 + 0.001);
   float seed = vPhase - type * 10.0;
   vec2 field = cloudField(q, type, seed, vRatio);
+  // The height's slope from screen derivatives, taken before any discard.
+  // Evaluating the field twice more for a gradient tripled the shader the
+  // driver had to compile; this costs nothing extra.
+  vec2 slope = vec2(dFdx(field.y) / max(abs(dFdx(q.x)), 1e-5), dFdy(field.y) / max(abs(dFdy(q.y)), 1e-5));
+  slope *= vec2(sign(dFdx(q.x)), sign(dFdy(q.y)));
   float wisp = step(2.5, type);
   float aa = max(fwidth(q.y), 0.002);
   float fray = (washNoise(q * 16.0 + seed * 3.0) - 0.5) * mix(0.012, 0.05, wisp);
@@ -936,10 +941,7 @@ void main() {
   if (alpha < 0.02) discard;
 
   // Shade the whole body against one sun, up and to the right.
-  vec2 e = vec2(0.008, 0.0);
-  float hx = cloudField(q + e.xy, type, seed, vRatio).y;
-  float hy = cloudField(q + e.yx, type, seed, vRatio).y;
-  vec3 n = normalize(vec3(-(hx - field.y) / e.x, -(hy - field.y) / e.x, 1.0));
+  vec3 n = normalize(vec3(-slope, 1.0));
   float light = dot(n, normalize(vec3(0.5, 0.72, 0.6)));
   vec3 shadow = vec3(0.8, 0.84, 0.91);
   vec3 col = mix(shadow, vec3(1.0, 0.995, 0.985), smoothstep(-0.1, 0.85, light));
