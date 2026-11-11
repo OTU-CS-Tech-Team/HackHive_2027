@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { errorClass } from "./styles";
 
 interface CheckboxFieldProps {
   label: string;
@@ -32,8 +33,12 @@ export function CheckboxField({
     .join(" ") || undefined;
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-start gap-3">
+    <div className="space-y-1.5">
+      <div
+        className={`relative flex items-start gap-3 rounded-xl border px-4 py-3.5 transition-colors has-checked:bg-hive-honey-soft has-focus-visible:ring-4 has-focus-visible:ring-hive-honey/25 ${
+          error ? "border-red-500" : "border-hive-line bg-hive-field hover:border-[#d9cfb8] has-checked:border-hive-honey"
+        }`}
+      >
         <input
           id={id}
           name={name}
@@ -44,20 +49,21 @@ export function CheckboxField({
           disabled={disabled}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={describedBy}
-          className="mt-1 h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 disabled:cursor-not-allowed"
+          className="mt-0.5 size-4 shrink-0 accent-hive-ink outline-none disabled:cursor-not-allowed"
         />
-        <label htmlFor={id} className="text-sm text-neutral-700">
-          {label}
-          {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
-        </label>
+        <div className="min-w-0">
+          <label htmlFor={id} className="text-sm font-medium text-hive-ink after:absolute after:inset-0">
+            {label}
+          </label>
+          {description && (
+            <p id={descriptionId} className="mt-0.5 text-[13px] text-hive-muted">
+              {description}
+            </p>
+          )}
+        </div>
       </div>
-      {description && (
-        <p id={descriptionId} className="ml-7 text-sm text-neutral-500">
-          {description}
-        </p>
-      )}
       {error && (
-        <p id={errorId} className="ml-7 text-sm text-red-600" role="alert">
+        <p id={errorId} className={errorClass} role="alert">
           {error}
         </p>
       )}

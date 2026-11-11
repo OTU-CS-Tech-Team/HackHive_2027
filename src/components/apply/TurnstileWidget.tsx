@@ -3,6 +3,8 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { TURNSTILE_SITE_KEY } from "@/lib/constants";
 
+const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+
 declare global {
   interface Window {
     turnstile?: {
@@ -35,8 +37,6 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
   function TurnstileWidget({ onVerify, onError, onExpire }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<string | null>(null);
-    const scriptLoadedRef = useRef(false);
-    const mountedRef = useRef(false);
 
     const onVerifyRef = useRef(onVerify);
     const onErrorRef = useRef(onError);
@@ -54,17 +54,11 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
       },
     }));
 
+    // The form mounts this only on its last step, so it can mount, unmount and
+    // mount again: every mount renders a widget and every unmount removes it.
     useEffect(() => {
-      if (mountedRef.current) return;
-      mountedRef.current = true;
-
       const renderWidget = () => {
-        if (!containerRef.current || !window.turnstile) return;
-
-        if (widgetIdRef.current) {
-          window.turnstile.remove(widgetIdRef.current);
-        }
-
+        if (!containerRef.current || !window.turnstile || widgetIdRef.current) return;
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => onVerifyRef.current(token),
@@ -73,28 +67,26 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
         });
       };
 
-      if (scriptLoadedRef.current || window.turnstile) {
-        scriptLoadedRef.current = true;
+      let script: HTMLScriptElement | null = null;
+      if (window.turnstile) {
         renderWidget();
-        return;
+      } else {
+        script = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
+        if (!script) {
+          script = document.createElement("script");
+          script.src = SCRIPT_SRC;
+          script.async = true;
+          document.head.appendChild(script);
+        }
+        script.addEventListener("load", renderWidget);
       }
 
-      const script = document.createElement("script");
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        scriptLoadedRef.current = true;
-        renderWidget();
-      };
-
-      document.head.appendChild(script);
-
       return () => {
+        script?.removeEventListener("load", renderWidget);
         if (widgetIdRef.current && window.turnstile) {
           window.turnstile.remove(widgetIdRef.current);
-          widgetIdRef.current = null;
         }
+        widgetIdRef.current = null;
       };
     }, []);
 
