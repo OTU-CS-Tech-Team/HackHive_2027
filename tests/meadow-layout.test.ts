@@ -1,0 +1,217 @@
+import { describe, expect, it } from "vitest";
+import { createLupinGeometry } from "@/components/landing/meadow/geometry";
+import { GRASS_CLEAR, NOT_PHONE, PHONE_ONLY, WIDE_ONLY, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
+import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
+import { sceneBudget } from "@/components/landing/meadow/stats";
+import { readForcedTrim, trimmedInstances, trimmedSparks } from "@/components/landing/meadow/trim";
+
+function column(matrices: Float32Array, count: number, offset: number) {
+  const values: number[] = [];
+  for (let index = 0; index < count; index += 1) values.push(matrices[index * 16 + offset] ?? 0);
+  return values;
+}
+
+describe("meadow layout", () => {
+  it("keeps flowers beside the path and grass off the centre", () => {
+    const layout = buildLayout("high");
+    let flowers = 0;
+    let grass = 0;
+    for (const patch of layout.patches) {
+      for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+        flowers += group.count;
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          // The phone-only bed is drawn only on a phone, where the shaders
+          // set it beside the slimmer phone path.
+          if ((group.phases[index] ?? 0) >= PHONE_ONLY - 50) continue;
+          const wide = Math.abs(x - pathCenterAt(z));
+          const mid = Math.abs(x - pathCenterMid(z));
+          expect(wide > 0.48 || mid > 0.22).toBe(true);
+        }
+      }
+      grass += patch.grass.count;
+      for (const x of column(patch.grass.matrices, patch.grass.count, 12)) {
+        expect(Math.abs(x)).toBeGreaterThan(GRASS_CLEAR - 0.05);
+      }
+    }
+    expect(grass).toBeGreaterThan(800);
+    expect(layout.patches.reduce((sum, patch) => sum + patch.lupins.count, 0)).toBeGreaterThanOrEqual(110);
+    expect(flowers).toBeGreaterThan(250);
+    expect(layout.clouds.count).toBeGreaterThan(0);
+    expect(layout.sparks.count).toBeGreaterThan(100);
+    expect(layout.leaves.count).toBe(0);
+  });
+
+  it("fills the middle of the garden on both sides", () => {
+    const layout = buildLayout("high");
+    let left = 0;
+    let right = 0;
+    for (const patch of layout.patches) {
+      for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          if (z < -1.2 || z > 3.2) continue;
+          // The beds that line the path. The open lawn further out is
+          // checked on its own below.
+          if (Math.abs(x - pathCenterAt(z)) > 2.6) continue;
+          if (x < pathCenterAt(z)) left += 1;
+          else right += 1;
+        }
+      }
+    }
+    expect(left).toBeGreaterThan(40);
+    expect(right).toBeGreaterThan(40);
+    expect(Math.abs(left - right) / Math.max(left, right)).toBeLessThan(0.25);
+  });
+
+  it("plants the lawn behind the beds out to a wide frame", () => {
+    const high = buildLayout("high");
+    const low = buildLayout("low");
+    const count = (layout: ReturnType<typeof buildLayout>, test: (x: number, z: number, phase: number) => boolean) => {
+      let total = 0;
+      for (const patch of layout.patches) {
+        for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+          for (let index = 0; index < group.count; index += 1) {
+            const x = group.matrices[index * 16 + 12] ?? 0;
+            const z = group.matrices[index * 16 + 14] ?? 0;
+            if (test(x, z, group.phases[index] ?? 0)) total += 1;
+          }
+        }
+      }
+      return total;
+    };
+    // The open lawn left of the beds and right of the tree, behind the front garden.
+    expect(count(high, (x, z) => z < 0.4 && z > -3.9 && x < -2)).toBeGreaterThan(120);
+    expect(count(high, (x, z) => z < 0.4 && z > -3.9 && x > 3.2)).toBeGreaterThan(80);
+    // Wide-only spots stay out of the low tier, and every tag is one the shaders know.
+    expect(count(low, (_x, _z, phase) => phase >= WIDE_ONLY && phase < NOT_PHONE)).toBe(0);
+    expect(count(high, (_x, _z, phase) => phase >= WIDE_ONLY && phase < NOT_PHONE)).toBeGreaterThan(100);
+    expect(count(high, (_x, _z, phase) => phase >= NOT_PHONE + 50 && phase < PHONE_ONLY - 50)).toBe(0);
+    // The phone-only bed right of the phone path, and no tag past it.
+    expect(count(high, (_x, _z, phase) => phase >= PHONE_ONLY - 50 && phase < PHONE_ONLY + 50)).toBe(22);
+    expect(count(high, (_x, _z, phase) => phase >= PHONE_ONLY + 50)).toBe(0);
+  });
+
+  it("thins a shuffled prefix across the depth of every patch", () => {
+    const layout = buildLayout("high");
+    for (const patch of layout.patches) {
+      const scatter = patch.grass;
+      expect(scatter.count).toBeGreaterThan(12);
+      const full = column(scatter.matrices, scatter.count, 14);
+      const keep = Math.floor(scatter.count * 0.45);
+      const prefix = column(scatter.matrices, keep, 14);
+      const span = Math.max(...full) - Math.min(...full);
+      const kept = Math.max(...prefix) - Math.min(...prefix);
+      expect(kept).toBeGreaterThan(span * 0.5);
+    }
+  });
+
+  it("shares one horizon colour and only veils at the hand-off", () => {
+    expect(HORIZON).toBe("#f4e4b4");
+    expect(SKY_TOP).toBe("#e2f2f8");
+    expect(FOREST).toBe("#0b2419");
+    expect(handoffVeil(0)).toBe(0);
+    expect(handoffVeil(0.5)).toBe(0);
+    expect(handoffVeil(0.84)).toBeCloseTo(1);
+    expect(handoffVeil(1)).toBe(1);
+  });
+
+  it("trims grass and sparks before it touches a flower", () => {
+    expect(trimmedInstances(1800, "grass", 1)).toBe(900);
+    expect(trimmedInstances(1800, "grass", 2)).toBe(450);
+    expect(trimmedSparks(280, 1)).toBe(140);
+    expect(trimmedSparks(280, 2)).toBe(70);
+    expect(trimmedInstances(104, "flower", 1)).toBe(104);
+    expect(trimmedInstances(104, "flower", 2)).toBe(104);
+    expect(trimmedInstances(104, "flower", 3)).toBe(104);
+    expect(trimmedInstances(104, "mid", 1)).toBe(104);
+    expect(trimmedInstances(104, "mid", 2)).toBe(104);
+    expect(trimmedInstances(104, "mid", 3)).toBe(104);
+    expect(trimmedInstances(80, "far", 1)).toBe(80);
+    expect(trimmedInstances(80, "far", 2)).toBe(80);
+    expect(trimmedInstances(80, "far", 3)).toBe(80);
+    expect(trimmedInstances(1800, "grass", 3)).toBe(450);
+    expect(trimmedSparks(280, 3)).toBe(70);
+    expect(trimmedInstances(7, "other", 2)).toBe(7);
+    expect(readForcedTrim("?meadowTrim=1")).toBe(1);
+    expect(readForcedTrim("?meadowTrim=2")).toBe(2);
+    expect(readForcedTrim("?meadowTrim=3", "development")).toBe(3);
+    expect(readForcedTrim("")).toBe(0);
+    expect(readForcedTrim("?meadowTrim=1", "production")).toBe(0);
+    expect(readForcedTrim("?meadowTrim=2", "production")).toBe(0);
+    expect(readForcedTrim("?meadowTrim=3", "production")).toBe(0);
+  });
+
+  it("keeps both quality levels on a small draw budget", () => {
+    const high = sceneBudget("high");
+    const low = sceneBudget("low");
+    expect(high.draws).toBe(20);
+    expect(low.draws).toBe(20);
+    expect(high.triangles).toBeLessThan(350_000);
+    expect(low.triangles).toBeLessThan(high.triangles);
+    // The low tier keeps every flower a tablet or phone can see. It only
+    // leaves out the lawn that a wide frame alone shows.
+    const wideOnly = (kind: "lilies" | "lupins") =>
+      buildLayout("high").patches.reduce((sum, patch) => {
+        const phases = patch[kind].phases;
+        return sum + phases.filter((phase) => phase >= WIDE_ONLY && phase < NOT_PHONE).length;
+      }, 0);
+    expect(low.instances.lilies).toBe(high.instances.lilies - wideOnly("lilies"));
+    expect(low.instances.lupins).toBe(high.instances.lupins - wideOnly("lupins"));
+    expect(low.instances.blossoms).toBe(high.instances.blossoms);
+  });
+
+  it("keeps the low foreground and the tablet shoulder under the tree", () => {
+    const low = buildLayout("low");
+    const near = low.patches[0];
+    expect(near).toBeTruthy();
+    if (!near) return;
+    expect(near.lupins.count).toBeGreaterThan(20);
+    let foreground = 0;
+    for (const group of [near.lilies, near.lupins]) {
+      for (let index = 0; index < group.count; index += 1) {
+        const z = group.matrices[index * 16 + 14] ?? 0;
+        if (z > 3.4) foreground += 1;
+      }
+    }
+    expect(foreground).toBeGreaterThan(12);
+    const high = buildLayout("high");
+    let shoulder = 0;
+    for (const patch of high.patches.slice(0, 2)) {
+      for (const group of [patch.lilies, patch.lupins, patch.daisies]) {
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          if (z < 0.35 || z > 2.35) continue;
+          const dist = Math.abs(x - pathCenterMid(z));
+          if (dist > 0.28 && dist < 0.9) shoulder += 1;
+        }
+      }
+    }
+    expect(shoulder).toBeGreaterThan(8);
+    const index = createLupinGeometry(undefined, "full", "near").index?.count ?? 0;
+    const nearLupins = high.patches[0]?.lupins.count ?? 0;
+    expect((index / 3) * nearLupins).toBeLessThan(40_000);
+    let gap = 0;
+    for (const patch of high.patches) {
+      for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+        for (let index = 0; index < group.count; index += 1) {
+          const x = group.matrices[index * 16 + 12] ?? 0;
+          const z = group.matrices[index * 16 + 14] ?? 0;
+          if (z < 0.85 || z > 2.4) continue;
+          if (x < -1.05 || x > 0.2) continue;
+          const beside = pathCenterMid(z) - x;
+          if (beside > 0.9) gap += 1;
+        }
+      }
+    }
+    expect(gap).toBeGreaterThan(8);
+    for (let index = 0; index < high.sparks.count; index += 1) {
+      const x = high.sparks.matrices[index * 16 + 12] ?? 0;
+      const z = high.sparks.matrices[index * 16 + 14] ?? 0;
+      expect(Math.abs(x - pathCenterAt(z))).toBeGreaterThan(0.7);
+    }
+  });
+});
