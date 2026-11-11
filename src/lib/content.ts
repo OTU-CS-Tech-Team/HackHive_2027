@@ -32,7 +32,7 @@ export type Sponsor = {
 export type Person = {
   id: string;
   name: string;
-  role: "speaker" | "judge";
+  role: "speaker" | "judge" | "keynote speaker";
   title: string | null;
   company: string | null;
   bio: string | null;

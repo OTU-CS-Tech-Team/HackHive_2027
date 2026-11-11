@@ -12,6 +12,7 @@ const CONTENT_SHIFT = "15vh";
 
 export default async function SpeakersPage() {
   const speakers = (await getPeople()).filter((person) => person.role === "speaker");
+  const keynoteSpeakers = (await getPeople()).filter((person) => person.role === "keynote speaker");
 
   return (
     <main className={`${styles.section} ${styles.judgesPage}`}>
@@ -22,6 +23,17 @@ export default async function SpeakersPage() {
         </Link>
         {/* spacer: shifts the banner and honeycomb down */}
         <div aria-hidden="true" style={{ height: CONTENT_SHIFT }} />
+        <MegaphoneBanner
+          title="Your Keynote Speakers"
+          subtitle="Get to know the people opening and closing the weekend."
+          ctaHref=""
+        />
+        <HoneycombGroup
+          role="keynote speaker"
+          heading=""
+          blurb=""
+          people={keynoteSpeakers}
+        />
         <MegaphoneBanner
           title="Meet the speakers"
           subtitle="Get to know the people opening and closing the weekend."
