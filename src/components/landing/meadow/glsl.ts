@@ -139,17 +139,24 @@ float pathEndFade(float z) {
 }
 `;
 
-/** Vertex-only. Flowers standing in the dirt slide to the right shoulder. */
+/**
+ * Vertex-only, and the last word on the path: any flower whose head would
+ * reach the painted dirt slides out to the nearer shoulder that is still in
+ * frame. It runs after every other shift, so it holds at every width and at
+ * every point of the walk. stem is the instance height, a stand-in for how
+ * far the bloom spreads from its foot.
+ */
 const PARK_FLOWER = /* glsl */ `
 void parkOffPath(inout vec3 world, vec3 foot, float stem) {
   if (foot.y > 0.2) return;
   if (pathEndFade(foot.z) < 0.12) return;
   float center = pathCenter(foot.z, uAspect);
   float halfW = pathHalfWidth(uAspect, foot.z);
-  // Short flowers already on the right grass stay there, including the
-  // low lilies under the phone trunk. Tall spikes still leave the dirt.
-  if (stem < 0.32 && foot.x > center + halfW * 0.32) return;
-  float limit = halfW * 0.92 + 0.16;
+  // The painted dirt reads to about 0.85 of the half-width plus its soft
+  // edge. A bloom is about 0.45 of its height across, so its foot keeps
+  // that much more room.
+  float reach = stem * 0.45;
+  float limit = max(halfW * 0.92 + 0.16, halfW * 0.85 + 0.12 + reach);
   if (abs(foot.x - center) >= limit) return;
   float scatter = fract(sin(foot.z * 17.1 + foot.x * 9.3) * 43758.5453);
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
