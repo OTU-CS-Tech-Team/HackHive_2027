@@ -1,7 +1,8 @@
--- The name an applicant goes by, shown to organizers next to their legal
--- name. Optional; the indemnification form still prints the legal name.
+-- Optional preferred name (printed as the nickname on the indemnification
+-- form) and a required agreement that electronic signatures are binding.
 alter table public.applications
-  add column preferred_name text check (length(preferred_name) <= 100);
+  add column preferred_name text check (length(preferred_name) <= 100),
+  add column consent_esignature boolean;
 
 drop function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, text, timestamptz, text, uuid, text[]);
 
@@ -47,7 +48,8 @@ create function public.reg_submit_application(
   p_email text,
   p_user_id uuid,
   p_other_links text[] default null,
-  p_preferred_name text default null
+  p_preferred_name text default null,
+  p_consent_esignature boolean default null
 )
 returns jsonb
 language plpgsql
@@ -95,6 +97,10 @@ begin
     return jsonb_build_object('error', 'indemnification_required');
   end if;
 
+  if p_consent_esignature is not true then
+    return jsonb_build_object('error', 'esignature_required');
+  end if;
+
   insert into public.applications (
     user_id, email, status, submitted_at, submission_id,
     first_name, last_name, preferred_name, phone, age, pronouns, city, country,
@@ -104,7 +110,7 @@ begin
     dietary, accessibility, tshirt_size, needs_travel_help, gender, ethnicity,
     guardian_name, guardian_phone, guardian_relationship,
     consent_coc, consent_privacy, consent_photo, share_resume_with_sponsors,
-    consent_indemnification, indemnification_path
+    consent_indemnification, indemnification_path, consent_esignature
   )
   values (
     p_user_id, lower(p_email), 'submitted', p_stamped_at, p_submission_id,
@@ -115,7 +121,7 @@ begin
     p_dietary, p_accessibility, p_tshirt_size, p_needs_travel_help, p_gender, p_ethnicity,
     p_guardian_name, p_guardian_phone, p_guardian_relationship,
     p_consent_coc, p_consent_privacy, p_consent_photo, p_share_resume_with_sponsors,
-    p_consent_indemnification, p_indemnification_path
+    p_consent_indemnification, p_indemnification_path, p_consent_esignature
   )
   on conflict (user_id) do update set
     status = excluded.status,
@@ -158,7 +164,8 @@ begin
     consent_photo = excluded.consent_photo,
     share_resume_with_sponsors = excluded.share_resume_with_sponsors,
     consent_indemnification = excluded.consent_indemnification,
-    indemnification_path = excluded.indemnification_path
+    indemnification_path = excluded.indemnification_path,
+    consent_esignature = excluded.consent_esignature
   where applications.status = 'draft'
   returning id, submitted_at into v_app_id, v_submitted_at;
 
@@ -185,5 +192,5 @@ begin
 end;
 $$;
 
-revoke all on function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, text, timestamptz, text, uuid, text[], text) from public, anon, authenticated;
-grant execute on function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, text, timestamptz, text, uuid, text[], text) to service_role;
+revoke all on function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, text, timestamptz, text, uuid, text[], text, boolean) from public, anon, authenticated;
+grant execute on function public.reg_submit_application(text, text, text, text, int, text, text, text, text, text, text, date, int, text, text, text, text, text, text, text, text, text[], text, text, text, boolean, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, text, timestamptz, text, uuid, text[], text, boolean) to service_role;

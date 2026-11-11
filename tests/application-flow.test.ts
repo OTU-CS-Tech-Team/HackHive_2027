@@ -82,6 +82,7 @@ const validFields = {
   consent_coc: true,
   consent_privacy: true,
   consent_indemnification: true,
+  consent_esignature: true,
 };
 
 async function submit(startedAt = Date.now() - 60_000) {

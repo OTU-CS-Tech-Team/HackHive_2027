@@ -123,20 +123,6 @@ const nameFieldSchema = z
   .optional()
   .or(z.literal(''));
 
-// An optional name with the same characters as first/last name. A blank box
-// becomes `blank`: null for drafts (so clearing it saves), undefined for submit.
-const optionalName = (blank: null | undefined) =>
-  z.preprocess(
-    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? blank : val),
-    z
-      .string()
-      .max(100)
-      .refine((val) => unicodeNameRegex.test(val), { message: 'Name contains invalid characters' })
-      .transform(normalizeName)
-      .optional()
-      .nullable()
-  );
-
 const emptyToNull = <T,>(schema: z.ZodType<T>) =>
   z.preprocess((val) => (val === '' ? null : val), schema.optional().nullable());
 
@@ -172,7 +158,7 @@ const teamStatusSchema = z.preprocess(
 export const applicationDraftSchema = z.object({
   first_name: nameFieldSchema,
   last_name: nameFieldSchema,
-  preferred_name: optionalName(null),
+  preferred_name: optionalStringForDraft(100, normalizeName),
   phone: optionalStringForDraft(30),
   age: emptyToNull(z.coerce.number().int().min(13).max(100)),
   pronouns: optionalStringForDraft(50),
@@ -213,6 +199,7 @@ export const applicationDraftSchema = z.object({
   consent_coc: z.boolean().optional().nullable(),
   consent_privacy: z.boolean().optional().nullable(),
   consent_indemnification: z.boolean().optional().nullable(),
+  consent_esignature: z.boolean().optional().nullable(),
   consent_photo: z.boolean().optional().nullable(),
   share_resume_with_sponsors: z.boolean().optional().nullable(),
 });
@@ -245,7 +232,7 @@ export const applicationSubmitSchema = z
   .object({
     first_name: requiredName,
     last_name: requiredName,
-    preferred_name: optionalName(undefined),
+    preferred_name: optionalStringForSubmit(100, normalizeName),
     phone: requiredText(30),
     age: z.coerce.number().int().min(13, 'Must be at least 13').max(100, 'Must be at most 100'),
     pronouns: optionalStringForSubmit(50),
@@ -297,6 +284,9 @@ export const applicationSubmitSchema = z
     consent_indemnification: z.literal(true, {
       error: 'You must accept the indemnification form',
     }),
+    consent_esignature: z.literal(true, {
+      error: 'You must agree that electronic signatures are legally binding',
+    }),
     consent_photo: z.boolean().optional().nullable(),
     share_resume_with_sponsors: z.boolean().optional().nullable(),
   })
@@ -340,6 +330,7 @@ export const applicationSubmitSchema = z
 export const indemnificationPreviewSchema = z.object({
   first_name: z.string().max(100),
   last_name: z.string().max(100),
+  preferred_name: z.string().max(100),
   university: z.string().max(200),
   linkedin_url: z.string().max(500),
   github_url: z.string().max(500),
@@ -421,6 +412,7 @@ export type Application = {
   consent_privacy: boolean | null;
   consent_indemnification: boolean | null;
   indemnification_path: string | null;
+  consent_esignature: boolean | null;
   consent_photo: boolean | null;
   share_resume_with_sponsors: boolean | null;
 };

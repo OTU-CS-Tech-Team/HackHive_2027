@@ -101,6 +101,7 @@ async function ApplyPageContent() {
     consent_coc: result.application.consent_coc || false,
     consent_privacy: result.application.consent_privacy || false,
     consent_indemnification: result.application.consent_indemnification || false,
+    consent_esignature: result.application.consent_esignature || false,
     consent_photo: result.application.consent_photo || false,
     share_resume_with_sponsors: result.application.share_resume_with_sponsors || false,
   } : null;

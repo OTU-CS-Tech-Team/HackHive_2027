@@ -28,7 +28,7 @@ This file contains:
 | updated_at | timestamp | auto | - | |
 | first_name | string | yes | 100 | |
 | last_name | string | yes | 100 | |
-| preferred_name | string | no | 100 | Name they go by; same characters as first/last name. Not printed on the indemnification form |
+| preferred_name | string | no | 100 | Name they go by; printed as the nickname on the indemnification form |
 | phone | string | yes | 30 | |
 | age | integer | yes | 13-120 | |
 | pronouns | string | no | 50 | |
