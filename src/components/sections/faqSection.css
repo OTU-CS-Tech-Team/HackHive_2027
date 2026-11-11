@@ -106,8 +106,8 @@
   inset: 0 0 auto;
   height: var(--fade);
   background: linear-gradient(
-    #14110b 0%,
-    #161018 14%,
+    #0a1207 0%,
+    #120f1a 14%,
     #1a0c2c 32%,
     #1c0840 52%,
     rgb(36 12 84 / 0.72) 70%,

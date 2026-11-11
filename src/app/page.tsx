@@ -44,7 +44,8 @@ export default function Home() {
         </Suspense>
       </HeroScroll>
       <SponsorsSection />
-      <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
+      {/* colour must match the top of Speakers (its code stage, #0a1207), or the comb ends on a visible line. */}
+      <CombEdge colour="#0a1207" tip="#0b2419" seed={500} />
       <SpeakersSection />
       <div className="relative max-sm:[&>#faq]:pb-[8.5rem]!">
         <FaqSection />

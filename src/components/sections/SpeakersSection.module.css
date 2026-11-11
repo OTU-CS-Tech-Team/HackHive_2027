@@ -598,7 +598,7 @@
 .codeRainTrack {
   position: relative;
   /* height: set by CodeToRain (TRACK_VH), from its own timings, so it ends right as the shards are gone */
-  background: #14110b;      /* never let the page background show through */
+  background: #0a1207;      /* the canvas's fill, so nothing shows through before it draws; the comb above ends on it too */
   pointer-events: none;
 }
 

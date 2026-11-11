@@ -63,7 +63,9 @@ const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges sect
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
 const GROUP_MIN = 3; // characters per flying chunk of text (min)
 const GROUP_MAX = 5; // ... and max. Bigger groups = fewer draw calls = less lag, chunkier look
-const ANIM_VH = 5.3; // scroll distance (in screen heights) the whole sequence is scrubbed over
+// Scroll distance (in screen heights) the whole sequence is scrubbed over. Has been 6, 3.3, 1.8 (too short)
+// and 5.3 (too scroll heavy); 3 plays it over about 2.6 screens.
+const ANIM_VH = 3;
 const MAX_DPR = 2; // canvas resolution cap: the glows cost per pixel, and 3x phone screens gain little past 2x
 // Blurs (canvas shadowBlur) are what made this lag, one per shard and per chunk of code every frame. Now each
 // frame blurs at most once: the shards' outlines are stroked as one path, and the code's glow is blurred once
