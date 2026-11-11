@@ -65,9 +65,6 @@ export default function MeadowDemo() {
           {bare ? null : (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pt-16">
               <h1 className={`${styles.heroTitle} ${styles.display}`}>
-                <span className={styles.heroFrost} aria-hidden="true">
-                  HackHive
-                </span>
                 <span className={styles.heroFace}>HackHive</span>
               </h1>
             </div>
