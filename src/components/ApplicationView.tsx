@@ -208,6 +208,7 @@ function ApplicationDetails({ application }: { application: Application }) {
     <div>
       <Group title="Personal">
         <Field label="Name">{[application.first_name, application.last_name].filter(Boolean).join(" ")}</Field>
+        <Field label="Preferred name">{application.preferred_name}</Field>
         <Field label="Email">{application.email}</Field>
         <Field label="Phone">{application.phone}</Field>
         <Field label="Age">{application.age?.toString()}</Field>

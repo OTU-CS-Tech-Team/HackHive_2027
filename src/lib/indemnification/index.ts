@@ -7,6 +7,7 @@ import { isOntarioTech } from "@/lib/schools";
 export type IndemnificationApplicant = {
   firstName: string;
   lastName: string;
+  preferredName: string;
   university: string;
   linkedinUrl: string;
   githubUrl: string;
@@ -20,6 +21,9 @@ type GuestStamp =
   | { readonly role: "ontario-tech" }
   | { readonly role: "external-guest"; readonly signedName: string; readonly date: string };
 
+// Every applicant attends as a student.
+const PROFESSIONAL_ROLE = "Student";
+
 const FONT_SIZE = 12;
 const MIN_FONT_SIZE = 6;
 const LINE_HEIGHT = 13.4;
@@ -28,6 +32,9 @@ const LINE_HEIGHT = 13.4;
 // bottom-left. y is the first baseline, matching the text already on the form.
 const BOXES = {
   fullLegalName: { page: 1, x: 206, y: 337.3, width: 331 },
+  nickname: { page: 1, x: 206, y: 317.2, width: 331 },
+  professionalRole: { page: 1, x: 206, y: 297.0, width: 331 },
+  affiliation: { page: 1, x: 207, y: 276.9, width: 330 },
   background: { page: 1, x: 207, y: 200.1, width: 330 },
   profileLinks: { page: 1, x: 206, y: 119.1, width: 330 },
   guestName: { page: 4, x: 176, y: 442.3, width: 187 },
@@ -102,6 +109,9 @@ export async function previewFilledForm(applicant: IndemnificationApplicant, at:
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
   drawLines(pages, font, BOXES.fullLegalName, [fullLegalName(applicant)]);
+  drawLines(pages, font, BOXES.nickname, [applicant.preferredName.trim()]);
+  drawLines(pages, font, BOXES.professionalRole, [PROFESSIONAL_ROLE]);
+  drawWrapped(pages, font, BOXES.affiliation, applicant.university.trim());
   drawWrapped(pages, font, BOXES.background, applicant.university.trim());
   drawLines(
     pages,

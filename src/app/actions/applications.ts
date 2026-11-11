@@ -267,6 +267,7 @@ async function verifyResumeExists(supabase: Awaited<ReturnType<typeof createClie
 function toIndemnificationApplicant(fields: {
   first_name: string;
   last_name: string;
+  preferred_name?: string | null;
   university: string;
   linkedin_url?: string | null;
   github_url?: string | null;
@@ -275,6 +276,7 @@ function toIndemnificationApplicant(fields: {
   return {
     firstName: fields.first_name,
     lastName: fields.last_name,
+    preferredName: fields.preferred_name ?? '',
     university: fields.university,
     linkedinUrl: fields.linkedin_url ?? '',
     githubUrl: fields.github_url ?? '',
@@ -285,6 +287,7 @@ function toIndemnificationApplicant(fields: {
 export async function previewIndemnification(input: {
   first_name: string;
   last_name: string;
+  preferred_name: string;
   university: string;
   linkedin_url: string;
   github_url: string;
@@ -455,6 +458,7 @@ export async function submitApplication(input: {
       p_submission_id: input.submissionId,
       p_first_name: data.first_name,
       p_last_name: data.last_name,
+      p_preferred_name: data.preferred_name || null,
       p_phone: data.phone,
       p_age: data.age,
       p_pronouns: data.pronouns || null,
@@ -489,6 +493,7 @@ export async function submitApplication(input: {
       p_consent_photo: data.consent_photo ?? null,
       p_share_resume_with_sponsors: data.share_resume_with_sponsors ?? null,
       p_consent_indemnification: data.consent_indemnification,
+      p_consent_esignature: data.consent_esignature,
       p_indemnification_path: indemnificationPath,
       p_stamped_at: stampedAt.toISOString(),
       p_email: user.email.toLowerCase(),
@@ -516,6 +521,10 @@ export async function submitApplication(input: {
           error: 'You must accept the indemnification form',
           fieldErrors: { consent_indemnification: ['You must accept the indemnification form'] },
         };
+      }
+      if (response.error === 'esignature_required') {
+        const message = 'You must agree that electronic signatures are legally binding';
+        return { ok: false, code: 'validation', error: message, fieldErrors: { consent_esignature: [message] } };
       }
       return { ok: false, code: 'server', error: response.error };
     }

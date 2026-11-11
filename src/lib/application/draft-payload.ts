@@ -1,6 +1,7 @@
 export interface DraftFormData {
   first_name: string;
   last_name: string;
+  preferred_name: string;
   phone: string;
   age: string;
   pronouns: string;
@@ -33,6 +34,7 @@ export interface DraftFormData {
   consent_coc: boolean;
   consent_privacy: boolean;
   consent_indemnification: boolean;
+  consent_esignature: boolean;
   consent_photo: boolean;
   share_resume_with_sponsors: boolean;
 }
@@ -40,6 +42,7 @@ export interface DraftFormData {
 export const initialFormData: DraftFormData = {
   first_name: "",
   last_name: "",
+  preferred_name: "",
   phone: "",
   age: "",
   pronouns: "",
@@ -72,6 +75,7 @@ export const initialFormData: DraftFormData = {
   consent_coc: false,
   consent_privacy: false,
   consent_indemnification: false,
+  consent_esignature: false,
   consent_photo: false,
   share_resume_with_sponsors: false,
 };
@@ -85,6 +89,7 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
   return {
     first_name: data.first_name || "",
     last_name: data.last_name || "",
+    preferred_name: data.preferred_name || "",
     phone: data.phone || "",
     age: data.age ? parseInt(data.age, 10) : null,
     pronouns: data.pronouns || "",
@@ -118,6 +123,7 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
     consent_coc: data.consent_coc,
     consent_privacy: data.consent_privacy,
     consent_indemnification: data.consent_indemnification,
+    consent_esignature: data.consent_esignature,
     consent_photo: data.consent_photo,
     share_resume_with_sponsors: data.share_resume_with_sponsors,
   };

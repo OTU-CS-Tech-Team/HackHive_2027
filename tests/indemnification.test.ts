@@ -31,6 +31,7 @@ function lineAfter(items: Item[], label: string): string[] {
 const applicant = (university: string): IndemnificationApplicant => ({
   firstName: '  Ada ',
   lastName: ' Lovelace ',
+  preferredName: '',
   university,
   linkedinUrl: 'https://linkedin.com/in/ada',
   githubUrl: '',
@@ -69,6 +70,8 @@ describe('indemnification form filler', () => {
     const guestInfo = pages[1];
 
     expect(lineAfter(guestInfo, 'Full Legal Name')).toEqual(['Ada Lovelace']);
+    expect(lineAfter(guestInfo, 'Professional Title/Role')).toEqual(['Student']);
+    expect(lineAfter(guestInfo, 'Affiliation(s)')).toEqual(['University of Toronto']);
     expect(lineAfter(guestInfo, 'Background/Credentials')).toEqual(['University of Toronto']);
     const profileLabel = guestInfo.find((i) => i.str.startsWith('Profile Link(s)'))!;
     expect(guestInfo
@@ -81,6 +84,13 @@ describe('indemnification form filler', () => {
     expect(all).toContain('OTU Computer Science');
     expect(all).toContain('Hackhive 2027');
     expect(all).toContain('2026-11-11');
+    expect(all).toContain('400');
     expect(all.match(/Maryam Baz/g)).toHaveLength(3);
+  });
+
+  it('prints the preferred name as the nickname', async () => {
+    const pages = await pageItems(await previewFilledForm({ ...applicant('University of Toronto'), preferredName: ' Countess ' }, at));
+    expect(lineAfter(pages[1], 'Nickname(s)')).toEqual(['Countess']);
+    expect(lineAfter(pages[1], 'Full Legal Name')).toEqual(['Ada Lovelace']);
   });
 });

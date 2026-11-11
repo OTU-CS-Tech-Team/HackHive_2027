@@ -40,6 +40,19 @@ import {
 
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
+const CODE_OF_CONDUCT_URL =
+  "https://docs.google.com/document/d/1QBaoQ1ohf4nnto3Gptz6SJzoHe3rNQJM7Rsc2Vbk0S8/edit?usp=sharing";
+
+// Everything the "Agree to all" box ticks. Code of Conduct and Privacy Policy
+// share one checkbox, so they move together.
+const CONSENT_FIELDS = [
+  "consent_coc",
+  "consent_privacy",
+  "consent_indemnification",
+  "consent_esignature",
+  "share_resume_with_sponsors",
+] as const;
+
 const YEAR_OF_STUDY_OPTIONS = [
   { value: "1", label: "1st year" },
   { value: "2", label: "2nd year" },
@@ -130,6 +143,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
       const result = await previewIndemnification({
         first_name: formData.first_name,
         last_name: formData.last_name,
+        preferred_name: formData.preferred_name,
         university: formData.university,
         linkedin_url: formData.linkedin_url,
         github_url: formData.github_url,
@@ -216,23 +230,33 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     }, 2000);
   }, [persistDraft, userId]);
 
-  const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
-    const next = { ...formDataRef.current, [field]: value };
+  const updateFields = (patch: Partial<FormData>) => {
+    const next = { ...formDataRef.current, ...patch };
     formDataRef.current = next;
     setFormData(next);
 
     // A new or removed resume saves at once with the whole draft, replacing any
     // pending autosave that still holds the old resume path.
-    if (field === "resume_path") saveNow(next);
+    if ("resume_path" in patch) saveNow(next);
     else debouncedSave(next);
 
-    if (errors[field]) {
+    const changed = Object.keys(patch);
+    if (changed.some((field) => errors[field])) {
       setErrors((prev) => {
         const next = { ...prev };
-        delete next[field];
+        for (const field of changed) delete next[field];
         return next;
       });
     }
+  };
+
+  const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
+    updateFields({ [field]: value } as Partial<FormData>);
+  };
+
+  const allConsentsChecked = CONSENT_FIELDS.every((field) => formData[field]);
+  const setAllConsents = (checked: boolean) => {
+    updateFields(Object.fromEntries(CONSENT_FIELDS.map((field) => [field, checked])) as Partial<FormData>);
   };
 
   const validateForm = (): boolean => {
@@ -265,6 +289,8 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
       newErrors.consent_coc = "You must agree to the Code of Conduct and Privacy Policy";
     if (!formData.consent_indemnification)
       newErrors.consent_indemnification = "You must accept the indemnification form";
+    if (!formData.consent_esignature)
+      newErrors.consent_esignature = "You must agree that electronic signatures are legally binding";
 
     if (isUnder18) {
       if (!formData.guardian_name.trim()) newErrors.guardian_name = "Guardian name is required";
@@ -310,6 +336,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         fields: {
           first_name: formData.first_name,
           last_name: formData.last_name,
+          preferred_name: formData.preferred_name || null,
           phone: formData.phone,
           age: parseInt(formData.age, 10),
           pronouns: formData.pronouns || null,
@@ -343,6 +370,7 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           consent_coc: formData.consent_coc,
           consent_privacy: formData.consent_privacy,
           consent_indemnification: formData.consent_indemnification,
+          consent_esignature: formData.consent_esignature,
           consent_photo: formData.consent_photo || null,
           share_resume_with_sponsors: formData.share_resume_with_sponsors || null,
         },
@@ -457,6 +485,16 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
             error={errors.last_name}
           />
         </div>
+        <FormField
+          label="Preferred name (optional)"
+          name="preferred_name"
+          value={formData.preferred_name}
+          onChange={(v) => updateField("preferred_name", v)}
+          maxLength={FIELD_LIMITS.preferred_name}
+          autoComplete="nickname"
+          placeholder="A nickname, if you go by one"
+          error={errors.preferred_name}
+        />
         <FormField
           label="Email"
           name="email"
@@ -782,17 +820,36 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
       )}
 
       <FormSection title="Consent">
-        <CheckboxField
-          label="I agree to the HackHive Code of Conduct and Privacy Policy"
-          name="consent_coc"
-          checked={formData.consent_coc && formData.consent_privacy}
-          onChange={(v) => {
-            updateField("consent_coc", v);
-            updateField("consent_privacy", v);
-          }}
-          required
-          error={errors.consent_coc || errors.consent_privacy}
-        />
+        <div className="border-b border-neutral-200 pb-3">
+          <CheckboxField
+            label="Agree to all"
+            name="consent_all"
+            checked={allConsentsChecked}
+            onChange={setAllConsents}
+          />
+        </div>
+        <div className="space-y-2">
+          <CheckboxField
+            label="I agree to the HackHive Code of Conduct and Privacy Policy"
+            name="consent_coc"
+            checked={formData.consent_coc && formData.consent_privacy}
+            onChange={(v) => updateFields({ consent_coc: v, consent_privacy: v })}
+            required
+            error={errors.consent_coc || errors.consent_privacy}
+          />
+          {formData.consent_coc && formData.consent_privacy && (
+            <div className="ml-7 text-sm">
+              <a
+                href={CODE_OF_CONDUCT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-neutral-900 underline"
+              >
+                View Code of Conduct and Privacy Policy
+              </a>
+            </div>
+          )}
+        </div>
         <div className="space-y-2">
           <CheckboxField
             label="I accept the external guest indemnification form"
@@ -820,6 +877,14 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
             </div>
           )}
         </div>
+        <CheckboxField
+          label="The parties agree that electronic signatures are legally binding"
+          name="consent_esignature"
+          checked={formData.consent_esignature}
+          onChange={(v) => updateField("consent_esignature", v)}
+          required
+          error={errors.consent_esignature}
+        />
         <CheckboxField
           label="I'd like to share my resume with event sponsors"
           name="share_resume_with_sponsors"
