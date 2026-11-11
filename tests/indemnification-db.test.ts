@@ -17,7 +17,7 @@ async function submit(overrides: Record<string, unknown> = {}): Promise<SubmitRe
     p_team_status: 'solo', p_teammate_emails: null, p_dietary: null, p_accessibility: null, p_tshirt_size: 'M',
     p_needs_travel_help: null, p_gender: null, p_ethnicity: null, p_guardian_name: null, p_guardian_phone: null,
     p_guardian_relationship: null, p_consent_coc: true, p_consent_privacy: true, p_consent_photo: null,
-    p_share_resume_with_sponsors: null, p_consent_indemnification: true,
+    p_share_resume_with_sponsors: null, p_consent_indemnification: true, p_consent_esignature: true,
     p_indemnification_path: `${USER}/sub-1.pdf`, p_stamped_at: '2027-01-02T04:30:00Z', p_email: 'Ada@Example.com',
     p_user_id: USER, ...overrides,
   };
@@ -27,7 +27,7 @@ async function submit(overrides: Record<string, unknown> = {}): Promise<SubmitRe
 }
 
 const row = async () => (await db.query<Record<string, unknown>>(
-  'select status, submitted_at, submission_id, email, consent_indemnification, indemnification_path from public.applications where user_id=$1',
+  'select status, submitted_at, submission_id, email, consent_indemnification, consent_esignature, indemnification_path from public.applications where user_id=$1',
   [USER])).rows[0];
 
 beforeAll(async () => {
@@ -44,6 +44,7 @@ beforeAll(async () => {
   await db.exec((await migration('20250101000001_initial_schema')).replace(/create extension[^;]*;/i, ''));
   await db.exec(await migration('20261031000000_indemnification_form'));
   await db.exec(await migration('20261111000000_other_links'));
+  await db.exec(await migration('20261113000000_preferred_name_esignature'));
   await db.exec(`insert into auth.users values ('${USER}');
     grant all on all tables in schema public to authenticated, service_role;
     set role service_role;`);
@@ -57,7 +58,7 @@ describe('reg_submit_application with the indemnification form', () => {
     expect(result.ok).toBe(true);
     expect(await row()).toEqual({
       status: 'submitted', submitted_at: new Date('2027-01-02T04:30:00Z'), submission_id: 'sub-1',
-      email: 'ada@example.com', consent_indemnification: true, indemnification_path: `${USER}/sub-1.pdf`,
+      email: 'ada@example.com', consent_indemnification: true, consent_esignature: true, indemnification_path: `${USER}/sub-1.pdf`,
     });
   });
 
@@ -83,6 +84,25 @@ describe('reg_submit_application with the indemnification form', () => {
   ])('refuses to submit without an accepted form in the applicant folder: %j', async (overrides) => {
     expect(await submit(overrides)).toEqual({ error: 'indemnification_required' });
     expect(await row()).toBeUndefined();
+  });
+
+  it.each([{ p_consent_esignature: false }, { p_consent_esignature: null }])(
+    'refuses to submit without the electronic signature agreement: %j',
+    async (overrides) => {
+      expect(await submit(overrides)).toEqual({ error: 'esignature_required' });
+      expect(await row()).toBeUndefined();
+    },
+  );
+
+  it('stores the preferred name when given and leaves it null otherwise', async () => {
+    const preferred = async () => (await db.query<{ preferred_name: string | null }>(
+      'select preferred_name from public.applications where user_id=$1', [USER])).rows[0].preferred_name;
+    expect((await submit()).ok).toBe(true);
+    expect(await preferred()).toBeNull();
+
+    await db.exec('delete from public.applications;');
+    expect((await submit({ p_preferred_name: 'Countess' })).ok).toBe(true);
+    expect(await preferred()).toBe('Countess');
   });
 
   it('stores extra links when given and leaves them null otherwise', async () => {

@@ -11,6 +11,7 @@ export const WORD_LIMITS = {
 export const FIELD_LIMITS = {
   first_name: 100,
   last_name: 100,
+  preferred_name: 100,
   phone: 30,
   pronouns: 50,
   city: 100,

@@ -90,6 +90,7 @@ const fields = {
   consent_coc: true,
   consent_privacy: true,
   consent_indemnification: true,
+  consent_esignature: true,
 };
 
 const submit = () => submitApplication({
@@ -130,6 +131,7 @@ describe('submitApplication with the indemnification form', () => {
     const args = rpc.mock.calls.find(([name]) => name === 'reg_submit_application')![1];
     expect(args).toMatchObject({
       p_consent_indemnification: true,
+      p_consent_esignature: true,
       p_indemnification_path: path,
       p_email: 'ada@example.com',
       p_user_id: USER_ID,
@@ -195,6 +197,7 @@ describe('previewIndemnification', () => {
     const result = await previewIndemnification({
       first_name: 'Ada',
       last_name: 'Lovelace',
+      preferred_name: '',
       university: 'Ontario Tech',
       linkedin_url: '',
       github_url: '',
