@@ -554,6 +554,90 @@ function fillButtonBand(lilies: Item[], daisies: Item[], lupins: Item[]) {
   }
 }
 
+/**
+ * Flowers that only belong in a wide frame carry this in their phase. The
+ * shaders drop an instance whose phase is past WIDE_ONLY below aspect
+ * 1.15, and past NOT_PHONE below aspect 0.6, so a narrow frame does not
+ * pull them onto its edge. Sway only uses the phase in a sine, so the
+ * offset does not change how a flower moves.
+ */
+export const WIDE_ONLY = 100;
+export const NOT_PHONE = 200;
+
+/** The trunk of the wide tree. The garden leaves it a clear foot. */
+const WIDE_TRUNK_X = TREE.x + TREE.shiftWide;
+
+/**
+ * The lawn behind and beside the front beds, out to the frame at 1920
+ * wide. Rows of jittered spots, in drifts of one colour family so it reads
+ * as planted beds and not confetti. Past z -1.6 the flowers join the far
+ * specks; nearer, they use the mid meshes. In front of the path's end
+ * (z 0.35) only the outer lawns are planted, well clear of every path.
+ * Spots a tablet or phone never sees, and the band behind the copy on a
+ * narrow screen, are tagged so those frames skip them. The low tier
+ * leaves the wide-only spots out.
+ */
+function fillGarden(
+  mid: { lilies: Item[]; daisies: Item[]; lupins: Item[] },
+  far: { lilies: Item[]; daisies: Item[]; lupins: Item[] },
+  compact: boolean,
+) {
+  const rng = mulberry32(2411);
+  const rowStep = 0.26;
+  const colStep = 0.3;
+  const z0 = -3.85;
+  const z1 = 1.65;
+  for (let z = z0; z <= z1; z += rowStep) {
+    const edge = frameHalf(z, 1.6) * 1.12;
+    for (let x = -edge; x <= edge; x += colStep) {
+      const fz = z + (rng() - 0.5) * rowStep * 0.9;
+      const fx = x + (rng() - 0.5) * colStep * 0.9;
+      const drift = Math.sin(fx * 0.9 + 1.3) * Math.cos(fz * 1.1 - 0.4) + (rng() - 0.5) * 0.7;
+      if (rng() < 0.1) continue;
+      if (Math.abs(fx) > frameHalf(fz, 1.6) * 1.12) continue;
+      // The path has faded out under the tree by z 0.3. In front of that,
+      // only the outer lawns, a full stride from any path.
+      if (fz > 0.3) {
+        if (onAnyPath(fx, fz)) continue;
+        const outerLeft = fx < -1.2 && fx < pathCenterMid(fz) - 1.5;
+        const outerRight = fx > WIDE_TRUNK_X + 0.9;
+        if (!outerLeft && !outerRight) continue;
+      }
+      // Keep the wide trunk standing in grass.
+      if (Math.abs(fx - WIDE_TRUNK_X) < 0.45 && fz > 0.1 && fz < 1.7) continue;
+      const tabletSees = Math.abs(fx) < visibleHalf(fz, 0.75) * 0.96;
+      const phoneSees = Math.abs(fx) < visibleHalf(fz, 0.46) * 0.96;
+      // On a tablet or phone, the lawn straight ahead sits behind the copy.
+      const behindCopy = fz < -0.4 && Math.abs(fx - 0.25) < 1.25;
+      let tag = 0;
+      if (!tabletSees || behindCopy) tag = WIDE_ONLY;
+      else if (!phoneSees) tag = NOT_PHONE;
+      const kind = drift > 0.28 ? "lupin" : drift < -0.3 ? "lily" : "daisy";
+      const isFar = fz < -1.6;
+      const shrink = isFar ? 0.7 : 0.86 - Math.max(0, -fz) * 0.08;
+      const target = isFar ? far : mid;
+      const list = kind === "lupin" ? target.lupins : kind === "lily" ? target.lilies : target.daisies;
+      if (kind === "lupin") {
+        const tint = paint(rng, true);
+        const size = (0.46 + rng() * 0.2) * shrink;
+        placeFlower(list, rng, fx, 0.02, fz, size, size, tint.color, tint.tip, 0, Math.PI * 2);
+      } else if (kind === "lily") {
+        const size = (0.26 + rng() * 0.12) * shrink;
+        placeFlower(list, rng, fx, 0.02, fz, size, size, [1, 1, 1], undefined, 0.6, 0.6);
+      } else {
+        const size = (0.17 + rng() * 0.09) * shrink;
+        placeFlower(list, rng, fx, 0.02, fz, size, size, [1, 1, 1], undefined, 0, Math.PI * 2);
+      }
+      // Placed, then dropped, so both tiers draw the same random sequence.
+      if (compact && tag === WIDE_ONLY) list.pop();
+      else {
+        const placed = list[list.length - 1];
+        if (placed) placed.phase += tag;
+      }
+    }
+  }
+}
+
 /** Full meshes, spread from the path shoulder out to the frame edge. */
 function scatterFull(
   count: number,
@@ -778,6 +862,7 @@ export function buildLayout(quality: Quality): SceneLayout {
   const farLilies = scatterFull(counts.farLilies, 71, -1.9, -3.75, farLilyScale, flowerClear, spread, false, 0.92, 0.5);
   const farDaisies = scatterFull(counts.farDaisies, 73, -1.9, -3.75, farDaisyScale, flowerClear, spread, false, 0, Math.PI * 2);
   const farLupins = scatterFull(counts.farLupins, 79, -1.9, -3.75, farLupinScale, flowerClear, spread, true, 0, Math.PI * 2);
+  fillGarden({ lilies: midLilies, daisies: midDaisies, lupins: midLupins }, { lilies: farLilies, daisies: farDaisies, lupins: farLupins }, compact);
   const blossoms = buildBlossoms();
 
   const grassRng = mulberry32(101);
@@ -838,6 +923,7 @@ export function buildLayout(quality: Quality): SceneLayout {
 
   const glowItems: Item[] = [];
   const glowLilies = [...nearLilies, ...midLilies]
+    .filter((flower) => flower.phase < WIDE_ONLY)
     .filter((flower) => Math.abs(flower.x - pathCenterAt(flower.z)) > 1.05 && Math.abs(flower.x - pathCenterMid(flower.z)) > 0.55)
     .sort((a, b) => b.z - a.z)
     .slice(0, 8);

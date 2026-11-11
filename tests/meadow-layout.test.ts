@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLupinGeometry } from "@/components/landing/meadow/geometry";
-import { GRASS_CLEAR, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
+import { GRASS_CLEAR, NOT_PHONE, WIDE_ONLY, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
 import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
 import { sceneBudget } from "@/components/landing/meadow/stats";
 import { readForcedTrim, trimmedInstances, trimmedSparks } from "@/components/landing/meadow/trim";
@@ -50,6 +50,9 @@ describe("meadow layout", () => {
           const x = group.matrices[index * 16 + 12] ?? 0;
           const z = group.matrices[index * 16 + 14] ?? 0;
           if (z < -1.2 || z > 3.2) continue;
+          // The beds that line the path. The open lawn further out is
+          // checked on its own below.
+          if (Math.abs(x - pathCenterAt(z)) > 2.6) continue;
           if (x < pathCenterAt(z)) left += 1;
           else right += 1;
         }
@@ -58,6 +61,31 @@ describe("meadow layout", () => {
     expect(left).toBeGreaterThan(40);
     expect(right).toBeGreaterThan(40);
     expect(Math.abs(left - right) / Math.max(left, right)).toBeLessThan(0.25);
+  });
+
+  it("plants the lawn behind the beds out to a wide frame", () => {
+    const high = buildLayout("high");
+    const low = buildLayout("low");
+    const count = (layout: ReturnType<typeof buildLayout>, test: (x: number, z: number, phase: number) => boolean) => {
+      let total = 0;
+      for (const patch of layout.patches) {
+        for (const group of [patch.lilies, patch.daisies, patch.lupins]) {
+          for (let index = 0; index < group.count; index += 1) {
+            const x = group.matrices[index * 16 + 12] ?? 0;
+            const z = group.matrices[index * 16 + 14] ?? 0;
+            if (test(x, z, group.phases[index] ?? 0)) total += 1;
+          }
+        }
+      }
+      return total;
+    };
+    // The open lawn left of the beds and right of the tree, behind the front garden.
+    expect(count(high, (x, z) => z < 0.4 && z > -3.9 && x < -2)).toBeGreaterThan(120);
+    expect(count(high, (x, z) => z < 0.4 && z > -3.9 && x > 3.2)).toBeGreaterThan(80);
+    // Wide-only spots stay out of the low tier, and every tag is one the shaders know.
+    expect(count(low, (_x, _z, phase) => phase >= WIDE_ONLY && phase < NOT_PHONE)).toBe(0);
+    expect(count(high, (_x, _z, phase) => phase >= WIDE_ONLY && phase < NOT_PHONE)).toBeGreaterThan(100);
+    expect(count(high, (_x, _z, phase) => phase >= NOT_PHONE + 50)).toBe(0);
   });
 
   it("thins a shuffled prefix across the depth of every patch", () => {
@@ -117,8 +145,15 @@ describe("meadow layout", () => {
     expect(low.draws).toBe(20);
     expect(high.triangles).toBeLessThan(350_000);
     expect(low.triangles).toBeLessThan(high.triangles);
-    expect(low.instances.lilies).toBe(high.instances.lilies);
-    expect(low.instances.lupins).toBe(high.instances.lupins);
+    // The low tier keeps every flower a tablet or phone can see. It only
+    // leaves out the lawn that a wide frame alone shows.
+    const wideOnly = (kind: "lilies" | "lupins") =>
+      buildLayout("high").patches.reduce((sum, patch) => {
+        const phases = patch[kind].phases;
+        return sum + phases.filter((phase) => phase >= WIDE_ONLY && phase < NOT_PHONE).length;
+      }, 0);
+    expect(low.instances.lilies).toBe(high.instances.lilies - wideOnly("lilies"));
+    expect(low.instances.lupins).toBe(high.instances.lupins - wideOnly("lupins"));
     expect(low.instances.blossoms).toBe(high.instances.blossoms);
   });
 

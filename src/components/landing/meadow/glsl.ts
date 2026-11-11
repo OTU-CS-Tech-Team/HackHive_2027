@@ -1,4 +1,5 @@
 import { VIEW } from "@/components/landing/meadow/palette";
+import { NOT_PHONE, WIDE_ONLY } from "@/components/landing/meadow/layout";
 import { TREE } from "@/components/landing/meadow/tree";
 
 const VIEW_START_Z = VIEW.startZ;
@@ -181,7 +182,19 @@ void parkOffPath(inout vec3 world, vec3 foot, float stem) {
 }
 `;
 
-export const PLANT_VERT = PATH + PARK_FLOWER + /* glsl */ `
+const HIDE_FLOWER = /* glsl */ `
+/**
+ * Garden spots only a wide frame sees carry WIDE_ONLY or NOT_PHONE in their
+ * phase (see layout.ts). Below their aspect the instance is dropped before
+ * it reaches a fragment.
+ */
+bool hiddenAtAspect(float phase) {
+  float below = phase > ${(NOT_PHONE - 50).toFixed(1)} ? 0.6 : (phase > ${(WIDE_ONLY - 50).toFixed(1)} ? 1.15 : 0.0);
+  return uAspect < below;
+}
+`;
+
+export const PLANT_VERT = PATH + PARK_FLOWER + HIDE_FLOWER + /* glsl */ `
 attribute float aPhase;
 attribute float aBend;
 attribute vec3 aTint;
@@ -212,6 +225,10 @@ void settlePortrait(inout vec3 world, vec3 origin) {
 }
 
 void main() {
+  if (hiddenAtAspect(aPhase)) {
+    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+    return;
+  }
   #ifdef USE_INSTANCING
     vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
     vec3 n = mat3(instanceMatrix) * normal;
@@ -294,7 +311,7 @@ void main() {
  * base, aTip is the tip, and color.r is the height along the spike. A stem
  * vertex keeps its own green (color.b stays below 1).
  */
-export const LUPIN_VERT = PATH + PARK_FLOWER + /* glsl */ `
+export const LUPIN_VERT = PATH + PARK_FLOWER + HIDE_FLOWER + /* glsl */ `
 attribute float aPhase;
 attribute float aBend;
 attribute vec3 aTint;
@@ -325,6 +342,10 @@ void settlePortrait(inout vec3 world, vec3 origin) {
 }
 
 void main() {
+  if (hiddenAtAspect(aPhase)) {
+    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+    return;
+  }
   #ifdef USE_INSTANCING
     vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
     vec3 n = mat3(instanceMatrix) * normal;
