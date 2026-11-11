@@ -1,0 +1,328 @@
+.display {
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+.heroScroll {
+  position: relative;
+  isolation: isolate;
+  /* Above Sponsors, so the stage covers its .dawn during the overlap. */
+  z-index: 1;
+  /* 0.45vh of walk. */
+  height: calc(var(--path-vh, 100svh) * 1.45);
+  /* Exactly the height of Sponsors' .dawn, so the stage's bottom edge meets
+     the gold that .dawn ends on and its white and cream never show. Keep in
+     step with .dawn in SponsorsSection.module.css. */
+  margin-bottom: calc(-1 * clamp(3.25rem, 9vh, 6rem));
+  background: transparent;
+}
+
+.heroStage {
+  position: sticky;
+  top: 0;
+  height: var(--path-vh, 100svh);
+  overflow: hidden;
+  background: #d7eef8;
+}
+
+.heroVeil {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background-color: transparent;
+  pointer-events: none;
+}
+
+.content {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Centre in the band under the 4rem bar, then lift 12svh. Exact
+     centring leaves the wordmark on the horizon, where the far tree
+     will stand. This offset keeps the letters in the sky and drops
+     that point toward the button, without sitting on the navbar. */
+  padding:
+    calc(4rem + env(safe-area-inset-top, 0px))
+    1.25rem
+    calc(24svh + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  animation: heroEnter 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* First-load intro: the copy waits under the honeycomb and through the
+   descent, then rises over its last half second. A failsafe brings it
+   in if the intro never runs to the end. */
+:global(html[data-intro="loading"]) .content,
+:global(html[data-intro="wipe"]) .content {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: introCopyFailsafe 0.5s ease 9.5s forwards;
+}
+
+:global(html[data-intro="text"]) .content,
+:global(html[data-intro="done"]) .content {
+  animation: none;
+  transition:
+    opacity var(--intro-text, 500ms) ease-out,
+    transform var(--intro-text, 500ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Later loads in a session: no honeycomb. The copy rises in three beats
+   (title, the date lines, the button) over the stage's sky colour, and the
+   live scene fades up behind it with a slight settle as soon as it is
+   ready. The poster is dropped at once when the scene is ready: a still
+   only lines up with the scene at its own aspect, and a cross-fade
+   elsewhere shows a double image. If the scene is slow, the delayed
+   animation brings the meadow in with the poster still up, so an undrawn
+   canvas never shows as black. */
+:global(html[data-intro="lite"]) .meadow {
+  opacity: 0;
+  animation: liteMeadow 650ms cubic-bezier(0.22, 1, 0.36, 1) 4s both;
+}
+
+:global(html[data-intro="lite"]) .meadow:has([data-ready="true"]) {
+  animation-delay: 0s;
+}
+
+:global(html[data-intro="lite"]) .poster[data-ready="true"] {
+  visibility: hidden;
+  transition: none;
+}
+
+:global(html[data-intro="lite"]) .content {
+  animation: none;
+}
+
+:global(html[data-intro="lite"]) .heroTitle {
+  animation: liteRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+:global(html[data-intro="lite"]) .heroDate,
+:global(html[data-intro="lite"]) .heroLead {
+  animation: liteRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+}
+
+:global(html[data-intro="lite"]) .hero :global(a) {
+  animation: liteRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
+}
+
+@keyframes liteMeadow {
+  from {
+    opacity: 0;
+    transform: scale(1.025);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes liteRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes introCopyFailsafe {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes heroEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.copy {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.copy > * {
+  pointer-events: auto;
+}
+
+.copy > .hero {
+  max-height: none;
+  overflow: visible;
+}
+
+.hero {
+  display: flex;
+  width: min(100%, 68rem);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* From a tablet up the copy sits left, in line with the logo, so the
+   tree and the right of the meadow stay open. A phone keeps it centred. */
+@media (min-width: 768px) {
+  .content {
+    justify-content: flex-start;
+    padding-left: clamp(2rem, 7vw, 8rem);
+    padding-right: clamp(2rem, 7vw, 8rem);
+  }
+
+  .copy {
+    justify-content: flex-start;
+  }
+
+  .hero {
+    width: auto;
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.heroTitle {
+  display: grid;
+  margin: 0;
+  color: #fff;
+  /* About a third of a wide frame, heavy enough that the gradient holds over the peaks. */
+  font-size: clamp(3rem, 7.4vw, 8.75rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 0.88;
+}
+
+.heroYear::before {
+  content: "\00a0";
+}
+
+/* Honey letters, the same gold-to-amber as the join button. Each line
+   carries its own gradient so a phone's two lines match. The shadow is a
+   filter, not text-shadow, which would paint over clipped text. The two
+   zero-offset deep-amber shadows draw a thin edge all the way round, so
+   the light top of each glyph holds against the pale sky (the gradient
+   alone is under 3:1 there); a soft brown lift sets them above the peaks. */
+.heroFace {
+  grid-area: 1 / 1;
+  color: #b8680a;
+  filter:
+    drop-shadow(0 0 0.6px rgba(74, 36, 0, 0.95))
+    drop-shadow(0 0 0.6px rgba(74, 36, 0, 0.95))
+    drop-shadow(0 2px 4px rgba(110, 58, 0, 0.25));
+}
+
+.heroLine,
+.heroYear {
+  padding-bottom: 0.06em;
+  background-image: linear-gradient(180deg, #f2b53d 0%, #e09620 30%, #c2700c 62%, #8a4807 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  color: transparent;
+}
+
+/* Date and place: dark and heavy, the firmest line under the title. */
+.heroDate {
+  color: #2e1b04;
+  text-shadow:
+    0 0 1px rgba(255, 248, 230, 0.9),
+    0 0 12px rgba(255, 246, 224, 0.75),
+    0 0 26px rgba(255, 246, 224, 0.5);
+}
+
+/* The apply line: the same ink, a step lighter. */
+.heroLead {
+  color: #3d2a12;
+  text-shadow:
+    0 0 1px rgba(255, 248, 230, 0.85),
+    0 0 12px rgba(255, 246, 224, 0.7),
+    0 0 24px rgba(255, 246, 224, 0.45);
+}
+
+@media (max-width: 767px) {
+  .heroTitle {
+    /* "HackHive" on its own line, with room to spare inside 390px. */
+    font-size: 18.5vw;
+    letter-spacing: -0.05em;
+  }
+
+  .heroYear {
+    display: block;
+  }
+
+  .heroYear::before {
+    content: none;
+  }
+}
+
+
+.poster {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 600ms ease;
+  pointer-events: none;
+}
+
+.poster[data-ready="true"] {
+  opacity: 0;
+}
+
+/* Under the honeycomb the poster can go at once: the wipe must open on the
+   live scene at its start pose, not a fading still of the resting view. */
+:global(html[data-intro="loading"]) .poster {
+  transition: none;
+}
+
+.posterImg,
+.posterFallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-color: #d7eef8;
+  background-position: center;
+  background-size: cover;
+  /* Blurred first frame, inlined so it paints before the poster request. */
+  background-image: url("data:image/webp;base64,UklGRsIAAABXRUJQVlA4ILYAAACQBQCdASogABQAPu1opk2ppiMiMBgMATAdiWwAsR8vwaoRoinE49JgSbkT1a6pv/dXO7vEEAD+7T56+w7j1OPdlaPicSXTKAkRioIaIzn0V8pfVWJqk2MQh4i0PqbySLuLge3IkRXQPmxUdFncYa7dncYy9Uek7HqwZn7T5m9rzYnT5EWRj4rmJzfdpbcmKZs4rkW6213SyOV8ek/nBxFIft8fUQhneSlnUqdtZyCVgkcdf0EAAA==");
+}
+
+.posterFallback {
+  background-image: linear-gradient(180deg, #d7eef8 0%, #f4e4b4 40%, #b7d57a 72%, #8fbe58 100%);
+}
+
+@media (max-width: 1023px) {
+  .posterImg {
+    background-image: url("data:image/webp;base64,UklGRnIBAABXRUJQVlA4IGYBAAAwCACdASogACsAPu1eqE4ppKOiMBqqqTAdiWwAsR80RggiqnpRR76dOgNYsSkP3qELTHsaMgym1taybnDU9ipyI3Muql2gMCrQAAD+/B8UBYlWRLl0zdfPS7cnb0OvscBJ8YIXyMlqEngGFjHmZQSeLKNJLeTYB6Y2mWJtbyraDymtZ5AtUl/lziAkNkeoxazU/os+3BlGwpAUk9HQZiGhtCtBSgXrWkAeRmWiAVFYQhl2hGxV8XlJJkQxuSqoXVTPVpXNRUgfpNqCBPtFrPzvpPwwf67K6jb8IW1r8dxBjKxSycbE1DooGwE/T6Dw30pggdBN969Z8TrSPG3wjn/mencArnABnLmbEJwabAUM/P5N/Mwaax8oJ3MPUDl7irqSOJW+1ehQQv/2bOUGsUOwKp62EYUTlfE6/me1vbO/NZrSc/Mu9Nbhbo2Yd41VALhPmmERBjRM6gPmrWF3lh+mMCbTwAAA");
+  }
+}
+
+@media (max-width: 767px) {
+  .posterImg {
+    background-image: url("data:image/webp;base64,UklGRsIBAABXRUJQVlA4ILYBAABwCQCdASogAEUAPu1irFCppSQirNv4ATAdiWwAp0djzCiGmjjf8vVnKoJk8+q7aWQAfQZur4CyKPvPOMQDDTTm1/60uZeEVfiyP9R5KSgSIzYibIAA/voU0tvUt8wQm99HZCIJnpC7J4Kg+p6TRdiN1U3xMW7PDj2kugqgiuvQoJzjyWHuR5FbS9Fre7JF4XWjOvXcIuKteerHC6Ua43hwQQUiMxQx9Apavj5EP1NUXQwCa4QWQMhSGPOM2q0yNR6JPjoxmXqA3y3xsIl9XomCmNB0tS6QAbS3czlRda54l3sAqGM0a2ksjXPza7de99dHhytFYU6/eiMYAe2gXgaarZdNQx/EEJ8Yj7DjfJsUNC62SksxpJMi+PW/Uri1C7hypwniNZNFTXy31xahiIbsLSFBisVhO+7QUVk9uB+csz5CcO8r6/3nnsHp/8zK7wQ6kbsgTSal87Nm68hCGINrZL9V3UUQ2Q9eeM8EEunRG2ybRXViWEH7lhh49l/u+QC5gtTIviU1KAnBKzUKNUGbrVTub7VSrV/BfO7YrXupjdLeBagTtCRVTTo6aU2sB2cmCOCgAAA=");
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content,
+  .poster {
+    animation: none;
+    transition: none;
+  }
+}

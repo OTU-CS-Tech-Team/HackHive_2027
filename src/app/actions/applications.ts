@@ -28,6 +28,15 @@ const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_IP_MAX_ATTEMPTS = 100;
 const RATE_LIMIT_EMAIL_MAX_ATTEMPTS = 5;
 
+function issuesToFieldErrors(issues: z.core.$ZodIssue[]): Record<string, string[]> {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const issue of issues) {
+    const path = issue.path.join('.');
+    (fieldErrors[path] ??= []).push(issue.message);
+  }
+  return fieldErrors;
+}
+
 function hashKey(key: string): string {
   const secret = process.env.RATE_LIMIT_HASH_SECRET;
   if (!secret) {
@@ -82,37 +91,28 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   }
 }
 
-async function checkRateLimits(ipHash: string, emailHash: string): Promise<{ allowed: boolean; limitType?: 'ip' | 'email' }> {
+// Fails closed: if the check itself errors, the submit is refused rather than
+// let through unlimited. (A database that can't run this can't save the submit either.)
+async function checkRateLimits(ipHash: string, emailHash: string): Promise<{ allowed: boolean; limitType?: 'ip' | 'email' | 'error' }> {
   const serviceClient = createServiceClient();
-  
-  const { data: ipOk, error: ipError } = await serviceClient.rpc('reg_check_rate_limit', {
-    p_key_hash: `ip:${ipHash}`,
-    p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-    p_max_attempts: RATE_LIMIT_IP_MAX_ATTEMPTS,
-  });
-  
-  if (ipError) {
-    console.error('IP rate limit check error:', ipError);
+  const limits = [
+    { limitType: 'ip', key: `ip:${ipHash}`, max: RATE_LIMIT_IP_MAX_ATTEMPTS },
+    { limitType: 'email', key: `email:${emailHash}`, max: RATE_LIMIT_EMAIL_MAX_ATTEMPTS },
+  ] as const;
+
+  for (const { limitType, key, max } of limits) {
+    const { data: ok, error } = await serviceClient.rpc('reg_check_rate_limit', {
+      p_key_hash: key,
+      p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+      p_max_attempts: max,
+    });
+    if (error || typeof ok !== 'boolean') {
+      console.error(`${limitType} rate limit check error:`, error ?? `unexpected result ${JSON.stringify(ok)}`);
+      return { allowed: false, limitType: 'error' };
+    }
+    if (!ok) return { allowed: false, limitType };
   }
-  
-  if (ipOk === false) {
-    return { allowed: false, limitType: 'ip' };
-  }
-  
-  const { data: emailOk, error: emailError } = await serviceClient.rpc('reg_check_rate_limit', {
-    p_key_hash: `email:${emailHash}`,
-    p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-    p_max_attempts: RATE_LIMIT_EMAIL_MAX_ATTEMPTS,
-  });
-  
-  if (emailError) {
-    console.error('Email rate limit check error:', emailError);
-  }
-  
-  if (emailOk === false) {
-    return { allowed: false, limitType: 'email' };
-  }
-  
+
   return { allowed: true };
 }
 
@@ -141,18 +141,22 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
       return { ok: false, code: 'not_verified', error: 'Email not verified' };
     }
 
-    const result = applicationDraftSchema.partial().safeParse(fields);
-    
+    const draftSchema = applicationDraftSchema.partial();
+    let result = draftSchema.safeParse(fields);
+    let fieldErrors: Record<string, string[]> | undefined;
+
+    // One half-typed field (a link, an age) shouldn't stop the rest of the draft
+    // saving: drop the invalid fields, save what's valid, and report the dropped ones.
     if (!result.success) {
-      const fieldErrors: Record<string, string[]> = {};
-      for (const issue of result.error.issues) {
-        const path = issue.path.join('.');
-        if (!fieldErrors[path]) {
-          fieldErrors[path] = [];
-        }
-        fieldErrors[path].push(issue.message);
+      fieldErrors = issuesToFieldErrors(result.error.issues);
+      const invalid = new Set(result.error.issues.map((issue) => String(issue.path[0])));
+      const valid = fields && typeof fields === 'object'
+        ? Object.fromEntries(Object.entries(fields).filter(([key]) => !invalid.has(key)))
+        : {};
+      result = draftSchema.safeParse(valid);
+      if (!result.success) {
+        return { ok: false, code: 'validation', error: 'Validation failed', fieldErrors };
       }
-      return { ok: false, code: 'validation', error: 'Validation failed', fieldErrors };
     }
 
     const canSubmit = await checkDeadlineAndOpen();
@@ -188,7 +192,7 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
       return { ok: false, code: 'server', error: 'Failed to save draft' };
     }
 
-    return { ok: true, savedAt: new Date().toISOString() };
+    return { ok: true, savedAt: new Date().toISOString(), ...(fieldErrors && { fieldErrors }) };
   } catch (error) {
     console.error('saveDraft error:', error);
     return { ok: false, code: 'server', error: 'An unexpected error occurred' };
@@ -383,31 +387,28 @@ export async function submitApplication(input: {
     }
 
     const result = applicationSubmitSchema.safeParse(input.fields);
-    
+
     if (!result.success) {
-      const fieldErrors: Record<string, string[]> = {};
-      for (const issue of result.error.issues) {
-        const path = issue.path.join('.');
-        if (!fieldErrors[path]) {
-          fieldErrors[path] = [];
-        }
-        fieldErrors[path].push(issue.message);
-      }
-      return { ok: false, code: 'validation', error: 'Validation failed', fieldErrors };
+      return { ok: false, code: 'validation', error: 'Validation failed', fieldErrors: issuesToFieldErrors(result.error.issues) };
     }
 
     const clientIp = await getClientIp();
     const ipHash = hashKey(clientIp);
     const emailHash = hashKey(user.email.toLowerCase());
     
-    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
-    if (!rateLimitResult.allowed) {
-      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
-    }
-
+    // Captcha first: a failed captcha shouldn't use up a real person's attempts,
+    // and bots that fail it never reach the rate limit at all.
     const turnstileValid = await verifyTurnstile(input.turnstileToken, clientIp);
     if (!turnstileValid) {
       return { ok: false, code: 'turnstile', error: 'Captcha verification failed. Please try again.' };
+    }
+
+    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
+    if (rateLimitResult.limitType === 'error') {
+      return { ok: false, code: 'server', error: "Couldn't check your submission right now. Please try again in a minute." };
+    }
+    if (!rateLimitResult.allowed) {
+      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
     }
 
     const canSubmit = await checkDeadlineAndOpen();
@@ -467,6 +468,7 @@ export async function submitApplication(input: {
       p_linkedin_url: data.linkedin_url || null,
       p_github_url: data.github_url || null,
       p_portfolio_url: data.portfolio_url || null,
+      p_other_links: data.other_links?.length ? data.other_links : null,
       p_resume_path: data.resume_path,
       p_q_proud: data.q_proud,
       p_q_hack: data.q_hack,

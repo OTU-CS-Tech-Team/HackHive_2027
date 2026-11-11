@@ -1,74 +1,55 @@
-import Link from "next/link";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { preload } from "react-dom";
 import { Suspense } from "react";
+import { HeroCta, HeroCtaFallback } from "@/components/landing/HeroCta";
+import { HeroScroll } from "@/components/landing/HeroScroll";
+import { IntroOverlay } from "@/components/landing/intro/IntroOverlay";
 import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { SiteFooter } from "@/components/sections/SiteFooter";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
-import { createClient } from "@/lib/supabase/server";
 
-async function HeroCTA() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const isSignedIn = !!user;
+const HAS_POSTER = existsSync(path.join(process.cwd(), "public/path/poster.webp"));
 
-  if (isSignedIn) {
-    return (
-      <Link
-        href="/apply"
-        className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
-      >
-        My Application
-      </Link>
-    );
+export default function Home() {
+  if (HAS_POSTER) {
+    preload("/path/poster.avif", {
+      as: "image",
+      type: "image/avif",
+      fetchPriority: "high",
+      media: "(min-width: 1024px)",
+    });
+    preload("/path/poster-tablet.avif", {
+      as: "image",
+      type: "image/avif",
+      fetchPriority: "high",
+      media: "(max-width: 1023px) and (min-width: 768px)",
+    });
+    preload("/path/poster-phone.avif", {
+      as: "image",
+      type: "image/avif",
+      fetchPriority: "high",
+      media: "(max-width: 767px)",
+    });
   }
 
   return (
-    <Link
-      href="/signup"
-      className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
-    >
-      Sign up as a hacker
-    </Link>
-  );
-}
-
-function HeroCTAFallback() {
-  return (
-    <Link
-      href="/signup"
-      className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
-    >
-      Sign up as a hacker
-    </Link>
-  );
-}
-
-export default function Home() {
-  return (
-    <>
-      <main>
-        <section className="flex min-h-[80vh] flex-col items-center justify-center px-4 pt-16 text-center">
-          <h1 className="mb-6 text-[clamp(3rem,9vw,8.5rem)] leading-[0.95] font-bold tracking-[-0.04em]">
-            HackHive 2027
-          </h1>
-          <p className="mb-8 max-w-2xl text-lg text-neutral-600">
-            Join Ontario Tech University&apos;s premier hackathon. Build, learn, and connect with
-            fellow hackers from across the globe.
-          </p>
-          <Suspense fallback={<HeroCTAFallback />}>
-            <HeroCTA />
-          </Suspense>
-        </section>
-
-        <SponsorsSection />
-        <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
-        <SpeakersSection />
-        <div className="relative max-sm:[&>#faq]:pb-[8.5rem]!">
-          <FaqSection />
-          <SiteFooter />
-        </div>
-      </main>
-    </>
+    <main>
+      <IntroOverlay />
+      <HeroScroll poster={HAS_POSTER}>
+        <Suspense fallback={<HeroCtaFallback />}>
+          <HeroCta />
+        </Suspense>
+      </HeroScroll>
+      <SponsorsSection />
+      <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
+      <SpeakersSection />
+      <div className="relative max-sm:[&>#faq]:pb-[8.5rem]!">
+        <FaqSection />
+        <SiteFooter />
+      </div>
+    </main>
   );
 }

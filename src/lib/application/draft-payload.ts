@@ -14,6 +14,7 @@ export interface DraftFormData {
   linkedin_url: string;
   github_url: string;
   portfolio_url: string;
+  other_links: string[];
   resume_path: string | null;
   q_proud: string;
   q_hack: string;
@@ -52,6 +53,7 @@ export const initialFormData: DraftFormData = {
   linkedin_url: "",
   github_url: "",
   portfolio_url: "",
+  other_links: [],
   resume_path: null,
   q_proud: "",
   q_hack: "",
@@ -74,6 +76,11 @@ export const initialFormData: DraftFormData = {
   share_resume_with_sponsors: false,
 };
 
+/** Drops the empty boxes left by "Add another link", and any link entered twice. */
+export function cleanLinks(links: string[] | null | undefined): string[] {
+  return [...new Set((links ?? []).map((link) => link.trim()).filter(Boolean))];
+}
+
 export function buildDraftPayload(data: DraftFormData): Record<string, unknown> {
   return {
     first_name: data.first_name || "",
@@ -91,12 +98,14 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
     linkedin_url: data.linkedin_url || "",
     github_url: data.github_url || "",
     portfolio_url: data.portfolio_url || "",
+    other_links: cleanLinks(data.other_links),
     resume_path: data.resume_path,
     q_proud: data.q_proud || "",
     q_hack: data.q_hack || "",
     q_anything_else: data.q_anything_else || "",
     team_status: data.team_status || null,
-    teammate_emails: data.teammate_emails.filter(Boolean),
+    // Hidden unless they have a team, so a half-typed email can't block saving.
+    teammate_emails: data.team_status === "has_team" ? data.teammate_emails.filter(Boolean) : [],
     dietary: data.dietary || "",
     accessibility: data.accessibility || "",
     tshirt_size: data.tshirt_size || null,

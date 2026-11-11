@@ -9,12 +9,25 @@ import NavbarShell from "@/components/navbar/NavbarShell";
 import { links } from "@/components/navbar/links";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { INTRO_DECIDE_SCRIPT } from "@/components/landing/intro/decideScript";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "optional",
+  adjustFontFallback: true,
+  preload: true,
+});
 
 // Used by the section CSS modules as var(--font-grotesk).
-const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
+// optional: use the face if it is ready for first paint, and do not swap later.
+const grotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-grotesk",
+  display: "optional",
+  adjustFontFallback: true,
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "HackHive 2027",
@@ -45,8 +58,10 @@ function NavbarFallback() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={cn("font-sans", geist.variable, grotesk.variable)}>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={cn("font-sans", geist.variable, grotesk.variable)}>
       <body>
+        {/* Picks the homepage intro phase before first paint. See decideScript.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: INTRO_DECIDE_SCRIPT }} />
         <NavbarShell>
           <Suspense fallback={<NavbarFallback />}>
             <Navbar />
