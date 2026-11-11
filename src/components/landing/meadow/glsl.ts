@@ -9,7 +9,6 @@ const COMMON = /* glsl */ `
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uHorizon;
-uniform vec3 uForest;
 uniform vec3 uHandoff;
 uniform vec3 uSkyTop;
 uniform vec3 uSkyMid;
@@ -681,7 +680,11 @@ varying float vLayer;
 
 /* Flat normal of the facet under this pixel, turned toward the camera. */
 vec3 facetNormal() {
-  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  vec3 n = cross(dFdx(vWorld), dFdy(vWorld));
+  // A facet seen edge-on (or quantized derivatives on a mediump GPU) can
+  // give a zero cross product; normalizing that is NaN. Fall back to up.
+  float len = length(n);
+  n = len > 1e-6 ? n / len : vec3(0.0, 1.0, 0.0);
   return dot(n, uCamPos - vWorld) < 0.0 ? -n : n;
 }
 
@@ -934,7 +937,7 @@ void main() {
   // The height's slope from screen derivatives, taken before any discard.
   // Evaluating the field twice more for a gradient tripled the shader the
   // driver had to compile; this costs nothing extra.
-  vec2 slope = vec2(dFdx(field.y) / max(abs(dFdx(q.x)), 1e-5), dFdy(field.y) / max(abs(dFdy(q.y)), 1e-5));
+  vec2 slope = vec2(dFdx(field.y) / max(abs(dFdx(q.x)), 1e-3), dFdy(field.y) / max(abs(dFdy(q.y)), 1e-3));
   slope *= vec2(sign(dFdx(q.x)), sign(dFdy(q.y)));
   float wisp = step(2.5, type);
   float aa = max(fwidth(q.y), 0.002);

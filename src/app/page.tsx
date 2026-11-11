@@ -4,7 +4,7 @@ import { preload } from "react-dom";
 import { Suspense } from "react";
 import { HeroCta, HeroCtaFallback } from "@/components/landing/HeroCta";
 import { HeroScroll } from "@/components/landing/HeroScroll";
-import { IntroLoader } from "@/components/landing/intro/IntroLoader";
+import { IntroOverlay } from "@/components/landing/intro/IntroOverlay";
 import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { SiteFooter } from "@/components/sections/SiteFooter";
@@ -37,7 +37,7 @@ export default function Home() {
 
   return (
     <main>
-      <IntroLoader />
+      <IntroOverlay />
       <HeroScroll poster={HAS_POSTER}>
         <Suspense fallback={<HeroCtaFallback />}>
           <HeroCta />

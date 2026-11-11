@@ -15,14 +15,17 @@
   display: block;
 }
 
-/* While the loader is up the page does not scroll under it. */
+/* While the loader is up the page does not scroll under it. The failsafe
+   (if the scripts never arrive) clears the loader and gives the scroll
+   back together; IntroOverlay will not start the intro past INTRO.lateMs,
+   just before this, so the honeycomb never returns after it left. */
 :global(html[data-intro="loading"]) {
   overflow: hidden;
+  animation: introUnlock 0.01s linear 9s forwards;
 }
 
 :global(html[data-intro="loading"]) .root {
   pointer-events: auto;
-  /* If the scripts never arrive, step aside rather than cover the page. */
   animation: introFailsafe 0.4s ease 9s forwards;
 }
 
@@ -43,7 +46,7 @@
 /* The ripple: each tile shrinks to nothing after its distance delay. */
 :global(html[data-intro="wipe"]) .tile,
 :global(html[data-intro="text"]) .tile {
-  animation: tileOut 260ms cubic-bezier(0.55, 0, 0.75, 0.2) calc(150ms + var(--d, 0ms)) both;
+  animation: tileOut var(--intro-tile) cubic-bezier(0.55, 0, 0.75, 0.2) calc(var(--intro-lead) + var(--d, 0ms)) both;
 }
 
 .center {
@@ -55,7 +58,9 @@
   align-items: center;
   gap: 1.25rem;
   transform: translate(-50%, -50%);
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition:
+    opacity var(--intro-logo) ease,
+    transform var(--intro-logo) ease;
 }
 
 .logo {
@@ -96,6 +101,12 @@
 
   to {
     transform: scale(0);
+  }
+}
+
+@keyframes introUnlock {
+  to {
+    overflow: visible;
   }
 }
 

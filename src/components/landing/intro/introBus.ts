@@ -28,15 +28,32 @@ export const INTRO = {
   descentMs: 1600,
   /** The copy rises over the last part of the descent. */
   textMs: 500,
-  /** If the scene never reports ready, go anyway. */
+  /** If the scene never reports ready, go anyway (counted from navigation start). */
   failsafeMs: 6000,
+  /**
+   * Past this (from navigation start) the CSS failsafe in intro.module.css
+   * (9s) is about to clear the loader and unlock the page on its own, so the
+   * intro does not start: it would bring the honeycomb back after it left.
+   */
+  lateMs: 8500,
   /** A scroll during the descent finishes it over this. */
   rushMs: 320,
 } as const;
 
-type State = { progress: number; ready: boolean; descentAt: number; rushAt: number; rushFrom: number };
+type State = {
+  progress: number;
+  /** The intro may go on: the scene is ready, or the failsafe gave up waiting. */
+  ready: boolean;
+  /** The scene really drew its first frame. */
+  sceneReady: boolean;
+  descentAt: number;
+  rushAt: number;
+  rushFrom: number;
+};
 
-const state: State = { progress: 0, ready: false, descentAt: -1, rushAt: -1, rushFrom: 0 };
+const NOT_STARTED = -1;
+
+const state: State = { progress: 0, ready: false, sceneReady: false, descentAt: NOT_STARTED, rushAt: -1, rushFrom: 0 };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -66,7 +83,17 @@ export function reportIntroProgress(progress: number) {
   emit();
 }
 
+/** The scene drew its first frame. */
 export function reportIntroReady() {
+  state.sceneReady = true;
+  if (state.ready) return;
+  state.ready = true;
+  state.progress = 1;
+  emit();
+}
+
+/** The failsafe: let the intro go on although the scene is not ready. */
+export function forceIntroReady() {
   if (state.ready) return;
   state.ready = true;
   state.progress = 1;
@@ -85,7 +112,15 @@ export function subscribeIntro(listener: () => void) {
 }
 
 export function startDescent(at: number) {
-  if (state.descentAt < 0) state.descentAt = at;
+  if (state.descentAt === NOT_STARTED) state.descentAt = at;
+}
+
+/**
+ * Land the camera at once. Used when the wipe has to start before the scene
+ * is ready: the poster shows the resting view, so the scene must arrive there.
+ */
+export function skipDescent() {
+  state.descentAt = Number.NEGATIVE_INFINITY;
 }
 
 function easeOutCubic(t: number) {
@@ -100,7 +135,7 @@ function easeOutCubic(t: number) {
 export function descentAmount(now: number) {
   const phase = introPhase();
   if (phase !== "loading" && phase !== "wipe" && phase !== "text") return 1;
-  if (state.descentAt < 0) return 0;
+  if (state.descentAt === NOT_STARTED) return 0;
   const raw = Math.min(1, Math.max(0, (now - state.descentAt) / INTRO.descentMs));
   let k = easeOutCubic(raw);
   if (state.rushAt >= 0) {
@@ -112,7 +147,7 @@ export function descentAmount(now: number) {
 
 /** The visitor scrolled mid-descent: land quickly instead of fighting the scroll. */
 export function rushDescent(now: number) {
-  if (state.rushAt >= 0 || state.descentAt < 0) return;
+  if (state.rushAt >= 0 || state.descentAt === NOT_STARTED) return;
   state.rushFrom = descentAmount(now);
   state.rushAt = now;
 }

@@ -44,7 +44,6 @@ import {
   FOG_DENSITY,
   GRASS_FAR,
   GRASS_NEAR,
-  FOREST,
   HANDOFF,
   HORIZON,
   PATH,
@@ -138,7 +137,6 @@ function baseUniforms() {
     uSunDir: { value: new Vector3(SUN_DIR[0], SUN_DIR[1], SUN_DIR[2]).normalize() },
     uSunColor: { value: colorOf(SUN) },
     uHorizon: { value: colorOf(HORIZON) },
-    uForest: { value: colorOf(FOREST) },
     uHandoff: { value: colorOf(HANDOFF) },
     uSkyTop: { value: colorOf(SKY_TOP) },
     uSkyMid: { value: colorOf(SKY_MID) },
@@ -510,7 +508,10 @@ function FrameDriver({
       applyTrim(forced);
       gl.setPixelRatio(forced === 1 ? 1 : 0.85);
       trimStage.current = 3;
-    } else if (trimStage.current < 3) {
+    } else if (trimStage.current < 3 && !introPlaying()) {
+      // Not sampled during the first-load intro: the honeycomb wipe animates
+      // hundreds of tiles on the main thread, and those slow frames would
+      // trim the meadow for good.
       // On demand (reduced motion) the delta after a pause is the idle gap,
       // not a slow frame. Counting it trimmed the meadow and dropped the
       // pixel ratio a few scroll frames in, which read as the frame jumping.
@@ -631,14 +632,21 @@ export default function MeadowWorld({
         return;
       }
       onCompiledRef.current?.();
-      invalidate();
     };
     frame = requestAnimationFrame(step);
     return () => {
       live = false;
       cancelAnimationFrame(frame);
     };
-  }, [camera, geometries, gl, invalidate, scene]);
+  }, [camera, geometries, gl, scene]);
+
+  // The loop is parked ("never") until the compile above finishes, and r3f
+  // drops an invalidate made while parked. Draw once it is allowed to run,
+  // so an on-demand (reduced motion) canvas does not wait for a scroll.
+  const frameloop = useThree((state) => state.frameloop);
+  useEffect(() => {
+    if (frameloop !== "never") invalidate();
+  }, [frameloop, invalidate]);
 
   return (
     <>

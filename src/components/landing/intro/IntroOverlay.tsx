@@ -4,11 +4,12 @@ import Image from "next/image";
 import { useEffect, useRef, type CSSProperties } from "react";
 import {
   INTRO,
+  forceIntroReady,
   introPhase,
   introSnapshot,
   reportIntroProgress,
-  reportIntroReady,
   setIntroPhase,
+  skipDescent,
   startDescent,
   subscribeIntro,
 } from "@/components/landing/intro/introBus";
@@ -56,29 +57,63 @@ const TILES = (() => {
   return tiles;
 })();
 
+/** The CSS reads its timings from INTRO, so the two cannot drift apart. */
+const TIMING = {
+  "--intro-lead": `${INTRO.wipeLeadMs}ms`,
+  "--intro-tile": `${INTRO.tileMs}ms`,
+  "--intro-logo": `${INTRO.logoFadeMs}ms`,
+} as CSSProperties;
+
 export function IntroOverlay() {
   const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (introPhase() !== "loading") return;
+    document.documentElement.style.setProperty("--intro-text", `${INTRO.textMs}ms`);
+    // A very slow load: the CSS failsafe is about to (or did) clear the
+    // loader and unlock the page. Starting now would bring it back.
+    if (performance.now() > INTRO.lateMs) {
+      setIntroPhase("done");
+      return;
+    }
     const timers: number[] = [];
     let went = false;
+    let waitingForTab = false;
     // The page is up and hydrated: a first notch on the bar.
     reportIntroProgress(0.12);
 
     const go = () => {
       if (went) return;
+      // A tab opened in the background: hold until someone can see it.
+      if (document.visibilityState !== "visible") {
+        if (!waitingForTab) {
+          waitingForTab = true;
+          document.addEventListener("visibilitychange", onVisible);
+        }
+        return;
+      }
       went = true;
+      if (performance.now() > INTRO.lateMs) {
+        setIntroPhase("done");
+        return;
+      }
       try {
         window.sessionStorage.setItem("hh-intro", "1");
       } catch {
         // Private mode: it will just play again next time.
       }
       setIntroPhase("wipe");
-      const now = performance.now();
-      startDescent(now + INTRO.wipeLeadMs);
-      const landed = INTRO.wipeLeadMs + INTRO.descentMs;
-      timers.push(window.setTimeout(() => setIntroPhase("text"), landed - INTRO.textMs));
+      // Only descend over a scene that has drawn. When the failsafe forced
+      // the wipe, the poster (the resting view) shows instead, so the camera
+      // lands at once and the poster hands off to a matching frame.
+      let landed = INTRO.wipeLeadMs + INTRO.rippleMs + INTRO.tileMs;
+      if (introSnapshot().sceneReady) {
+        startDescent(performance.now() + INTRO.wipeLeadMs);
+        landed = INTRO.wipeLeadMs + INTRO.descentMs;
+      } else {
+        skipDescent();
+      }
+      timers.push(window.setTimeout(() => setIntroPhase("text"), Math.max(0, landed - INTRO.textMs)));
       timers.push(window.setTimeout(() => setIntroPhase("done"), landed + 60));
     };
 
@@ -92,12 +127,20 @@ export function IntroOverlay() {
       else go();
     };
 
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      document.removeEventListener("visibilitychange", onVisible);
+      waitingForTab = false;
+      sync();
+    }
+
     const unsubscribe = subscribeIntro(sync);
     sync();
-    timers.push(window.setTimeout(reportIntroReady, INTRO.failsafeMs));
+    timers.push(window.setTimeout(forceIntroReady, Math.max(0, INTRO.failsafeMs - performance.now())));
 
     return () => {
       unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
       for (const id of timers) window.clearTimeout(id);
       // Leaving the page mid-intro must not leave the next page hidden or
       // locked. Checked a tick later: Strict Mode unmounts and remounts at
@@ -111,7 +154,7 @@ export function IntroOverlay() {
   }, []);
 
   return (
-    <div className={styles.root} data-intro-root="" aria-hidden="true">
+    <div className={styles.root} data-intro-root="" aria-hidden="true" style={TIMING}>
       <svg className={styles.comb} viewBox={`0 0 ${SIZE} ${SIZE}`} preserveAspectRatio="xMidYMid slice">
         <defs>
           <polygon id="hh-intro-hex" points={HEX_POINTS} />

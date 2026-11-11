@@ -225,7 +225,13 @@ export function GavelRain({ x = 0.5, y = 0.5, dim = 0.6, extend = 0 }: GavelRain
     // that while the hero loads stalled the page. The resize observer also
     // fires once on observe, so it only rebuilds after that first setup.
     let armed = false;
+    let observed = false;
     const resizeObserver = new ResizeObserver(() => {
+      // The first callback is the observe itself, not a resize.
+      if (!observed) {
+        observed = true;
+        return;
+      }
       if (armed) setup();
     });
     resizeObserver.observe(section);
