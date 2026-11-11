@@ -26,33 +26,23 @@ export function HeroMeadow({
   const [ready, setReady] = useState(false);
   const markReady = useCallback(() => setReady(true), []);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [quality, setQuality] = useState<"low" | "high">("high");
 
   useEffect(() => {
     void loadMeadowScene();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const mobile = window.matchMedia("(max-width: 767px)");
-    const sync = () => {
-      setReducedMotion(reduce.matches);
-      setQuality(mobile.matches ? "low" : "high");
-    };
+    const sync = () => setReducedMotion(reduce.matches);
     sync();
     reduce.addEventListener("change", sync);
-    mobile.addEventListener("change", sync);
-    return () => {
-      reduce.removeEventListener("change", sync);
-      mobile.removeEventListener("change", sync);
-    };
+    return () => reduce.removeEventListener("change", sync);
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden>
+    <div className={`pointer-events-none absolute inset-0 ${styles.meadow}`} aria-hidden>
       <MeadowScene
         className="absolute inset-0"
         progress={progress}
         pointer={pointer}
         reducedMotion={reducedMotion}
-        quality={quality}
         onReady={markReady}
       />
       <div className={styles.poster} data-hero-poster="" data-ready={ready ? "true" : "false"}>

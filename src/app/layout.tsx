@@ -9,6 +9,7 @@ import NavbarShell from "@/components/navbar/NavbarShell";
 import { links } from "@/components/navbar/links";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { INTRO_DECIDE_SCRIPT } from "@/components/landing/intro/decideScript";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -57,8 +58,10 @@ function NavbarFallback() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={cn("font-sans", geist.variable, grotesk.variable)}>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={cn("font-sans", geist.variable, grotesk.variable)}>
       <body>
+        {/* Picks the homepage intro phase before first paint. See decideScript.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: INTRO_DECIDE_SCRIPT }} />
         <NavbarShell>
           <Suspense fallback={<NavbarFallback />}>
             <Navbar />

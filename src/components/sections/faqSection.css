@@ -16,7 +16,7 @@
   --line: 3px;
   --cell: 2.75rem;
   --hex-clip: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-  /* How tall the fade from the cream section above into the purple is, and how much
+  /* How tall the fade from the judges section above into the purple is, and how much
      plain purple follows it before the heading. */
   --fade: clamp(16rem, 45vh, 26rem);
   --lead: 6rem;
@@ -30,7 +30,7 @@
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  /* Tucks up over the section above's bottom border, so its cream runs straight
+  /* Tucks up over the section above's bottom border, so the judges ink runs straight
      into the fade with no line between them. */
   margin-top: -1px;
   padding: calc(var(--fade) + var(--lead)) 1rem 5rem;
@@ -61,7 +61,7 @@
   --reach: 100vh;
   --reach: 100lvh;
   position: absolute;
-  /* Under the fade, so the stream rises out of it rather than over the cream. */
+  /* Under the fade, so the stream rises out of it rather than over the judges ink. */
   z-index: -3;
   /* A sticky view only pins while there's room for it inside its parent, so on its
      own it would ride in with the section's top and out with its bottom. This
@@ -96,10 +96,9 @@
   filter: blur(5px);
 }
 
-/* The fade in from the "through the years" section above: from its exact cream,
-   through a soft lavender into the purple, rather than straight across through a muddy grey,
-   easing out at both ends and thinning out at the bottom so it melts into the
-   background and its glows instead of ending in a line. */
+/* The fade in from the judges section above: from its exact ink, through a deep
+   violet into the purple, easing out at both ends and thinning out at the bottom
+   so it melts into the background and its glows instead of ending in a line. */
 .faq-page::before {
   content: "";
   position: absolute;
@@ -107,20 +106,19 @@
   inset: 0 0 auto;
   height: var(--fade);
   background: linear-gradient(
-    #faf8f1 0%,
-    #f5f1f2 10%,
-    #e9e0ec 22%,
-    #d4c4e2 34%,
-    rgb(166 140 205 / 0.96) 48%,
-    rgb(96 66 160 / 0.85) 64%,
-    rgb(48 20 104 / 0.5) 82%,
+    #14110b 0%,
+    #161018 14%,
+    #1a0c2c 32%,
+    #1c0840 52%,
+    rgb(36 12 84 / 0.72) 70%,
+    rgb(27 0 63 / 0.28) 86%,
     rgb(27 0 63 / 0) 100%
   );
   pointer-events: none;
 }
 
 /* The same grain as the cards, over the stream. It comes in gradually through the
-   fade, since the cream section above has none and it would draw a line there. */
+   fade, since the judges section above has none and it would draw a line there. */
 .faq-page::after {
   content: "";
   position: absolute;

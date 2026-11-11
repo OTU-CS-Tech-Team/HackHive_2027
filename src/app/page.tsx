@@ -4,9 +4,10 @@ import { preload } from "react-dom";
 import { Suspense } from "react";
 import { HeroCta, HeroCtaFallback } from "@/components/landing/HeroCta";
 import { HeroScroll } from "@/components/landing/HeroScroll";
+import { IntroOverlay } from "@/components/landing/intro/IntroOverlay";
 import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
-import { HackHive2025Section } from "@/components/sections/HackHive2025Section";
+import { SiteFooter } from "@/components/sections/SiteFooter";
 import { SpeakersSection } from "@/components/sections/SpeakersSection";
 import { SponsorsSection } from "@/components/sections/SponsorsSection";
 
@@ -36,6 +37,7 @@ export default function Home() {
 
   return (
     <main>
+      <IntroOverlay />
       <HeroScroll poster={HAS_POSTER}>
         <Suspense fallback={<HeroCtaFallback />}>
           <HeroCta />
@@ -44,8 +46,10 @@ export default function Home() {
       <SponsorsSection />
       <CombEdge colour="#14110b" tip="#0b2419" seed={500} />
       <SpeakersSection />
-      <HackHive2025Section />
-      <FaqSection />
+      <div className="relative max-sm:[&>#faq]:pb-[8.5rem]!">
+        <FaqSection />
+        <SiteFooter />
+      </div>
     </main>
   );
 }
