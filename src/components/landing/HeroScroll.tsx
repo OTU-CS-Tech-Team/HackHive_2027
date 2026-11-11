@@ -3,7 +3,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import {
   COPY_LIFT_VH,
-  OVERLAP,
   copyFade,
   sceneProgress,
   veilBackground,
@@ -52,7 +51,7 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
       if (!running) return;
       const progress = clamp((scrollY - start) / (end - start), 0, 1);
       // Direct from scroll position. No tween, including when motion is reduced.
-      // The scene only receives this up to SCENE_HOLD, so its own cream stays off.
+      // The scene gets a short walk (WALK_END), so the garden never thins.
       progressRef.current = sceneProgress(progress);
       const background = veilBackground(progress);
       if (veil && background !== lastVeil) {
@@ -73,7 +72,6 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
       requestAnimationFrame(frame);
     };
 
-    root.style.setProperty("--hero-overlap", String(OVERLAP));
     measure();
     scrollY = window.scrollY;
     window.addEventListener("scroll", onScroll, { passive: true });
