@@ -11,8 +11,16 @@
 
 export const TRACK = 1.45;
 export const WALK_END = 0.2;
-const COPY_FADE_START = 0.72;
-const COPY_FADE_SPAN = 0.18;
+// The walk eases out over a little more scroll than the pinned stage lasts
+// (release is 1), so the camera is still settling as the stage slides away
+// and comes to rest there, instead of stopping dead the moment it unpins.
+// 1.4 is about a fifth of a screen into the exit, with the meadow mostly in view.
+export const WALK_SCROLL = 1.4;
+// The title group fades over most of the pin and into the exit: half gone at
+// release, gone as the camera comes to rest (WALK_SCROLL). A short span made
+// one wheel notch take the whole title away.
+const COPY_FADE_START = 0.6;
+const COPY_FADE_SPAN = 0.8;
 const BAND_START = 0.55;
 const BAND_SPAN = 0.45;
 
@@ -30,14 +38,19 @@ function smoothstep(value: number) {
   return t * t * (3 - 2 * t);
 }
 
-/** Walk the scene's progress forward, never past the full garden. */
+/**
+ * Walk the scene's progress forward, never past the full garden. Takes the
+ * unclamped scroll (past 1 while the stage leaves) and eases out to a stop.
+ */
 export function sceneProgress(scroll: number) {
-  return clamp01(scroll) * WALK_END;
+  const t = clamp01(scroll / WALK_SCROLL);
+  return (1 - (1 - t) * (1 - t)) * WALK_END;
 }
 
-// 0 while the title group is fully present, 1 once it has left.
+// 0 while the title group is fully present, 1 once it has left. Takes the
+// unclamped scroll, since the fade runs past release.
 export function copyFade(scroll: number) {
-  return smoothstep((clamp01(scroll) - COPY_FADE_START) / COPY_FADE_SPAN);
+  return smoothstep((Math.max(0, scroll) - COPY_FADE_START) / COPY_FADE_SPAN);
 }
 
 export const COPY_LIFT_VH = 14;

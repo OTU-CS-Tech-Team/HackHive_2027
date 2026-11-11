@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { SelectField } from "./SelectField";
+import { inputClass } from "./styles";
 
 interface SelectWithOtherFieldProps {
   label: string;
@@ -46,7 +47,7 @@ export function SelectWithOtherField({ label, name, value, onChange, options, ma
             onChange={(e) => onChange(e.target.value.trim() ? e.target.value : OTHER)}
             maxLength={maxLength}
             placeholder="Please specify (optional)"
-            className="block w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 focus:outline-none"
+            className={inputClass()}
           />
         </div>
       )}

@@ -16,7 +16,9 @@ export async function Navbar() {
       <div className="flex shrink-0 items-center gap-2">
         <MobileNavMenu links={links} accountLinks={accountLinks} />
         <Link href="/" aria-label="HackHive home" className="shrink-0">
-          <Image src="/Images/HackhiveLogo.png" alt="HackHive" width={44} height={44} />
+          {/* Asks for the same file as the homepage intro's 88px logo and shows it at 44px,
+              so the page fetches one logo, sharp on retina, and eager since it's always in view. */}
+          <Image src="/Images/HackhiveLogo.png" alt="HackHive" width={88} height={88} className="size-11" loading="eager" />
         </Link>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">

@@ -1,4 +1,5 @@
-export const APPLICATION_DEADLINE = new Date("2027-01-15T23:59:59Z");
+// End of day Toronto time (EST is UTC-5 in December).
+export const APPLICATION_DEADLINE = new Date("2026-12-23T23:59:59-05:00");
 
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
 
@@ -11,6 +12,7 @@ export const WORD_LIMITS = {
 export const FIELD_LIMITS = {
   first_name: 100,
   last_name: 100,
+  preferred_name: 100,
   phone: 30,
   pronouns: 50,
   city: 100,

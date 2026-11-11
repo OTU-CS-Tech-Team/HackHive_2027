@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { errorClass, hintClass, inputClass, labelClass, Optional } from "./styles";
 
 interface FormFieldProps {
   label: string;
@@ -44,13 +45,13 @@ export function FormField({
     .join(" ") || undefined;
 
   return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="block text-sm font-medium text-neutral-700">
+    <div className="space-y-2">
+      <label htmlFor={id} className={labelClass}>
         {label}
-        {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
+        {!required && !disabled && <Optional />}
       </label>
       {description && (
-        <p id={descriptionId} className="text-sm text-neutral-500">
+        <p id={descriptionId} className={hintClass}>
           {description}
         </p>
       )}
@@ -69,19 +70,10 @@ export function FormField({
         autoComplete={autoComplete}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={describedBy}
-        className={`mt-1 block w-full rounded-lg border px-4 py-2.5 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500 ${
-          error
-            ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-            : "border-neutral-300 focus:border-neutral-900 focus:ring-neutral-900"
-        }`}
+        className={inputClass(error)}
       />
-      {maxLength && (
-        <p className="text-right text-xs text-neutral-400">
-          {String(value).length}/{maxLength}
-        </p>
-      )}
       {error && (
-        <p id={errorId} className="text-sm text-red-600" role="alert">
+        <p id={errorId} className={errorClass} role="alert">
           {error}
         </p>
       )}
