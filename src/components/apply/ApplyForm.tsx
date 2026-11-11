@@ -12,6 +12,7 @@ import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
 import { SchoolField } from "./SchoolField";
 import { OtherLinks } from "./OtherLinks";
+import { SelectWithOtherField } from "./SelectWithOtherField";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import {
   saveDraft,
@@ -704,11 +705,12 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         title="Demographics"
         description="Optional. This helps us understand who we're reaching."
       >
-        <SelectField
+        <SelectWithOtherField
           label="Gender"
           name="gender"
           value={formData.gender}
           onChange={(v) => updateField("gender", v)}
+          maxLength={FIELD_LIMITS.gender}
           options={[
             { value: "woman", label: "Woman" },
             { value: "man", label: "Man" },
@@ -718,11 +720,12 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           ]}
           placeholder="Select..."
         />
-        <SelectField
+        <SelectWithOtherField
           label="Race/Ethnicity"
           name="ethnicity"
           value={formData.ethnicity}
           onChange={(v) => updateField("ethnicity", v)}
+          maxLength={FIELD_LIMITS.ethnicity}
           options={[
             { value: "asian", label: "Asian" },
             { value: "black", label: "Black or African American" },

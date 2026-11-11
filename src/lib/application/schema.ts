@@ -18,8 +18,9 @@ function normalizeName(val: string): string {
   return normalizeUnicode(val).replace(/[‘’]/g, "'");
 }
 
-// Letters, accents, apostrophes (straight or curly), hyphens, periods ("Jr.") and spaces.
-const unicodeNameRegex = /^[\p{L}\p{M}'‘’.\- ]+$/u;
+// Letters, accents, apostrophes (straight or curly), hyphens, periods ("Jr.") and
+// spaces, with at least one letter, so "." or "-" alone isn't a name.
+const unicodeNameRegex = /^(?=.*\p{L})[\p{L}\p{M}'‘’.\- ]+$/u;
 
 const urlSchemaForDraft = z.preprocess(
   (val) => (val === null || val === '' || (typeof val === 'string' && val.trim() === '') ? null : val),
@@ -77,10 +78,10 @@ const githubUrlSchemaForSubmit = z.preprocess(
     .optional()
 );
 
-// Extra profile links. Blank boxes are dropped, and only http(s) links are
-// allowed because reviewers open them.
+// Extra profile links. Blank boxes and repeats are dropped, and only http(s)
+// links are allowed because reviewers open them.
 const otherLinksSchema = z.preprocess(
-  (val) => (Array.isArray(val) ? val.map((v) => (typeof v === 'string' ? v.trim() : v)).filter((v) => v !== '') : val),
+  (val) => (Array.isArray(val) ? [...new Set(val.map((v) => (typeof v === 'string' ? v.trim() : v)).filter((v) => v !== ''))] : val),
   z
     .array(
       z

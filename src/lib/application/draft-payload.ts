@@ -76,9 +76,9 @@ export const initialFormData: DraftFormData = {
   share_resume_with_sponsors: false,
 };
 
-/** Drops the empty boxes left by "Add another link". */
+/** Drops the empty boxes left by "Add another link", and any link entered twice. */
 export function cleanLinks(links: string[] | null | undefined): string[] {
-  return (links ?? []).map((link) => link.trim()).filter(Boolean);
+  return [...new Set((links ?? []).map((link) => link.trim()).filter(Boolean))];
 }
 
 export function buildDraftPayload(data: DraftFormData): Record<string, unknown> {

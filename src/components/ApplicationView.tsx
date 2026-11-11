@@ -231,8 +231,9 @@ function ApplicationDetails({ application }: { application: Application }) {
         <Field label="Other links">
           {otherLinks.length > 0 && (
             <ul className="space-y-0.5">
-              {otherLinks.map((link) => (
-                <li key={link}>
+              {/* Keyed by position: older rows may hold the same link twice. */}
+              {otherLinks.map((link, i) => (
+                <li key={i}>
                   <ExternalUrl url={link} />
                 </li>
               ))}

@@ -22,6 +22,8 @@ export const FIELD_LIMITS = {
   portfolio_url: 500,
   other_link: 500,
   other_links_max: 3,
+  gender: 50,
+  ethnicity: 100,
   dietary: 500,
   accessibility: 1000,
   guardian_name: 200,
