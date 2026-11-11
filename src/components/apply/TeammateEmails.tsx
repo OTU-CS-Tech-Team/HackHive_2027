@@ -64,6 +64,8 @@ export function TeammateEmails({ value, onChange, disabled = false, error }: Tea
           <div className="flex gap-2">
             <input
               id={`${id}-${index}`}
+              name={index === 0 ? "teammate_emails" : undefined}
+              aria-label={`Teammate ${index + 1} email`}
               type="email"
               value={email}
               onChange={(e) => handleEmailChange(index, e.target.value)}

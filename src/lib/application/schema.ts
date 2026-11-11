@@ -13,7 +13,13 @@ function normalizeUnicode(val: string): string {
   return val.trim().normalize('NFC');
 }
 
-const unicodeNameRegex = /^[\p{L}\p{M}'\- ]+$/u;
+// Phones type a curly apostrophe (O’Brien); store it as a straight one.
+function normalizeName(val: string): string {
+  return normalizeUnicode(val).replace(/[‘’]/g, "'");
+}
+
+// Letters, accents, apostrophes (straight or curly), hyphens, periods ("Jr.") and spaces.
+const unicodeNameRegex = /^[\p{L}\p{M}'‘’.\- ]+$/u;
 
 const urlSchemaForDraft = z.preprocess(
   (val) => (val === null || val === '' || (typeof val === 'string' && val.trim() === '') ? null : val),
@@ -71,6 +77,23 @@ const githubUrlSchemaForSubmit = z.preprocess(
     .optional()
 );
 
+// Extra profile links. Blank boxes are dropped, and only http(s) links are
+// allowed because reviewers open them.
+const otherLinksSchema = z.preprocess(
+  (val) => (Array.isArray(val) ? val.map((v) => (typeof v === 'string' ? v.trim() : v)).filter((v) => v !== '') : val),
+  z
+    .array(
+      z
+        .string()
+        .max(500, 'Maximum 500 characters')
+        .refine((val) => /^https?:\/\//i.test(val) && URL.canParse(val), {
+          message: 'Each link must be a full URL starting with https://',
+        })
+    )
+    .max(3, 'Maximum 3 extra links')
+    .optional()
+);
+
 const teammateEmailsSchema = z
   .array(z.string().email())
   .max(3, 'Maximum 3 teammate emails allowed')
@@ -95,7 +118,7 @@ const nameFieldSchema = z
     (val) => !val || unicodeNameRegex.test(val),
     { message: 'Name contains invalid characters' }
   )
-  .transform(normalizeUnicode)
+  .transform(normalizeName)
   .optional()
   .or(z.literal(''));
 
@@ -149,6 +172,7 @@ export const applicationDraftSchema = z.object({
   linkedin_url: linkedinUrlSchemaForDraft,
   github_url: githubUrlSchemaForDraft,
   portfolio_url: urlSchemaForDraft,
+  other_links: otherLinksSchema,
   resume_path: z.string().max(500).optional().nullable().or(z.literal('')),
   
   q_proud: questionSchema(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
@@ -179,19 +203,20 @@ export const applicationDraftSchema = z.object({
 
 export type ApplicationDraft = z.infer<typeof applicationDraftSchema>;
 
-const requiredName = z
-  .string()
-  .min(1, 'Required')
-  .max(100)
+// Required text is trimmed before the length check, so whitespace alone is "Required".
+const requiredText = (max: number) => z.string().trim().min(1, 'Required').max(max);
+
+const requiredName = requiredText(100)
   .refine(
     (val) => unicodeNameRegex.test(val),
     { message: 'Name contains invalid characters' }
   )
-  .transform(normalizeUnicode);
+  .transform(normalizeName);
 
 const requiredQuestion = (maxWords: number, maxChars: number) =>
   z
     .string()
+    .trim()
     .min(1, 'Required')
     .max(maxChars, `Maximum ${maxChars} characters`)
     .refine(
@@ -204,21 +229,22 @@ export const applicationSubmitSchema = z
   .object({
     first_name: requiredName,
     last_name: requiredName,
-    phone: z.string().min(1, 'Required').max(30),
+    phone: requiredText(30),
     age: z.coerce.number().int().min(13, 'Must be at least 13').max(100, 'Must be at most 100'),
     pronouns: optionalStringForSubmit(50),
-    city: z.string().min(1, 'Required').max(100).transform(normalizeUnicode),
-    country: z.string().min(1, 'Required').max(100).transform(normalizeUnicode),
+    city: requiredText(100).transform(normalizeUnicode),
+    country: requiredText(100).transform(normalizeUnicode),
 
-    university: z.string().min(1, 'Required').max(200).transform(normalizeUnicode),
-    program: z.string().min(1, 'Required').max(200).transform(normalizeUnicode),
-    year_of_study: z.string().min(1, 'Required').max(50),
+    university: requiredText(200).transform(normalizeUnicode),
+    program: requiredText(200).transform(normalizeUnicode),
+    year_of_study: requiredText(50),
     grad_date: z.coerce.date().optional().nullable(),
     hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
 
     linkedin_url: linkedinUrlSchemaForSubmit,
     github_url: githubUrlSchemaForSubmit,
     portfolio_url: urlSchemaForSubmit,
+    other_links: otherLinksSchema,
     resume_path: z.string().min(1, 'Resume is required').max(500),
 
     q_proud: requiredQuestion(MAX_WORDS_Q1_Q2, MAX_CHARS_Q1_Q2),
@@ -235,7 +261,7 @@ export const applicationSubmitSchema = z
 
     dietary: optionalStringForSubmit(500),
     accessibility: optionalStringForSubmit(1000),
-    tshirt_size: z.string().min(1, 'Required').max(20),
+    tshirt_size: requiredText(20),
     needs_travel_help: z.boolean().optional().nullable(),
 
     gender: optionalStringForSubmit(50),
@@ -317,7 +343,8 @@ export const ERROR_CODES = [
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 export type SaveDraftResult =
-  | { ok: true; savedAt: string }
+  // fieldErrors here: those fields were invalid and skipped; the rest were saved.
+  | { ok: true; savedAt: string; fieldErrors?: Record<string, string[]> }
   | { ok: false; code: ErrorCode; error: string; fieldErrors?: Record<string, string[]> };
 
 export type GetResumeUploadUrlResult =
@@ -356,6 +383,7 @@ export type Application = {
   linkedin_url: string | null;
   github_url: string | null;
   portfolio_url: string | null;
+  other_links: string[] | null;
   resume_path: string | null;
   q_proud: string | null;
   q_hack: string | null;
@@ -374,6 +402,7 @@ export type Application = {
   consent_coc: boolean | null;
   consent_privacy: boolean | null;
   consent_indemnification: boolean | null;
+  indemnification_path: string | null;
   consent_photo: boolean | null;
   share_resume_with_sponsors: boolean | null;
 };

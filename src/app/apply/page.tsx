@@ -81,6 +81,7 @@ async function ApplyPageContent() {
     linkedin_url: result.application.linkedin_url || "",
     github_url: result.application.github_url || "",
     portfolio_url: result.application.portfolio_url || "",
+    other_links: result.application.other_links || [],
     resume_path: result.application.resume_path || null,
     q_proud: result.application.q_proud || "",
     q_hack: result.application.q_hack || "",

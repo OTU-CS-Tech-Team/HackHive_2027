@@ -20,6 +20,8 @@ export const FIELD_LIMITS = {
   linkedin_url: 500,
   github_url: 500,
   portfolio_url: 500,
+  other_link: 500,
+  other_links_max: 3,
   dietary: 500,
   accessibility: 1000,
   guardian_name: 200,
