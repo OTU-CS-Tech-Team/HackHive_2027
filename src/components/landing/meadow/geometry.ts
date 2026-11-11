@@ -617,7 +617,6 @@ function addRollingHill(
   phase: number,
   columns: number,
   rows: number,
-  saddle: boolean,
 ) {
   const ids: number[] = [];
   for (let row = 0; row <= rows; row += 1) {
@@ -626,8 +625,7 @@ function addRollingHill(
     for (let column = 0; column <= columns; column += 1) {
       const u = column / columns;
       const x = (u - 0.5) * 90;
-      const dip = saddle ? Math.exp(-(x * x) / (24 * 24)) : 0;
-      const y = Math.max(0, height * (0.84 + ridge(x, phase)) * lift * (1 - dip * 0.22));
+      const y = Math.max(0, height * (0.84 + ridge(x, phase)) * lift);
       const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.31 + phase) * 0.85 * lift;
       const up = Math.min(1, y / Math.max(height, 0.001));
       ids.push(vert(mesh, x, y, z, mix(foot, crest, up), 0, [up, 0]));
@@ -645,13 +643,122 @@ function addRollingHill(
   }
 }
 
-/** Four ridges. The near foot stays in the meadow; farther ones are taller and bluer. */
+function hash1(n: number) {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+/** [x, height 0..1, half width] of one peak along a range. */
+type Peak = readonly [number, number, number];
+
+/**
+ * Crest height (0..1) at x: the tallest peak over x, with slightly concave
+ * flanks so tops come to a point, and a shoulder line so a range never
+ * drops to the meadow between peaks. A per-column notch keeps the ridge jagged.
+ */
+function crestAt(x: number, column: number, peaks: readonly Peak[], seed: number) {
+  let crest = 0.26 + Math.abs(Math.sin(x * 0.21 + seed)) * 0.1;
+  for (const [px, ph, pw] of peaks) {
+    const t = 1 - Math.abs(x - px) / pw;
+    if (t > 0) crest = Math.max(crest, ph * Math.pow(t, 1.3));
+  }
+  const notch = (hash1(column * 1.7 + seed * 13) - 0.5) * 0.085;
+  const knuckle = Math.abs(Math.sin(x * 0.83 + seed * 2.1)) * 0.045;
+  return Math.max(0.12, crest + notch * crest + knuckle - 0.02);
+}
+
+/**
+ * A low-poly mountain range. A coarse grid with jittered vertices, so the
+ * shader's flat normals catch the sun on one face and shade the next.
+ * aSpan.x is height over the range's peak (snow reads it); aSpan.y is the
+ * layer (1 near, 2 mid, 3 far), which sets snow and haze.
+ */
+function addRange(
+  mesh: Bag,
+  zNear: number,
+  zFar: number,
+  height: number,
+  width: number,
+  crest: RGB,
+  foot: RGB,
+  peaks: readonly Peak[],
+  seed: number,
+  layer: number,
+  columns: number,
+  rows: number,
+) {
+  const ids: number[] = [];
+  for (let row = 0; row <= rows; row += 1) {
+    const v = row / rows;
+    // Steeper front face than the dome the hills use, so the crest reads as a ridge.
+    const lift = Math.pow(Math.sin(v * Math.PI), 0.85);
+    for (let column = 0; column <= columns; column += 1) {
+      const u = column / columns;
+      const edge = row === 0 || row === rows;
+      const wobble = edge ? 0 : (hash1(row * 97 + column * 13 + seed) - 0.5) * 0.7;
+      const x = (u - 0.5) * width + wobble;
+      const top = crestAt(x, column, peaks, seed);
+      const jitter = edge ? 0 : (hash1(row * 31 + column * 7 + seed * 5) - 0.5) * 0.14 * lift;
+      const y = Math.max(0, height * (top * lift + jitter * top));
+      const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.27 + seed) * 0.9 * lift;
+      const up = Math.min(1, y / Math.max(height, 0.001));
+      ids.push(vert(mesh, x, y, z, mix(foot, crest, Math.min(1, up / Math.max(top, 0.3))), 0, [up, layer]));
+    }
+  }
+  const stride = columns + 1;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const a = ids[row * stride + column] ?? 0;
+      const b = ids[row * stride + column + 1] ?? 0;
+      const c = ids[(row + 1) * stride + column] ?? 0;
+      const d = ids[(row + 1) * stride + column + 1] ?? 0;
+      // Alternate the diagonal so facets don't all lean one way.
+      if ((row + column) % 2 === 0) mesh.indices.push(a, b, c, b, d, c);
+      else mesh.indices.push(a, b, d, a, d, c);
+    }
+  }
+}
+
+const NEAR_PEAKS: readonly Peak[] = [
+  [-34, 0.78, 9],
+  [-21, 0.96, 9],
+  [-9, 0.62, 7],
+  [3, 0.7, 7],
+  [14, 0.58, 6],
+  [24, 0.92, 9],
+  [37, 0.74, 8],
+];
+
+const MID_PEAKS: readonly Peak[] = [
+  [-46, 0.82, 11],
+  [-31, 0.64, 8],
+  [-15, 1.0, 11],
+  [-1, 0.74, 8],
+  [12, 0.94, 10],
+  [29, 0.7, 9],
+  [44, 0.9, 10],
+];
+
+const FAR_PEAKS: readonly Peak[] = [
+  [-60, 0.82, 13],
+  [-40, 1.0, 13],
+  [-22, 0.72, 10],
+  [-5, 0.96, 12],
+  [15, 0.78, 10],
+  [34, 1.0, 14],
+  [56, 0.84, 13],
+];
+
+/**
+ * The near green hill, then three ranges. Near ranges are deep and
+ * saturated; each one back is paler and bluer, and the two far ones carry snow.
+ */
 export function createHillsGeometry() {
   const mesh = bag();
-  addRollingHill(mesh, -4, -16, 2.35, [0.48, 0.64, 0.34], [0.7, 0.82, 0.52], 0.2, 72, 14, false);
-  addRollingHill(mesh, -14, -32, 6.2, [0.58, 0.54, 0.74], [0.7, 0.68, 0.82], 1.7, 56, 12, true);
-  addRollingHill(mesh, -30, -50, 8.6, [0.42, 0.6, 0.84], [0.62, 0.74, 0.9], 3.4, 48, 12, true);
-  addRollingHill(mesh, -48, -68, 10.2, [0.66, 0.78, 0.9], [0.78, 0.84, 0.94], 5.1, 44, 10, true);
+  addRollingHill(mesh, -4, -16, 2.35, [0.48, 0.64, 0.34], [0.7, 0.82, 0.52], 0.2, 72, 14);
+  addRange(mesh, -14, -32, 8.2, 96, [0.36, 0.34, 0.58], [0.56, 0.56, 0.74], NEAR_PEAKS, 1.7, 1, 60, 8);
+  addRange(mesh, -30, -50, 12.4, 112, [0.36, 0.5, 0.78], [0.62, 0.72, 0.9], MID_PEAKS, 3.4, 2, 64, 8);
+  addRange(mesh, -48, -68, 15.4, 140, [0.62, 0.72, 0.9], [0.8, 0.86, 0.95], FAR_PEAKS, 5.1, 3, 70, 7);
   return finish(mesh);
 }
 

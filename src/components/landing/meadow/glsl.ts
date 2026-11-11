@@ -638,6 +638,7 @@ attribute vec2 aSpan;
 varying vec3 vWorld;
 varying vec3 vColor;
 varying float vLift;
+varying float vLayer;
 uniform float uAspect;
 
 void main() {
@@ -657,6 +658,7 @@ void main() {
   vWorld = world.xyz;
   vColor = color;
   vLift = aSpan.x;
+  vLayer = aSpan.y;
   gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;
@@ -665,9 +667,17 @@ export const HILL_FRAG = COMMON + /* glsl */ `
 varying vec3 vWorld;
 varying vec3 vColor;
 varying float vLift;
+varying float vLayer;
+uniform float uAspect;
 
-void main() {
-  float dist = distance(vWorld, uCamPos);
+/* Flat normal of the facet under this pixel, turned toward the camera. */
+vec3 facetNormal() {
+  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  return dot(n, uCamPos - vWorld) < 0.0 ? -n : n;
+}
+
+/* The near green hill: soft and rolling, lit gently from the sun side. */
+vec3 shadeHill(float dist) {
   float lift = saturate(vLift);
   float n = washNoise(vWorld.xz * 0.16);
   float ragged = saturate(lift + (n - 0.5) * 0.18);
@@ -677,19 +687,70 @@ void main() {
   vec3 col = mix(foot, ridge, smoothstep(0.08, 0.82, ragged));
   col *= mix(0.98, 1.02, n);
   col = mix(col, uSkyMid, smoothstep(0.9, 1.0, ragged) * 0.35);
-  float flank = saturate(vWorld.x * 0.03 + 0.1) * smoothstep(0.25, 0.8, lift);
-  col = mix(col, min(col * vec3(1.05, 1.02, 0.99) + vec3(0.025, 0.012, 0.0), vec3(1.0)), flank * 0.4);
+  float sun = dot(facetNormal(), normalize(uSunDir));
+  col *= mix(0.93, 1.04, smoothstep(0.2, 0.9, sun));
   float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
   float cream = smoothstep(0.9, 2.5, vWorld.y) * nearHill;
   col = mix(col, mix(col, uHorizon, 0.28), cream * 0.3);
-  float title = (1.0 - smoothstep(0.2, 6.5, abs(vWorld.x))) * smoothstep(0.4, 1.55, vWorld.y) * (1.0 - smoothstep(1.7, 2.6, vWorld.y));
+  // A soft lift on the hill behind the copy, which sits left of centre
+  // above a phone and centred on one.
+  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  float halfWidth = max(uCamPos.z - vWorld.z, 1.0) * 0.4245 * max(uAspect, 0.3);
+  float copyX = mix(-0.56 * halfWidth, 0.0, phone);
+  float title = (1.0 - smoothstep(0.2, 6.5, abs(vWorld.x - copyX))) * smoothstep(0.4, 1.55, vWorld.y) * (1.0 - smoothstep(1.7, 2.6, vWorld.y));
   col = mix(col, mix(uHorizon, uSkyTop, 0.3), title * nearHill * 0.48);
+  return col;
+}
+
+/*
+ * A low-poly range. Each facet is lit or shaded by its own normal, the
+ * tallest peaks carry snow, and each layer back loses contrast to a cool haze.
+ */
+vec3 shadeRange(float dist) {
+  float layer = vLayer;
+  float back = saturate((layer - 1.0) * 0.5);
+  float lift = saturate(vLift);
+  vec3 n = facetNormal();
+  float sun = dot(n, normalize(uSunDir));
+  float lit = smoothstep(-0.15, 0.75, sun);
+  // Strong on the near range, gentler on the far one.
+  float contrast = mix(0.42, 0.22, back);
+  vec3 rock = vColor * mix(1.0 - contrast, 1.0 + contrast * 0.35, lit);
+  // Shaded faces lean violet-blue rather than going grey.
+  rock = mix(rock, rock * vec3(0.9, 0.92, 1.12), (1.0 - lit) * 0.5);
+
+  float grain = washNoise(vWorld.xz * vec2(0.9, 0.5) + layer * 3.1);
+  float streak = washNoise(vec2(vWorld.x * 2.3, layer * 7.0));
+  // The near range only frosts its very tips; the two back ranges carry real caps.
+  float snowLine = (layer < 1.5 ? 0.86 : mix(0.68, 0.6, back)) + (grain - 0.5) * 0.08 - pow(streak, 3.0) * 0.1;
+  float snowAmount = layer > 1.5 ? 1.0 : 0.9;
+  float snow = smoothstep(snowLine, snowLine + 0.012, lift) * snowAmount;
+  vec3 snowLit = vec3(1.0, 0.99, 0.97);
+  vec3 snowShade = vec3(0.74, 0.79, 0.93);
+  vec3 snowCol = mix(snowShade, snowLit, lit);
+  vec3 col = mix(rock, snowCol, snow);
+
+  // Mist pools at each range's foot, so layers separate.
+  vec3 haze = mix(uSkyMid, vec3(0.78, 0.86, 0.96), 0.5);
+  float valley = pow(1.0 - lift, 2.2);
+  col = mix(col, haze, valley * mix(0.38, 0.6, back));
+  col = mix(col, haze, back * 0.22);
+  return col;
+}
+
+void main() {
+  float dist = distance(vWorld, uCamPos);
+  bool range = vLayer > 0.5;
+  vec3 col = range ? shadeRange(dist) : shadeHill(dist);
   col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   vec3 shaded = mix(lit, atmospheric(lit, dist), 0.1);
-  float footWash = (1.0 - smoothstep(0.2, 1.15, vWorld.y)) * nearHill;
-  if (footWash > 0.02) shaded = driftTint(shaded, vWorld.xz, footWash);
+  if (!range) {
+    float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
+    float footWash = (1.0 - smoothstep(0.2, 1.15, vWorld.y)) * nearHill;
+    if (footWash > 0.02) shaded = driftTint(shaded, vWorld.xz, footWash);
+  }
   gl_FragColor = vec4(shaded, 1.0);
 }
 `;
