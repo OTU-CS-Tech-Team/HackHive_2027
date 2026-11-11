@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { errorClass, hintClass, labelClass } from "./styles";
 
 interface RadioGroupFieldProps {
   label: string;
@@ -39,18 +40,18 @@ export function RadioGroupField({
 
   return (
     <fieldset className="space-y-2" aria-describedby={describedBy}>
-      <legend className="block text-sm font-medium text-neutral-700">
-        {label}
-        {required && <span className="ml-1 text-red-500" aria-hidden="true">*</span>}
-      </legend>
+      <legend className={`${labelClass} mb-2`}>{label}</legend>
       {description && (
-        <p id={descriptionId} className="text-sm text-neutral-500">
+        <p id={descriptionId} className={hintClass}>
           {description}
         </p>
       )}
-      <div className="space-y-2">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         {normalizedOptions.map((opt) => (
-          <div key={opt.value} className="flex items-center gap-3">
+          <div
+            key={opt.value}
+            className="relative flex items-center gap-3 rounded-xl border border-hive-line bg-hive-field px-4 py-3.5 transition-colors hover:border-[#d9cfb8] has-checked:border-hive-honey has-checked:bg-hive-honey-soft has-focus-visible:ring-4 has-focus-visible:ring-hive-honey/25"
+          >
             <input
               id={`${groupId}-${opt.value}`}
               name={name}
@@ -60,16 +61,16 @@ export function RadioGroupField({
               onChange={(e) => onChange(e.target.value)}
               required={required}
               disabled={disabled}
-              className="h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-900 disabled:cursor-not-allowed"
+              className="size-4 shrink-0 accent-hive-ink outline-none disabled:cursor-not-allowed"
             />
-            <label htmlFor={`${groupId}-${opt.value}`} className="text-sm text-neutral-700">
+            <label htmlFor={`${groupId}-${opt.value}`} className="text-sm font-medium text-hive-ink after:absolute after:inset-0">
               {opt.label}
             </label>
           </div>
         ))}
       </div>
       {error && (
-        <p id={errorId} className="text-sm text-red-600" role="alert">
+        <p id={errorId} className={errorClass} role="alert">
           {error}
         </p>
       )}

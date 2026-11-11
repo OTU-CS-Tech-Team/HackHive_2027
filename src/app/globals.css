@@ -42,9 +42,80 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Application portal palette, taken from the HackHive logo. */
+@theme {
+  --color-hive-honey: #f5b83d;
+  --color-hive-honey-soft: #fdf3dc;
+  --color-hive-ink: #132f40;
+  --color-hive-sky: #62c0f5;
+  --color-hive-muted: #6f6a5f;
+  --color-hive-placeholder: #8f887a;
+  --color-hive-line: #ebe4d3;
+  --color-hive-field: #faf8f3;
+  --color-hive-panel: #fbf9f4;
+}
+
+/* Slider on the apply form. --fill (0-100%) is how far the honey track runs. */
+.hive-range {
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--color-hive-honey) var(--fill, 0%),
+    var(--color-hive-line) var(--fill, 0%)
+  );
+  outline: none;
+}
+
+.hive-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--color-hive-honey);
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(19 47 64 / 0.2);
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.hive-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--color-hive-honey);
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(19 47 64 / 0.2);
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.hive-range:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+.hive-range:active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+.hive-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 5px rgb(245 184 61 / 0.3);
+}
+
+.hive-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 5px rgb(245 184 61 / 0.3);
+}
+
+/* The apply page has its own sidebar nav, so the site bar steps aside on desktop. */
+@media (min-width: 768px) {
+  html:has([data-apply-shell]) [data-navbar-shell] {
+    display: none;
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
+  --font-display: var(--font-grotesk);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

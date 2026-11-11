@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { exactSchoolMatches, searchSchools } from "@/lib/schools";
+import { errorClass, hintClass, inputClass, labelClass, linkClass } from "./styles";
 
 interface SchoolFieldProps {
   value: string;
@@ -11,13 +12,6 @@ interface SchoolFieldProps {
 }
 
 const NOT_LISTED = "Other";
-
-const inputClass = (error?: string) =>
-  `mt-1 block w-full rounded-lg border px-4 py-2.5 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 ${
-    error
-      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-      : "border-neutral-300 focus:border-neutral-900 focus:ring-neutral-900"
-  }`;
 
 // A search box over the school list. Picking a school saves its exact name;
 // "Other" swaps in a free-text box. Typing without picking
@@ -68,14 +62,13 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
   };
 
   const label = (htmlFor: string) => (
-    <label htmlFor={htmlFor} className="block text-sm font-medium text-neutral-700">
-      School Name
-      <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+    <label htmlFor={htmlFor} className={labelClass}>
+      School
     </label>
   );
 
   const errorText = error && (
-    <p id={errorId} className="text-sm text-red-600" role="alert">
+    <p id={errorId} className={errorClass} role="alert">
       {error}
     </p>
   );
@@ -83,7 +76,7 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
   if (isOther) {
     const suggestion = exactSchoolMatches(value)[0];
     return (
-      <div className="space-y-1">
+      <div className="space-y-2">
         {label(id)}
         <input
           id={id}
@@ -104,12 +97,12 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
           className={inputClass(error)}
         />
         {suggestion && (
-          <p className="text-sm text-neutral-600">
+          <p className={hintClass}>
             Did you mean{" "}
             <button
               type="button"
               onClick={() => backToList(suggestion.name)}
-              className="font-medium text-neutral-900 underline hover:no-underline"
+              className={linkClass}
             >
               {suggestion.name}
             </button>
@@ -122,9 +115,9 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {label(id)}
-      <p id={hintId} className="text-sm text-neutral-500">
+      <p id={hintId} className={hintClass}>
         Start typing to search, e.g. &ldquo;UofT&rdquo; or &ldquo;Waterloo&rdquo;
       </p>
       <div className="relative">
@@ -173,7 +166,7 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
             id={listId}
             role="listbox"
             aria-label="Schools"
-            className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg"
+            className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-hive-line bg-white p-1 shadow-[0_12px_32px_-8px_rgba(19,47,64,0.18)]"
           >
             {options.map((option, i) => (
               <li
@@ -187,8 +180,8 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
                   choose(option);
                 }}
                 onMouseEnter={() => setActive(i)}
-                className={`cursor-pointer px-4 py-2 text-sm ${i === active ? "bg-neutral-100" : ""} ${
-                  option === NOT_LISTED ? "border-t border-neutral-100 text-neutral-600 italic" : "text-neutral-900"
+                className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${i === active ? "bg-hive-honey-soft" : ""} ${
+                  option === NOT_LISTED ? "text-hive-muted" : "font-medium text-hive-ink"
                 }`}
               >
                 {option}

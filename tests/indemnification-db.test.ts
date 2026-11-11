@@ -121,6 +121,10 @@ describe('reg_submit_application with the indemnification form', () => {
       .rejects.toThrow(/other_links/);
   });
 
+  it('refuses a preferred name over 100 characters', async () => {
+    await expect(submit({ p_preferred_name: 'a'.repeat(101) })).rejects.toThrow(/preferred_name/);
+  });
+
   it('stops applicants writing the path themselves', async () => {
     await db.exec(`insert into public.applications(user_id, email) values ('${USER}', 'ada@example.com')`);
     await db.exec(`begin; set local role authenticated; select set_config('test.uid', '${USER}', true);`);

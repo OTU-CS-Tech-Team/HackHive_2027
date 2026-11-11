@@ -110,25 +110,23 @@ async function ApplyPageContent() {
     ? result.application.updated_at 
     : null;
 
+  // Formatted here so server and browser show the same text.
+  const deadlineLabel = `Due ${APPLICATION_DEADLINE.toLocaleString("en-US", {
+    timeZone: "America/Toronto",
+    dateStyle: "long",
+    timeStyle: "short",
+  })} ET`;
+
   return (
-    <main className="min-h-screen pb-16 pt-24">
-      <div className="mx-auto max-w-2xl px-4">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold">Apply to HackHive 2027</h1>
-          <p className="mt-2 text-neutral-600">
-            Fill out the form below to apply. Your progress is saved automatically.
-          </p>
-        </div>
-        <ApplyForm 
-          userEmail={user.email} 
-          userId={user.id}
-          initialDraft={initialDraft}
-          serverUpdatedAt={serverUpdatedAt}
-          serverNow={serverNow}
-          deadlinePassed={deadlinePassed}
-        />
-      </div>
-    </main>
+    <ApplyForm
+      userEmail={user.email}
+      userId={user.id}
+      initialDraft={initialDraft}
+      serverUpdatedAt={serverUpdatedAt}
+      serverNow={serverNow}
+      deadlinePassed={deadlinePassed}
+      deadlineLabel={deadlineLabel}
+    />
   );
 }
 

@@ -2,7 +2,9 @@
 
 import { useState, useId } from "react";
 import { suggestEmailCorrection } from "@/lib/application/form-utils";
+import { Plus, X } from "lucide-react";
 import { FIELD_LIMITS } from "@/lib/constants";
+import { errorClass, hintClass, iconButtonClass, inputClass, labelClass, linkClass } from "./styles";
 
 interface TeammateEmailsProps {
   value: string[];
@@ -52,10 +54,10 @@ export function TeammateEmails({ value, onChange, disabled = false, error }: Tea
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-neutral-700">
-        Teammate emails (optional, up to {FIELD_LIMITS.teammate_emails_max})
-      </label>
-      <p className="text-sm text-neutral-500">
+      <p className={labelClass}>
+        Teammate emails <span className="font-normal text-hive-muted">(optional, up to {FIELD_LIMITS.teammate_emails_max})</span>
+      </p>
+      <p className={hintClass}>
         Enter the email addresses of teammates you&apos;re planning to work with.
       </p>
 
@@ -71,31 +73,25 @@ export function TeammateEmails({ value, onChange, disabled = false, error }: Tea
               onChange={(e) => handleEmailChange(index, e.target.value)}
               disabled={disabled}
               placeholder="teammate@example.com"
-              className="block w-full rounded-lg border border-neutral-300 px-4 py-2.5 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-100"
+              className={inputClass()}
             />
             <button
               type="button"
               onClick={() => handleRemoveEmail(index)}
               disabled={disabled}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className={iconButtonClass}
               aria-label={`Remove teammate ${index + 1}`}
             >
-              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path
-                  fillRule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
           {suggestions[index] && (
-            <p className="text-sm text-neutral-600">
+            <p className={hintClass}>
               Did you mean{" "}
               <button
                 type="button"
                 onClick={() => handleAcceptSuggestion(index)}
-                className="font-medium text-neutral-900 underline hover:no-underline"
+                className={linkClass}
               >
                 {suggestions[index]}
               </button>
@@ -110,21 +106,15 @@ export function TeammateEmails({ value, onChange, disabled = false, error }: Tea
           type="button"
           onClick={handleAddEmail}
           disabled={disabled}
-          className="inline-flex items-center gap-1 text-sm font-medium text-neutral-900 underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-hive-ink hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path
-              fillRule="evenodd"
-              d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <Plus className="size-4" aria-hidden="true" />
           Add teammate
         </button>
       )}
 
       {error && (
-        <p className="text-sm text-red-600" role="alert">
+        <p className={errorClass} role="alert">
           {error}
         </p>
       )}
