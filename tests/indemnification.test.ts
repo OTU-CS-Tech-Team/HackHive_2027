@@ -80,7 +80,7 @@ describe('indemnification form filler', () => {
     const all = pages.flat().map((i) => i.str).join('\n');
     expect(all).toContain('OTU Computer Science');
     expect(all).toContain('Hackhive 2027');
-    expect(all).toContain('2026-10-18');
-    expect(all.match(/Abdul Muqit Afzal/g)).toHaveLength(3);
+    expect(all).toContain('2026-11-11');
+    expect(all.match(/Maryam Baz/g)).toHaveLength(3);
   });
 });
