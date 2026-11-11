@@ -55,9 +55,9 @@ const TYPE_END = 0.23; // scroll progress by which the code is fully typed, howe
 const TYPE_MS = 1600; // ... though it types itself in this long once the stage is in view, no scrolling needed
 const BULGE_START = 0.1; // scroll progress where the box starts to swell
 const EXPLODE_AT = 0.39; // scroll progress where the shatter starts
-const EXPLODE_LEN = 0.46; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
+const EXPLODE_LEN = 0.40; // scroll the outward travel spans (x ANIM_VH screens). Bigger = slower
 const FADE_LEN = 0.08; // extra scroll after the travel before the shards are gone
-const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.35; // judges section starts sliding up here
+const SLIDE_START = EXPLODE_AT + EXPLODE_LEN * 0.3; // judges section starts sliding up here
 const FADE_START = EXPLODE_AT + EXPLODE_LEN * 0.5; // shards begin fading here
 const FADE_END = EXPLODE_AT + EXPLODE_LEN + FADE_LEN; // fully gone, judges section cuts in
 const ORIGIN_Y = 0.75; // bulge/explosion origin down the text block: 0 = top, 0.5 = middle, 1 = bottom
@@ -113,7 +113,7 @@ export function CodeToRain() {
 
     // ---- terminal / shatter state ----
     let W = 0, H = 0, dpr = 1;
-    let fs = 14, lh = 20, cw = 8, bx = 0, by = 0, bw = 0, pad = 0;
+    let fs = 13, lh = 20, cw = 8, bx = 0, by = 0, bw = 0, pad = 0;
     let cx = 0, cy = 0, diag = 0, hFull = 0;
     let glyphs: Glyph[] = [];
     let groups: Group[] = [];
