@@ -1003,40 +1003,35 @@ export function buildLayout(quality: Quality): SceneLayout {
   }
   const cloudRng = mulberry32(7);
   const clouds: Item[] = [];
-  // Big ones up front, one over the open sky in the middle, a pair behind,
-  // and two faint ones among the peaks (the ranges cover their feet).
-  const cloudSpots: [number, number, number][] = [
-    [-6.4, 3.85, -6.5],
-    [6.6, 3.95, -7],
-    [0.4, 4.75, -9.5],
-    [-2.8, 4.45, -12.4],
-    [3.4, 4.35, -12.8],
-    [-11, 6.4, -30],
-    [13, 7.6, -42],
-  ];
-  const cloudSize: [number, number][] = [
-    [4.4, 1.9],
-    [4.0, 1.75],
-    [2.6, 1.15],
-    [3.0, 1.3],
-    [2.8, 1.2],
-    [8.5, 3.2],
-    [9.5, 3.4],
+  // Four kinds of cloud, told to the shader in the phase's tens digit
+  // (CLOUD_TYPE * 10 + a phase under 2 pi). Tall cumulus up front, a long
+  // low bank, small puffs to fill the gaps, and faint wisps among the peaks.
+  const CUMULUS = 0;
+  const BANK = 1;
+  const PUFF = 2;
+  const WISP = 3;
+  const cloudPlan: { at: [number, number, number]; size: [number, number]; type: number }[] = [
+    { at: [-6.4, 3.75, -6.5], size: [4.2, 2.2], type: CUMULUS },
+    { at: [6.6, 3.9, -7], size: [5.0, 1.6], type: BANK },
+    { at: [0.4, 4.75, -9.5], size: [2.2, 1.45], type: PUFF },
+    { at: [-2.8, 4.4, -12.4], size: [3.0, 1.6], type: CUMULUS },
+    { at: [3.6, 4.35, -12.8], size: [2.4, 1.45], type: PUFF },
+    { at: [-11, 6.4, -30], size: [9.0, 2.4], type: WISP },
+    { at: [13, 7.6, -42], size: [10.5, 2.6], type: WISP },
   ];
   for (let i = 0; i < counts.clouds; i += 1) {
-    const spot = cloudSpots[i % cloudSpots.length] ?? [-5, 4.6, -8];
-    const size = cloudSize[i % cloudSize.length] ?? [3.4, 1.2];
+    const plan = cloudPlan[i % cloudPlan.length] ?? { at: [-5, 4.6, -8], size: [3.4, 1.6], type: CUMULUS };
     clouds.push({
-      x: spot[0] + (cloudRng() - 0.5) * 0.12,
-      y: spot[1] + cloudRng() * 0.08,
-      z: spot[2],
+      x: plan.at[0] + (cloudRng() - 0.5) * 0.12,
+      y: plan.at[1] + cloudRng() * 0.08,
+      z: plan.at[2],
       yaw: 0,
       pitch: 0,
-      sx: size[0] + cloudRng() * 0.12,
-      sy: size[1] + cloudRng() * 0.06,
+      sx: plan.size[0] + cloudRng() * 0.12,
+      sy: plan.size[1] + cloudRng() * 0.06,
       sz: 1,
       color: [1, 1, 1],
-      phase: cloudRng() * Math.PI * 2,
+      phase: plan.type * 10 + cloudRng() * Math.PI * 2,
     });
   }
 

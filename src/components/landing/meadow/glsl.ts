@@ -860,47 +860,93 @@ varying float vPhase;
 varying float vRatio;
 varying float vFar;
 
+const float CLOUD_BASE = -0.12;
+
 float cloudHash(float n) {
   return fract(sin(n * 91.7 + 13.1) * 43758.5453);
 }
 
+float smin(float a, float b, float k) {
+  float h = saturate(0.5 + 0.5 * (b - a) / k);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+float smax(float a, float b, float k) {
+  return -smin(-a, -b, k);
+}
+
 /*
- * Seven round lumps along a flat base: a big one or two in the middle,
- * smaller ones at the ends, in a different order per cloud. Worked in
- * card-height units so lumps stay round on a wide card.
+ * The cloud as one soft body: a main dome, six lumps along the base that
+ * shrink toward the ends, and up to two piled on top, all blended into a
+ * single outline (x) and a single height (y), like overlapping spheres.
+ * type 0 cumulus, 1 long low bank, 2 small puff, 3 faint wisp.
  */
+vec2 cloudField(vec2 q, float type, float seed, float width) {
+  float rMain = 0.27;
+  float spread = 0.34;
+  float side = 0.72;
+  float tops = 2.0;
+  float stretch = 1.0;
+  float blend = 0.05;
+  // The bank stretches its lumps a little and blends them hard, so it stays one long body.
+  if (type > 0.5 && type < 1.5) { rMain = 0.19; spread = 0.33; side = 1.0; tops = 2.0; stretch = 0.72; blend = 0.1; }
+  else if (type > 1.5 && type < 2.5) { rMain = 0.24; spread = 0.22; side = 0.66; tops = 1.0; }
+  else if (type > 2.5) { rMain = 0.13; spread = 0.42; side = 0.9; tops = 0.0; stretch = 0.42; }
+  float d = 1e3;
+  float h = 0.0;
+  for (int i = 0; i < 9; i++) {
+    float fi = float(i);
+    float a = cloudHash(seed + fi * 1.31);
+    float b = cloudHash(seed * 1.7 + fi * 2.17);
+    vec2 c;
+    float r;
+    if (i == 0) {
+      r = rMain;
+      c = vec2((a - 0.5) * 0.2 * width, CLOUD_BASE + r * 0.45);
+    } else if (i < 7) {
+      float t = (fi - 0.5) / 3.0 - 1.0 + (a - 0.5) * 0.18;
+      r = rMain * side * (1.0 - 0.5 * abs(t)) * (0.78 + b * 0.44);
+      c = vec2(t * spread * width, CLOUD_BASE + r * (0.35 + 0.3 * b) + (1.0 - abs(t)) * rMain * 0.12);
+    } else {
+      if (fi - 7.0 >= tops) break;
+      r = rMain * (0.46 + b * 0.16);
+      c = vec2(((fi - 7.5) * 0.5 + (a - 0.5) * 0.4) * rMain * 1.4, CLOUD_BASE + rMain * (1.02 + b * 0.12));
+    }
+    vec2 dq = (q - c) * vec2(stretch, 1.0);
+    d = smin(d, length(dq) - r, blend);
+    h = smax(h, sqrt(max(r * r - dot(dq, dq), 0.0)), 0.035);
+  }
+  // A flat underside with a gentle wave, blended rather than sliced.
+  float floorY = CLOUD_BASE + sin(q.x * 7.0 + seed) * 0.008;
+  d = smax(d, floorY - q.y, 0.025);
+  return vec2(d, h);
+}
+
 void main() {
   vec2 q = vec2((vUv.x - 0.5) * vRatio, vUv.y - 0.5);
-  float base = -0.12;
-  float shape = 0.0;
-  vec2 normal = vec2(0.0, 1.0);
-  float aa = max(fwidth(q.y), 0.002) * 1.5;
-  for (int i = 0; i < 7; i++) {
-    float fi = float(i);
-    float t = (fi + 0.5) / 7.0;
-    float bell = sin(t * 3.14159);
-    float r = 0.11 + 0.17 * bell * (0.75 + cloudHash(vPhase + fi) * 0.5);
-    float cx = (t - 0.5) * vRatio * 0.78 + (cloudHash(vPhase * 1.7 + fi) - 0.5) * 0.12;
-    vec2 c = vec2(cx, base + r * (0.45 + cloudHash(vPhase * 2.3 + fi) * 0.25));
-    vec2 d = q - c;
-    float inside = 1.0 - smoothstep(r - aa, r + aa, length(d));
-    if (inside > shape) {
-      shape = inside;
-      normal = d / r;
-    }
-  }
-  // A flat underside.
-  shape *= smoothstep(base - aa, base + aa, q.y);
-  float alpha = shape * mix(1.0, 0.62, vFar) * (1.0 - uVeil);
+  float type = floor(vPhase / 10.0 + 0.001);
+  float seed = vPhase - type * 10.0;
+  vec2 field = cloudField(q, type, seed, vRatio);
+  float wisp = step(2.5, type);
+  float aa = max(fwidth(q.y), 0.002);
+  float fray = (washNoise(q * 16.0 + seed * 3.0) - 0.5) * mix(0.012, 0.05, wisp);
+  float feather = aa * 1.4 + mix(0.004, 0.05, wisp);
+  float alpha = 1.0 - smoothstep(-feather, feather, field.x + fray);
+  alpha *= mix(1.0, 0.6, vFar) * mix(1.0, 0.75, wisp) * (1.0 - uVeil);
   if (alpha < 0.02) discard;
-  // Lavender-grey underneath, white up top, a sunlit rim on the right.
-  float height = smoothstep(base, base + 0.3, q.y);
-  vec3 under = vec3(0.79, 0.8, 0.92);
-  vec3 col = mix(under, vec3(1.0), height);
-  float sunSide = saturate(dot(normal, normalize(vec2(0.55, 0.85))));
-  col = mix(col, vec3(1.0, 0.99, 0.95), pow(sunSide, 2.0) * 0.6);
-  col *= mix(0.94, 1.0, saturate(length(normal)));
-  col = mix(col, mix(uSkyMid, uHorizon, 0.3), vFar * 0.35);
+
+  // Shade the whole body against one sun, up and to the right.
+  vec2 e = vec2(0.008, 0.0);
+  float hx = cloudField(q + e.xy, type, seed, vRatio).y;
+  float hy = cloudField(q + e.yx, type, seed, vRatio).y;
+  vec3 n = normalize(vec3(-(hx - field.y) / e.x, -(hy - field.y) / e.x, 1.0));
+  float light = dot(n, normalize(vec3(0.5, 0.72, 0.6)));
+  vec3 shadow = vec3(0.8, 0.84, 0.91);
+  vec3 col = mix(shadow, vec3(1.0, 0.995, 0.985), smoothstep(-0.1, 0.85, light));
+  // A soft cool band across the lower third.
+  float under = 1.0 - smoothstep(CLOUD_BASE, CLOUD_BASE + 0.15, q.y);
+  col = mix(col, vec3(0.83, 0.86, 0.92), under * 0.45 * (1.0 - wisp));
+  col = mix(col, mix(uSkyMid, uHorizon, 0.3), vFar * 0.35 + wisp * 0.15);
   gl_FragColor = vec4(col, alpha);
 }
 `;
