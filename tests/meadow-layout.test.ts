@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLupinGeometry } from "@/components/landing/meadow/geometry";
-import { GRASS_CLEAR, NOT_PHONE, WIDE_ONLY, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
+import { GRASS_CLEAR, NOT_PHONE, PHONE_ONLY, WIDE_ONLY, buildLayout, pathCenterAt, pathCenterMid } from "@/components/landing/meadow/layout";
 import { FOREST, HORIZON, SKY_TOP, handoffVeil } from "@/components/landing/meadow/palette";
 import { sceneBudget } from "@/components/landing/meadow/stats";
 import { readForcedTrim, trimmedInstances, trimmedSparks } from "@/components/landing/meadow/trim";
@@ -22,6 +22,9 @@ describe("meadow layout", () => {
         for (let index = 0; index < group.count; index += 1) {
           const x = group.matrices[index * 16 + 12] ?? 0;
           const z = group.matrices[index * 16 + 14] ?? 0;
+          // The phone-only bed is drawn only on a phone, where the shaders
+          // set it beside the slimmer phone path.
+          if ((group.phases[index] ?? 0) >= PHONE_ONLY - 50) continue;
           const wide = Math.abs(x - pathCenterAt(z));
           const mid = Math.abs(x - pathCenterMid(z));
           expect(wide > 0.48 || mid > 0.22).toBe(true);
@@ -85,7 +88,10 @@ describe("meadow layout", () => {
     // Wide-only spots stay out of the low tier, and every tag is one the shaders know.
     expect(count(low, (_x, _z, phase) => phase >= WIDE_ONLY && phase < NOT_PHONE)).toBe(0);
     expect(count(high, (_x, _z, phase) => phase >= WIDE_ONLY && phase < NOT_PHONE)).toBeGreaterThan(100);
-    expect(count(high, (_x, _z, phase) => phase >= NOT_PHONE + 50)).toBe(0);
+    expect(count(high, (_x, _z, phase) => phase >= NOT_PHONE + 50 && phase < PHONE_ONLY - 50)).toBe(0);
+    // The phone-only bed right of the phone path, and no tag past it.
+    expect(count(high, (_x, _z, phase) => phase >= PHONE_ONLY - 50 && phase < PHONE_ONLY + 50)).toBe(22);
+    expect(count(high, (_x, _z, phase) => phase >= PHONE_ONLY + 50)).toBe(0);
   });
 
   it("thins a shuffled prefix across the depth of every patch", () => {

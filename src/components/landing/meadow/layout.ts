@@ -563,6 +563,43 @@ function fillButtonBand(lilies: Item[], daisies: Item[], lupins: Item[]) {
  */
 export const WIDE_ONLY = 100;
 export const NOT_PHONE = 200;
+/** The reverse: only a phone (aspect below 0.6) draws these. */
+export const PHONE_ONLY = 300;
+
+/**
+ * The bed right of the phone path, from the tree down to the near frame.
+ * A phone has no room there inside the frame, so these sit on the frame
+ * edge and parkOffPath walks them out beside the dirt, where the frame crops
+ * them like a border. They stay short (daisies and lilies under 0.24, lupins
+ * under 0.32) so the phone tree clearing leaves them on the right.
+ */
+function fillPhoneRight(lilies: Item[], daisies: Item[], lupins: Item[]) {
+  const rng = mulberry32(3301);
+  const count = 22;
+  for (let i = 0; i < count; i += 1) {
+    const z = 1.6 + (i / (count - 1)) * 2.5 + (rng() - 0.5) * 0.08;
+    const x = visibleHalf(z, 0.46) * (0.9 + rng() * 0.06);
+    // Lupins only up by the tree: further down the tree clearing would
+    // slide a spike to the left bed.
+    const roll = z < 2.3 ? i % 4 : 1 + (i % 2) * 2;
+    let list: Item[];
+    if (roll === 0 || roll === 2) {
+      const tint = paint(rng, true);
+      const size = 0.25 + rng() * 0.05;
+      placeFlower(lupins, rng, x, 0.02, z, size, size, tint.color, tint.tip, 0, Math.PI * 2);
+      list = lupins;
+    } else if (roll === 1) {
+      const size = 0.17 + rng() * 0.05;
+      placeFlower(daisies, rng, x, 0.02, z, size, size, [1, 1, 1], undefined, 0, Math.PI * 2);
+      list = daisies;
+    } else {
+      const size = 0.2 + rng() * 0.03;
+      placeFlower(lilies, rng, x, 0.02, z, size, size * 0.9, [1, 1, 1], undefined, 0.15, 0.2);
+      list = lilies;
+    }
+    list[list.length - 1].phase += PHONE_ONLY;
+  }
+}
 
 /** The trunk of the wide tree. The garden leaves it a clear foot. */
 const WIDE_TRUNK_X = TREE.x + TREE.shiftWide;
@@ -855,6 +892,8 @@ export function buildLayout(quality: Quality): SceneLayout {
   fillRightShoulder(midLilies, midDaisies);
   mixHedge(nearLilies, nearDaisies, nearLupins);
   mixHedge(midLilies, midDaisies, midLupins);
+  // After the hedge swap, so no tagged bloom trades places with a lupin.
+  fillPhoneRight(midLilies, midDaisies, midLupins);
   const farScale = 0.46;
   const farLilyScale: [number, number] = [lilyScale[0] * farScale, lilyScale[1] * farScale];
   const farDaisyScale: [number, number] = [daisyScale[0] * farScale, daisyScale[1] * farScale];

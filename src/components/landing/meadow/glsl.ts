@@ -1,5 +1,5 @@
 import { VIEW } from "@/components/landing/meadow/palette";
-import { NOT_PHONE, WIDE_ONLY } from "@/components/landing/meadow/layout";
+import { NOT_PHONE, PHONE_ONLY, WIDE_ONLY } from "@/components/landing/meadow/layout";
 import { TREE } from "@/components/landing/meadow/tree";
 
 const VIEW_START_Z = VIEW.startZ;
@@ -120,7 +120,9 @@ float pathLine(float z) {
 
 float pathBase(float aspect) {
   float narrow = 1.0 - smoothstep(0.62, 1.15, max(aspect, 0.3));
-  return mix(1.05, 0.42, narrow);
+  // A phone path a little slimmer, so a bed fits between it and the frame.
+  float phone = 1.0 - smoothstep(0.5, 0.72, max(aspect, 0.3));
+  return mix(1.05, 0.42, narrow) * mix(1.0, 0.82, phone);
 }
 
 uniform float uAspect;
@@ -162,6 +164,11 @@ void parkOffPath(inout vec3 world, vec3 foot, float stem) {
   // that much more room.
   float reach = stem * 0.45;
   float limit = max(halfW * 0.92 + 0.16, halfW * 0.85 + 0.12 + reach);
+  // On a phone the full margin right of the dirt runs past the frame, so
+  // the right side uses a tight one: the soft dirt edge plus part of the
+  // bloom. Short right-hand flowers then stand in the sliver of lawn.
+  float phoneSide = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
+  if (foot.x > center) limit = mix(limit, halfW * 0.92 + 0.02, phoneSide);
   if (abs(foot.x - center) >= limit) return;
   float scatter = fract(sin(foot.z * 17.1 + foot.x * 9.3) * 43758.5453);
   float aspectT = clamp((uAspect - 0.46) / 0.29, 0.0, 1.35);
@@ -174,9 +181,13 @@ void parkOffPath(inout vec3 world, vec3 foot, float stem) {
   float wideEdge = max(0.9, 1.79 + (3.84 - foot.z) * 0.67);
   float edge = mix(max(visible, 0.4) * 0.94, wideEdge * 0.96, wide);
   float left = center - limit - 0.16 - scatter * 0.42;
-  float right = center + limit + 0.16 + scatter * 0.42;
+  // A phone has no room right of the path inside the frame, which sent that
+  // bed to the left and left the right bare. There the right lane hugs the
+  // dirt and may spill past the edge, so the frame crops a bed of blooms
+  // like a garden border.
+  float right = center + limit + mix(0.16 + scatter * 0.42, scatter * 0.07, phoneSide);
   float lane = foot.x < center ? left : right;
-  if (lane > edge) lane = min(left, edge - scatter * 0.08);
+  if (lane > edge + phoneSide * 0.34) lane = min(left, edge - scatter * 0.08);
   if (lane < -edge) lane = max(right, -edge + scatter * 0.08);
   world.x += lane - foot.x;
 }
@@ -189,6 +200,7 @@ const HIDE_FLOWER = /* glsl */ `
  * it reaches a fragment.
  */
 bool hiddenAtAspect(float phase) {
+  if (phase > ${(PHONE_ONLY - 50).toFixed(1)}) return uAspect > 0.6;
   float below = phase > ${(NOT_PHONE - 50).toFixed(1)} ? 0.6 : (phase > ${(WIDE_ONLY - 50).toFixed(1)} ? 1.15 : 0.0);
   return uAspect < below;
 }
@@ -739,7 +751,7 @@ void main() {
   float depth = max(${VIEW_START_Z.toFixed(2)} - center.z, 1.0);
   float frameHalf = depth * ${Math.tan(((VIEW_FOV / 2) * Math.PI) / 180).toFixed(4)} * max(uAspect, 0.3) / squash;
   float loop = 2.0 * (frameHalf * 1.08 + 0.5 * fitted.x + 0.6);
-  float speed = mix(0.06, 0.11, smoothstep(-13.0, -6.5, center.z));
+  float speed = mix(0.09, 0.17, smoothstep(-13.0, -6.5, center.z));
   float x0 = center.x + sin(uTime * 0.035 + aPhase) * uWind * 0.7;
   center.x = mod(x0 + uTime * speed + 0.5 * loop, loop) - 0.5 * loop;
   vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
