@@ -65,7 +65,7 @@ import { readForcedDpr, type Quality } from "@/components/landing/meadow/quality
 
 const FULL_COUNT = "fullCount";
 const KIND = "meadowKind";
-/** His veil is cream, then solid white at progress 0.9. */
+/** The loop parks past this. The homepage walk stops well short of it (WALK_END). */
 const VEIL_HOLD = 0.9;
 const liveMeshes: InstancedMesh[] = [];
 const livePoints: BufferGeometry[] = [];
@@ -395,6 +395,9 @@ function FrameDriver({
   const ready = useRef(false);
   const settled = useRef(false);
   const perf = useRef({ warm: 0, hot: 0 });
+  // Animation frames seen by the poll below, and the one the last draw ran in.
+  const tickCount = useRef(0);
+  const lastDrawTick = useRef(-2);
   const trimStage = useRef(0);
   const forcedTrim = useRef<0 | 1 | 2 | 3 | null>(null);
   const forcedDpr = useRef<number | null>(null);
@@ -410,22 +413,27 @@ function FrameDriver({
   }, [onDone, onReady, reduced]);
 
   useEffect(() => {
+    // Every animation frame, not on a timer: with reduced motion the canvas
+    // only draws on demand, and a coarse poll left it a few frames behind the
+    // scroll, so the walk advanced in visible steps. A compare per frame is
+    // free; the draw still only happens when progress actually moved.
     let lastP = Number.NaN;
+    let id = 0;
     const tick = () => {
+      tickCount.current += 1;
       const walked = progress.current ?? 0;
       if (settled.current && walked < VEIL_HOLD) {
         settled.current = false;
         onDoneRef.current(false);
       }
-      if (!reducedRef.current) return;
-      if (walked !== lastP) {
+      if (reducedRef.current && walked !== lastP) {
         lastP = walked;
         invalidate();
       }
+      id = window.requestAnimationFrame(tick);
     };
     tick();
-    const id = window.setInterval(tick, 48);
-    return () => window.clearInterval(id);
+    return () => window.cancelAnimationFrame(id);
   }, [invalidate, progress]);
 
   useFrame((_, delta) => {
@@ -485,8 +493,13 @@ function FrameDriver({
       gl.setPixelRatio(forced === 1 ? 1 : 0.85);
       trimStage.current = 3;
     } else if (trimStage.current < 3) {
-      stats.warm += 1;
-      if (stats.warm > 1 && frameMs > 0.018) stats.hot += 1;
+      // On demand (reduced motion) the delta after a pause is the idle gap,
+      // not a slow frame. Counting it trimmed the meadow and dropped the
+      // pixel ratio a few scroll frames in, which read as the frame jumping.
+      // Only time draws that follow a draw in the previous animation frame.
+      const back = tickCount.current - lastDrawTick.current <= 1;
+      if (back) stats.warm += 1;
+      if (back && stats.warm > 1 && frameMs > 0.018) stats.hot += 1;
       if (stats.hot >= 3) {
         const next = (trimStage.current + 1) as 1 | 2 | 3;
         applyTrim(next);
@@ -518,6 +531,7 @@ function FrameDriver({
       (window as Window & { __meadow?: typeof report }).__meadow = report;
     }
 
+    lastDrawTick.current = tickCount.current;
     frames.current += 1;
     // The first useFrame is the first presented frame, after compile.
     // Signal on the next one, which is two animation frames after commit.
