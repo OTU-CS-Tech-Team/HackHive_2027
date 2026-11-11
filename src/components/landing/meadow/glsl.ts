@@ -1,4 +1,8 @@
+import { VIEW } from "@/components/landing/meadow/palette";
 import { TREE } from "@/components/landing/meadow/tree";
+
+const VIEW_START_Z = VIEW.startZ;
+const VIEW_FOV = VIEW.fov;
 
 const COMMON = /* glsl */ `
 uniform vec3 uSunDir;
@@ -698,11 +702,21 @@ void main() {
   float narrow = 1.0 - smoothstep(0.72, 1.05, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
   vec2 fitted = size * mix(1.0, 0.84, narrow);
+  // Drift right forever and wrap. The loop is as wide as the frame at this
+  // depth plus the cloud, measured from the trailhead and in the unsquashed
+  // space below, so a cloud leaves the right edge in full before it comes
+  // back in from the left. At uTime 0 every cloud is where the poster has it.
+  // Reduced motion holds uTime, so the sky stays still.
+  float squash = mix(1.0, 0.38, narrow) * mix(1.0, 0.62, phone);
+  float depth = max(${VIEW_START_Z.toFixed(2)} - center.z, 1.0);
+  float frameHalf = depth * ${Math.tan(((VIEW_FOV / 2) * Math.PI) / 180).toFixed(4)} * max(uAspect, 0.3) / squash;
+  float loop = 2.0 * (frameHalf * 1.08 + 0.5 * fitted.x + 0.6);
+  float speed = mix(0.06, 0.11, smoothstep(-13.0, -6.5, center.z));
+  float x0 = center.x + sin(uTime * 0.035 + aPhase) * uWind * 0.7;
+  center.x = mod(x0 + uTime * speed + 0.5 * loop, loop) - 0.5 * loop;
   vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
   vec3 world = center + puff;
-  world.x += sin(uTime * 0.035 + aPhase) * uWind * 0.7;
-  world.x *= mix(1.0, 0.38, narrow);
-  world.x *= mix(1.0, 0.62, phone);
+  world.x *= squash;
   world.y -= narrow * 0.85 + phone * 0.15;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
