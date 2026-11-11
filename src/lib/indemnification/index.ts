@@ -2,6 +2,7 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
+import { isOntarioTech } from "@/lib/schools";
 
 export type IndemnificationApplicant = {
   firstName: string;
@@ -14,15 +15,6 @@ export type IndemnificationApplicant = {
 
 const TEMPLATE_PATH = path.join(process.cwd(), "src/lib/indemnification/template.pdf");
 const TEMPLATE_PAGE_COUNT = 5;
-
-const ONTARIO_TECH_NAMES: ReadonlySet<string> = new Set([
-  "ontario tech university",
-  "ontario tech",
-  "ontariotechu",
-  "otu",
-  "university of ontario institute of technology",
-  "uoit",
-]);
 
 type GuestStamp =
   | { readonly role: "ontario-tech" }
@@ -44,17 +36,6 @@ const BOXES = {
 } as const;
 
 type Box = (typeof BOXES)[keyof typeof BOXES];
-
-function isOntarioTech(university: string): boolean {
-  const key = university
-    .trim()
-    .normalize("NFC")
-    .replace(/\./g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-  return ONTARIO_TECH_NAMES.has(key);
-}
 
 function fullLegalName(applicant: IndemnificationApplicant): string {
   return `${applicant.firstName.trim()} ${applicant.lastName.trim()}`.trim();

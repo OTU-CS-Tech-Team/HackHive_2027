@@ -3,8 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { CalendarDays, ClipboardList, Cpu, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { signOut } from "@/app/actions/auth";
 import { ActionForm } from "@/components/ActionForm";
-import { ApplicationNextSteps, ApplicationView } from "@/components/ApplicationView";
+import { ApplicationAnswers, ApplicationStatus } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { getMyApplication } from "@/lib/application/api";
 import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
@@ -32,6 +34,18 @@ const TABS = {
   profile: "Pass & profile",
 } as const;
 type Tab = keyof typeof TABS;
+
+const ICONS: Record<Tab, LucideIcon> = {
+  schedule: CalendarDays,
+  application: ClipboardList,
+  team: Users,
+  checkout: Cpu,
+  hunt: MapPin,
+  shop: ShoppingBag,
+  profile: IdCard,
+};
+
+const sidebarLabel = "mb-3 px-3 text-sm font-bold tracking-wider text-neutral-500 uppercase";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -64,36 +78,60 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
   if (tab === "team") redirect("/dashboard/team");
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-24 pb-16">
-      <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
-        {profile?.avatar_url ? (
-          <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 rounded-full object-cover" />
-        ) : (
-          <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
-        )}
-        <h1 className="flex-1 text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
-        {admin && (
-          <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-            Admin
-          </Link>
-        )}
-      </header>
+    <main className="pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
+      {/* Pinned to the left edge of the screen; the tab content centres in the rest. */}
+      <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
+          <p className={`hidden md:block ${sidebarLabel}`}>HackHive 2027</p>
+          <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+            {allowed.map((key) => {
+              const Icon = ICONS[key];
+              const active = tab === key;
+              return (
+                <Link
+                  key={key}
+                  href={key === "team" ? "/dashboard/team" : key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
+                    active ? "bg-amber-50 text-amber-900" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                  }`}
+                >
+                  <Icon className={`size-6 shrink-0 ${active ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
+                  {TABS[key]}
+                </Link>
+              );
+            })}
+          </nav>
 
-      <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
-        <nav aria-label="Dashboard" className="flex gap-1 overflow-x-auto md:flex-col md:self-start md:border-r md:border-neutral-200 md:pr-4">
-          {allowed.map((key) => (
-            <Link
-              key={key}
-              href={key === "team" ? "/dashboard/team" : key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
-              aria-current={tab === key ? "page" : undefined}
-              className={`rounded px-3 py-2 whitespace-nowrap ${tab === key ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`}
-            >
-              {TABS[key]}
-            </Link>
-          ))}
-        </nav>
+          {/* Phones already get Log out in the top navbar. */}
+          <div className="mt-auto hidden pt-8 md:block">
+            <p className={sidebarLabel}>Account</p>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+              >
+                <LogOut className="size-6 shrink-0 text-neutral-400" aria-hidden />
+                Log out
+              </button>
+            </form>
+          </div>
+        </aside>
 
-        <div>
+        <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
+          <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 rounded-full object-cover" />
+            ) : (
+              <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
+            )}
+            <h1 className="flex-1 text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
+            {admin && (
+              <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+                Admin
+              </Link>
+            )}
+          </header>
+
           {tab === "schedule" && <ScheduleSection />}
           {tab === "application" && <ApplicationTab />}
           {tab === "checkout" && <CheckoutTab supabase={supabase} userId={user.id} />}
@@ -101,7 +139,6 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           {tab === "shop" && <ShopTab supabase={supabase} userId={user.id} />}
           {tab === "profile" && <ProfileTab supabase={supabase} userId={user.id} email={user.email} />}
         </div>
-      </div>
     </main>
   );
 }
@@ -109,12 +146,12 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
 async function ApplicationTab() {
   const result = await getMyApplication();
   return (
-    <section>
-      <h2 className="mb-4 text-2xl font-bold">My application</h2>
+    <section className="space-y-4">
+      <h2 className="text-2xl font-bold">My application</h2>
       {result.ok && result.application ? (
         <>
-          <ApplicationNextSteps application={result.application} />
-          <ApplicationView application={result.application} />
+          <ApplicationStatus application={result.application} />
+          <ApplicationAnswers application={result.application} />
         </>
       ) : (
         <p className={muted}>

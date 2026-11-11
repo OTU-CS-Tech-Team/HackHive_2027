@@ -10,6 +10,9 @@ import { CheckboxField } from "./CheckboxField";
 import { RadioGroupField } from "./RadioGroupField";
 import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
+import { SchoolField } from "./SchoolField";
+import { OtherLinks } from "./OtherLinks";
+import { SelectWithOtherField } from "./SelectWithOtherField";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import {
   saveDraft,
@@ -28,8 +31,9 @@ import {
 } from "@/lib/application/form-utils";
 import { WORD_LIMITS, FIELD_LIMITS } from "@/lib/constants";
 
-import { 
-  buildDraftPayload, 
+import {
+  buildDraftPayload,
+  cleanLinks,
   initialFormData,
   type DraftFormData as FormData 
 } from "@/lib/application/draft-payload";
@@ -69,6 +73,7 @@ function createInitialFormData(serverDraft?: Partial<FormData> | null): FormData
   return {
     ...merged,
     teammate_emails: Array.isArray(merged.teammate_emails) ? merged.teammate_emails as string[] : [],
+    other_links: Array.isArray(merged.other_links) ? merged.other_links as string[] : [],
     age: merged.age?.toString() || "",
     hackathons_count: merged.hackathons_count?.toString() || "0",
   } as FormData;
@@ -79,6 +84,7 @@ function mergeLocalDraft(baseData: FormData, localData: Record<string, unknown>)
   return {
     ...merged,
     teammate_emails: Array.isArray(merged.teammate_emails) ? merged.teammate_emails as string[] : [],
+    other_links: Array.isArray(merged.other_links) ? merged.other_links as string[] : [],
     age: merged.age?.toString() || "",
     hackathons_count: merged.hackathons_count?.toString() || "0",
   } as FormData;
@@ -173,14 +179,15 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
   const persistDraft = useCallback(async (fields: Record<string, unknown>) => {
     try {
       const result = await saveDraft(fields);
-      if (result.ok) {
-        setLastSaved(new Date(result.savedAt));
-        setSaveError(null);
-        return;
-      }
       const { fieldErrors } = result;
       if (fieldErrors) {
         setErrors((prev) => ({ ...prev, ...firstErrors(fieldErrors) }));
+      }
+      if (result.ok) {
+        // The server keeps every valid field even when some aren't.
+        setLastSaved(new Date(result.savedAt));
+        setSaveError(fieldErrors ? "Draft saved, except the highlighted fields." : null);
+        return;
       }
       setSaveError(fieldErrors ? "Couldn't save draft. Check the highlighted fields." : "Couldn't save draft");
     } catch {
@@ -188,37 +195,37 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     }
   }, []);
 
-  const debouncedSave = useCallback((data: FormData) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+  // Latest form data, so saving happens outside the state updater (which React
+  // may run twice) and every save sends the current draft, never a stale one.
+  const formDataRef = useRef(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
 
+  const saveNow = useCallback((data: FormData) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current, userId);
+    enqueueSaveDraft(() => persistDraft(buildDraftPayload(data)));
+  }, [persistDraft, userId]);
 
+  const debouncedSave = useCallback((data: FormData) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveDraftToLocalStorage(data as unknown as Record<string, unknown>, submissionIdRef.current, userId);
     saveTimeoutRef.current = setTimeout(() => {
-      enqueueSaveDraft(() => persistDraft(buildDraftPayload(data)));
+      enqueueSaveDraft(() => persistDraft(buildDraftPayload(formDataRef.current)));
     }, 2000);
   }, [persistDraft, userId]);
 
-  const saveResumePath = useCallback((path: string | null, currentData: FormData) => {
-    const updatedData = { ...currentData, resume_path: path };
-    saveDraftToLocalStorage(updatedData as unknown as Record<string, unknown>, submissionIdRef.current, userId);
-
-    enqueueSaveDraft(() => persistDraft({ resume_path: path }));
-  }, [persistDraft, userId]);
-
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
-    setFormData((prev) => {
-      const next = { ...prev, [field]: value };
-      
-      if (field === "resume_path") {
-        saveResumePath(value as string | null, prev);
-      } else {
-        debouncedSave(next);
-      }
-      
-      return next;
-    });
+    const next = { ...formDataRef.current, [field]: value };
+    formDataRef.current = next;
+    setFormData(next);
+
+    // A new or removed resume saves at once with the whole draft, replacing any
+    // pending autosave that still holds the old resume path.
+    if (field === "resume_path") saveNow(next);
+    else debouncedSave(next);
+
     if (errors[field]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -238,7 +245,8 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
     else if (parseInt(formData.age, 10) < 13) newErrors.age = "You must be at least 13 years old";
     if (!formData.city.trim()) newErrors.city = "City is required";
     if (!formData.country.trim()) newErrors.country = "Country is required";
-    if (!formData.university.trim()) newErrors.university = "University is required";
+    if (!formData.university.trim())
+      newErrors.university = "Pick your school from the list, or choose “Other”";
     if (!formData.program.trim()) newErrors.program = "Program is required";
     if (!formData.year_of_study) newErrors.year_of_study = "Year of study is required";
     if (!formData.grad_date) newErrors.grad_date = "Expected graduation date is required";
@@ -315,12 +323,14 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           linkedin_url: formData.linkedin_url || null,
           github_url: formData.github_url || null,
           portfolio_url: formData.portfolio_url || null,
+          other_links: cleanLinks(formData.other_links),
           resume_path: formData.resume_path,
           q_proud: formData.q_proud,
           q_hack: formData.q_hack,
           q_anything_else: formData.q_anything_else || null,
           team_status: formData.team_status as "solo" | "has_team" | "looking",
-          teammate_emails: formData.teammate_emails.filter(Boolean),
+          // Only sent while the teammate boxes are on screen.
+          teammate_emails: formData.team_status === "has_team" ? formData.teammate_emails.filter(Boolean) : [],
           dietary: formData.dietary || null,
           accessibility: formData.accessibility || null,
           tshirt_size: formData.tshirt_size,
@@ -513,14 +523,10 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
       </FormSection>
 
       <FormSection title="School" description="Your education details">
-        <FormField
-          label="University"
-          name="university"
+        <SchoolField
           value={formData.university}
           onChange={(v) => updateField("university", v)}
-          required
           maxLength={FIELD_LIMITS.university}
-          autoComplete="organization"
           error={errors.university}
         />
         <FormField
@@ -563,7 +569,6 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           onChange={(v) => updateField("hackathons_count", v)}
           min={0}
           max={100}
-          description="Including this one, if accepted"
           error={errors.hackathons_count}
         />
         <FormField
@@ -595,6 +600,11 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           maxLength={FIELD_LIMITS.portfolio_url}
           placeholder="https://..."
           error={errors.portfolio_url}
+        />
+        <OtherLinks
+          value={formData.other_links}
+          onChange={(v) => updateField("other_links", v)}
+          error={errors.other_links}
         />
         <ResumeUpload
           value={formData.resume_path}
@@ -695,11 +705,12 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
         title="Demographics"
         description="Optional. This helps us understand who we're reaching."
       >
-        <SelectField
+        <SelectWithOtherField
           label="Gender"
           name="gender"
           value={formData.gender}
           onChange={(v) => updateField("gender", v)}
+          maxLength={FIELD_LIMITS.gender}
           options={[
             { value: "woman", label: "Woman" },
             { value: "man", label: "Man" },
@@ -709,11 +720,12 @@ export function ApplyForm({ userEmail, userId, initialDraft, serverUpdatedAt, se
           ]}
           placeholder="Select..."
         />
-        <SelectField
+        <SelectWithOtherField
           label="Race/Ethnicity"
           name="ethnicity"
           value={formData.ethnicity}
           onChange={(v) => updateField("ethnicity", v)}
+          maxLength={FIELD_LIMITS.ethnicity}
           options={[
             { value: "asian", label: "Asian" },
             { value: "black", label: "Black or African American" },

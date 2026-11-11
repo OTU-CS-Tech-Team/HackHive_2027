@@ -43,6 +43,7 @@ beforeAll(async () => {
   `);
   await db.exec((await migration('20250101000001_initial_schema')).replace(/create extension[^;]*;/i, ''));
   await db.exec(await migration('20261031000000_indemnification_form'));
+  await db.exec(await migration('20261111000000_other_links'));
   await db.exec(`insert into auth.users values ('${USER}');
     grant all on all tables in schema public to authenticated, service_role;
     set role service_role;`);
@@ -82,6 +83,22 @@ describe('reg_submit_application with the indemnification form', () => {
   ])('refuses to submit without an accepted form in the applicant folder: %j', async (overrides) => {
     expect(await submit(overrides)).toEqual({ error: 'indemnification_required' });
     expect(await row()).toBeUndefined();
+  });
+
+  it('stores extra links when given and leaves them null otherwise', async () => {
+    expect((await submit()).ok).toBe(true);
+    const links = async () => (await db.query<{ other_links: string[] | null }>(
+      'select other_links from public.applications where user_id=$1', [USER])).rows[0].other_links;
+    expect(await links()).toBeNull();
+
+    await db.exec('delete from public.applications;');
+    expect((await submit({ p_other_links: ['https://devpost.com/ada', 'https://ada.blog'] })).ok).toBe(true);
+    expect(await links()).toEqual(['https://devpost.com/ada', 'https://ada.blog']);
+  });
+
+  it('refuses more than three extra links', async () => {
+    await expect(submit({ p_other_links: ['https://a.io', 'https://b.io', 'https://c.io', 'https://d.io'] }))
+      .rejects.toThrow(/other_links/);
   });
 
   it('stops applicants writing the path themselves', async () => {

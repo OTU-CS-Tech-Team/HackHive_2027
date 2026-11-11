@@ -41,6 +41,7 @@ This file contains:
 | linkedin_url | string | no | 500 | Valid URL |
 | github_url | string | no | 500 | Valid URL |
 | portfolio_url | string | no | 500 | Valid URL |
+| other_links | string[] | no | max 3, 500 each | http(s) URLs; reviewer-only, not printed on the indemnification form |
 | resume_path | string | yes | - | Path in Storage bucket |
 | q_proud | string | yes | 2000 chars | ~150 words |
 | q_hack | string | yes | 2000 chars | ~150 words |
