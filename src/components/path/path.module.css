@@ -5,10 +5,14 @@
 .heroScroll {
   position: relative;
   isolation: isolate;
-  /* 0.45vh of walk. The veil starts at progress 0.75, over .dawn. */
+  /* Above Sponsors, so the stage covers its .dawn during the overlap. */
+  z-index: 1;
+  /* 0.45vh of walk. */
   height: calc(var(--path-vh, 100svh) * 1.45);
-  /* .dawn overlaps the sticky stage. --hero-overlap is set from OVERLAP. */
-  margin-bottom: calc(var(--path-vh, 100svh) * -1 * var(--hero-overlap, 0.16));
+  /* Exactly the height of Sponsors' .dawn, so the stage's bottom edge meets
+     the gold that .dawn ends on and its white and cream never show. Keep in
+     step with .dawn in SponsorsSection.module.css. */
+  margin-bottom: calc(-1 * clamp(3.25rem, 9vh, 6rem));
   background: transparent;
 }
 
