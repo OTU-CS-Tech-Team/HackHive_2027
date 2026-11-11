@@ -709,6 +709,7 @@ export function ApplyForm({
               alt=""
               width={56}
               height={56}
+              loading="eager"
             />
             <span className="text-xs font-semibold text-hive-muted">
               HackHive 2027

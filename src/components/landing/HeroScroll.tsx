@@ -11,9 +11,8 @@ import { HeroMeadow } from "@/components/landing/HeroMeadow";
 import { TrailheadPanel } from "@/components/path/panels";
 import styles from "@/components/path/path.module.css";
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
+/** How fast the camera catches up to the scroll, per second. Higher is snappier. */
+const WALK_GLIDE = 12;
 
 export function HeroScroll({ poster, children }: { poster: boolean; children: ReactNode }) {
   const rootRef = useRef<HTMLElement>(null);
@@ -34,6 +33,10 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
     let running = true;
     let lastVeil = "";
     let lastCopy = "";
+    // The camera's walk, gliding toward where the scroll says it should be.
+    let walk = -1;
+    let lastTime = performance.now();
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const measure = () => {
       const height = window.innerHeight;
@@ -49,17 +52,27 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
 
     const frame = () => {
       if (!running) return;
-      const progress = clamp((scrollY - start) / (end - start), 0, 1);
-      // Direct from scroll position. No tween, including when motion is reduced.
-      // The scene gets a short walk (WALK_END), so the garden never thins.
-      progressRef.current = sceneProgress(progress);
+      const raw = Math.max(0, (scrollY - start) / (end - start));
+      const progress = Math.min(raw, 1);
+      // The scene gets a short walk (WALK_END), so the garden never thins. It
+      // glides toward the scroll position (most of the gap closes in about
+      // 0.15s), so a wheel's notches don't step the camera. With reduced
+      // motion it follows the scroll exactly. The overlays below stay direct.
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+      const target = sceneProgress(raw);
+      if (walk < 0 || reduceMotion.matches) walk = target;
+      else walk += (target - walk) * (1 - Math.exp(-dt * WALK_GLIDE));
+      if (Math.abs(target - walk) < 1e-5) walk = target;
+      progressRef.current = walk;
       const background = veilBackground(progress);
       if (veil && background !== lastVeil) {
         veil.style.background = background;
         lastVeil = background;
       }
       if (copy) {
-        const fade = copyFade(progress);
+        const fade = copyFade(raw);
         const signature = fade.toFixed(4);
         if (signature !== lastCopy) {
           lastCopy = signature;
