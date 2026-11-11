@@ -826,9 +826,11 @@ export function buildLayout(quality: Quality): SceneLayout {
       z,
       yaw: (grassRng() - 0.5) * Math.PI * 2,
       pitch: (grassRng() - 0.5) * 0.44,
-      sx: (0.55 + grassRng() * 0.85) * phoneGrass,
+      // The clump is modelled in proportion, so it scales evenly: slim,
+      // pointed blades whose arch stays as tall as it is wide.
+      sx: height * (0.85 + grassRng() * 0.35),
       sy: height,
-      sz: (0.5 + grassRng() * 0.9) * phoneGrass,
+      sz: height * (0.85 + grassRng() * 0.35),
       color: [(0.52 + warm * 0.1) * shade, (0.7 + (1 - warm) * 0.08) * shade, (0.24 + grassRng() * 0.05) * shade],
       phase: grassRng() * Math.PI * 2,
     });

@@ -175,7 +175,7 @@ function addLilyStem(mesh: Bag, steps = 6) {
     const t = step / steps;
     const y = t * 0.64;
     const curve = Math.sin(t * Math.PI) * 0.028;
-    const width = 0.028 * (1 - t * 0.22);
+    const width = 0.014 * (1 - t * 0.3);
     const color = mix(root, top, t);
     const left = vert(mesh, curve - width, y, 0, color, 0.12, [-1, -1]);
     const right = vert(mesh, curve + width, y, 0.002, color, 0.12, [1, -1]);
@@ -187,41 +187,17 @@ function addLilyStem(mesh: Bag, steps = 6) {
   }
 }
 
+const LILY_LEAF = { root: [0.1, 0.3, 0.08] as RGB, mid: [0.2, 0.46, 0.12] as RGB, tip: [0.4, 0.62, 0.22] as RGB };
+
+/** A long strap leaf that arches out from the foot and tapers to a point. */
 function addLilyLeaf(mesh: Bag, yaw: number, y0: number) {
-  const base: RGB = [0.12, 0.38, 0.1];
-  const tip: RGB = [0.36, 0.58, 0.18];
-  const cosY = Math.cos(yaw);
-  const sinY = Math.sin(yaw);
-  const across = 3;
-  const along = 4;
-  const ids: number[] = [];
-  for (let yStep = 0; yStep <= along; yStep += 1) {
-    const v = yStep / along;
-    const half = 0.18 * Math.sin(Math.PI * Math.pow(v, 0.8));
-    for (let xStep = 0; xStep <= across; xStep += 1) {
-      const u = (xStep / across) * 2 - 1;
-      const x = u * half;
-      const y = y0 + v * 0.34 - v * v * 0.08;
-      const z = 0.016 + v * 0.14 + (1 - u * u) * 0.02;
-      ids.push(vert(mesh, x * cosY + z * sinY, y, -x * sinY + z * cosY, mix(base, tip, v), 0.16, [u, -1]));
-    }
-  }
-  const stride = across + 1;
-  for (let yStep = 0; yStep < along; yStep += 1) {
-    for (let xStep = 0; xStep < across; xStep += 1) {
-      const a = ids[yStep * stride + xStep] ?? 0;
-      const b = ids[yStep * stride + xStep + 1] ?? 0;
-      const c = ids[(yStep + 1) * stride + xStep] ?? 0;
-      const d = ids[(yStep + 1) * stride + xStep + 1] ?? 0;
-      mesh.indices.push(a, c, b, b, c, d);
-    }
-  }
+  addArchingBlade(mesh, 0, 0.01 + y0 * 0.1, yaw, 0.46, 0.05, 0.35, 1.25, LILY_LEAF, 0.16, 5, true);
 }
 
 export type FlowerLod = "full" | "speck";
 export type LilyDetail = "near" | "mid";
 
-/** A ribbon wide enough to read as a stem once the instance is small on screen. */
+/** A slim stem that narrows toward the bloom. */
 function addStemRibbon(mesh: Bag, height: number, width: number) {
   const stem: RGB = [0.2, 0.34, 0.12];
   const stemTip: RGB = [0.42, 0.58, 0.22];
@@ -232,7 +208,7 @@ function addStemRibbon(mesh: Bag, height: number, width: number) {
     const t = step / steps;
     const y = t * height;
     const curve = Math.sin(t * Math.PI) * 0.035;
-    const half = width * (1 - t * 0.4);
+    const half = width * (1 - t * 0.55);
     const color = mix(stem, stemTip, t);
     const left = vert(mesh, curve - half, y, 0, color, 0.35);
     const right = vert(mesh, curve + half, y, 0, color, 0.35);
@@ -272,8 +248,20 @@ function addCrossBloom(mesh: Bag, ox: number, oy: number, oz: number, radius: nu
  * ribbon stem, so a phone sees a flower rather than a floating square.
  * Cheaper than the old 8-floret teardrop, which pays for the stem.
  */
-function addVisibleSpike(mesh: Bag, florets: number, height: number, floretSize: number) {
-  addStemRibbon(mesh, height, 0.046);
+const SPIKE_LEAVES = [
+  { root: [0.12, 0.3, 0.08] as RGB, mid: [0.26, 0.5, 0.15] as RGB, tip: [0.5, 0.7, 0.28] as RGB },
+  { root: [0.1, 0.27, 0.1] as RGB, mid: [0.22, 0.44, 0.16] as RGB, tip: [0.42, 0.64, 0.26] as RGB },
+];
+
+function addVisibleSpike(mesh: Bag, florets: number, height: number, floretSize: number, leaves = 0, stem = 0.017) {
+  addStemRibbon(mesh, height, stem);
+  // A few arching leaves at the foot, so the spike rises out of a clump.
+  for (let leaf = 0; leaf < leaves; leaf += 1) {
+    const yaw = (leaf / leaves) * Math.PI * 2 + 0.4;
+    const shade = SPIKE_LEAVES[leaf % SPIKE_LEAVES.length] ?? SPIKE_LEAVES[0];
+    if (!shade) continue;
+    addArchingBlade(mesh, 0, 0, yaw, 0.34 + (leaf % 2) * 0.08, 0.034, 0.3, 1.1, shade, 0.2, 4);
+  }
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let floret = 0; floret < florets; floret += 1) {
     const t = florets === 1 ? 0.55 : floret / (florets - 1);
@@ -287,7 +275,7 @@ function addVisibleSpike(mesh: Bag, florets: number, height: number, floretSize:
 
 /** A tiny bloom on a stem. Far flowers should read as flowers, not dots. */
 function addSpeckBloom(mesh: Bag, color: RGB) {
-  addStemRibbon(mesh, 0.52, 0.04);
+  addStemRibbon(mesh, 0.52, 0.026);
   const center = vert(mesh, 0, 0.54, 0, color, 0.04, [0, 0.35]);
   const petals = 5;
   const ring: number[] = [];
@@ -319,7 +307,8 @@ function addSpeckDaisy(mesh: Bag) {
 }
 
 function addSpeckLupin(mesh: Bag) {
-  addVisibleSpike(mesh, 4, 0.82, 0.05);
+  // Far away a hair-thin stem would flicker, so the speck keeps a little more.
+  addVisibleSpike(mesh, 4, 0.82, 0.05, 0, 0.028);
 }
 
 function attachTips(geometry: BufferGeometry, scatter?: Scatter) {
@@ -507,7 +496,7 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full", 
       addLupinSpike(mesh, 22, 6, 3);
       break;
     case "mid":
-      addVisibleSpike(mesh, 7, 1.05, 0.058);
+      addVisibleSpike(mesh, 7, 1.05, 0.058, 4);
       break;
     case "far":
       addVisibleSpike(mesh, 7, 1.05, 0.058);
@@ -520,40 +509,91 @@ export function createLupinGeometry(scatter?: Scatter, lod: FlowerLod = "full", 
   return attachTips(finish(mesh, scatter), scatter);
 }
 
-function addCurvedBlade(mesh: Bag, yaw: number, lean: number) {
-  const root: RGB = [0.18, 0.38, 0.1];
-  const mid: RGB = [0.38, 0.6, 0.2];
-  const tip: RGB = [0.62, 0.76, 0.34];
-  const along = 4;
-  const cosY = Math.cos(yaw);
-  const sinY = Math.sin(yaw);
-  const ids: number[] = [];
+/** Greens for a blade, from the soil to the tip. A few shades so a tuft is not one flat colour. */
+const BLADE_SHADES: { root: RGB; mid: RGB; tip: RGB }[] = [
+  { root: [0.12, 0.3, 0.08], mid: [0.3, 0.54, 0.16], tip: [0.58, 0.76, 0.3] },
+  { root: [0.1, 0.27, 0.09], mid: [0.24, 0.48, 0.17], tip: [0.46, 0.68, 0.28] },
+  { root: [0.15, 0.33, 0.07], mid: [0.38, 0.6, 0.18], tip: [0.7, 0.82, 0.38] },
+  { root: [0.11, 0.29, 0.11], mid: [0.27, 0.52, 0.22], tip: [0.52, 0.74, 0.36] },
+];
+
+/**
+ * A slim blade that tapers to a point and arches over. It grows from
+ * `foot`, leans out along `yaw`, and curls further as it climbs, so the
+ * tip droops past the base instead of standing as a strip. aSpan.x runs
+ * across (-1..1), aSpan.y along (0..1), so the cutout keeps the point.
+ */
+function addArchingBlade(
+  mesh: Bag,
+  footX: number,
+  footZ: number,
+  yaw: number,
+  height: number,
+  width: number,
+  tilt: number,
+  curl: number,
+  shade: { root: RGB; mid: RGB; tip: RGB },
+  bendBase = 0.3,
+  along = 5,
+  foliage = false,
+) {
+  const outX = Math.sin(yaw);
+  const outZ = Math.cos(yaw);
+  // Width runs across the lean, so the flat of the blade faces its arch.
+  const sideX = Math.cos(yaw);
+  const sideZ = -Math.sin(yaw);
+  const ds = height / along;
+  let px = 0;
+  let py = 0;
+  let previousLeft = -1;
+  let previousRight = -1;
   for (let step = 0; step <= along; step += 1) {
     const v = step / along;
-    const width = 0.016 * (1 - v * 0.72);
-    const bow = Math.sin(v * Math.PI) * lean + v * v * lean;
-    const color = v < 0.4 ? mix(root, mid, v / 0.4) : mix(mid, tip, (v - 0.4) / 0.6);
-    const left = vert(mesh, -width * cosY + bow * sinY, v, width * sinY + bow * cosY, color, 0.35 + v * 0.65, [-1, v]);
-    const right = vert(mesh, width * cosY + bow * sinY, v, -width * sinY + bow * cosY, color, 0.35 + v * 0.65, [1, v]);
-    ids.push(left, right);
-  }
-  for (let step = 0; step < along; step += 1) {
-    const a = ids[step * 2] ?? 0;
-    const b = ids[step * 2 + 1] ?? 0;
-    const c = ids[(step + 1) * 2] ?? 0;
-    const d = ids[(step + 1) * 2 + 1] ?? 0;
-    mesh.indices.push(a, c, b, b, c, d);
+    if (step > 0) {
+      const angle = tilt + curl * Math.pow((step - 0.5) / along, 1.4);
+      px += Math.sin(angle) * ds;
+      py += Math.cos(angle) * ds;
+    }
+    // Full width low on the blade, narrowing to a point at the tip.
+    const half = width * Math.pow(1 - v, 0.8) * (0.75 + 0.25 * Math.sin(Math.min(1, v * 3) * Math.PI * 0.5));
+    const color = v < 0.45 ? mix(shade.root, shade.mid, v / 0.45) : mix(shade.mid, shade.tip, (v - 0.45) / 0.55);
+    const cx = footX + outX * px;
+    const cz = footZ + outZ * px;
+    const bend = bendBase + v * (1 - bendBase);
+    // Lily foliage marks its span below zero, so the petal shading skips it.
+    const spanY = foliage ? -1 : v;
+    const left = vert(mesh, cx - sideX * half, py, cz - sideZ * half, color, bend, [-1, spanY]);
+    const right = vert(mesh, cx + sideX * half, py, cz + sideZ * half, color, bend, [1, spanY]);
+    if (previousLeft >= 0) {
+      mesh.indices.push(previousLeft, left, previousRight, previousRight, left, right);
+    }
+    previousLeft = left;
+    previousRight = right;
   }
 }
 
-/** Six thin blades in one tuft. Dark at the soil, pale at the tip. */
+/**
+ * One clump: nine slim blades from a small footprint, a few tall ones
+ * arching over shorter ones, in four greens. Local height is about 1;
+ * the instance scale sets the real height.
+ */
 export function createGrassGeometry(scatter?: Scatter) {
   const mesh = bag();
-  const blades = 6;
+  const blades = 9;
+  const golden = Math.PI * (3 - Math.sqrt(5));
   for (let blade = 0; blade < blades; blade += 1) {
-    const yaw = (blade / blades) * Math.PI + (blade % 2) * 0.18;
-    const lean = (0.03 + (blade % 3) * 0.018) * (blade % 2 === 0 ? 1 : -1);
-    addCurvedBlade(mesh, yaw, lean);
+    const t = blade / blades;
+    const yaw = blade * golden * 1.7 + 0.3;
+    const ring = 0.03 + (blade % 3) * 0.03;
+    const footX = Math.sin(yaw * 1.3) * ring;
+    const footZ = Math.cos(yaw * 1.3) * ring;
+    const tall = blade % 3 === 0;
+    const height = tall ? 1.0 - t * 0.12 : 0.62 + ((blade * 7) % 5) * 0.06;
+    const tilt = 0.1 + (blade % 4) * 0.07;
+    const curl = tall ? 1.15 + (blade % 2) * 0.35 : 0.55 + (blade % 3) * 0.2;
+    const shade = BLADE_SHADES[blade % BLADE_SHADES.length] ?? BLADE_SHADES[0];
+    if (!shade) continue;
+    addArchingBlade(mesh, footX, footZ, yaw, height, 0.058, tilt, curl, shade, 0.3, tall ? 5 : 4);
   }
   return finish(mesh, scatter);
 }

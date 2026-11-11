@@ -478,6 +478,13 @@ void main() {
     alpha = (1.0 - smoothstep(0.88, 1.0, across)) * (1.0 - smoothstep(0.94, 1.0, along));
   }
   if (alpha < 0.02) discard;
+  // Grass and daisies are opaque cutouts. A partial alpha here went
+  // straight into the canvas and let the page show through blade edges
+  // as pale specks, so cut at half and write a solid pixel.
+  if (uSss < 0.7) {
+    if (alpha < 0.5) discard;
+    alpha = 1.0;
+  }
   if (uSss > 0.7) lit *= alpha;
   gl_FragColor = vec4(lit, alpha);
 }
