@@ -68,6 +68,7 @@ async function ApplyPageContent() {
   const initialDraft = result.ok && result.application ? {
     first_name: result.application.first_name || "",
     last_name: result.application.last_name || "",
+    preferred_name: result.application.preferred_name || "",
     phone: result.application.phone || "",
     age: result.application.age?.toString() || "",
     pronouns: result.application.pronouns || "",

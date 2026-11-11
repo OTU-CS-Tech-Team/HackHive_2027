@@ -455,6 +455,7 @@ export async function submitApplication(input: {
       p_submission_id: input.submissionId,
       p_first_name: data.first_name,
       p_last_name: data.last_name,
+      p_preferred_name: data.preferred_name || null,
       p_phone: data.phone,
       p_age: data.age,
       p_pronouns: data.pronouns || null,

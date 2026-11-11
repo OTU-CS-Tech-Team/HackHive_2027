@@ -44,6 +44,7 @@ beforeAll(async () => {
   await db.exec((await migration('20250101000001_initial_schema')).replace(/create extension[^;]*;/i, ''));
   await db.exec(await migration('20261031000000_indemnification_form'));
   await db.exec(await migration('20261111000000_other_links'));
+  await db.exec(await migration('20261113000000_preferred_name'));
   await db.exec(`insert into auth.users values ('${USER}');
     grant all on all tables in schema public to authenticated, service_role;
     set role service_role;`);
@@ -99,6 +100,22 @@ describe('reg_submit_application with the indemnification form', () => {
   it('refuses more than three extra links', async () => {
     await expect(submit({ p_other_links: ['https://a.io', 'https://b.io', 'https://c.io', 'https://d.io'] }))
       .rejects.toThrow(/other_links/);
+  });
+
+  it('stores a preferred name when given, over the draft, and null otherwise', async () => {
+    const preferred = async () => (await db.query<{ preferred_name: string | null }>(
+      'select preferred_name from public.applications where user_id=$1', [USER])).rows[0].preferred_name;
+    expect((await submit()).ok).toBe(true);
+    expect(await preferred()).toBeNull();
+
+    await db.exec('delete from public.applications;');
+    await db.exec(`insert into public.applications(user_id, email, preferred_name) values ('${USER}', 'ada@example.com', 'Old')`);
+    expect((await submit({ p_preferred_name: 'Ada' })).ok).toBe(true);
+    expect(await preferred()).toBe('Ada');
+  });
+
+  it('refuses a preferred name over 100 characters', async () => {
+    await expect(submit({ p_preferred_name: 'a'.repeat(101) })).rejects.toThrow(/preferred_name/);
   });
 
   it('stops applicants writing the path themselves', async () => {

@@ -1,6 +1,7 @@
 export interface DraftFormData {
   first_name: string;
   last_name: string;
+  preferred_name: string;
   phone: string;
   age: string;
   pronouns: string;
@@ -40,6 +41,7 @@ export interface DraftFormData {
 export const initialFormData: DraftFormData = {
   first_name: "",
   last_name: "",
+  preferred_name: "",
   phone: "",
   age: "",
   pronouns: "",
@@ -85,6 +87,7 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
   return {
     first_name: data.first_name || "",
     last_name: data.last_name || "",
+    preferred_name: data.preferred_name || "",
     phone: data.phone || "",
     age: data.age ? parseInt(data.age, 10) : null,
     pronouns: data.pronouns || "",

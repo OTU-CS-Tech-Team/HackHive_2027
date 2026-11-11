@@ -88,6 +88,7 @@ const STEPS: {
     fields: [
       "first_name",
       "last_name",
+      "preferred_name",
       "phone",
       "age",
       "pronouns",
@@ -569,6 +570,7 @@ export function ApplyForm({
         fields: {
           first_name: formData.first_name,
           last_name: formData.last_name,
+          preferred_name: formData.preferred_name || null,
           phone: formData.phone,
           age: parseInt(formData.age, 10),
           pronouns: formData.pronouns || null,
@@ -914,6 +916,16 @@ export function ApplyForm({
                     error={errors.last_name}
                   />
                 </div>
+                <FormField
+                  label="Preferred name"
+                  name="preferred_name"
+                  value={formData.preferred_name}
+                  onChange={(v) => updateField("preferred_name", v)}
+                  maxLength={FIELD_LIMITS.preferred_name}
+                  autoComplete="nickname"
+                  description="The name you go by, if it's different from your first name."
+                  error={errors.preferred_name}
+                />
                 <FormField
                   label="Email"
                   name="email"

@@ -123,6 +123,20 @@ const nameFieldSchema = z
   .optional()
   .or(z.literal(''));
 
+// An optional name with the same characters as first/last name. A blank box
+// becomes `blank`: null for drafts (so clearing it saves), undefined for submit.
+const optionalName = (blank: null | undefined) =>
+  z.preprocess(
+    (val) => (val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? blank : val),
+    z
+      .string()
+      .max(100)
+      .refine((val) => unicodeNameRegex.test(val), { message: 'Name contains invalid characters' })
+      .transform(normalizeName)
+      .optional()
+      .nullable()
+  );
+
 const emptyToNull = <T,>(schema: z.ZodType<T>) =>
   z.preprocess((val) => (val === '' ? null : val), schema.optional().nullable());
 
@@ -158,6 +172,7 @@ const teamStatusSchema = z.preprocess(
 export const applicationDraftSchema = z.object({
   first_name: nameFieldSchema,
   last_name: nameFieldSchema,
+  preferred_name: optionalName(null),
   phone: optionalStringForDraft(30),
   age: emptyToNull(z.coerce.number().int().min(13).max(100)),
   pronouns: optionalStringForDraft(50),
@@ -230,6 +245,7 @@ export const applicationSubmitSchema = z
   .object({
     first_name: requiredName,
     last_name: requiredName,
+    preferred_name: optionalName(undefined),
     phone: requiredText(30),
     age: z.coerce.number().int().min(13, 'Must be at least 13').max(100, 'Must be at most 100'),
     pronouns: optionalStringForSubmit(50),
@@ -371,6 +387,7 @@ export type Application = {
   updated_at: string;
   first_name: string | null;
   last_name: string | null;
+  preferred_name: string | null;
   phone: string | null;
   age: number | null;
   pronouns: string | null;

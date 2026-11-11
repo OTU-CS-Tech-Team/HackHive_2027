@@ -696,6 +696,23 @@ describe('Schema Validation', () => {
     expect(result.success).toBe(true);
   });
 
+  it('keeps a preferred name optional, clearable, and name-shaped', async () => {
+    const { applicationDraftSchema, applicationSubmitSchema } = await import('../src/lib/application/schema');
+    const draft = applicationDraftSchema.partial();
+
+    expect(draft.safeParse({ preferred_name: 'Jo’ Ann' }).data?.preferred_name).toBe("Jo' Ann");
+    // A cleared box saves as null, so the draft actually forgets it.
+    expect(draft.safeParse({ preferred_name: '  ' }).data?.preferred_name).toBeNull();
+    expect(draft.safeParse({ preferred_name: 'Ada<3' }).success).toBe(false);
+    expect(draft.safeParse({ preferred_name: 'a'.repeat(101) }).success).toBe(false);
+
+    // On submit, blank or null is simply left out.
+    const field = applicationSubmitSchema.shape.preferred_name;
+    expect(field.safeParse(null).data).toBeUndefined();
+    expect(field.safeParse('').data).toBeUndefined();
+    expect(field.safeParse('Ada').data).toBe('Ada');
+  });
+
   it('rejects very long input', async () => {
     const { applicationDraftSchema } = await import('../src/lib/application/schema');
     
