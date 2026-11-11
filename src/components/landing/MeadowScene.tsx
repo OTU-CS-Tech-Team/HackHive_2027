@@ -6,6 +6,7 @@ import { LinearSRGBColorSpace, NoToneMapping } from "three";
 import MeadowWorld from "@/components/landing/meadow/World";
 import { VIEW } from "@/components/landing/meadow/palette";
 import { countsFor, detectQuality, readForcedQuality, webglAvailable, type Quality } from "@/components/landing/meadow/quality";
+import { reportIntroProgress, reportIntroReady } from "@/components/landing/intro/introBus";
 
 const FALLBACK =
   "linear-gradient(180deg, #e2f2f8 0%, #d7eef8 20%, #f4e4b4 48%, #c5de8a 70%, #78a84a 100%)";
@@ -100,6 +101,8 @@ export default function MeadowScene({
   }, [onReady]);
   useEffect(() => {
     mountedAt.current = performance.now();
+    // The scene's code has arrived and mounted.
+    reportIntroProgress(0.3);
   }, []);
   const markReady = useCallback(() => {
     if (readyRef.current) return;
@@ -109,6 +112,7 @@ export default function MeadowScene({
       (window as Window & { __meadowReadyMs?: number }).__meadowReadyMs = performance.now() - started;
     }
     onReadyRef.current?.();
+    reportIntroReady();
   }, []);
 
   useEffect(() => {

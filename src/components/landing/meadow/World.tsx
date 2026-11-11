@@ -63,6 +63,14 @@ import { SKY_SEGMENTS } from "@/components/landing/meadow/stats";
 import { TREE } from "@/components/landing/meadow/tree";
 import { readForcedTrim, trimmedInstances, trimmedSparks, type TrimKind } from "@/components/landing/meadow/trim";
 import { readForcedDpr, type Quality } from "@/components/landing/meadow/quality";
+import { descentAmount, introPlaying, reportIntroProgress, rushDescent } from "@/components/landing/intro/introBus";
+
+/**
+ * Where the first-load descent starts, added to the hero pose: up above
+ * the near clouds, a step back, looking down over them. Kept modest so the
+ * planted meadow still fills the frame at the start.
+ */
+const INTRO_POSE = { rise: 3.4, back: 1.2, lookRise: 2.6 } as const;
 
 const FULL_COUNT = "fullCount";
 const KIND = "meadowKind";
@@ -106,6 +114,7 @@ function writeUniforms(
   z: number,
   aspect: number,
   spread: number,
+  intro: number,
 ) {
   if (!materials) return;
   for (const material of materials) {
@@ -116,6 +125,7 @@ function writeUniforms(
     material.uniforms.uCamPos.value.set(x, y, z);
     if (material.uniforms.uAspect) material.uniforms.uAspect.value = aspect;
     if (material.uniforms.uSpread) material.uniforms.uSpread.value = spread;
+    if (material.uniforms.uIntro) material.uniforms.uIntro.value = intro;
   }
 }
 
@@ -231,7 +241,7 @@ function buildMaterials(): Materials {
     side: DoubleSide,
   });
   const cloud = new ShaderMaterial({
-    uniforms: { ...baseUniforms(), uAspect: { value: 1.6 } },
+    uniforms: { ...baseUniforms(), uAspect: { value: 1.6 }, uIntro: { value: 0 } },
     vertexShader: CLOUD_VERT,
     fragmentShader: CLOUD_FRAG,
     transparent: true,
@@ -446,11 +456,17 @@ function FrameDriver({
     // From r3f's measured size, not clientWidth, which can force a layout every frame.
     const aspect = state.size.width / Math.max(state.size.height, 1);
     const portrait = aspect < 0.85 ? 1 : 0;
+    // First-load descent: 1 at the start pose above the clouds, 0 at rest.
+    // A scroll mid-descent lands it quickly rather than fighting the walk.
+    const now = performance.now();
+    if (walked > 0.002 && introPlaying()) rushDescent(now);
+    const lift = 1 - descentAmount(now);
     const x = 0;
-    const y = VIEW.eye + t * 0.04 + portrait * 0.72;
-    const z = VIEW.startZ + (VIEW.endZ - VIEW.startZ) * t;
+    const y = VIEW.eye + t * 0.04 + portrait * 0.72 + lift * INTRO_POSE.rise;
+    const walkZ = VIEW.startZ + (VIEW.endZ - VIEW.startZ) * t;
+    const z = walkZ + lift * INTRO_POSE.back;
     camera.position.set(x, y, z);
-    camera.lookAt(0, VIEW.eye + VIEW.lookLift - portrait * 0.78, z - VIEW.lookAhead);
+    camera.lookAt(0, VIEW.eye + VIEW.lookLift - portrait * 0.78 + lift * INTRO_POSE.lookRise, walkZ - VIEW.lookAhead);
     if (sky.current) sky.current.position.set(x, y, z);
     if (!still) clock.current += step;
     writeUniforms(
@@ -464,6 +480,7 @@ function FrameDriver({
       z,
       aspect,
       portrait,
+      lift,
     );
 
     const done = walked >= VEIL_HOLD;
@@ -608,6 +625,7 @@ export default function MeadowWorld({
           (gl.properties.get(material) as { currentProgram?: { getUniforms: () => unknown } }).currentProgram?.getUniforms();
         }
       }
+      reportIntroProgress(0.3 + 0.6 * (next / Math.max(objects.length, 1)));
       if (next < objects.length) {
         frame = requestAnimationFrame(step);
         return;

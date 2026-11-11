@@ -51,6 +51,91 @@
   animation: heroEnter 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* First-load intro: the copy waits under the honeycomb and through the
+   descent, then rises over its last half second. A failsafe brings it
+   in if the intro never runs to the end. */
+:global(html[data-intro="loading"]) .content,
+:global(html[data-intro="wipe"]) .content {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: introCopyFailsafe 0.5s ease 9.5s forwards;
+}
+
+:global(html[data-intro="text"]) .content,
+:global(html[data-intro="done"]) .content {
+  animation: none;
+  transition:
+    opacity 500ms ease-out,
+    transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Later loads in a session: no honeycomb. The copy rises in three beats
+   (title, the date lines, the button) over the stage's sky colour, and the
+   live scene fades up behind it with a slight settle as soon as it is
+   ready. The poster stays out of it: a still only lines up with the scene at
+   its own aspect, and a cross-fade elsewhere shows a double image. If the
+   scene never reports ready, the delayed animation brings the meadow in. */
+:global(html[data-intro="lite"]) .meadow {
+  opacity: 0;
+  animation: liteMeadow 650ms cubic-bezier(0.22, 1, 0.36, 1) 4s both;
+}
+
+:global(html[data-intro="lite"]) .meadow:has([data-ready="true"]) {
+  animation-delay: 0s;
+}
+
+:global(html[data-intro="lite"]) .poster {
+  visibility: hidden;
+}
+
+:global(html[data-intro="lite"]) .content {
+  animation: none;
+}
+
+:global(html[data-intro="lite"]) .heroTitle {
+  animation: liteRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+:global(html[data-intro="lite"]) .heroDate,
+:global(html[data-intro="lite"]) .heroLead {
+  animation: liteRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+}
+
+:global(html[data-intro="lite"]) .hero :global(a) {
+  animation: liteRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
+}
+
+@keyframes liteMeadow {
+  from {
+    opacity: 0;
+    transform: scale(1.025);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes liteRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes introCopyFailsafe {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes heroEnter {
   from {
     opacity: 0;
@@ -194,6 +279,12 @@
   opacity: 0;
 }
 
+/* Under the honeycomb the poster can go at once: the wipe must open on the
+   live scene at its start pose, not a fading still of the resting view. */
+:global(html[data-intro="loading"]) .poster {
+  transition: none;
+}
+
 .posterImg,
 .posterFallback {
   position: absolute;
@@ -205,7 +296,7 @@
   background-position: center;
   background-size: cover;
   /* Blurred first frame, inlined so it paints before the poster request. */
-  background-image: url("data:image/webp;base64,UklGRtQAAABXRUJQVlA4IMgAAACwBQCdASogABQAPtFapUuoJSOhsAgBABoJbACdMoPHeAgB7HFe3Gt68ySGJRzc/vasa027loAA/vHJ28CP4x6qOVOk+eCpUXqLYJT7xBuuOfecnUvrg3xHvyMMauCaw52u5GKiEO73kkpFUm5PDnIe8bi7TFU3yB0OsYQjUTiXMOkB16w2C7E7ty0ASzjTz+dARkXG34fdzDXpeOahTh32U/t90Xz3CGZecd+HY/nJ4CTezO1F0RjX9moUAuRec31gdQUgDUwAAA==");
+  background-image: url("data:image/webp;base64,UklGRsIAAABXRUJQVlA4ILYAAACQBQCdASogABQAPu1opk2ppiMiMBgMATAdiWwAsR8vwaoRoinE49JgSbkT1a6pv/dXO7vEEAD+7T56+w7j1OPdlaPicSXTKAkRioIaIzn0V8pfVWJqk2MQh4i0PqbySLuLge3IkRXQPmxUdFncYa7dncYy9Uek7HqwZn7T5m9rzYnT5EWRj4rmJzfdpbcmKZs4rkW6213SyOV8ek/nBxFIft8fUQhneSlnUqdtZyCVgkcdf0EAAA==");
 }
 
 .posterFallback {
@@ -214,13 +305,13 @@
 
 @media (max-width: 1023px) {
   .posterImg {
-    background-image: url("data:image/webp;base64,UklGRnABAABXRUJQVlA4IGQBAADQBwCdASogACoAPtFcp02oJSOiJWzJABoJbACdMsvCwB01mrSqlKSUs3cNDkTc+gTGFMMXJINtozIj06uTUydwJ7hvHRnOAAD+/B5BIqlzoVSvSEX8tMfuiecPUjWlh6Gg93crQ39r/NdhU6Sq7bZSrInLvOCRO2+jcoimvmfpIkWKARhMBTqgDb0Afje8oDz3NOB9tbGgUd11878FVCUrF2aXLF518hfSZPZ99oJW33zCJzHkORuidTEgCToR5kE3a5EOcnGQSRKfTLFjJjxBRVhnp2G613r7JifGwVBGYokVTkn16SiGg0AJfGEVgZTP0EClpRgdkGTMlguwU+EZZPhGZla/eBxIw2UB1TGQY9qfW94mD+kZLIFY13eXHF5epiYNdwxO0H+Fp+OKN5Kk/UcM+BiLUeVKtdz3XCGTFlHV6G4hMwslQh4HokXB18EQ9K/hETfu238jVhlf61uob9xgAA==");
+    background-image: url("data:image/webp;base64,UklGRnIBAABXRUJQVlA4IGYBAAAwCACdASogACsAPu1eqE4ppKOiMBqqqTAdiWwAsR80RggiqnpRR76dOgNYsSkP3qELTHsaMgym1taybnDU9ipyI3Muql2gMCrQAAD+/B8UBYlWRLl0zdfPS7cnb0OvscBJ8YIXyMlqEngGFjHmZQSeLKNJLeTYB6Y2mWJtbyraDymtZ5AtUl/lziAkNkeoxazU/os+3BlGwpAUk9HQZiGhtCtBSgXrWkAeRmWiAVFYQhl2hGxV8XlJJkQxuSqoXVTPVpXNRUgfpNqCBPtFrPzvpPwwf67K6jb8IW1r8dxBjKxSycbE1DooGwE/T6Dw30pggdBN969Z8TrSPG3wjn/mencArnABnLmbEJwabAUM/P5N/Mwaax8oJ3MPUDl7irqSOJW+1ehQQv/2bOUGsUOwKp62EYUTlfE6/me1vbO/NZrSc/Mu9Nbhbo2Yd41VALhPmmERBjRM6gPmrWF3lh+mMCbTwAAA");
   }
 }
 
 @media (max-width: 767px) {
   .posterImg {
-    background-image: url("data:image/webp;base64,UklGRhACAABXRUJQVlA4IAQCAAAQCgCdASogAEYAPtFWpU4oJCMiLNv4AQAaCWwAp01BWB5Gz8ia9ogjDtYC3bPdlBZj9teKXtuScx63Y/c6OTyrjLDUMEIkwWCFwxnWdt6VWtvxUBduDEYjwAD+/HksneRVZ/ZmaWQbg+M0f9wF5lXwNH2XfnOHF+04+NQ/83q36m66BUm7UbVH65z8p12vzm3HcWYTiARiEHsHSfjyRWy7gtwEPzs+OTVDO/p9JyYBZm2Xtl9f9f7BINtKiWeuRm2ZFOqvUrcemEA8typKEoO19sxMsZeqq/JfD9oT0xEr5ocwIRDr3ZiqSX3gMqfjmcZq6RWAS88W9cR1EEuMlnElbT5OQMJRLL5eyX79P64DFKqfFHXsX+W8MSNF+t5RnLtXBaCnyHV8qWlKVrysyl9NGkeoES0R9lDTuqcljpeOWM0iJ/9crGxZmexFO8QL74FjMmvOF9tkkBD3Rcz3UPocrjYGTAqtkstcDPFFZO90UFVHP6M4TNAhORh5WLXB+qK4/Ga5Gge1ONRDQbfgeuBiRBDrMcjly/I9RPaQMvxGHWQ1GsP13PA0VJGjKKeGiL6oXvh//OCN6ev0rUvipK2nda9rCrF6y4VkIcLIYDmvWfPzh3cwByOP6zO1K+gch9hOOYKa/OKLevWWIHJFvRRwuEIPOAwI/EKQPfltKeFSPkUAAAA=");
+    background-image: url("data:image/webp;base64,UklGRsIBAABXRUJQVlA4ILYBAABwCQCdASogAEUAPu1irFCppSQirNv4ATAdiWwAp0djzCiGmjjf8vVnKoJk8+q7aWQAfQZur4CyKPvPOMQDDTTm1/60uZeEVfiyP9R5KSgSIzYibIAA/voU0tvUt8wQm99HZCIJnpC7J4Kg+p6TRdiN1U3xMW7PDj2kugqgiuvQoJzjyWHuR5FbS9Fre7JF4XWjOvXcIuKteerHC6Ua43hwQQUiMxQx9Apavj5EP1NUXQwCa4QWQMhSGPOM2q0yNR6JPjoxmXqA3y3xsIl9XomCmNB0tS6QAbS3czlRda54l3sAqGM0a2ksjXPza7de99dHhytFYU6/eiMYAe2gXgaarZdNQx/EEJ8Yj7DjfJsUNC62SksxpJMi+PW/Uri1C7hypwniNZNFTXy31xahiIbsLSFBisVhO+7QUVk9uB+csz5CcO8r6/3nnsHp/8zK7wQ6kbsgTSal87Nm68hCGINrZL9V3UUQ2Q9eeM8EEunRG2ybRXViWEH7lhh49l/u+QC5gtTIviU1KAnBKzUKNUGbrVTub7VSrV/BfO7YrXupjdLeBagTtCRVTTo6aU2sB2cmCOCgAAA=");
   }
 }
 

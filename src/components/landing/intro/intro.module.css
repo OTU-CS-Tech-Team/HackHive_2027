@@ -1,0 +1,107 @@
+/* First-load intro. Hidden unless <html data-intro> says it is playing, so
+   no JS, a skipped visit, and the finished intro all render the plain page. */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  pointer-events: none;
+}
+
+:global(html[data-intro="loading"]) .root,
+:global(html[data-intro="wipe"]) .root,
+:global(html[data-intro="text"]) .root {
+  display: block;
+}
+
+/* While the loader is up the page does not scroll under it. */
+:global(html[data-intro="loading"]) {
+  overflow: hidden;
+}
+
+:global(html[data-intro="loading"]) .root {
+  pointer-events: auto;
+  /* If the scripts never arrive, step aside rather than cover the page. */
+  animation: introFailsafe 0.4s ease 9s forwards;
+}
+
+.comb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tile {
+  stroke: rgba(242, 177, 52, 0.13);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* The ripple: each tile shrinks to nothing after its distance delay. */
+:global(html[data-intro="wipe"]) .tile,
+:global(html[data-intro="text"]) .tile {
+  animation: tileOut 260ms cubic-bezier(0.55, 0, 0.75, 0.2) calc(150ms + var(--d, 0ms)) both;
+}
+
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  transform: translate(-50%, -50%);
+  transition: opacity 250ms ease, transform 250ms ease;
+}
+
+.logo {
+  width: 88px;
+  height: 88px;
+  filter: drop-shadow(0 6px 22px rgba(242, 177, 52, 0.28));
+}
+
+.track {
+  width: 160px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bar {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #f2b134;
+  box-shadow: 0 0 10px rgba(242, 177, 52, 0.55);
+  transform: scaleX(var(--p, 0));
+  transform-origin: 0 50%;
+  transition: transform 260ms ease-out;
+}
+
+:global(html[data-intro="wipe"]) .center,
+:global(html[data-intro="text"]) .center {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+@keyframes tileOut {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(0);
+  }
+}
+
+@keyframes introFailsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}

@@ -811,6 +811,7 @@ varying float vFar;
 uniform float uTime;
 uniform float uWind;
 uniform float uAspect;
+uniform float uIntro;
 attribute float aPhase;
 
 void main() {
@@ -850,6 +851,9 @@ void main() {
   vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
   vec3 world = center + puff;
   world.y -= narrow * 0.85 + phone * 0.15;
+  // First-load descent: the clouds start a little under the high camera and
+  // rise to their place as it comes down, faster than the land below.
+  world.y -= uIntro * mix(1.1, 0.4, vFar);
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `;

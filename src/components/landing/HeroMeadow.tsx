@@ -37,7 +37,7 @@ export function HeroMeadow({
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden>
+    <div className={`pointer-events-none absolute inset-0 ${styles.meadow}`} aria-hidden>
       <MeadowScene
         className="absolute inset-0"
         progress={progress}
