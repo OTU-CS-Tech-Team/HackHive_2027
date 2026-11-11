@@ -110,8 +110,9 @@
   display: grid;
   margin: 0;
   color: #fff;
-  font-size: clamp(3rem, 9vw, 6.1rem);
-  font-weight: 500;
+  /* About a third of a wide frame, heavy enough that the gradient holds over the peaks. */
+  font-size: clamp(3rem, 7.4vw, 8.75rem);
+  font-weight: 600;
   letter-spacing: -0.055em;
   line-height: 0.88;
 }

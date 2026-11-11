@@ -631,6 +631,9 @@ function fillGarden(
       const fx = x + (rng() - 0.5) * colStep * 0.9;
       const drift = Math.sin(fx * 0.9 + 1.3) * Math.cos(fz * 1.1 - 0.4) + (rng() - 0.5) * 0.7;
       if (rng() < 0.1) continue;
+      // Thin the back rows unevenly, so the meadow breaks up toward the hills.
+      const thin = Math.min(1, Math.max(0, (-fz - 1.4) / 2.4));
+      if (rng() < thin * 0.38 * (0.6 + 0.8 * Math.max(0, Math.sin(fx * 1.7 + fz * 2.3)))) continue;
       if (Math.abs(fx) > frameHalf(fz, 1.6) * 1.12) continue;
       // The path has faded out under the tree by z 0.3. In front of that,
       // only the outer lawns, a full stride from any path.
@@ -656,8 +659,13 @@ function fillGarden(
       const list = kind === "lupin" ? target.lupins : kind === "lily" ? target.lilies : target.daisies;
       if (kind === "lupin") {
         const tint = paint(rng, true);
-        const size = (0.46 + rng() * 0.2) * shrink;
-        placeFlower(list, rng, fx, 0.02, fz, size, size, tint.color, tint.tip, 0, Math.PI * 2);
+        // Past the beds the spikes vary a lot in height, so the back row
+        // isn't a picket fence: mostly short, the odd tall one.
+        const spread = rng();
+        const back = Math.min(1, Math.max(0, (-fz - 0.6) / 2.6));
+        const reach = 1 - back * 0.5 + back * spread * spread * 0.9;
+        const size = (0.46 + rng() * 0.2) * shrink * reach;
+        placeFlower(list, rng, fx, 0.02, fz, size, size * (1 - back * 0.25 + back * spread * 0.35), tint.color, tint.tip, 0, Math.PI * 2);
       } else if (kind === "lily") {
         const size = (0.26 + rng() * 0.12) * shrink;
         placeFlower(list, rng, fx, 0.02, fz, size, size, [1, 1, 1], undefined, 0.6, 0.6);
@@ -716,6 +724,22 @@ const BLOSSOM_MIXED: RGB[] = [
   hexToRgb("#f8c6d4"),
 ];
 
+/**
+ * Where the crown opens up: a notch low on the shade side that reaches the
+ * inner shell, so the limbs show, and two shallow bites in the sunlit
+ * outline that only thin the outer shells.
+ */
+const CROWN_GAPS: { dir: [number, number, number]; reach: number; deep: boolean }[] = [
+  { dir: [-0.78, -0.42, 0.46], reach: 0.9, deep: true },
+  { dir: [0.5, 0.72, 0.48], reach: 0.93, deep: false },
+  { dir: [0.9, -0.1, 0.42], reach: 0.95, deep: false },
+];
+
+function inCrownGap(x: number, y: number, z: number, inner: boolean) {
+  const length = Math.hypot(x, y, z) || 1;
+  return CROWN_GAPS.some((gap) => (gap.deep || !inner) && (x * gap.dir[0] + y * gap.dir[1] + z * gap.dir[2]) / length > gap.reach);
+}
+
 function placeShell(
   items: Item[],
   count: number,
@@ -737,6 +761,7 @@ function placeShell(
     const color = colors[i % colors.length] ?? BLOSSOM_PINK[0];
     if (!color) continue;
     const size = sizeMin + (i % 7) * ((sizeMax - sizeMin) / 6);
+    if (inCrownGap(Math.cos(theta) * ring, yNorm, Math.sin(theta) * ring, radius < TREE.canopyRadius * 0.6)) continue;
     items.push({
       x: TREE.x + Math.cos(theta) * reach,
       y: TREE.baseY + yCenter + yNorm * radius * TREE.canopySquash,
@@ -978,17 +1003,25 @@ export function buildLayout(quality: Quality): SceneLayout {
   }
   const cloudRng = mulberry32(7);
   const clouds: Item[] = [];
+  // Big ones up front, one over the open sky in the middle, a pair behind,
+  // and two faint ones among the peaks (the ranges cover their feet).
   const cloudSpots: [number, number, number][] = [
-    [-6.2, 3.9, -6.5],
-    [6.4, 3.95, -7],
-    [-2.6, 4.5, -12.4],
-    [2.9, 4.45, -12.8],
+    [-6.4, 3.85, -6.5],
+    [6.6, 3.95, -7],
+    [0.4, 4.75, -9.5],
+    [-2.8, 4.45, -12.4],
+    [3.4, 4.35, -12.8],
+    [-11, 6.4, -30],
+    [13, 7.6, -42],
   ];
   const cloudSize: [number, number][] = [
-    [4.0, 1.5],
-    [4.0, 1.5],
-    [3.2, 1.15],
-    [3.2, 1.15],
+    [4.4, 1.9],
+    [4.0, 1.75],
+    [2.6, 1.15],
+    [3.0, 1.3],
+    [2.8, 1.2],
+    [8.5, 3.2],
+    [9.5, 3.4],
   ];
   for (let i = 0; i < counts.clouds; i += 1) {
     const spot = cloudSpots[i % cloudSpots.length] ?? [-5, 4.6, -8];

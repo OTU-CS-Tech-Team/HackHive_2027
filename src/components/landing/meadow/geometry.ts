@@ -607,28 +607,45 @@ function ridge(x: number, phase: number) {
 }
 
 /** A hill that rises out of the meadow. The foot stays at y=0; the crest rolls in world x. */
-function addRollingHill(
-  mesh: Bag,
-  zNear: number,
-  zFar: number,
-  height: number,
-  crest: RGB,
-  foot: RGB,
-  phase: number,
-  columns: number,
-  rows: number,
-) {
+type RollingHill = {
+  zNear: number;
+  zFar: number;
+  height: number;
+  crest: RGB;
+  foot: RGB;
+  phase: number;
+  /** 0 front, 1 middle, 2 back. The shader hazes each step back. */
+  depth: number;
+};
+
+function hillLift(v: number) {
+  return Math.pow(Math.sin(v * Math.PI), 1.05);
+}
+
+function hillY(hill: RollingHill, x: number, v: number) {
+  return Math.max(0, hill.height * (0.84 + ridge(x, hill.phase)) * hillLift(v));
+}
+
+/**
+ * A coarse grid with jittered points, so the hill reads low-poly like the
+ * ranges and its facets turn toward or away from the sun. aSpan.y is minus
+ * the hill's depth, which tells the shader it is a hill and how far back.
+ */
+function addRollingHill(mesh: Bag, hill: RollingHill, columns: number, rows: number) {
   const ids: number[] = [];
   for (let row = 0; row <= rows; row += 1) {
     const v = row / rows;
-    const lift = Math.pow(Math.sin(v * Math.PI), 1.05);
+    const lift = hillLift(v);
     for (let column = 0; column <= columns; column += 1) {
       const u = column / columns;
-      const x = (u - 0.5) * 90;
-      const y = Math.max(0, height * (0.84 + ridge(x, phase)) * lift);
-      const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.31 + phase) * 0.85 * lift;
-      const up = Math.min(1, y / Math.max(height, 0.001));
-      ids.push(vert(mesh, x, y, z, mix(foot, crest, up), 0, [up, 0]));
+      const edge = row === 0 || row === rows;
+      const wobble = edge ? 0 : (hash1(row * 53 + column * 11 + hill.phase * 7) - 0.5) * 0.9;
+      const x = (u - 0.5) * 90 + wobble;
+      const bump = edge ? 0 : (hash1(row * 17 + column * 29 + hill.phase * 3) - 0.5) * 0.12 * hill.height * lift;
+      const y = Math.max(0, hillY(hill, x, v) + bump);
+      const z = hill.zNear + (hill.zFar - hill.zNear) * v + Math.sin(x * 0.31 + hill.phase) * 0.85 * lift;
+      const up = Math.min(1, y / Math.max(hill.height, 0.001));
+      ids.push(vert(mesh, x, y, z, mix(hill.foot, hill.crest, up), 0, [up, -hill.depth]));
     }
   }
   const stride = columns + 1;
@@ -638,9 +655,70 @@ function addRollingHill(
       const b = ids[row * stride + column + 1] ?? 0;
       const c = ids[(row + 1) * stride + column] ?? 0;
       const d = ids[(row + 1) * stride + column + 1] ?? 0;
-      mesh.indices.push(a, b, c, b, d, c);
+      if ((row + column) % 2 === 0) mesh.indices.push(a, b, c, b, d, c);
+      else mesh.indices.push(a, b, d, a, d, c);
     }
   }
+}
+
+/** A five-sided low-poly cone (a fir) or a squat one (a bush). aSpan.y = 5 marks it. */
+function addShrub(mesh: Bag, x: number, y: number, z: number, height: number, radius: number, color: RGB, seed: number) {
+  const sides = 5;
+  const turn = hash1(seed) * Math.PI * 2;
+  const base: number[] = [];
+  const dark = mix(color, [0.12, 0.2, 0.16], 0.25);
+  for (let i = 0; i < sides; i += 1) {
+    const angle = turn + (i / sides) * Math.PI * 2;
+    const r = radius * (0.85 + hash1(seed + i * 3.1) * 0.3);
+    base.push(vert(mesh, x + Math.cos(angle) * r, y - 0.08, z + Math.sin(angle) * r, dark, 0, [0, 5]));
+  }
+  const tip = vert(mesh, x + (hash1(seed + 9) - 0.5) * radius * 0.3, y + height, z, color, 0, [1, 5]);
+  for (let i = 0; i < sides; i += 1) {
+    mesh.indices.push(base[i] ?? 0, base[(i + 1) % sides] ?? 0, tip);
+  }
+}
+
+/**
+ * Small firs and bushes in loose clumps along the crests, so the hills
+ * read as land and tie back to the planted meadow. None stand behind the
+ * copy on a wide frame (left of x -3 on the near hills).
+ */
+function plantHills(mesh: Bag, hills: RollingHill[]) {
+  const clumps: [hillIndex: number, x: number, v: number, count: number][] = [
+    [2, -14.5, 0.46, 3],
+    [2, 3.5, 0.5, 4],
+    [2, 7.5, 0.44, 3],
+    [2, 15, 0.5, 4],
+    [1, 2.5, 0.42, 3],
+    [1, 10.5, 0.48, 4],
+    [1, 18, 0.4, 3],
+    [1, -16, 0.44, 3],
+    [0, 13.5, 0.36, 3],
+    [0, -12.5, 0.4, 2],
+  ];
+  const firs: RGB[] = [[0.2, 0.38, 0.24], [0.24, 0.42, 0.26], [0.18, 0.34, 0.24]];
+  const bushes: RGB[] = [[0.34, 0.5, 0.26], [0.4, 0.54, 0.28]];
+  clumps.forEach(([index, cx, cv, count], clump) => {
+    const hill = hills[index];
+    if (!hill) return;
+    const scale = 1 - hill.depth * 0.14;
+    for (let i = 0; i < count; i += 1) {
+      const seed = clump * 31 + i * 7.3;
+      const x = cx + (i - (count - 1) / 2) * 0.55 + (hash1(seed) - 0.5) * 0.4;
+      const v = Math.min(0.9, Math.max(0.1, cv + (hash1(seed + 1) - 0.5) * 0.14));
+      const lift = hillLift(v);
+      const y = hillY(hill, x, v);
+      const z = hill.zNear + (hill.zFar - hill.zNear) * v + Math.sin(x * 0.31 + hill.phase) * 0.85 * lift;
+      const fir = hash1(seed + 2) > 0.3;
+      if (fir) {
+        const h = (0.55 + hash1(seed + 3) * 0.35) * scale;
+        addShrub(mesh, x, y, z, h, h * 0.3, firs[i % firs.length] ?? [0.2, 0.38, 0.24], seed);
+      } else {
+        const h = (0.24 + hash1(seed + 4) * 0.1) * scale;
+        addShrub(mesh, x, y, z, h, h * 0.95, bushes[i % bushes.length] ?? [0.34, 0.5, 0.26], seed);
+      }
+    }
+  });
 }
 
 function hash1(n: number) {
@@ -656,11 +734,11 @@ type Peak = readonly [number, number, number];
  * flanks so tops come to a point, and a shoulder line so a range never
  * drops to the meadow between peaks. A per-column notch keeps the ridge jagged.
  */
-function crestAt(x: number, column: number, peaks: readonly Peak[], seed: number) {
+function crestAt(x: number, column: number, peaks: readonly Peak[], seed: number, sharp: number) {
   let crest = 0.26 + Math.abs(Math.sin(x * 0.21 + seed)) * 0.1;
   for (const [px, ph, pw] of peaks) {
     const t = 1 - Math.abs(x - px) / pw;
-    if (t > 0) crest = Math.max(crest, ph * Math.pow(t, 1.3));
+    if (t > 0) crest = Math.max(crest, ph * Math.pow(t, sharp));
   }
   const notch = (hash1(column * 1.7 + seed * 13) - 0.5) * 0.085;
   const knuckle = Math.abs(Math.sin(x * 0.83 + seed * 2.1)) * 0.045;
@@ -697,7 +775,7 @@ function addRange(
       const edge = row === 0 || row === rows;
       const wobble = edge ? 0 : (hash1(row * 97 + column * 13 + seed) - 0.5) * 0.7;
       const x = (u - 0.5) * width + wobble;
-      const top = crestAt(x, column, peaks, seed);
+      const top = crestAt(x, column, peaks, seed, layer === 1 ? 1.55 : 1.3);
       const jitter = edge ? 0 : (hash1(row * 31 + column * 7 + seed * 5) - 0.5) * 0.14 * lift;
       const y = Math.max(0, height * (top * lift + jitter * top));
       const z = zNear + (zFar - zNear) * v + Math.sin(x * 0.27 + seed) * 0.9 * lift;
@@ -720,13 +798,13 @@ function addRange(
 }
 
 const NEAR_PEAKS: readonly Peak[] = [
-  [-34, 0.78, 9],
-  [-21, 0.96, 9],
+  [-34, 0.64, 8],
+  [-21, 0.92, 9],
   [-9, 0.62, 7],
-  [3, 0.7, 7],
-  [14, 0.58, 6],
-  [24, 0.92, 9],
-  [37, 0.74, 8],
+  [4, 0.68, 5.5],
+  [14, 0.56, 6],
+  [24.5, 0.72, 7.5],
+  [37, 0.68, 8],
 ];
 
 const MID_PEAKS: readonly Peak[] = [
@@ -740,8 +818,8 @@ const MID_PEAKS: readonly Peak[] = [
 ];
 
 const FAR_PEAKS: readonly Peak[] = [
-  [-60, 0.82, 13],
-  [-40, 1.0, 13],
+  [-60, 0.8, 13],
+  [-34, 0.88, 12],
   [-22, 0.72, 10],
   [-5, 0.96, 12],
   [15, 0.78, 10],
@@ -755,8 +833,16 @@ const FAR_PEAKS: readonly Peak[] = [
  */
 export function createHillsGeometry() {
   const mesh = bag();
-  addRollingHill(mesh, -4, -16, 2.35, [0.48, 0.64, 0.34], [0.7, 0.82, 0.52], 0.2, 72, 14);
-  addRange(mesh, -14, -32, 8.2, 96, [0.36, 0.34, 0.58], [0.56, 0.56, 0.74], NEAR_PEAKS, 1.7, 1, 60, 8);
+  // Three rolling hills, each a step back lighter and hazier, set low
+  // enough that the ranges show over them.
+  const hills: RollingHill[] = [
+    { zNear: -11, zFar: -21, height: 2.2, crest: [0.56, 0.7, 0.44], foot: [0.68, 0.8, 0.56], phase: 2.6, depth: 2 },
+    { zNear: -7, zFar: -15, height: 1.7, crest: [0.47, 0.64, 0.33], foot: [0.62, 0.77, 0.47], phase: 4.1, depth: 1 },
+    { zNear: -4, zFar: -10.5, height: 1.15, crest: [0.4, 0.6, 0.28], foot: [0.6, 0.76, 0.44], phase: 0.2, depth: 0 },
+  ];
+  hills.forEach((hill) => addRollingHill(mesh, hill, 46, 7));
+  plantHills(mesh, hills);
+  addRange(mesh, -14, -32, 8.2, 96, [0.42, 0.4, 0.64], [0.6, 0.6, 0.77], NEAR_PEAKS, 1.7, 1, 60, 8);
   addRange(mesh, -30, -50, 12.4, 112, [0.36, 0.5, 0.78], [0.62, 0.72, 0.9], MID_PEAKS, 3.4, 2, 64, 8);
   addRange(mesh, -48, -68, 15.4, 140, [0.62, 0.72, 0.9], [0.8, 0.86, 0.95], FAR_PEAKS, 5.1, 3, 70, 7);
   return finish(mesh);
@@ -883,13 +969,12 @@ function cardPolygon(kind: CardKind) {
   };
   switch (kind) {
     case "cloud": {
-      const steps = 12;
-      push(0, -0.02);
-      for (let i = 0; i < steps; i += 1) {
-        const angle = (i / steps) * Math.PI * 2;
-        push(Math.cos(angle) * 0.48, Math.sin(angle) * 0.34 - 0.02);
-      }
-      fan(steps);
+      // A band from just under the flat base to over the tallest lump.
+      push(-0.5, -0.15);
+      push(0.5, -0.15);
+      push(0.5, 0.42);
+      push(-0.5, 0.42);
+      indices.push(0, 1, 2, 0, 2, 3);
       break;
     }
     case "glow":

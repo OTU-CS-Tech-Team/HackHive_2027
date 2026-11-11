@@ -488,10 +488,11 @@ void main() {
   vec3 lit;
   if (isPetal > 0.5) {
     float toTip = saturate(along * 0.85 + across * 0.2);
-    vec3 albedo = mix(vec3(1.0, 0.9804, 0.9412), vec3(1.0), toTip);
+    // Warm cream, not paper white, so the front lilies don't outshine the copy.
+    vec3 albedo = mix(vec3(0.95, 0.91, 0.82), vec3(0.98, 0.96, 0.9), toTip);
     float throat = (1.0 - smoothstep(0.02, 0.46, along)) * (1.0 - smoothstep(0.12, 0.72, across));
     albedo = mix(albedo, vec3(0.84, 0.91, 0.48), throat);
-    float shade = 0.74 + 0.32 * saturate(ndl * 0.7 + 0.3);
+    float shade = 0.66 + 0.36 * saturate(ndl * 0.7 + 0.3);
     shade *= 1.0 - (1.0 - smoothstep(0.0, 0.5, along)) * (1.0 - across) * 0.2;
     float back = pow(saturate(-ndl), 1.15);
     float thin = pow(1.0 - abs(ndl), 1.3);
@@ -500,7 +501,7 @@ void main() {
     float edge = 1.0 - smoothstep(0.7, 1.0, across);
     float tipFade = 1.0 - smoothstep(0.8, 1.0, along);
     lit = albedo * shade * (1.0 + back * 0.14 + thin * 0.08);
-    lit += vec3(1.0) * rim * 0.22 * (1.0 - throat);
+    lit += vec3(1.0, 0.98, 0.92) * rim * 0.14 * (1.0 - throat);
     alpha = edge * tipFade;
   } else {
     float wrap = saturate(ndl * 0.55 + 0.46);
@@ -571,7 +572,10 @@ vec3 meadowColor(vec3 world, float dist) {
   vec3 ray = normalize(world - uCamPos);
   float down = saturate((-ray.y - 0.004) / 0.46);
   down = down * down * (3.0 - 2.0 * down);
-  vec3 grass = mix(uHorizon, uGrassNear, down);
+  // The far meadow fades to a hazy sage-gold, not the sky's cream, so no
+  // sandy band shows between the flowers and the hills.
+  vec3 farMeadow = mix(uHorizon, vec3(0.58, 0.75, 0.4), 0.8);
+  vec3 grass = mix(farMeadow, uGrassNear, down);
   float field = grassTuft(world.xz);
   vec3 mote = vec3(0.28, 0.46, 0.18);
   float cover = down * (1.0 - smoothstep(16.0, 62.0, dist));
@@ -626,6 +630,12 @@ void main() {
   pathCol = mix(pathCol, uHandoff, uVeil);
   grass = mix(grass, uHandoff, uVeil);
   vec3 albedo = mix(grass, pathCol, pathMask);
+  // The tree's shadow, cast away from the sun (left and back of the trunk).
+  float treePhone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  float treeSize = mix(1.0, ${TREE.phoneScale.toFixed(3)}, treePhone);
+  vec2 shadowAt = vec2(treeAnchor(uAspect), treeDepth(uAspect)) + vec2(-0.32, -0.16) * treeSize;
+  float shadowD = length((vWorld.xz - shadowAt) / (vec2(0.78, 0.36) * treeSize));
+  albedo *= 1.0 - (1.0 - smoothstep(0.25, 1.0, shadowD)) * 0.3 * (1.0 - uVeil);
   float wrap = saturate(dot(normalize(vNormal), normalize(uSunDir)) * 0.35 + 0.72);
   vec3 lit = albedo * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   vec3 fogged = atmospheric(lit, dist);
@@ -668,7 +678,6 @@ varying vec3 vWorld;
 varying vec3 vColor;
 varying float vLift;
 varying float vLayer;
-uniform float uAspect;
 
 /* Flat normal of the facet under this pixel, turned toward the camera. */
 vec3 facetNormal() {
@@ -676,29 +685,40 @@ vec3 facetNormal() {
   return dot(n, uCamPos - vWorld) < 0.0 ? -n : n;
 }
 
-/* The near green hill: soft and rolling, lit gently from the sun side. */
-vec3 shadeHill(float dist) {
+/*
+ * The three green hills. Facets turn toward or away from the sun, crests
+ * catch the light and dips sink, tiny flower specks scatter over them,
+ * and each hill back takes on more haze.
+ */
+vec3 shadeHill() {
+  float depth = saturate(-vLayer * 0.5);
   float lift = saturate(vLift);
-  float n = washNoise(vWorld.xz * 0.16);
-  float ragged = saturate(lift + (n - 0.5) * 0.18);
-  vec3 ridge = vColor * mix(vec3(1.0), vec3(0.94, 0.92, 0.98), lift);
-  vec3 foot = mix(vColor, uSkyMid, 0.22);
-  foot = mix(foot, foot * vec3(0.96, 0.98, 1.05), 0.4);
-  vec3 col = mix(foot, ridge, smoothstep(0.08, 0.82, ragged));
-  col *= mix(0.98, 1.02, n);
-  col = mix(col, uSkyMid, smoothstep(0.9, 1.0, ragged) * 0.35);
-  float sun = dot(facetNormal(), normalize(uSunDir));
-  col *= mix(0.93, 1.04, smoothstep(0.2, 0.9, sun));
-  float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
-  float cream = smoothstep(0.9, 2.5, vWorld.y) * nearHill;
-  col = mix(col, mix(col, uHorizon, 0.28), cream * 0.3);
-  // A soft lift on the hill behind the copy, which sits left of centre
-  // above a phone and centred on one.
-  float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
-  float halfWidth = max(uCamPos.z - vWorld.z, 1.0) * 0.4245 * max(uAspect, 0.3);
-  float copyX = mix(-0.56 * halfWidth, 0.0, phone);
-  float title = (1.0 - smoothstep(0.2, 6.5, abs(vWorld.x - copyX))) * smoothstep(0.4, 1.55, vWorld.y) * (1.0 - smoothstep(1.7, 2.6, vWorld.y));
-  col = mix(col, mix(uHorizon, uSkyTop, 0.3), title * nearHill * 0.48);
+  float lit = smoothstep(-0.1, 0.85, dot(facetNormal(), normalize(uSunDir)));
+  vec3 col = vColor * mix(mix(0.8, 0.9, depth), 1.06, lit);
+  col *= mix(0.88, 1.04, smoothstep(0.15, 0.9, lift));
+
+  vec2 g = vWorld.xz * vec2(5.0, 7.0);
+  vec2 cell = floor(g);
+  vec2 centre = vec2(0.25 + washHash(cell + 1.3) * 0.5, 0.25 + washHash(cell + 2.1) * 0.5);
+  float speck = step(0.84, washHash(cell)) * (1.0 - smoothstep(0.1, 0.22, length(fract(g) - centre)));
+  speck *= 1.0 - smoothstep(0.25, 0.8, max(fwidth(g.x), fwidth(g.y)));
+  speck *= smoothstep(0.05, 0.3, lift);
+  float pick = washHash(cell + 5.7);
+  vec3 bloom = pick < 0.34 ? vec3(0.98, 0.8, 0.4) : pick < 0.68 ? vec3(0.8, 0.68, 0.94) : vec3(1.0, 0.97, 0.93);
+  col = mix(col, bloom, speck * (1.0 - depth * 0.55) * 0.8);
+
+  vec3 haze = mix(uSkyMid, uHorizon, 0.35);
+  col = mix(col, haze, depth * 0.3);
+  // The back hill's crest dissolves into the mist at the ranges' feet.
+  col = mix(col, haze, depth * smoothstep(0.55, 1.0, lift) * 0.22);
+  return col;
+}
+
+/* Firs and bushes on the hills: flat-lit facets, hazed with distance. */
+vec3 shadeShrub(float dist) {
+  float lit = smoothstep(-0.2, 0.8, dot(facetNormal(), normalize(uSunDir)));
+  vec3 col = vColor * mix(0.72, 1.14, lit);
+  col = mix(col, mix(uSkyMid, uHorizon, 0.35), smoothstep(13.0, 27.0, dist) * 0.35);
   return col;
 }
 
@@ -714,7 +734,7 @@ vec3 shadeRange(float dist) {
   float sun = dot(n, normalize(uSunDir));
   float lit = smoothstep(-0.15, 0.75, sun);
   // Strong on the near range, gentler on the far one.
-  float contrast = mix(0.42, 0.22, back);
+  float contrast = mix(0.34, 0.22, back);
   vec3 rock = vColor * mix(1.0 - contrast, 1.0 + contrast * 0.35, lit);
   // Shaded faces lean violet-blue rather than going grey.
   rock = mix(rock, rock * vec3(0.9, 0.92, 1.12), (1.0 - lit) * 0.5);
@@ -722,7 +742,7 @@ vec3 shadeRange(float dist) {
   float grain = washNoise(vWorld.xz * vec2(0.9, 0.5) + layer * 3.1);
   float streak = washNoise(vec2(vWorld.x * 2.3, layer * 7.0));
   // The near range only frosts its very tips; the two back ranges carry real caps.
-  float snowLine = (layer < 1.5 ? 0.86 : mix(0.68, 0.6, back)) + (grain - 0.5) * 0.08 - pow(streak, 3.0) * 0.1;
+  float snowLine = (layer < 1.5 ? 0.86 : mix(0.7, 0.66, back)) + (grain - 0.5) * 0.08 - pow(streak, 3.0) * 0.1;
   float snowAmount = layer > 1.5 ? 1.0 : 0.9;
   float snow = smoothstep(snowLine, snowLine + 0.012, lift) * snowAmount;
   vec3 snowLit = vec3(1.0, 0.99, 0.97);
@@ -733,22 +753,23 @@ vec3 shadeRange(float dist) {
   // Mist pools at each range's foot, so layers separate.
   vec3 haze = mix(uSkyMid, vec3(0.78, 0.86, 0.96), 0.5);
   float valley = pow(1.0 - lift, 2.2);
-  col = mix(col, haze, valley * mix(0.38, 0.6, back));
+  col = mix(col, haze, valley * mix(0.48, 0.62, back));
   col = mix(col, haze, back * 0.22);
   return col;
 }
 
 void main() {
   float dist = distance(vWorld, uCamPos);
-  bool range = vLayer > 0.5;
-  vec3 col = range ? shadeRange(dist) : shadeHill(dist);
+  bool shrub = vLayer > 4.5;
+  bool range = !shrub && vLayer > 0.5;
+  vec3 col = shrub ? shadeShrub(dist) : range ? shadeRange(dist) : shadeHill();
   col = mix(col, uHandoff, uVeil);
   float wrap = saturate(uSunDir.y * 0.35 + 0.72);
   vec3 lit = col * (uAmbient * 0.74 + uSunColor * wrap * 0.4);
   vec3 shaded = mix(lit, atmospheric(lit, dist), 0.1);
-  if (!range) {
-    float nearHill = smoothstep(-18.0, -6.5, vWorld.z) * (1.0 - smoothstep(-5.2, -2.6, vWorld.z));
-    float footWash = (1.0 - smoothstep(0.2, 1.15, vWorld.y)) * nearHill;
+  if (!range && !shrub && vLayer > -0.5) {
+    // The front hill's foot picks up the meadow's soft colour drifts.
+    float footWash = 1.0 - smoothstep(0.2, 1.0, vWorld.y);
     if (footWash > 0.02) shaded = driftTint(shaded, vWorld.xz, footWash);
   }
   gl_FragColor = vec4(shaded, 1.0);
@@ -784,6 +805,9 @@ void main() {
 
 export const CLOUD_VERT = /* glsl */ `
 varying vec2 vUv;
+varying float vPhase;
+varying float vRatio;
+varying float vFar;
 uniform float uTime;
 uniform float uWind;
 uniform float uAspect;
@@ -802,7 +826,9 @@ void main() {
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   float narrow = 1.0 - smoothstep(0.72, 1.05, max(uAspect, 0.3));
   float phone = 1.0 - smoothstep(0.5, 0.72, uAspect);
+  // Narrow frames get smaller clouds, not squeezed ones, so the lumps stay round.
   vec2 fitted = size * mix(1.0, 0.84, narrow);
+  fitted.x *= mix(1.0, 0.62, narrow) * mix(1.0, 0.85, phone);
   // Drift right forever and wrap. The loop is as wide as the frame at this
   // depth plus the cloud, measured from the trailhead and in the unsquashed
   // space below, so a cloud leaves the right edge in full before it comes
@@ -811,13 +837,18 @@ void main() {
   float squash = mix(1.0, 0.38, narrow) * mix(1.0, 0.62, phone);
   float depth = max(${VIEW_START_Z.toFixed(2)} - center.z, 1.0);
   float frameHalf = depth * ${Math.tan(((VIEW_FOV / 2) * Math.PI) / 180).toFixed(4)} * max(uAspect, 0.3) / squash;
-  float loop = 2.0 * (frameHalf * 1.08 + 0.5 * fitted.x + 0.6);
-  float speed = mix(0.09, 0.17, smoothstep(-13.0, -6.5, center.z));
+  float loop = 2.0 * (frameHalf * 1.08 + 0.5 * fitted.x / squash + 0.6);
+  // Parallax: near clouds drift fastest, the ones among the peaks barely move.
+  float speed = mix(mix(0.035, 0.09, smoothstep(-40.0, -13.0, center.z)), 0.17, smoothstep(-13.0, -6.5, center.z));
+  vPhase = aPhase;
+  vRatio = fitted.x / max(fitted.y, 0.001);
+  vFar = smoothstep(-11.0, -36.0, center.z);
   float x0 = center.x + sin(uTime * 0.035 + aPhase) * uWind * 0.7;
   center.x = mod(x0 + uTime * speed + 0.5 * loop, loop) - 0.5 * loop;
+  // The squash moves cloud centres into a narrow frame; the shape itself is not squashed.
+  center.x *= squash;
   vec3 puff = right * position.x * fitted.x + up * position.y * fitted.y;
   vec3 world = center + puff;
-  world.x *= squash;
   world.y -= narrow * 0.85 + phone * 0.15;
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
@@ -825,29 +856,52 @@ void main() {
 
 export const CLOUD_FRAG = COMMON + /* glsl */ `
 varying vec2 vUv;
-uniform float uAspect;
+varying float vPhase;
+varying float vRatio;
+varying float vFar;
 
-float puff(vec2 p, vec2 c, vec2 r) {
-  return smoothstep(1.0, 0.36, length((p - c) / r));
+float cloudHash(float n) {
+  return fract(sin(n * 91.7 + 13.1) * 43758.5453);
 }
 
+/*
+ * Seven round lumps along a flat base: a big one or two in the middle,
+ * smaller ones at the ends, in a different order per cloud. Worked in
+ * card-height units so lumps stay round on a wide card.
+ */
 void main() {
-  vec2 p = vUv - 0.5;
-  float shape = puff(p, vec2(0.0, 0.05), vec2(0.4, 0.2));
-  shape = max(shape, puff(p, vec2(-0.22, 0.01), vec2(0.24, 0.15)));
-  shape = max(shape, puff(p, vec2(0.2, 0.03), vec2(0.26, 0.16)));
-  shape = max(shape, puff(p, vec2(-0.04, 0.16), vec2(0.2, 0.13)));
-  shape = max(shape, puff(p, vec2(0.12, 0.17), vec2(0.18, 0.12)));
-  shape = max(shape, puff(p, vec2(0.02, -0.07), vec2(0.28, 0.13)));
-  float body = smoothstep(0.4, 0.68, shape);
-  float edge = smoothstep(0.14, 0.4, shape);
-  float alpha = max(body, edge * 0.62) * (1.0 - uVeil);
+  vec2 q = vec2((vUv.x - 0.5) * vRatio, vUv.y - 0.5);
+  float base = -0.12;
+  float shape = 0.0;
+  vec2 normal = vec2(0.0, 1.0);
+  float aa = max(fwidth(q.y), 0.002) * 1.5;
+  for (int i = 0; i < 7; i++) {
+    float fi = float(i);
+    float t = (fi + 0.5) / 7.0;
+    float bell = sin(t * 3.14159);
+    float r = 0.11 + 0.17 * bell * (0.75 + cloudHash(vPhase + fi) * 0.5);
+    float cx = (t - 0.5) * vRatio * 0.78 + (cloudHash(vPhase * 1.7 + fi) - 0.5) * 0.12;
+    vec2 c = vec2(cx, base + r * (0.45 + cloudHash(vPhase * 2.3 + fi) * 0.25));
+    vec2 d = q - c;
+    float inside = 1.0 - smoothstep(r - aa, r + aa, length(d));
+    if (inside > shape) {
+      shape = inside;
+      normal = d / r;
+    }
+  }
+  // A flat underside.
+  shape *= smoothstep(base - aa, base + aa, q.y);
+  float alpha = shape * mix(1.0, 0.62, vFar) * (1.0 - uVeil);
   if (alpha < 0.02) discard;
-  float lift = saturate(p.y * 2.5 + 0.58);
-  float narrow = 1.0 - smoothstep(0.72, 1.05, max(uAspect, 0.3));
-  vec3 underside = mix(vec3(0.56, 0.64, 0.76), vec3(0.74, 0.8, 0.88), narrow * 0.45);
-  vec3 col = mix(underside, vec3(1.0), smoothstep(0.02, 0.7, lift));
-  gl_FragColor = vec4(col, min(1.0, alpha * 1.2));
+  // Lavender-grey underneath, white up top, a sunlit rim on the right.
+  float height = smoothstep(base, base + 0.3, q.y);
+  vec3 under = vec3(0.79, 0.8, 0.92);
+  vec3 col = mix(under, vec3(1.0), height);
+  float sunSide = saturate(dot(normal, normalize(vec2(0.55, 0.85))));
+  col = mix(col, vec3(1.0, 0.99, 0.95), pow(sunSide, 2.0) * 0.6);
+  col *= mix(0.94, 1.0, saturate(length(normal)));
+  col = mix(col, mix(uSkyMid, uHorizon, 0.3), vFar * 0.35);
+  gl_FragColor = vec4(col, alpha);
 }
 `;
 
@@ -936,6 +990,7 @@ varying vec2 vUv;
 varying vec3 vTint;
 varying vec3 vWorld;
 varying float vKind;
+varying float vSide;
 uniform float uTime;
 uniform float uWind;
 uniform float uAspect;
@@ -955,6 +1010,12 @@ void main() {
   // Same placement as the bark, so the limbs still meet the crown.
   float squeeze = placeTree(center, uAspect);
   size *= squeeze;
+  // Which side of the crown this card sits on, against the sun (right,
+  // above, toward us). The shade side reads deeper, so the crown has form.
+  vec3 crown = vec3(${TREE.x.toFixed(3)}, ${(TREE.baseY + TREE.canopyY).toFixed(3)}, ${TREE.z.toFixed(3)});
+  placeTree(crown, uAspect);
+  vec3 off = center - crown;
+  vSide = dot(off / max(length(off), 0.001), normalize(vec3(0.78, 0.52, 0.34)));
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vec3 world = center;
@@ -983,6 +1044,7 @@ varying vec2 vUv;
 varying vec3 vTint;
 varying vec3 vWorld;
 varying float vKind;
+varying float vSide;
 uniform float uAspect;
 
 float disc(vec2 p, vec2 c, float radius) {
@@ -1033,6 +1095,10 @@ void main() {
   float phone = 1.0 - smoothstep(0.5, 0.72, max(uAspect, 0.3));
   pink = mix(pink, vec3(0.62, 0.2, 0.36), phone * 0.46);
   vec3 col = mix(pink, vTint, pale);
+  float shade = 1.0 - smoothstep(-0.75, 0.55, vSide);
+  // Pinks deepen toward rose, whites cool toward lilac, on the shade side.
+  col *= mix(vec3(1.0), mix(vec3(0.84, 0.72, 0.8), vec3(0.86, 0.84, 0.94), pale), shade * (1.0 - glow));
+  col = mix(col, min(col * 1.04, vec3(1.0)), (1.0 - shade) * 0.5);
   col = mix(col, atmospheric(col, distance(vWorld, uCamPos)), 0.04);
   gl_FragColor = vec4(col, 1.0);
 }
