@@ -5,7 +5,9 @@ import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { formatDateTime } from "@/lib/time";
-import { DecisionControls, DeleteApplicant, ReviewNotice } from "./DecisionControls";
+import { deleteApplicants } from "../actions";
+import { DeleteButton, SelectBox, Selection } from "../Selection";
+import { DecisionControls, ReviewNotice } from "./DecisionControls";
 
 export const metadata: Metadata = { title: "Applicants | HackHive 2027" };
 
@@ -30,10 +32,9 @@ type SearchParams = Promise<{ status?: string | string[]; q?: string | string[] 
 
 export default function ApplicantsPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <main className="mx-auto max-w-5xl px-4 pt-20 pb-8">
-      <header className="mb-4 flex items-center justify-between gap-3">
+    <main className="mx-auto max-w-5xl">
+      <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Applicants</h1>
-        <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">← Admin</Link>
       </header>
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading applicants…</p>}>
         <Applicants searchParams={searchParams} />
@@ -105,11 +106,17 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
       </div>
 
       {shown.length ? (
-        <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
-          {shown.map((app) => (
-            <ApplicantRow key={app.id} app={app} />
-          ))}
-        </ul>
+        <Selection
+          items={shown.map((app) => ({ id: app.id, label: fullName(app) || app.email }))}
+          onDelete={deleteApplicants}
+          warning="This removes their account, application and resume for good (for admins, just the application). It can't be undone."
+        >
+          <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
+            {shown.map((app) => (
+              <ApplicantRow key={app.id} app={app} />
+            ))}
+          </ul>
+        </Selection>
       ) : (
         <p className="rounded-lg border border-neutral-200 p-5 text-neutral-600">
           {search ? `Nobody in ${FILTERS[filter]} matches “${search}”.` : EMPTY[filter]}
@@ -124,35 +131,38 @@ function ApplicantRow({ app }: { app: Application }) {
   const school = [app.university, app.program].filter(Boolean).join(" · ");
 
   return (
-    <li className="py-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h2 className="font-semibold break-words">{name}</h2>
-          <p className="text-sm break-words text-neutral-600">{app.email}</p>
-          {school && <p className="text-sm break-words text-neutral-600">{school}</p>}
-          {app.submitted_at && <p className="text-sm text-neutral-600">Submitted {formatDateTime(app.submitted_at)}</p>}
+    <li className="flex gap-3 py-4 has-[[data-select]:checked]:bg-amber-50/60">
+      <SelectBox id={app.id} label={name} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h2 className="font-semibold break-words">{name}</h2>
+            <p className="text-sm break-words text-neutral-600">{app.email}</p>
+            {school && <p className="text-sm break-words text-neutral-600">{school}</p>}
+            {app.submitted_at && <p className="text-sm text-neutral-600">Submitted {formatDateTime(app.submitted_at)}</p>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+            {app.status === "submitted" && <DecisionControls id={app.id} name={name} decision={app.decision} />}
+            <DeleteButton id={app.id} label={name} />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-          {app.status === "submitted" && <DecisionControls id={app.id} name={name} decision={app.decision} />}
-          <DeleteApplicant id={app.id} email={app.email} />
-        </div>
+        <details className="mt-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">View application</summary>
+          <div className="mt-3">
+            {app.resume_path && (
+              <a
+                href={`/admin/applicants/${app.id}/resume`}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-4 inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+              >
+                Open resume
+              </a>
+            )}
+            <ApplicationView application={app} />
+          </div>
+        </details>
       </div>
-      <details className="mt-2">
-        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">View application</summary>
-        <div className="mt-3">
-          {app.resume_path && (
-            <a
-              href={`/admin/applicants/${app.id}/resume`}
-              target="_blank"
-              rel="noreferrer"
-              className="mb-4 inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-            >
-              Open resume
-            </a>
-          )}
-          <ApplicationView application={app} />
-        </div>
-      </details>
     </li>
   );
 }

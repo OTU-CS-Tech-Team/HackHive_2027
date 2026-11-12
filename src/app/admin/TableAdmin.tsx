@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { ActionForm } from "@/components/ActionForm";
 import { createClient } from "@/lib/supabase/client";
-import { deleteRow, saveRow } from "./actions";
+import { deleteRows, saveRow } from "./actions";
+import { DeleteButton, SelectBox, Selection } from "./Selection";
 import { TABLES, type Field, type Row, type TableName } from "./tables";
 
-const card = "rounded-lg border border-neutral-200 p-5";
 const input = "w-full rounded border border-neutral-300 px-3 py-2";
 
 // Uploads to the public "media" bucket (admin-only writes) and drops the URL
@@ -95,59 +96,48 @@ function Fields({ table, row }: { table: TableName; row?: Row }) {
   );
 }
 
-function DeleteButton({ table, row }: { table: TableName; row: Row }) {
-  const [pending, startTransition] = useTransition();
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      className="self-start text-sm text-red-700 underline disabled:opacity-50"
-      onClick={() => {
-        if (!confirm(`Delete "${row.name}"?`)) return;
-        startTransition(async () => {
-          const message = await deleteRow(table, row.id);
-          if (message !== "Deleted.") alert(message);
-        });
-      }}
-    >
-      {pending ? "Deleting…" : "Delete"}
-    </button>
-  );
-}
-
 export function TableAdmin({ table, rows }: { table: TableName; rows: Row[] }) {
   const config = TABLES[table];
   const save = saveRow.bind(null, table);
   return (
-    <section id={table} className={`${card} scroll-mt-20`}>
-      <h2 className="mb-4 text-lg font-semibold">
-        {config.heading} ({rows.length})
-      </h2>
-      <details className="mb-4 rounded border border-dashed p-3">
-        <summary className="cursor-pointer font-medium">Add {config.noun}</summary>
-        <div className="mt-3">
+    <>
+      <details className="group mb-6 rounded-lg border border-neutral-200 bg-neutral-50/60 open:bg-white">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 font-medium [&::-webkit-details-marker]:hidden">
+          <Plus className="size-4 transition-transform group-open:rotate-45" aria-hidden />
+          Add {config.noun}
+        </summary>
+        <div className="border-t border-neutral-200 p-4">
           <ActionForm action={save} submitLabel={`Add ${config.noun}`}>
             <Fields table={table} />
           </ActionForm>
         </div>
       </details>
-      <ol className="flex flex-col divide-y">
-        {rows.map((row) => (
-          <li key={row.id} className="py-3">
-            <p className="font-semibold">{String(row.name)}</p>
-            <p className="text-sm text-neutral-600">{config.summary(row)}</p>
-            <details className="mt-2">
-              <summary className="cursor-pointer text-sm underline">Edit</summary>
-              <div className="mt-3 flex flex-col gap-3">
-                <ActionForm action={save} submitLabel="Save changes">
-                  <Fields table={table} row={row} />
-                </ActionForm>
-                <DeleteButton table={table} row={row} />
-              </div>
-            </details>
-          </li>
-        ))}
-      </ol>
-    </section>
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-neutral-600">Nothing here yet.</p>
+      ) : (
+        <Selection items={rows.map((row) => ({ id: row.id, label: String(row.name) }))} onDelete={(ids) => deleteRows(table, ids)}>
+          <ol className="divide-y divide-neutral-200 rounded-lg border border-neutral-200">
+            {rows.map((row) => (
+              <li key={row.id} className="flex gap-3 px-3 py-2 has-[[data-select]:checked]:bg-amber-50/60">
+                <SelectBox id={row.id} label={String(row.name)} />
+                <div className="min-w-0 flex-1 py-1">
+                  <p className="font-semibold break-words">{String(row.name)}</p>
+                  <p className="text-sm text-neutral-600">{config.summary(row)}</p>
+                  <details className="mt-1">
+                    <summary className="inline-flex min-h-9 cursor-pointer items-center text-sm underline underline-offset-2">Edit</summary>
+                    <div className="mt-2 mb-2">
+                      <ActionForm action={save} submitLabel="Save changes">
+                        <Fields table={table} row={row} />
+                      </ActionForm>
+                    </div>
+                  </details>
+                </div>
+                <DeleteButton id={row.id} label={String(row.name)} />
+              </li>
+            ))}
+          </ol>
+        </Selection>
+      )}
+    </>
   );
 }

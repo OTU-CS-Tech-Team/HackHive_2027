@@ -24,7 +24,8 @@ function browser(initialY = 0) {
     addEventListener: (name: string, handler: (event: Event) => void) => { handlers[name] = handler; },
   };
   const window = { scrollY: initialY, addEventListener: () => {} };
-  vm.runInNewContext(script, { window, document, Element, HTMLElement: Element });
+  const location = { href: 'http://site/' };
+  vm.runInNewContext(script, { window, document, location, Element, HTMLElement: Element });
   return {
     navbar,
     scroll(y: number) {
@@ -34,6 +35,14 @@ function browser(initialY = 0) {
       handlers.scroll({ target: document });
     },
     move(clientY: number) { handlers.mousemove({ clientY }); },
+    // A client-side page change: the URL updates, then the page scrolls once
+    // (to the top, to a #section, or Back restoring where they were).
+    navigate(href: string, y: number) {
+      location.href = href;
+      window.scrollY = y;
+      handlers.scroll({ target: document });
+      handlers.scroll({ target: document });
+    },
     focusNavbar() {
       document.activeElement = new Element();
       document.activeElement.inNavbar = true;
@@ -59,14 +68,13 @@ describe('navbar interaction regressions', () => {
     expect(page.navbar.dataset.hidden).toBe('true');
   });
 
-  it('accumulates small scroll steps and responds promptly when direction reverses', () => {
+  it('accumulates small scroll steps, and stays hidden scrolling up until the top', () => {
     const page = browser(500);
     for (let y = 504; y <= 520; y += 4) page.scroll(y);
     expect(page.navbar.dataset.hidden).toBe('true');
-    page.scroll(516);
-    page.scroll(512);
-    expect(page.navbar.dataset.hidden).toBe('false');
-    page.move(100);
+    for (let y = 500; y > 64; y -= 100) page.scroll(y);
+    expect(page.navbar.dataset.hidden).toBe('true');
+    page.scroll(40);
     expect(page.navbar.dataset.hidden).toBe('false');
   });
 
@@ -81,11 +89,39 @@ describe('navbar interaction regressions', () => {
     expect(page.navbar.dataset.hidden).toBe('false');
   });
 
-  it('preserves touch-direction behavior', () => {
+  it('shows the bar when going Back restores a spot further down the page', () => {
+    const page = browser();
+    page.scroll(5000);
+    page.scroll(4400);
+    page.navigate('http://site/judges', 0);
+    page.navigate('http://site/', 4400);
+    expect(page.navbar.dataset.hidden).toBe('false');
+    page.move(100);
+    expect(page.navbar.dataset.hidden).toBe('false');
+    // Scrolling down from there still tucks it away.
+    page.scroll(4500);
+    expect(page.navbar.dataset.hidden).toBe('true');
+  });
+
+  it('shows the bar after a link jumps down to a section', () => {
+    const page = browser();
+    page.scroll(3000);
+    expect(page.navbar.dataset.hidden).toBe('true');
+    page.navigate('http://site/#faq', 7240);
+    expect(page.navbar.dataset.hidden).toBe('false');
+  });
+
+  it('does not hide on a swipe up at the top of a page', () => {
+    const page = browser(0);
+    page.swipe(300, 250);
+    expect(page.navbar.dataset.hidden).toBe('false');
+  });
+
+  it('hides on a swipe that scrolls down, and a swipe back up alone does not bring it back', () => {
     const page = browser(500);
     page.swipe(300, 250);
     expect(page.navbar.dataset.hidden).toBe('true');
     page.swipe(250, 300);
-    expect(page.navbar.dataset.hidden).toBe('false');
+    expect(page.navbar.dataset.hidden).toBe('true');
   });
 });

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
@@ -11,12 +10,9 @@ export const metadata: Metadata = { title: "Item requests | HackHive 2027" };
 
 export default function RequestsPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-24 pb-16">
+    <main className="mx-auto max-w-3xl">
       <header className="mb-6">
-        <Link href="/admin" className="text-sm underline">
-          ← Admin
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold">Item requests</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Item requests</h1>
         <p className="text-neutral-600">First come, first served: review the top request before moving on.</p>
       </header>
       <Suspense fallback={<p>Loading…</p>}>

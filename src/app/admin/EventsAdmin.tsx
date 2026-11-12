@@ -1,13 +1,14 @@
 "use client";
 
-import { useTransition } from "react";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { ActionForm } from "@/components/ActionForm";
 import type { EventCategory, HackEvent } from "@/lib/content";
 import { colorOf } from "@/lib/schedule";
 import { formatDateTime, formatTime, toLocalInput } from "@/lib/time";
-import { deleteEvent, saveEvent } from "./actions";
+import { deleteEvents, saveEvent } from "./actions";
+import { DeleteButton, SelectBox, Selection } from "./Selection";
 
-const card = "rounded-lg border border-neutral-200 p-5";
 const input = "w-full rounded border border-neutral-300 px-3 py-2";
 
 // Times are typed as Toronto time, whatever timezone the admin's laptop is in.
@@ -62,75 +63,68 @@ function EventFields({ event, categories }: { event?: HackEvent; categories: Eve
   );
 }
 
-function DeleteButton({ event }: { event: HackEvent }) {
-  const [pending, startTransition] = useTransition();
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      className="text-sm text-red-700 underline disabled:opacity-50"
-      onClick={() => {
-        if (!confirm(`Delete "${event.title}"? Points already awarded for it stay.`)) return;
-        startTransition(async () => {
-          const message = await deleteEvent(event.id);
-          if (message !== "Deleted.") alert(message);
-        });
-      }}
-    >
-      {pending ? "Deleting…" : "Delete"}
-    </button>
-  );
-}
-
 export function EventsAdmin({ events, categories }: { events: HackEvent[]; categories: EventCategory[] }) {
   const byId = new Map(categories.map((category) => [category.id, category]));
   return (
-    <div id="events" className="flex scroll-mt-20 flex-col gap-6">
-      <section className={card}>
-        <h2 className="mb-1 text-lg font-semibold">Add an event</h2>
-        <p className="mb-4 text-sm text-neutral-600">
-          Need a new kind of event (e.g. Networking) or a different colour? Add or edit it under{" "}
-          <a href="#event_categories" className="underline">
-            Schedule categories
-          </a>
-          .
-        </p>
-        <ActionForm action={saveEvent} submitLabel="Add event">
-          <EventFields categories={categories} />
-        </ActionForm>
-      </section>
-
-      <section className={card}>
-        <h2 className="mb-4 text-lg font-semibold">Schedule ({events.length})</h2>
-        {events.length === 0 && <p className="text-neutral-600">No events yet.</p>}
-        <ol className="flex flex-col divide-y">
-          {events.map((event) => (
-            <li key={event.id} className="py-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="font-semibold">{event.title}</p>
-                <span className="text-sm text-neutral-600">
-                  {formatDateTime(event.starts_at)} – {formatTime(event.ends_at)}
-                </span>
-              </div>
-              <p className="flex items-center gap-1.5 text-sm text-neutral-600">
-                <span className={`size-2.5 shrink-0 rounded-full ${colorOf(byId.get(event.category_id)?.color).bar}`} aria-hidden />
-                {byId.get(event.category_id)?.name}
-                {event.location && ` · ${event.location}`}
-                {event.points > 0 && ` · ${event.points} pts`}
-              </p>
-              <details className="mt-2">
-                <summary className="cursor-pointer text-sm underline">Edit</summary>
-                <div className="mt-3 flex flex-col gap-3">
-                  <ActionForm action={saveEvent} submitLabel="Save changes">
-                    <EventFields event={event} categories={categories} />
-                  </ActionForm>
-                  <DeleteButton event={event} />
+    <>
+      <details className="group mb-6 rounded-lg border border-neutral-200 bg-neutral-50/60 open:bg-white">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 font-medium [&::-webkit-details-marker]:hidden">
+          <Plus className="size-4 transition-transform group-open:rotate-45" aria-hidden />
+          Add event
+        </summary>
+        <div className="border-t border-neutral-200 p-4">
+          <p className="mb-4 text-sm text-neutral-600">
+            Need a new kind of event (e.g. Networking) or a different colour? Add or edit it under{" "}
+            <Link href="/admin/event_categories" className="underline">
+              Schedule categories
+            </Link>
+            .
+          </p>
+          <ActionForm action={saveEvent} submitLabel="Add event">
+            <EventFields categories={categories} />
+          </ActionForm>
+        </div>
+      </details>
+      {events.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-neutral-600">No events yet.</p>
+      ) : (
+        <Selection
+          items={events.map((event) => ({ id: event.id, label: event.title }))}
+          onDelete={deleteEvents}
+          warning="Points already awarded for them stay. This can't be undone."
+        >
+          <ol className="divide-y divide-neutral-200 rounded-lg border border-neutral-200">
+            {events.map((event) => (
+              <li key={event.id} className="flex gap-3 px-3 py-2 has-[[data-select]:checked]:bg-amber-50/60">
+                <SelectBox id={event.id} label={event.title} />
+                <div className="min-w-0 flex-1 py-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <p className="font-semibold break-words">{event.title}</p>
+                    <span className="text-sm text-neutral-600">
+                      {formatDateTime(event.starts_at)} – {formatTime(event.ends_at)}
+                    </span>
+                  </div>
+                  <p className="flex items-center gap-1.5 text-sm text-neutral-600">
+                    <span className={`size-2.5 shrink-0 rounded-full ${colorOf(byId.get(event.category_id)?.color).bar}`} aria-hidden />
+                    {byId.get(event.category_id)?.name}
+                    {event.location && ` · ${event.location}`}
+                    {event.points > 0 && ` · ${event.points} pts`}
+                  </p>
+                  <details className="mt-1">
+                    <summary className="inline-flex min-h-9 cursor-pointer items-center text-sm underline underline-offset-2">Edit</summary>
+                    <div className="mt-2 mb-2">
+                      <ActionForm action={saveEvent} submitLabel="Save changes">
+                        <EventFields event={event} categories={categories} />
+                      </ActionForm>
+                    </div>
+                  </details>
                 </div>
-              </details>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
+                <DeleteButton id={event.id} label={event.title} />
+              </li>
+            ))}
+          </ol>
+        </Selection>
+      )}
+    </>
   );
 }

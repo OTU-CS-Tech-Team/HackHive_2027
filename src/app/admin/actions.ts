@@ -25,6 +25,13 @@ export type ActionResult = { ok: boolean; message: string; balance?: number };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Bulk deletes take ids straight from the browser, so check every one.
+const isIdList = (ids: unknown): ids is string[] =>
+  Array.isArray(ids) && ids.length > 0 && ids.every((id) => typeof id === "string" && UUID.test(id));
+
+const deletedMessage = (done: number, total: number, reasons: string[]) =>
+  reasons.length ? [total > 1 && `Deleted ${done} of ${total}.`, ...new Set(reasons)].filter(Boolean).join(" ") : total > 1 ? `Deleted ${total}.` : "Deleted.";
+
 // RLS (is_admin) is what actually guards these; this just gives a clear error.
 async function requireAdmin() {
   const supabase = await createClient();
@@ -148,9 +155,9 @@ export async function resendDecisionEmail(id: string): Promise<ActionResult> {
 }
 
 // Resumes, avatars and indemnification forms live in Storage, so the account's cascade doesn't reach them.
-async function removeUserFiles(service: ReturnType<typeof createServiceClient>, userId: string) {
-  const buckets = await Promise.all(
-    ["resumes", "avatars", "indemnifications"].map(async (bucket) => {
+async function removeUserFiles(service: ReturnType<typeof createServiceClient>, userId: string, buckets = ["resumes", "avatars", "indemnifications"]) {
+  const removed = await Promise.all(
+    buckets.map(async (bucket) => {
       const { data, error } = await service.storage.from(bucket).list(userId, { limit: 1000 });
       if (error) return false;
       if (!data.length) return true;
@@ -158,11 +165,13 @@ async function removeUserFiles(service: ReturnType<typeof createServiceClient>, 
       return !removeError;
     }),
   );
-  return buckets.every(Boolean);
+  return removed.every(Boolean);
 }
 
 // Permanent. Removes the account, and the application, profile, points and team
-// posts cascade from it. Admins are refused, which also stops deleting yourself.
+// posts cascade from it. An admin's application was only a test, so for admins
+// just the application and its files go and the account stays (this also covers
+// deleting yourself).
 export async function deleteApplicant(id: string): Promise<ActionResult> {
   const supabase = await requireAdmin();
   if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
@@ -177,7 +186,15 @@ export async function deleteApplicant(id: string): Promise<ActionResult> {
     .eq("user_id", applicant.user_id)
     .maybeSingle();
   if (lookupError) return { ok: false, message: `Couldn't check ${applicant.email}: ${lookupError.message}` };
-  if (targetAdmin) return { ok: false, message: `${applicant.email} is an admin and can't be deleted here.` };
+  if (targetAdmin) {
+    // Applications have no delete policy, hence the service role.
+    const { error } = await service.from("applications").delete().eq("id", id);
+    if (error) return { ok: false, message: `Couldn't delete ${applicant.email}'s application: ${error.message}` };
+    revalidatePath("/admin", "layout");
+    return (await removeUserFiles(service, applicant.user_id, ["resumes", "indemnifications"]))
+      ? { ok: true, message: `Deleted ${applicant.email}'s application. Their admin account stays.` }
+      : { ok: false, message: `Deleted ${applicant.email}'s application, but its files couldn't all be removed from Storage.` };
+  }
 
   // Account first, so a failure here leaves their resume in place.
   const { error } = await service.auth.admin.deleteUser(applicant.user_id);
@@ -187,6 +204,27 @@ export async function deleteApplicant(id: string): Promise<ActionResult> {
   return (await removeUserFiles(service, applicant.user_id))
     ? { ok: true, message: `Deleted ${applicant.email}.` }
     : { ok: false, message: `Deleted ${applicant.email}, but some of their files couldn't be removed from Storage.` };
+}
+
+// Each one goes through deleteApplicant, so the admin check and file cleanup apply to all of them.
+export async function deleteApplicants(ids: string[]): Promise<ActionResult> {
+  if (!isIdList(ids)) return { ok: false, message: "Nothing selected." };
+  const results = await Promise.all(ids.map((id) => deleteApplicant(id)));
+  if (results.length === 1) return results[0];
+  const failed = results.filter((result) => !result.ok);
+  return { ok: !failed.length, message: deletedMessage(results.length - failed.length, results.length, failed.map((result) => result.message)) };
+}
+
+// One delete per row, so a row that's still in use doesn't hold back the rest.
+async function deleteByIds(table: TableName | "events", ids: unknown, inUse?: string): Promise<ActionResult> {
+  if (!isIdList(ids)) return { ok: false, message: "Nothing selected." };
+  const supabase = await requireAdmin();
+  const results = await Promise.all(ids.map((id) => supabase.from(table).delete().eq("id", id)));
+  const errors = results.flatMap(({ error }) => (error ? [error] : []));
+  if (errors.length < ids.length) revalidatePath("/admin", "layout");
+  // 23503: still referenced, e.g. a redeemed shop item or a category events use.
+  const reasons = errors.map((error) => (error.code === "23503" && inUse ? inUse : error.message));
+  return { ok: !errors.length, message: deletedMessage(ids.length - errors.length, ids.length, reasons) };
 }
 
 // Creates an event, or updates one when the form carries an id.
@@ -224,17 +262,15 @@ export async function saveEvent(formData: FormData): Promise<string> {
   if (error?.code === "23503") return "That category no longer exists. Reload and pick another.";
   if (error) return error.message;
   updateTag("events");
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return id ? "Saved." : `Added ${title}.`;
 }
 
-export async function deleteEvent(id: string): Promise<string> {
-  const supabase = await requireAdmin();
-  const { error } = await supabase.from("events").delete().eq("id", id);
-  if (error) return error.message;
+// Points already awarded for these stay (event_id is set null).
+export async function deleteEvents(ids: string[]): Promise<ActionResult> {
+  const result = await deleteByIds("events", ids);
   updateTag("events");
-  revalidatePath("/admin");
-  return "Deleted.";
+  return result;
 }
 
 // Sponsors, speakers/judges, shop items: validated against the same config the form is built from.
@@ -269,7 +305,7 @@ export async function saveRow(table: TableName, formData: FormData): Promise<str
   const { error } = id ? await supabase.from(table).update(row).eq("id", id) : await supabase.from(table).insert(row);
   if (error) return error.message;
   if ("cacheTag" in config) updateTag(config.cacheTag);
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return id ? "Saved." : `Added ${row.name}.`;
 }
 
@@ -348,26 +384,23 @@ export async function loadRequestHistory(cursor: HistoryCursor | null): Promise<
   return { ok: true, requests: rows.slice(0, HISTORY_PAGE_SIZE), hasMore: rows.length > HISTORY_PAGE_SIZE };
 }
 
-export async function deleteItemRequest(id: string): Promise<ActionResult> {
+// `deleted` lets the history drop them from pages loaded with "Load more" too.
+export async function deleteItemRequests(ids: string[]): Promise<ActionResult & { deleted?: string[] }> {
+  if (!isIdList(ids)) return { ok: false, message: "Nothing selected." };
   const supabase = await requireAdmin();
-  if (!UUID.test(id)) return { ok: false, message: "Unknown request." };
 
-  const { data, error } = await supabase.from("item_requests").delete().eq("id", id).neq("status", "pending").select("id");
+  const { data, error } = await supabase.from("item_requests").delete().in("id", ids).neq("status", "pending").select("id");
   if (error) return { ok: false, message: error.message };
-  if (!data.length) return { ok: false, message: "That request is gone or still pending. Refresh the page." };
-  revalidatePath("/admin/requests");
-  return { ok: true, message: "Deleted." };
+  const deleted = data.map((row) => row.id as string);
+  if (deleted.length) revalidatePath("/admin/requests");
+  const missed = deleted.length < ids.length ? ["Some are gone or still pending. Refresh the page."] : [];
+  return { ok: !missed.length, message: deletedMessage(deleted.length, ids.length, missed), deleted };
 }
 
-export async function deleteRow(table: TableName, id: string): Promise<string> {
-  if (!Object.hasOwn(TABLES, table)) return "Unknown table.";
-  const supabase = await requireAdmin();
-  const { error } = await supabase.from(table).delete().eq("id", id);
+export async function deleteRows(table: TableName, ids: string[]): Promise<ActionResult> {
+  if (!Object.hasOwn(TABLES, table)) return { ok: false, message: "Unknown table." };
   const config = TABLES[table];
-  // 23503: still referenced, e.g. a redeemed shop item or a category events use.
-  if (error?.code === "23503" && "inUse" in config) return config.inUse;
-  if (error) return error.message;
+  const result = await deleteByIds(table, ids, "inUse" in config ? config.inUse : undefined);
   if ("cacheTag" in config) updateTag(config.cacheTag);
-  revalidatePath("/admin");
-  return "Deleted.";
+  return result;
 }

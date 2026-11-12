@@ -2,12 +2,11 @@
 
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
 import type { Decision } from "@/lib/application/decision-email";
-import { deleteApplicant, resendDecisionEmail, setDecision, type ActionResult } from "../actions";
+import { resendDecisionEmail, setDecision, type ActionResult } from "../actions";
 
 const button = "inline-flex min-h-11 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-50";
 const quietBase = "inline-flex min-h-11 items-center rounded-md px-2 text-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-50";
 const quietButton = `${quietBase} hover:text-neutral-900`;
-const dangerButton = `${quietBase} text-red-700 hover:text-red-900`;
 
 const ACTIONS: { decision: Decision; label: string; className: string }[] = [
   { decision: "accepted", label: "Accept", className: "border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700" },
@@ -51,28 +50,7 @@ function useReviewAction() {
       }
     });
 
-  return { pending, run, notify };
-}
-
-export function DeleteApplicant({ id, email }: { id: string; email: string }) {
-  const { pending, run, notify } = useReviewAction();
-
-  return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() => {
-        // Typed, because Accept and Reject train people to press Enter on a confirm box.
-        const typed = window.prompt(`Permanently delete ${email}?\n\nThis removes their account, application and resume. It can't be undone.\n\nType DELETE to confirm.`);
-        if (typed === null) return;
-        if (typed.trim().toUpperCase() === "DELETE") run(() => deleteApplicant(id));
-        else notify({ ok: false, message: `Nothing was deleted. Type DELETE to delete ${email}.` });
-      }}
-      className={dangerButton}
-    >
-      Delete
-    </button>
-  );
+  return { pending, run };
 }
 
 export function DecisionControls({ id, name, decision }: { id: string; name: string; decision: Decision | null }) {

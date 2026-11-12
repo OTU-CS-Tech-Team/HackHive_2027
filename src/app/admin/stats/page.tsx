@@ -10,12 +10,9 @@ export const metadata: Metadata = { title: "Stats | HackHive 2027" };
 
 export default function StatsPage() {
   return (
-    <main className="mx-auto max-w-5xl px-4 pt-20 pb-8">
+    <main className="mx-auto max-w-5xl">
       <header className="mb-4">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Hackathon stats</h1>
-          <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">← Admin</Link>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Hackathon stats</h1>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/admin/applicants" className="inline-flex min-h-11 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">Review applications</Link>
           <RefreshStats />

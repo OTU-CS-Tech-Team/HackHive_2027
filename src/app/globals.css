@@ -105,9 +105,9 @@ body {
   box-shadow: 0 0 0 5px rgb(245 184 61 / 0.3);
 }
 
-/* The apply page has its own sidebar nav, so the site bar steps aside on desktop. */
+/* The apply and admin pages have their own sidebar nav, so the site bar steps aside on desktop. */
 @media (min-width: 768px) {
-  html:has([data-apply-shell]) [data-navbar-shell] {
+  html:has([data-apply-shell], [data-admin-shell]) [data-navbar-shell] {
     display: none;
   }
 }
