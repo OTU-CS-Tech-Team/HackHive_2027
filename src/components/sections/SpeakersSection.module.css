@@ -502,7 +502,8 @@
 }
 
 .empty {
-  margin: 0;
+  margin-left: 500;
+  font-size:1.5em ;
   color: #d9cba8;
 }
 
