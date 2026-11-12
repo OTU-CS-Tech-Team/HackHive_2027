@@ -1,5 +1,6 @@
 (() => {
   const lastScrollByTarget = new WeakMap();
+  let lastUrl = location.href;
   let lastTouchY = null;
   let lockedScrollY = 0;
   let scrollLocked = false;
@@ -83,6 +84,18 @@
   const onScroll = (event) => {
     if (document.querySelector("[data-mobile-menu][open]")) return;
 
+    // A scroll that lands on a new URL is the page changing, not the visitor
+    // scrolling: Back restoring their place, or a link like /#faq jumping down.
+    // Show the bar and measure from where the page landed, instead of reading
+    // the jump as a scroll down.
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      const y = getPageScrollY();
+      lastScrollByTarget.set(document, { previousY: y, anchorY: y, direction: 0 });
+      setNavbarHidden(false);
+      return;
+    }
+
     const target = getScrollTarget(event.target);
     const y = getScrollY(target);
     let state = lastScrollByTarget.get(target);
@@ -99,11 +112,13 @@
     state.previousY = y;
     if (direction) state.direction = direction;
 
+    // Scrolling down tucks the bar away; it only comes back at the top
+    // (or from hovering the top edge, keyboard focus, or a page change).
     if (y <= 64) {
       setNavbarHidden(false);
       state.anchorY = y;
-    } else if (direction && Math.abs(y - state.anchorY) >= 8) {
-      setNavbarHidden(direction > 0);
+    } else if (direction > 0 && Math.abs(y - state.anchorY) >= 8) {
+      setNavbarHidden(true);
       state.anchorY = y;
     }
   };
@@ -146,8 +161,10 @@
       return;
     }
 
-    if (!(target instanceof Element && target.closest("[data-mobile-page-navigation]"))) {
-      setNavbarHidden(delta < 0);
+    // Only a swipe that scrolls down hides it, and not near the top (or on a
+    // page too short to scroll), where no scroll event follows to bring it back.
+    if (delta < 0 && getPageScrollY() > 64 && !(target instanceof Element && target.closest("[data-mobile-page-navigation]"))) {
+      setNavbarHidden(true);
     }
     lastTouchY = touchY;
   };

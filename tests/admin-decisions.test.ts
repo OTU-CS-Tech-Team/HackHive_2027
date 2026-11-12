@@ -10,6 +10,7 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
     lookup: { user_id: 'target-user', email: 'sam@test.com', first_name: 'Sam', decision: 'accepted' } as Record<string, unknown> | null,
     updates: [] as unknown[],
     filters: [] as string[],
+    deleteErrors: {} as Record<string, { code: string; message: string }>,
   };
 
   const service = {
@@ -19,14 +20,19 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
     removeError: null as { message: string } | null,
     files: {} as Record<string, { name: string }[]>,
     events: [] as string[],
-    from: () => {
+    from: (table: string) => {
       const query = {
         select: () => query,
+        delete: () => {
+          service.events.push(`delete ${table}`);
+          return query;
+        },
         eq: () => query,
         maybeSingle: async () => ({
           data: service.targetIsAdmin ? { user_id: 'target-user' } : null,
           error: service.adminLookupError,
         }),
+        then: (resolve: (value: unknown) => void) => resolve({ error: null }),
       };
       return query;
     },
@@ -50,14 +56,21 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
   };
 
   const builder = () => {
+    let deleting = false;
+    let id = '';
     const query = {
       select: () => query,
+      delete: () => {
+        deleting = true;
+        return query;
+      },
       update: (fields: unknown) => {
         state.updates.push(fields);
         return query;
       },
       eq: (column: string, value: string) => {
         state.filters.push(`${column}=${value}`);
+        id = value;
         return query;
       },
       or: (filter: string) => {
@@ -69,7 +82,8 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
         return query;
       },
       maybeSingle: async () => ({ data: state.isAdmin ? state.lookup : null }),
-      then: (resolve: (value: unknown) => void) => resolve({ data: state.updateRows, error: state.updateError }),
+      then: (resolve: (value: unknown) => void) =>
+        resolve(deleting ? { error: state.deleteErrors[id] ?? null } : { data: state.updateRows, error: state.updateError }),
     };
     return query;
   };
@@ -98,6 +112,7 @@ beforeEach(() => {
   state.lookup = { user_id: 'target-user', email: 'sam@test.com', first_name: 'Sam', decision: 'accepted' };
   state.updates = [];
   state.filters = [];
+  state.deleteErrors = {};
   service.targetIsAdmin = false;
   service.adminLookupError = null;
   service.deleteError = null;
@@ -281,14 +296,15 @@ describe('deleteApplicant', () => {
     expect(service.events).toEqual(['delete user target-user']);
   });
 
-  it('refuses to delete an admin', async () => {
+  it('deletes only the application and its files for an admin, keeping the account', async () => {
     service.targetIsAdmin = true;
+    service.files = { resumes: [{ name: 'cv.pdf' }], avatars: [{ name: 'me.png' }], indemnifications: [{ name: 'form.pdf' }] };
     const { deleteApplicant } = await actions();
 
     const result = await deleteApplicant(ID);
 
-    expect(result.ok).toBe(false);
-    expect(service.events).toEqual([]);
+    expect(result).toEqual({ ok: true, message: "Deleted sam@test.com's application. Their admin account stays." });
+    expect(service.events).toEqual(['delete applications', 'remove resumes target-user/cv.pdf', 'remove indemnifications target-user/form.pdf']);
   });
 
   // A failed lookup must not read as "not an admin".
@@ -356,6 +372,47 @@ describe('deleteApplicant', () => {
     const { deleteApplicant } = await actions();
 
     await expect(deleteApplicant(ID)).rejects.toThrow('Admins only');
+    expect(service.events).toEqual([]);
+  });
+});
+
+describe('bulk deletes', () => {
+  const ID2 = '22222222-2222-2222-2222-222222222222';
+
+  it('deletes every applicant picked', async () => {
+    const { deleteApplicants } = await actions();
+
+    const result = await deleteApplicants([ID, ID2]);
+
+    expect(result).toEqual({ ok: true, message: 'Deleted 2.' });
+    expect(service.events.filter((event) => event.startsWith('delete user'))).toHaveLength(2);
+  });
+
+  it('says which applicants could not go, once per reason', async () => {
+    service.deleteError = { message: 'boom' };
+    const { deleteApplicants } = await actions();
+
+    const result = await deleteApplicants([ID, ID2]);
+
+    expect(result).toEqual({ ok: false, message: "Deleted 0 of 2. Couldn't delete sam@test.com: boom" });
+  });
+
+  it('keeps going past a row that is still in use', async () => {
+    state.deleteErrors = { [ID2]: { code: '23503', message: 'foreign key' } };
+    const { deleteRows } = await actions();
+
+    const result = await deleteRows('shop_items', [ID, ID2]);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/^Deleted 1 of 2\. Someone already redeemed this/);
+  });
+
+  it('rejects anything that is not a list of ids or a known table', async () => {
+    const { deleteApplicants, deleteRows, deleteEvents } = await actions();
+
+    expect((await deleteApplicants(['1 or 1=1'])).message).toBe('Nothing selected.');
+    expect((await deleteEvents([])).message).toBe('Nothing selected.');
+    expect((await deleteRows('admin_users' as never, [ID])).message).toBe('Unknown table.');
     expect(service.events).toEqual([]);
   });
 });

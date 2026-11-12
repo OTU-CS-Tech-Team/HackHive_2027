@@ -1,14 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { applicantStatus } from "@/components/ApplicationView";
+import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
-import type { EventCategory, HackEvent } from "@/lib/content";
-import { createClient } from "@/lib/supabase/server";
-import { EventsAdmin } from "./EventsAdmin";
-import { TableAdmin } from "./TableAdmin";
-import { TABLES, type Row, type TableName } from "./tables";
+import { TABLES, type TableName } from "./tables";
 
 const card = "rounded-lg border border-neutral-200 p-5";
 
@@ -16,39 +12,12 @@ export const metadata: Metadata = { title: "Admin | HackHive 2027" };
 
 export default function AdminPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 pt-24 pb-16">
+    <main className="mx-auto max-w-4xl">
       <header className="mb-6">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">Admin</h1>
-          <Link href="/dashboard" className="inline-flex min-h-11 shrink-0 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-            ← Dashboard
-          </Link>
-        </div>
-        <p className="text-neutral-600">Changes show on the site right away.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/admin/applicants" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-            Review applicants
-          </Link>
-          <Link href="/admin/requests" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-            Item requests
-          </Link>
-          <Link href="/admin/scan" className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-            Open scanner
-          </Link>
-        </div>
-        <nav className="mt-3 flex flex-wrap gap-x-4 text-sm underline">
-          <a href="#applicants">Applicants</a>
-          <a href="#stats">Stats</a>
-          <Link href="/admin/stats">Detailed stats</Link>
-          <a href="#events">Schedule</a>
-          {Object.entries(TABLES).map(([table, { heading }]) => (
-            <a key={table} href={`#${table}`}>
-              {heading}
-            </a>
-          ))}
-        </nav>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Overview</h1>
+        <p className="mt-1 text-sm text-neutral-600">Everything else is in the sidebar.</p>
       </header>
-      <Suspense fallback={<p>Loading…</p>}>
+      <Suspense fallback={<p role="status">Loading…</p>}>
         <AdminContent />
       </Suspense>
     </main>
@@ -56,32 +25,25 @@ export default function AdminPage() {
 }
 
 async function AdminContent() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: admin } = user
-    ? await supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle()
-    : { data: null };
-  if (!admin) redirect("/");
+  const supabase = await requireAdmin();
 
   const tables = Object.keys(TABLES) as TableName[];
-  const [{ count: accounts }, { data: applications }, { data: balances }, { data: events }, ...rows] = await Promise.all([
+  const [{ count: accounts }, { data: applications }, { data: balances }, { count: events }, ...counts] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("applications").select("*").order("submitted_at", { ascending: false, nullsFirst: false }),
+    supabase.from("applications").select("status, decision, submitted_at"),
     // ponytail: sums every balance row in JS; move to a SQL view if hackers number in the tens of thousands.
     supabase.from("point_balances").select("balance"),
-    supabase.from("events").select("*").order("starts_at"),
-    ...tables.map((table) => supabase.from(table).select("*").order("sort_order").order("name")),
+    supabase.from("events").select("*", { count: "exact", head: true }),
+    ...tables.map((table) => supabase.from(table).select("*", { count: "exact", head: true })),
   ]);
   const apps = (applications ?? []) as Application[];
   const submitted = apps.filter((app) => app.status === "submitted").length;
   const count = (status: ReturnType<typeof applicantStatus>) => apps.filter((app) => applicantStatus(app) === status).length;
   const applicants = [
-    ["Applied", count("applied")],
-    ["Accepted", count("accepted")],
-    ["Waitlisted", count("waitlisted")],
-    ["Rejected", count("rejected")],
+    ["Applied", count("applied"), "applied"],
+    ["Accepted", count("accepted"), "accepted"],
+    ["Waitlisted", count("waitlisted"), "waitlisted"],
+    ["Rejected", count("rejected"), "rejected"],
   ] as const;
   const stats = [
     ["Accounts", accounts ?? 0],
@@ -89,39 +51,51 @@ async function AdminContent() {
     ["Drafts", apps.length - submitted],
     ["Points held by hackers", (balances ?? []).reduce((sum, row) => sum + row.balance, 0)],
   ] as const;
+  const content = [
+    ["/admin/schedule", "Schedule", events ?? 0],
+    ...tables.map((table, i) => [`/admin/${table}`, TABLES[table].heading, counts[i].count ?? 0] as const),
+  ] as const;
 
   return (
     <div className="flex flex-col gap-6">
-      <section id="applicants" className={`${card} scroll-mt-20`}>
+      <section className={card}>
         <h2 className="mb-1 text-lg font-semibold">Applicant status</h2>
         <p className="mb-4 text-sm text-neutral-600">Applied = submitted, no decision yet. Only accepted hackers get the hacker hub.</p>
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {applicants.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-sm text-neutral-600">{label}</dt>
-              <dd className="text-3xl font-bold">{value}</dd>
-            </div>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {applicants.map(([label, value, status]) => (
+            <li key={label}>
+              <Link href={`/admin/applicants?status=${status}`} className="block rounded-md border border-neutral-200 p-3 transition-colors hover:border-neutral-900">
+                <span className="block text-sm text-neutral-600">{label}</span>
+                <span className="text-3xl font-bold tabular-nums">{value}</span>
+              </Link>
+            </li>
           ))}
-        </dl>
+        </ul>
       </section>
-      <section id="stats" className={`${card} scroll-mt-20`}>
+      <section className={card}>
         <h2 className="mb-4 text-lg font-semibold">Stats</h2>
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {stats.map(([label, value]) => (
             <div key={label}>
               <dt className="text-sm text-neutral-600">{label}</dt>
-              <dd className="text-3xl font-bold">{value}</dd>
+              <dd className="text-3xl font-bold tabular-nums">{value}</dd>
             </div>
           ))}
         </dl>
       </section>
-      <EventsAdmin
-        events={(events ?? []) as HackEvent[]}
-        categories={(rows[tables.indexOf("event_categories")].data ?? []) as EventCategory[]}
-      />
-      {tables.map((table, i) => (
-        <TableAdmin key={table} table={table} rows={(rows[i].data ?? []) as Row[]} />
-      ))}
+      <section className={card}>
+        <h2 className="mb-4 text-lg font-semibold">Site content</h2>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {content.map(([href, label, value]) => (
+            <li key={href}>
+              <Link href={href} className="block rounded-md border border-neutral-200 p-3 transition-colors hover:border-neutral-900">
+                <span className="block text-sm text-neutral-600">{label}</span>
+                <span className="text-2xl font-bold tabular-nums">{value}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { formatDateTime } from "@/lib/time";
-import { deleteItemRequest, loadRequestHistory, reviewItemRequest } from "../actions";
+import { deleteItemRequests, loadRequestHistory, reviewItemRequest } from "../actions";
+import { DeleteButton, SelectBox, Selection } from "../Selection";
 
 export type ItemRequest = {
   id: string;
@@ -112,35 +113,6 @@ export function RequestQueue({ requests }: { requests: ItemRequest[] }) {
   );
 }
 
-// `onDeleted` takes it out of the history straight away, including from pages
-// loaded with "Load more", which the page refreshing after the delete doesn't cover.
-function DeleteRequest({ request, onDeleted }: { request: ItemRequest; onDeleted: () => void }) {
-  const [message, setMessage] = useState("");
-  const [pending, startTransition] = useTransition();
-
-  const remove = () => {
-    if (!confirm(`Delete request #${request.queue_number}? This can't be undone.`)) return;
-    startTransition(async () => {
-      const result = await deleteItemRequest(request.id);
-      if (!result.ok) setMessage(result.message);
-      else onDeleted();
-    });
-  };
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button disabled={pending} onClick={remove} className="rounded border border-red-300 px-3 py-1 text-sm text-red-700 disabled:opacity-50">
-        Delete
-      </button>
-      {message && (
-        <p role="status" className="text-sm">
-          {message}
-        </p>
-      )}
-    </div>
-  );
-}
-
 // The history's order: most recently reviewed first (unreviewed last), then by id.
 // Matches loadRequestHistory, whose cursor is the last request shown.
 function historyOrder(a: ItemRequest, b: ItemRequest) {
@@ -188,7 +160,14 @@ export function RequestHistory({ firstPage, firstPageHasMore }: { firstPage: Ite
     });
   };
 
-  const removed = (id: string) => setRequests((rows) => rows.filter((row) => row.id !== id));
+  // Drops them here too, including from pages loaded with "Load more",
+  // which the page refreshing after the delete doesn't cover.
+  const remove = async (ids: string[]) => {
+    const result = await deleteItemRequests(ids);
+    const deleted = new Set(result.deleted);
+    setRequests((rows) => rows.filter((row) => !deleted.has(row.id)));
+    return result;
+  };
 
   return (
     <section>
@@ -196,33 +175,40 @@ export function RequestHistory({ firstPage, firstPageHasMore }: { firstPage: Ite
       {!requests.length ? (
         <p className="text-neutral-600">Nothing reviewed yet.</p>
       ) : (
-        <ul className="flex flex-col gap-4">
-          {requests.map((request) => {
-            const accepted = request.status === "accepted";
-            return (
-              <li key={request.id} className={card}>
-                <span
-                  className={`mb-2 inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase ${
-                    accepted ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {accepted ? "Accepted" : "Rejected"}
-                </span>
-                <RequestDetails request={request} />
-                <p className="mt-3 border-t border-neutral-200 pt-3 text-sm text-neutral-600 [overflow-wrap:anywhere]">
-                  {accepted ? "Accepted" : "Rejected"} by {nameOf(request.reviewer, "an admin")}
-                  {request.reviewed_at && <> · {formatDateTime(request.reviewed_at)}</>}
-                </p>
-                {request.admin_note && (
-                  <p className="text-sm [overflow-wrap:anywhere]">
-                    <span className="font-medium">Admin note:</span> {request.admin_note}
+        <Selection items={requests.map((request) => ({ id: request.id, label: `Request #${request.queue_number}` }))} onDelete={remove}>
+          <ul className="flex flex-col gap-4">
+            {requests.map((request) => {
+              const accepted = request.status === "accepted";
+              return (
+                <li key={request.id} className={`${card} has-[[data-select]:checked]:border-amber-400 has-[[data-select]:checked]:bg-amber-50/60`}>
+                  <div className="-mt-2 -mr-2 mb-1 flex items-center gap-3">
+                    <SelectBox id={request.id} label={`request #${request.queue_number}`} />
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${
+                        accepted ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {accepted ? "Accepted" : "Rejected"}
+                    </span>
+                    <span className="ml-auto">
+                      <DeleteButton id={request.id} label={`request #${request.queue_number}`} />
+                    </span>
+                  </div>
+                  <RequestDetails request={request} />
+                  <p className="mt-3 border-t border-neutral-200 pt-3 text-sm text-neutral-600 [overflow-wrap:anywhere]">
+                    {accepted ? "Accepted" : "Rejected"} by {nameOf(request.reviewer, "an admin")}
+                    {request.reviewed_at && <> · {formatDateTime(request.reviewed_at)}</>}
                   </p>
-                )}
-                <DeleteRequest request={request} onDeleted={() => removed(request.id)} />
-              </li>
-            );
-          })}
-        </ul>
+                  {request.admin_note && (
+                    <p className="text-sm [overflow-wrap:anywhere]">
+                      <span className="font-medium">Admin note:</span> {request.admin_note}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Selection>
       )}
       {hasMore && (
         <button

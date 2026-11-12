@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Navbar />
           </Suspense>
         </NavbarShell>
-        <Script src="/navbar-interactions.js?v=7" strategy="afterInteractive" />
+        <Script src="/navbar-interactions.js?v=9" strategy="afterInteractive" />
         {children}
       </body>
     </html>
