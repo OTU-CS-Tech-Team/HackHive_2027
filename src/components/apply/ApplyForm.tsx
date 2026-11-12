@@ -21,6 +21,7 @@ import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import { Countdown } from "./Countdown";
 import { errorClass, hintClass, labelClass, linkClass } from "./styles";
 import { signOut } from "@/app/actions/auth";
+import { HideSiteNavbar } from "@/components/PageStyle";
 import {
   saveDraft,
   submitApplication,
@@ -725,7 +726,8 @@ export function ApplyForm({
   );
 
   return (
-    <div data-apply-shell className="flex min-h-dvh bg-white">
+    <div className="flex min-h-dvh bg-white">
+      <HideSiteNavbar />
       <aside className="sticky top-0 hidden h-dvh w-[300px] shrink-0 flex-col border-r border-hive-line bg-hive-panel md:flex">
         <div className="border-b border-hive-line px-7 pt-8 pb-6">
           <Link

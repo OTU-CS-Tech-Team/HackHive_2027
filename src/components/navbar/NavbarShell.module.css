@@ -5,32 +5,7 @@
   transition-timing-function: ease-in-out;
 }
 
-/* Over the meadow the bar stays clear of the canvas and fades out, so it
-   reads on the sky without a solid band. Other pages keep the white bar. */
-:global(html:has([data-hero-scroll])) .header {
-  background: transparent;
-}
-
-:global(html:has([data-hero-scroll])) .header::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 100%;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgba(226, 242, 248, 0.78) 0%,
-    rgba(226, 242, 248, 0.42) 46%,
-    rgba(226, 242, 248, 0) 100%
-  );
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
-}
+/* Over the homepage meadow the bar goes clear instead: see NAVBAR_OVER_MEADOW in HeroScroll.tsx. */
 
 .header[data-hidden="true"] {
   transform: translateY(-100%);

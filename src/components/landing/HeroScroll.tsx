@@ -9,10 +9,28 @@ import {
 } from "@/components/landing/heroHandoff";
 import { HeroMeadow } from "@/components/landing/HeroMeadow";
 import { TrailheadPanel } from "@/components/path/panels";
+import { PageStyle } from "@/components/PageStyle";
 import styles from "@/components/path/path.module.css";
 
 /** How fast the camera catches up to the scroll, per second. Higher is snappier. */
 const WALK_GLIDE = 12;
+
+// Over the meadow the site bar stays clear of the canvas and fades out, so it
+// reads on the sky without a solid band. Other pages keep the white bar.
+const NAVBAR_OVER_MEADOW = `
+html [data-navbar-shell] { background: transparent; }
+html [data-navbar-shell]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(226, 242, 248, 0.78) 0%, rgba(226, 242, 248, 0.42) 46%, rgba(226, 242, 248, 0) 100%);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+}`;
 
 export function HeroScroll({ poster, children }: { poster: boolean; children: ReactNode }) {
   const rootRef = useRef<HTMLElement>(null);
@@ -101,6 +119,7 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
 
   return (
     <section ref={rootRef} className={styles.heroScroll} data-hero-scroll="" aria-label="HackHive 2027">
+      <PageStyle css={NAVBAR_OVER_MEADOW} />
       <div className={styles.heroStage} data-hero-stage="">
         <HeroMeadow progress={progressRef} pointer={pointerRef} poster={poster} />
         <div className={styles.content}>
