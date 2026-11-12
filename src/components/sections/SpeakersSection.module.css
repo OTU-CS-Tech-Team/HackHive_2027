@@ -629,3 +629,22 @@
   transition: opacity 0.3s;
   pointer-events: none;
 }
+.avatarFrame .avatar {
+  opacity: 0;            /* was: visibility: hidden */
+}
+
+.avatarFrame .avatarLoaded {
+  opacity: 1;            /* was: visibility: visible */
+}
+.avatarFrame,
+.avatar,
+.avatarFallback {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.judge .front .avatarFrame,
+.judge .front .avatarFrame *,
+.speaker .front .avatarFrame,
+.speaker .front .avatarFrame * {
+  visibility: hidden !important;
+}
