@@ -249,6 +249,26 @@
   line-height: 1;
 }
 
+/* Plus/minus drawn as bars so they sit dead-centre in the hex
+   (text glyphs drift with font baseline metrics). */
+.faq-icon::before,
+.faq-icon::after {
+  content: "";
+  grid-area: 1 / 1;
+  width: 40%;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.faq-icon::after {
+  transform: rotate(90deg);
+}
+
+.faq-icon[data-open="true"]::after {
+  display: none;
+}
+
 /* Amber hexes stuck to the bar's edges. Each card places its own (see HEX_LAYOUTS).
    A filter on the wrapper gives them all one solid shadow, since the clipped hexes
    can't have a box-shadow of their own. */

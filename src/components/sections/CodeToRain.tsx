@@ -307,7 +307,17 @@ export function CodeToRain() {
       raf = requestAnimationFrame(frame);
       const dt = (now - last) / 1000;
       last = now;
-      if (!running || !W) return;
+      if (!running) {
+        // Scrolled (or jumped) past before the easing caught up: settle the judges section
+        // in place, or it's left parked partway down, covering the top of the FAQ.
+        if (judgesIn !== "1.0000" && track!.getBoundingClientRect().bottom <= 0) {
+          sp = 1;
+          judgesIn = "1.0000";
+          host!.style.setProperty("--judges-in", judgesIn);
+        }
+        return;
+      }
+      if (!W) return;
 
       // Absolute scroll distance, so the track can end right after the reveal
       // without squashing the animation.

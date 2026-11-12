@@ -200,9 +200,7 @@ function FaqItem({
               )}
               <span>{question}</span>
             </span>
-            <span className="faq-icon" aria-hidden>
-              {open ? "−" : "+"}
-            </span>
+            <span className="faq-icon" data-open={open} aria-hidden />
           </button>
         </h3>
       </div>
