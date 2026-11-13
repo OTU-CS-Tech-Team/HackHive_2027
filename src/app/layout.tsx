@@ -59,7 +59,8 @@ function NavbarFallback() {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={cn("font-sans", geist.variable, grotesk.variable)}>
-      <body>
+      {/* Extensions like Grammarly add attributes to <body> before React hydrates. */}
+      <body suppressHydrationWarning>
         {/* Picks the homepage intro phase before first paint. See decideScript.ts. */}
         <script dangerouslySetInnerHTML={{ __html: INTRO_DECIDE_SCRIPT }} />
         <NavbarShell>
