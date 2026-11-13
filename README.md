@@ -137,15 +137,16 @@ project stars and updates the featured thumbnail and demo player. Choose any
 star, use previous/next, or pause the tour. Playing a demo holds the selection;
 leaving the year, hiding the tab, or navigating away removes the player.
 
-The first project and its polygon constellation appear immediately. Each year has
-a distinct silhouette: a stellar burst, a long diamond, or a faceted comet. The project
-preview has generous space beside the map, with a compact stacked layout on
-smaller screens. A persistent star travels smoothly from node to node in two
-seconds without restarting at each project. The year marker writes each year,
-then scribbles over and replaces it in one slot. Year links stay fixed at the
-bottom for direct navigation at any scroll position. Hovering a line highlights
-it. Reduced-motion mode uses manual selection and immediate position updates.
-Existing shared project data and thumbnails remain the source of truth.
+The first project and its polygon constellation appear immediately. The stylized zodiac figures are Cancer (2026), Taurus (2025), and Capricornus
+(2024), with branching claws, horns, and a sea-goat tail. The lines stay unfilled
+so the projects remain prominent. Additional projects subdivide existing lines
+to preserve the silhouette. These are illustrative layouts, not sky coordinates. A black canvas sky
+opens with a brief flight through distant stars, then continues a visible forward flight with depth-scaled star streaks.
+Scrolling briefly accelerates the flight. It pauses when the tab is hidden and renders a still sky for reduced motion.
+There is no comet or moving pointer on the constellations. The year marker writes
+each year, then scribbles over and replaces it in one slot. Year links stay fixed
+at the bottom for direct navigation. Existing project controls and video cleanup
+remain in place.
 
 ### Shared content, independent design
 
