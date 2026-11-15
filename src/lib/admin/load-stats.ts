@@ -4,7 +4,7 @@ import { requireAdmin } from "./require-admin";
 import { summarizeApplications, type StatsApplication } from "./stats";
 
 const PAGE_SIZE = 500;
-const COLUMNS = "status,decision,submitted_at,university,hackathons_count,team_status,tshirt_size,needs_travel_help,dietary,accessibility";
+const COLUMNS = "status,decision,submitted_at,university,hackathons_count,team_status,tshirt_size,needs_travel_help,dietary,accessibility,country";
 
 export async function loadAdminStats() {
   const session = await requireAdmin("/admin/stats");
