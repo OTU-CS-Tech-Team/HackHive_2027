@@ -69,7 +69,7 @@ const dayLabel = (key: string) =>
  
 export function summarizeEvents(events: Events[], now = new Date()) {
   const nowMs = now.getTime();
-  const DAY = 24 * 60 * 60 * 1000;
+
 
   // If an event has no end time, treat it as ending when it starts.
   const parsed = events.map(row => {
@@ -90,9 +90,6 @@ export function summarizeEvents(events: Events[], now = new Date()) {
     .filter((p): p is number => typeof p === "number");
   const totalPoints = pointValues.reduce((sum, p) => sum + p, 0);
 
-  const durationsHours = dated
-    .filter(e => e.end! >= e.start!)
-    .map(e => (e.end! - e.start!) / 36e5);
 
   return {
     total: events.length,

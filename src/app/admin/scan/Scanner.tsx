@@ -53,6 +53,7 @@ export function Scanner({ events, items }: { events: ScanEvent[]; items: ItemOpt
   const [day, setDay] = useState("all");
   const [category, setCategory] = useState("all");
   const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [locked, setLocked] = useState(false); // camera paused while a code is being handled
   const [status, setStatus] = useState<string | null>(null);
   const [popup, setPopup] = useState<Popup | null>(null);
@@ -60,24 +61,22 @@ export function Scanner({ events, items }: { events: ScanEvent[]; items: ItemOpt
   const [result, setResult] = useState<ActionResult | null>(null);
   const [itemId, setItemId] = useState("");
   const [pending, startTransition] = useTransition();
-
+  
   const categories = useMemo(
     () => [...new Set(events.map((e) => e.category?.trim()).filter((c): c is string => !!c))].sort(),
     [events],
   );
  const visible = useMemo(() => {
-    const now = Date.now();
-    return events.filter((e) => {
+  return events.filter((e) => {
     if (day !== "all" && dayKey(e.starts_at) !== day) return false;
     if (category !== "all" && e.category?.trim() !== category) return false;
     if (upcomingOnly) {
-      // Keep events that haven't ended. With no end time, fall back to the start time.
       const end = Date.parse(e.ends_at ?? e.starts_at ?? "");
       if (Number.isNaN(end) || end < now) return false;
     }
     return true;
   });
-}, [events, day, category, upcomingOnly]);
+}, [events, day, category, upcomingOnly, now]);
 
   function reset() {
     setLocked(false);
