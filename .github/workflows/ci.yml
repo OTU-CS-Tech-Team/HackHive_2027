@@ -30,6 +30,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Generates src/data/generated/hackhive.json (gitignored), which the type check and app code import.
+      - name: Sync museum content
+        run: npm run museum:sync
+
       - name: Lint
         run: npm run lint
 
