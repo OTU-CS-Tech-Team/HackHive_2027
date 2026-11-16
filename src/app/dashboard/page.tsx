@@ -3,19 +3,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CalendarDays, ClipboardList, Cpu, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { CalendarDays, ClipboardList, Cpu, Hexagon, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { ActionForm } from "@/components/ActionForm";
 import { ApplicationAnswers, ApplicationStatus } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { getMyApplication } from "@/lib/application/api";
 import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
-import { formatDateTime } from "@/lib/time";
+import { formatDateTime, formatDay, formatTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "./AvatarUpload";
 import { CheckinQr } from "./CheckinQr";
 import { ItemRequestForm } from "./ItemRequestForm";
+import { Passport } from "./Passport";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -26,6 +27,7 @@ const muted = "text-sm text-neutral-600";
 // Sidebar entries; the panel on the right is picked by ?tab=, schedule by default.
 const TABS = {
   schedule: "Schedule",
+  passport: "Passport",
   application: "Application",
   team: "Looking for group",
   checkout: "Hardware checkout",
@@ -37,6 +39,7 @@ type Tab = keyof typeof TABS;
 
 const ICONS: Record<Tab, LucideIcon> = {
   schedule: CalendarDays,
+  passport: Hexagon,
   application: ClipboardList,
   team: Users,
   checkout: Cpu,
@@ -133,6 +136,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           </header>
 
           {tab === "schedule" && <ScheduleSection />}
+          {tab === "passport" && <PassportTab supabase={supabase} userId={user.id} profile={profile} />}
           {tab === "application" && <ApplicationTab />}
           {tab === "checkout" && <CheckoutTab supabase={supabase} userId={user.id} />}
           {tab === "hunt" && <HuntTab supabase={supabase} />}
@@ -162,6 +166,41 @@ async function ApplicationTab() {
         </p>
       )}
     </section>
+  );
+}
+
+// Badges are the events a hacker was scanned into for points; missions are every
+// event worth points. Both come from the same tables the admin scanner writes.
+async function PassportTab({
+  supabase,
+  userId,
+  profile,
+}: {
+  supabase: Supabase;
+  userId: string;
+  profile: { full_name: string | null; avatar_url: string | null } | null;
+}) {
+  const [{ data: balance }, { data: earned }, { data: events }, qr] = await Promise.all([
+    supabase.from("point_balances").select("balance").eq("user_id", userId).maybeSingle(),
+    supabase.from("point_transactions").select("event_id, reason").eq("user_id", userId).not("event_id", "is", null).order("created_at"),
+    supabase.from("events").select("id, title, points, starts_at").gt("points", 0).order("starts_at"),
+    mintCheckinToken(),
+  ]);
+
+  return (
+    <Passport
+      fullName={profile?.full_name ?? null}
+      avatarUrl={profile?.avatar_url ?? null}
+      points={balance?.balance ?? 0}
+      badges={(earned ?? []).map((row) => ({ id: row.event_id as string, label: row.reason }))}
+      missions={(events ?? []).map((event) => ({
+        id: event.id,
+        title: event.title,
+        points: event.points,
+        when: `${formatDay(event.starts_at).slice(0, 3)} ${formatTime(event.starts_at)}`,
+      }))}
+      initialQrDataUrl={qr}
+    />
   );
 }
 
