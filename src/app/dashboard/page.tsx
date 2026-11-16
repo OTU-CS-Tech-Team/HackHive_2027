@@ -14,7 +14,6 @@ import { formatDateTime, formatDay, formatTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "./AvatarUpload";
-import { CheckinQr } from "./CheckinQr";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
 
@@ -33,7 +32,7 @@ const TABS = {
   checkout: "Hardware checkout",
   hunt: "Scavenger hunt",
   shop: "Points shop",
-  profile: "Pass & profile",
+  profile: "Profile",
 } as const;
 type Tab = keyof typeof TABS;
 
@@ -209,7 +208,7 @@ async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: s
   return (
     <section>
       <h2 className="mb-1 text-2xl font-bold">Hardware checkout</h2>
-      <p className={`mb-4 ${muted}`}>Borrow from the help desk with your pass. Bring it back before judging.</p>
+      <p className={`mb-4 ${muted}`}>Borrow from the help desk with your passport. Bring it back before judging.</p>
       {hardware?.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {hardware.map((item) => (
@@ -304,7 +303,7 @@ async function HuntTab({ supabase }: { supabase: Supabase }) {
   return (
     <section>
       <h2 className="mb-1 text-2xl font-bold">Scavenger hunt</h2>
-      <p className={`mb-4 ${muted}`}>Found one? Show it at the help desk with your pass to claim the points.</p>
+      <p className={`mb-4 ${muted}`}>Found one? Show it at the help desk with your passport to claim the points.</p>
       {hunt?.length ? (
         <ol className="flex flex-col divide-y">
           {hunt.map((item) => (
@@ -333,7 +332,7 @@ async function ShopTab({ supabase, userId }: { supabase: Supabase; userId: strin
   return (
     <section>
       <h2 className="mb-1 text-2xl font-bold">Points shop</h2>
-      <p className={`mb-4 ${muted}`}>You have {points} pts. Redeem at the help desk. They scan your pass.</p>
+      <p className={`mb-4 ${muted}`}>You have {points} pts. Redeem at the help desk. They scan your passport.</p>
       {shop?.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shop.map((item) => (
@@ -356,17 +355,16 @@ async function ShopTab({ supabase, userId }: { supabase: Supabase; userId: strin
 }
 
 async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; userId: string; email?: string }) {
-  const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }, qr] = await Promise.all([
+  const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", userId).single(),
     supabase.from("emergency_info").select("*").eq("user_id", userId).maybeSingle(),
     supabase.from("point_balances").select("balance").eq("user_id", userId).maybeSingle(),
     supabase.from("point_transactions").select("id, amount, reason, created_at").eq("user_id", userId).order("created_at", { ascending: false }),
-    mintCheckinToken(),
   ]);
 
   return (
     <section>
-      <h2 className="mb-1 text-2xl font-bold">Pass & profile</h2>
+      <h2 className="mb-1 text-2xl font-bold">Profile</h2>
       <p className={`mb-4 ${muted}`}>{email}</p>
       <div className="mb-4">
         <AvatarUpload />
@@ -378,13 +376,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
         </p>
       )}
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <section className={`${card} flex flex-col items-center text-center`}>
-          <h3 className="mb-3 text-lg font-semibold">Your HackHive pass</h3>
-          <CheckinQr initialQrDataUrl={qr} />
-          <p className={`mt-3 ${muted}`}>Show this at check-in, events, and the help desk to earn and spend points.</p>
-        </section>
-
+      <div className="mb-6">
         <section className={card}>
           <h3 className="text-lg font-semibold">Points</h3>
           <p className="mb-4 text-4xl font-bold">{balance?.balance ?? 0}</p>
@@ -447,7 +439,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
 
         <section className={card}>
           <h3 className="mb-1 text-lg font-semibold">Emergency info</h3>
-          <p className={`mb-4 ${muted}`}>Private. Only organizers can see it, when they scan your pass.</p>
+          <p className={`mb-4 ${muted}`}>Private. Only organizers can see it, when they scan your passport.</p>
           <ActionForm action={saveEmergencyInfo} submitLabel="Save emergency info">
             <label>
               Contact name
