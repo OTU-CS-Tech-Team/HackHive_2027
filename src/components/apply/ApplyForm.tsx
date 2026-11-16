@@ -19,9 +19,11 @@ import { OtherLinks } from "./OtherLinks";
 import { SelectWithOtherField } from "./SelectWithOtherField";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import { Countdown } from "./Countdown";
-import { errorClass, hintClass, labelClass, linkClass } from "./styles";
+import { Optional, errorClass, hintClass, labelClass, linkClass } from "./styles";
 import { signOut } from "@/app/actions/auth";
 import { HideSiteNavbar } from "@/components/PageStyle";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import { ApplicationDetails, type ApplicationAnswersData } from "@/components/ApplicationView";
 import {
   saveDraft,
   submitApplication,
@@ -169,6 +171,13 @@ const STEPS: {
     ],
   },
   {
+    id: "review",
+    title: "Review",
+    blurb: "Read it over once before you send it. Use Edit to fix anything.",
+    sections: [{ id: "review", title: "Your application" }],
+    fields: [],
+  },
+  {
     id: "submit",
     title: "Submit",
     blurb: "Check what's left, agree to the policies, and send it in.",
@@ -188,6 +197,7 @@ const STEPS: {
 ];
 
 const LAST_STEP = STEPS.length - 1;
+const REVIEW_STEP = LAST_STEP - 1;
 
 const HEX = "[clip-path:polygon(50%_0,100%_25%,100%_75%,50%_100%,0_75%,0_25%)]";
 
@@ -197,6 +207,7 @@ const HONEYCOMB =
 interface ApplyFormProps {
   userEmail: string;
   userId: string;
+  avatarUrl: string | null;
   initialDraft?: Partial<FormData> | null;
   serverUpdatedAt?: string | null;
   serverNow: number;
@@ -352,6 +363,7 @@ function StepMarker({
 export function ApplyForm({
   userEmail,
   userId,
+  avatarUrl,
   initialDraft,
   serverUpdatedAt,
   serverNow,
@@ -370,6 +382,8 @@ export function ApplyForm({
     createInitialFormData(initialDraft),
   );
   const [step, setStep] = useState(0);
+  // Review has nothing to fill in, so it only counts as done once they've opened it.
+  const [reviewed, setReviewed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -536,6 +550,7 @@ export function ApplyForm({
   // The security check only lives on the last step, so its token goes when they leave.
   const changeStep = (index: number) => {
     if (index !== LAST_STEP) setTurnstileToken(null);
+    if (index === REVIEW_STEP) setReviewed(true);
     setStep(index);
   };
 
@@ -556,6 +571,8 @@ export function ApplyForm({
   const missingPerStep = STEPS.map(
     (s) => s.fields.filter((f) => liveErrors[f]).length,
   );
+  const stepDone = (i: number) =>
+    i === REVIEW_STEP ? reviewed : missingPerStep[i] === 0;
 
   const validateForm = (): boolean => {
     const newErrors = getErrors(formData);
@@ -708,6 +725,16 @@ export function ApplyForm({
   // The slider runs 0 to 5, where 5 means "5 or more"; a bigger number from an older draft shows as 5+.
   const hackathons = Math.min(parseInt(formData.hackathons_count, 10) || 0, 5);
   const sectionId = (id: string) => `apply-${id}`;
+  // The Review step shows the draft in the same layout hackers see after submitting.
+  const reviewData: ApplicationAnswersData = {
+    ...formData,
+    email: userEmail,
+    age: formData.age ? Number(formData.age) : null,
+    hackathons_count: Number(formData.hackathons_count) || 0,
+    team_status: (formData.team_status || null) as ApplicationAnswersData["team_status"],
+    other_links: cleanLinks(formData.other_links),
+    teammate_emails: formData.teammate_emails.filter((email) => email.trim()),
+  };
   const sections = current.sections.filter((s) => !s.under18 || under18);
 
   const saveStatus = saveError ? (
@@ -772,7 +799,7 @@ export function ApplyForm({
                     state={
                       i === step
                         ? "current"
-                        : missingPerStep[i] === 0
+                        : stepDone(i)
                           ? "done"
                           : "todo"
                     }
@@ -897,7 +924,7 @@ export function ApplyForm({
                   className={`h-1.5 flex-1 rounded-full ${
                     i === step
                       ? "bg-hive-honey"
-                      : missingPerStep[i] === 0
+                      : stepDone(i)
                         ? "bg-hive-ink"
                         : "bg-hive-line"
                   }`}
@@ -922,6 +949,21 @@ export function ApplyForm({
             0,
             <>
               <FormSection id={sectionId("basics")} title="The basics">
+                <div>
+                  <p className={labelClass}>
+                    Profile picture<Optional />
+                  </p>
+                  <p className={`mt-1 ${hintClass}`}>
+                    Shows on your dashboard. You can change it any time.
+                  </p>
+                  <div className="mt-3">
+                    <AvatarUpload
+                      avatarUrl={avatarUrl}
+                      className="size-16"
+                      label={avatarUrl ? "Change photo" : "Upload photo"}
+                    />
+                  </div>
+                </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
                     label="First name"
@@ -1368,6 +1410,24 @@ export function ApplyForm({
           )}
 
           {panel(
+            REVIEW_STEP,
+            <FormSection id={sectionId("review")} title="Your application">
+              <div className="border-b border-hive-line pb-5">
+                <AvatarUpload
+                  avatarUrl={avatarUrl}
+                  className="size-14"
+                  label={avatarUrl ? "Change photo" : "Add a photo"}
+                />
+              </div>
+              <ApplicationDetails
+                application={reviewData}
+                showDemographics
+                onEdit={(id) => goToStep(STEPS.findIndex((s) => s.id === id))}
+              />
+            </FormSection>,
+          )}
+
+          {panel(
             LAST_STEP,
             <>
               <FormSection id={sectionId("left")} title="What's left">
@@ -1383,7 +1443,7 @@ export function ApplyForm({
                   </p>
                 ) : (
                   <ul className="divide-y divide-hive-line">
-                    {STEPS.slice(0, LAST_STEP).map((s, i) => (
+                    {STEPS.slice(0, LAST_STEP).map((s, i) => s.fields.length > 0 && (
                       <li
                         key={s.id}
                         className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"

@@ -1,8 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- avatars come from Storage / OAuth providers */
 import { useEffect, useRef, useState, useTransition } from "react";
 import QrScanner from "qr-scanner";
+import { Avatar } from "@/components/Avatar";
 import { awardEventPoints, awardPoints, lookupHacker, redeemItem, type ActionResult, type ScannedHacker } from "../actions";
 
 type EventOption = { id: string; title: string; points: number };
@@ -115,11 +115,7 @@ export function Scanner({ events, items }: { events: EventOption[]; items: ItemO
       {hacker && (
         <>
           <section className="flex items-center gap-4 rounded-lg border p-4">
-            {hacker.avatar_url ? (
-              <img src={hacker.avatar_url} alt="" referrerPolicy="no-referrer" className="size-16 rounded-full object-cover" />
-            ) : (
-              <span className="size-16 rounded-full bg-neutral-200" aria-hidden />
-            )}
+            <Avatar src={hacker.avatar_url} className="size-16" />
             <div className="flex-1">
               <p className="text-lg font-semibold">{hacker.name}</p>
               <p className="text-sm text-neutral-600">{[hacker.email, hacker.school].filter(Boolean).join(" · ")}</p>
