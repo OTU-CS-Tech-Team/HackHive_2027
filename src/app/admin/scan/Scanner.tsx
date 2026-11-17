@@ -61,7 +61,10 @@ export function Scanner({ events, items }: { events: ScanEvent[]; items: ItemOpt
   const [result, setResult] = useState<ActionResult | null>(null);
   const [itemId, setItemId] = useState("");
   const [pending, startTransition] = useTransition();
-  
+  useEffect(() => {
+  const id = setInterval(() => setNow(Date.now()), 60_000);
+  return () => clearInterval(id);
+}, []);
   const categories = useMemo(
     () => [...new Set(events.map((e) => e.category?.trim()).filter((c): c is string => !!c))].sort(),
     [events],
