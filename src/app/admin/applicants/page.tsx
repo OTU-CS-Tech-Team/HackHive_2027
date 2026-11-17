@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
+import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { formatDateTime } from "@/lib/time";
@@ -51,20 +52,11 @@ function matches(app: Application, query: string) {
 
 const PAGE_SIZE = 1000;
 
-// id breaks ties so rows can't shift between pages.
-async function loadAllApplications(session: Awaited<ReturnType<typeof requireAdmin>>) {
-  const data: Application[] = [];
-  // Steps by what actually came back and stops on an empty page, so a server cap
-  // lower than PAGE_SIZE can't end the loop early.
-  for (let offset = 0; ;) {
-    const { data: page, error } = await session.from("applications").select("*")
-      .order("submitted_at", { ascending: true, nullsFirst: false }).order("id")
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (error || !page) return { data: null, error: error ?? new Error("No data") };
-    if (page.length === 0) return { data, error: null };
-    data.push(...(page as Application[]));
-    offset += page.length;
-  }
+function loadAllApplications(session: Awaited<ReturnType<typeof requireAdmin>>) {
+  return loadAllByKeyset<Application>((afterId) => {
+    const query = session.from("applications").select("*").order("id").limit(PAGE_SIZE);
+    return afterId ? query.gt("id", afterId) : query;
+  });
 }
 
 async function Applicants({ searchParams }: { searchParams: SearchParams }) {
@@ -73,7 +65,8 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
   const filter: Filter = typeof status === "string" && Object.hasOwn(FILTERS, status) ? (status as Filter) : "applied";
   const search = typeof q === "string" ? q.trim() : "";
 
-  // Loads everyone in pages (Supabase returns at most 1000 rows per query) and filters here.
+  // Loads everyone in pages (Supabase returns at most 1000 rows per query), oldest
+  // submission first, and filters here.
   const { data, error } = await loadAllApplications(session);
   if (error) {
     return (
