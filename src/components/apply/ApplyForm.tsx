@@ -317,6 +317,8 @@ export function getErrors(data: FormData): Record<string, string> {
     errors.q_anything_else = `Maximum ${WORD_LIMITS.q_anything_else} words`;
   if (!data.team_status) errors.team_status = "Please select your team status";
   if (!data.tshirt_size) errors.tshirt_size = "T-shirt size is required";
+  if (!data.gender) errors.gender = "Pick one, or choose “Prefer not to say”";
+  if (!data.ethnicity) errors.ethnicity = "Pick one, or choose “Prefer not to say”";
   if (!data.consent_coc || !data.consent_privacy)
     errors.consent_coc =
       "You must agree to the Code of Conduct and Privacy Policy";
@@ -1364,7 +1366,7 @@ export function ApplyForm({
               <FormSection
                 id={sectionId("demographics")}
                 title="Demographics"
-                description="Optional. This helps us understand who we're reaching, and never affects your application."
+                description="This helps us understand who we're reaching, and never affects your application. Choose “Prefer not to say” if you'd rather not share."
               >
                 <SelectWithOtherField
                   label="Gender"
@@ -1372,6 +1374,8 @@ export function ApplyForm({
                   value={formData.gender}
                   onChange={(v) => updateField("gender", v)}
                   maxLength={FIELD_LIMITS.gender}
+                  required
+                  error={errors.gender}
                   options={[
                     { value: "woman", label: "Woman" },
                     { value: "man", label: "Man" },
@@ -1387,6 +1391,8 @@ export function ApplyForm({
                   value={formData.ethnicity}
                   onChange={(v) => updateField("ethnicity", v)}
                   maxLength={FIELD_LIMITS.ethnicity}
+                  required
+                  error={errors.ethnicity}
                   options={[
                     { value: "asian", label: "Asian" },
                     { value: "black", label: "Black or African American" },
@@ -1594,7 +1600,7 @@ export function ApplyForm({
                 <button
                   type="button"
                   onClick={() => goToStep(step + 1)}
-                  className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-hive-ink px-5 text-sm font-semibold text-white transition-[background-color,transform] hover:bg-[#1d4258] active:scale-[0.98]"
+                  className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-hive-honey px-5 text-sm font-semibold text-hive-ink transition-[filter,transform] hover:brightness-95 active:scale-[0.98]"
                 >
                   Next: {STEPS[step + 1].title}
                   <ArrowRight className="size-4" aria-hidden="true" />

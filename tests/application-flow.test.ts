@@ -79,6 +79,8 @@ const validFields = {
   q_hack: 'Something I hacked',
   team_status: 'solo',
   tshirt_size: 'M',
+  gender: 'woman',
+  ethnicity: 'asian',
   consent_coc: true,
   consent_privacy: true,
   consent_indemnification: true,
