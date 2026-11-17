@@ -5,9 +5,12 @@ const nextConfig: NextConfig = {
   // Phone testing through `npm run tunnel` (Cloudflare quick tunnel).
   allowedDevOrigins: ["*.trycloudflare.com"],
   // Dev only: in production this would let any trycloudflare.com page call our actions.
-  ...(process.env.NODE_ENV === "development" && {
-    experimental: { serverActions: { allowedOrigins: ["*.trycloudflare.com"] } },
-  }),
+  experimental: {
+    agentUpgrade: "security",
+    ...(process.env.NODE_ENV === "development" && {
+      serverActions: { allowedOrigins: ["*.trycloudflare.com"] },
+    }),
+  },
   outputFileTracingIncludes: {
     "/apply": ["./src/lib/indemnification/template.pdf"],
     // Email logos are attached to every email, and emails go out from several routes.
