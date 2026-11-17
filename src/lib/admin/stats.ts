@@ -48,19 +48,17 @@ export function summarizeApplications(applications: StatsApplication[], now = ne
       const date = Date.parse(row.submitted_at ?? "");
       return date >= weekAgo && date <= now.getTime();
     }).length,
-    // The application form asks for hackathons INCLUDING this one.
     secondHackathon: submitted.filter(row => row.hackathons_count === 1).length,
     firstHackathon: submitted.filter(row => row.hackathons_count === null || row.hackathons_count < 1).length,
     thirdHackathon: submitted.filter(row => row.hackathons_count === 2).length,
-    fourthHackathon: submitted.filter(row => row.hackathons_count === 3).length,
-    experiencedHackers: submitted.filter(row => row.hackathons_count === 5 || row.hackathons_count === 4).length,
+    experiencedHackers: submitted.filter(row => row.hackathons_count === 5 || row.hackathons_count === 4 || row.hackathons_count === 3).length,
     lookingForTeam: submitted.filter(row => row.team_status === "looking").length,
     hasTeam: submitted.filter(row => row.team_status === "has_team").length,
     solo: submitted.filter(row => row.team_status === "solo").length,
     halal: submitted.filter(row => row.dietary?.toLowerCase().includes("halal") ).length,
-    vegetarian: submitted.filter(row => row.dietary?.toLowerCase().includes("veg") ).length,
-    nutAllergy: submitted.filter(row => row.dietary?.toLowerCase().includes("nut") ).length,
-    glutenFree: submitted.filter(row => row.dietary?.toLowerCase().includes("gluten") ).length,
+    vegetarian: submitted.filter(row => row.dietary?.toLowerCase().includes("veg") && !row.dietary?.toLowerCase().includes("not") && !row.dietary?.toLowerCase().includes("non")).length,
+    nutAllergy: submitted.filter(row => row.dietary?.toLowerCase().includes("nut") && !row.dietary?.toLowerCase().includes("not") && !row.dietary?.toLowerCase().includes("non")).length,
+    glutenFree: submitted.filter(row => row.dietary?.toLowerCase().includes("gluten") && !row.dietary?.toLowerCase().includes("not") && !row.dietary?.toLowerCase().includes("non")).length,
     lactoseFree: submitted.filter(row => row.dietary?.toLowerCase().includes("lactose") ).length,
     travelHelp: submitted.filter(row => row.needs_travel_help === true).length,
     outOfCountry: submitted.filter(row => row.needs_travel_help === true && row.country && !isCanada(row.country)).length,
