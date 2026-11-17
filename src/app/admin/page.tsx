@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Admin | HackHive 2027" };
 
 export default function AdminPage() {
   return (
-    <main className="mx-auto max-w-4xl">
+    <main className="mx-auto max-w-4xl mt-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Overview</h1>
         <p className="mt-1 text-sm text-neutral-600">Everything else is in the sidebar.</p>
