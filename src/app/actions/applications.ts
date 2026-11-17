@@ -185,10 +185,13 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
       );
 
     if (error) {
-      console.error('Draft upsert error:', error);
-      if (error.message?.includes('already submitted') || error.message?.includes('status')) {
-        return { ok: false, code: 'already_submitted', error: 'Application already submitted' };
+      // A submitted row fails the drafts-only RLS policy with a generic error,
+      // so look at the row itself (e.g. autosave from a tab left open after submitting).
+      const { data: own } = await supabase.from('applications').select('status').eq('user_id', user.id).maybeSingle();
+      if (own?.status === 'submitted') {
+        return { ok: false, code: 'already_submitted', error: "You've already submitted your application" };
       }
+      console.error('Draft upsert error:', error);
       return { ok: false, code: 'server', error: 'Failed to save draft' };
     }
 
@@ -406,14 +409,6 @@ export async function submitApplication(input: {
       return { ok: false, code: 'turnstile', error: 'Captcha verification failed. Please try again.' };
     }
 
-    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
-    if (rateLimitResult.limitType === 'error') {
-      return { ok: false, code: 'server', error: "Couldn't check your submission right now. Please try again in a minute." };
-    }
-    if (!rateLimitResult.allowed) {
-      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
-    }
-
     const canSubmit = await checkDeadlineAndOpen();
     if (!canSubmit) {
       return { ok: false, code: 'locked', error: 'Applications are closed or past deadline' };
@@ -440,6 +435,16 @@ export async function submitApplication(input: {
         error: resumeCheck.error || 'Resume not found',
         fieldErrors: { resume_path: [resumeCheck.error || 'Resume not found'] }
       };
+    }
+
+    // Counted only once everything they can fix is fixed, so retrying after a
+    // resume or deadline problem doesn't lock a real applicant out for an hour.
+    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
+    if (rateLimitResult.limitType === 'error') {
+      return { ok: false, code: 'server', error: "Couldn't check your submission right now. Please try again in a minute." };
+    }
+    if (!rateLimitResult.allowed) {
+      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
     }
 
     const stampedAt = new Date();

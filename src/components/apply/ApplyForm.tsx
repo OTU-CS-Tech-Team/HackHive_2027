@@ -457,6 +457,13 @@ export function ApplyForm({
         );
         return;
       }
+      // A tab left open after submitting: nothing's wrong, show them their status.
+      if (result.code === "already_submitted") {
+        setSaveError("You've already submitted your application.");
+        clearDraftFromLocalStorage(userId);
+        router.push("/apply/status");
+        return;
+      }
       setSaveError(
         fieldErrors
           ? "Couldn't save draft. Check the highlighted fields."
@@ -465,7 +472,7 @@ export function ApplyForm({
     } catch {
       setSaveError("Couldn't save draft");
     }
-  }, []);
+  }, [router, userId]);
 
   // Latest form data, so saving happens outside the state updater (which React
   // may run twice) and every save sends the current draft, never a stale one.
