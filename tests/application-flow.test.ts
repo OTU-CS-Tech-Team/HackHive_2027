@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const calls: string[] = [];
@@ -10,6 +10,9 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
     resumeMissing: false,
     upsertError: null as { message: string } | null,
     ownStatus: null as string | null,
+    open: true,
+    // Rate limit checks, uploads and RPCs in the order they happened.
+    order: [] as string[],
   };
 
   const lookup = {
@@ -26,8 +29,16 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const serviceClient = {
     state,
     from: () => lookup,
-    storage: { from: () => ({ upload: async () => ({ error: null }) }) },
+    storage: {
+      from: () => ({
+        upload: async () => {
+          state.order.push('upload');
+          return { error: null };
+        },
+      }),
+    },
     rpc: async (name: string) => {
+      state.order.push(name);
       if (name === 'reg_check_rate_limit') {
         state.rateLimitChecks++;
         return { data: true, error: null };
@@ -42,7 +53,7 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const settings = {
     select: () => settings,
     eq: () => settings,
-    single: async () => ({ data: { applications_open: true, deadline: null } }),
+    single: async () => ({ data: { applications_open: state.open, deadline: null } }),
     maybeSingle: async () => ({ data: state.ownStatus ? { status: state.ownStatus } : null }),
     upsert: async () => ({ error: state.upsertError }),
   };
@@ -74,6 +85,11 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => serviceClient,
 }));
 vi.mock('@/lib/indemnification', () => ({ previewFilledForm: async () => new Uint8Array() }));
+
+// Puts back the console.error spies; the vi.fn() mocks above aren't spies, so they stay.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const validFields = {
   first_name: 'Test',
@@ -114,6 +130,8 @@ describe('submitApplication', () => {
     serviceClient.state.draftCreatedAt = null;
     serviceClient.state.rateLimitChecks = 0;
     serviceClient.state.resumeMissing = false;
+    serviceClient.state.open = true;
+    serviceClient.state.order = [];
     revalidatePath.mockClear();
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
     vi.stubEnv('RATE_LIMIT_HASH_SECRET', 'test-secret');
@@ -203,6 +221,7 @@ describe('submitApplication', () => {
     await submit();
 
     expect(serviceClient.state.rateLimitChecks).toBe(2);
+    expect(serviceClient.state.order).toEqual(['reg_check_rate_limit', 'reg_check_rate_limit', 'upload', 'reg_submit_application']);
   });
 });
 
@@ -210,6 +229,7 @@ describe('saveDraft', () => {
   beforeEach(() => {
     serviceClient.state.upsertError = null;
     serviceClient.state.ownStatus = null;
+    serviceClient.state.open = true;
   });
 
   async function save() {
@@ -231,5 +251,20 @@ describe('saveDraft', () => {
     serviceClient.state.ownStatus = 'draft';
 
     expect(await save()).toMatchObject({ ok: false, code: 'server' });
+  });
+
+  // A tab left open past the deadline after submitting still goes to their status.
+  it('says the application is already submitted once closed, if the row is submitted', async () => {
+    serviceClient.state.open = false;
+    serviceClient.state.ownStatus = 'submitted';
+
+    expect(await save()).toMatchObject({ ok: false, code: 'already_submitted' });
+  });
+
+  it('says applications are closed once closed, if the row is a draft', async () => {
+    serviceClient.state.open = false;
+    serviceClient.state.ownStatus = 'draft';
+
+    expect(await save()).toMatchObject({ ok: false, code: 'locked' });
   });
 });
