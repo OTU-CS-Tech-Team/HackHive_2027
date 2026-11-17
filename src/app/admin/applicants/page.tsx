@@ -149,8 +149,11 @@ function ApplicantRow({ app }: { app: Application }) {
             <DeleteButton id={app.id} label={name} />
           </div>
         </div>
-        <details className="mt-2">
-          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">View application</summary>
+        <details className="group mt-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">
+            <span className="group-open:hidden">View application</span>
+            <span className="hidden group-open:inline">Close application</span>
+          </summary>
           <div className="mt-3">
             {(app.resume_path || app.indemnification_path) && (
               <div className="mb-4 flex flex-wrap gap-2">
