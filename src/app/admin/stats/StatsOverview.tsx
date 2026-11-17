@@ -33,6 +33,16 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
   const [view, setView] = useState<View>("Admissions");
   return <div className="space-y-4">
     {stats.total === 0 && <p className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-600">No applications yet. Counts will appear as hackers apply.</p>}
+    <div className="flex justify-end">
+      <a
+        href="/admin/stats/export"
+        download
+        aria-disabled={stats.submitted === 0}
+        className={`rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50 ${stats.submitted === 0 ? "pointer-events-none opacity-50" : ""}`}
+      >
+        Export submitted ({stats.submitted}) to CSV
+      </a>
+    </div>
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {([
         ["Submitted", stats.submitted],
@@ -77,7 +87,7 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
       {view === "Logistics" && <>
         <section className={card}>
           <h2 className="font-semibold">Planning & support</h2>
-          <section className={card}>
+          
             <div className="mt-2 divide-y divide-neutral-100">
               <StatRow label="Travel help requested" count={stats.travelHelp} details={["Out of country: "+ stats.outOfCountry.toString(), "In country: "+ stats.inCountry.toString()]} />
               <StatRow label="Dietary responses" count={stats.dietaryRequests} details={["Nut allergy: "+ stats.nutAllergy.toString(), "Gluten free: "+ stats.glutenFree.toString(), 
@@ -87,7 +97,6 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
                  "Third-time hackers: "+ stats.thirdHackathon.toString(), "Experienced hackers: "+ stats.experiencedHackers.toString()]} />
             </div>
           </section>
-        </section>
         <Distribution title="T-shirt sizes" rows={stats.shirts} total={stats.submitted} />
       </>}
     </section>
