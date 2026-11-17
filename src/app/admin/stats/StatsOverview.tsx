@@ -78,7 +78,6 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
         <section className={card}>
           <h2 className="font-semibold">Planning & support</h2>
           <section className={card}>
-            <h2 className="font-semibold">Planning & support</h2>
             <div className="mt-2 divide-y divide-neutral-100">
               <StatRow label="Travel help requested" count={stats.travelHelp} details={["Out of country: "+ stats.outOfCountry.toString(), "In country: "+ stats.inCountry.toString()]} />
               <StatRow label="Dietary responses" count={stats.dietaryRequests} details={["Nut allergy: "+ stats.nutAllergy.toString(), "Gluten free: "+ stats.glutenFree.toString(), 
