@@ -26,13 +26,13 @@ const muted = "text-sm text-neutral-600";
 // Sidebar entries; the panel on the right is picked by ?tab=, schedule by default.
 const TABS = {
   schedule: "Schedule",
-  passport: "Passport",
   application: "Application",
   team: "Looking for group",
   checkout: "Hardware checkout",
   hunt: "Scavenger hunt",
   shop: "Points shop",
   profile: "Profile",
+  passport: "Passport",
 } as const;
 type Tab = keyof typeof TABS;
 
