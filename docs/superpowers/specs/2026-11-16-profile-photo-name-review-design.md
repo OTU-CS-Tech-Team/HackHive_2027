@@ -15,11 +15,11 @@ Every hacker should look like themselves across the site: their Google photo or 
 
 ## Design
 
-1. **Google photo as default (DB).** Trigger on `auth.users` metadata update copies `avatar_url` (or `picture`) into the profile only when the profile has none, so an uploaded photo is never replaced. One-off backfill fills the 4 linked accounts.
+1. **Google photo as default.** `handle_new_user` already copies it at sign-up. Dropped after review (PR #47): the `auth.users` trigger and backfill for the 4 Google-linked-later accounts. Those hackers can upload a photo instead.
 2. **Default icon.** One shared `Avatar` component: the photo when it exists and loads, otherwise a grey person silhouette in a circle. Used by the dashboard header and the admin scanner. (Teammate cards keep their initials; out of scope.)
 3. **Upload during registration.** Optional "Profile picture" field at the top of About you → The basics. Saves immediately to the account, not part of the draft.
 4. **Change photo for everyone.** "Change photo" on the dashboard header avatar, every tab, every signed-in user. `saveAvatarUrl` needs sign-in only (still checks the URL is in the caller's folder). The Profile tab uploader is removed.
-5. **Display name from registration (DB).** Trigger on `applications` insert/update of name columns sets `profiles.full_name` to `coalesce(preferred_name, first_name) || ' ' || last_name`. One-off backfill for existing applications. Known cost: overwrites a name an accepted hacker changed on the Profile tab.
+5. **Display name from registration (DB).** Trigger on `applications` insert/update of name columns sets `profiles.full_name` to `coalesce(preferred_name, first_name) || ' ' || last_name`, but only while the profile name is empty, a sign-up default (Google name or email prefix), or the application name it copied before. A name changed on the Profile tab is kept. No backfill: existing accounts pick it up the next time their application name is saved. The migration needs sign-off before it is applied.
 6. **Review step.** New "Review" step between "The event" and "Submit": photo plus every answer read-only (reusing the dashboard application view, plus demographics), each group with an Edit link to its step.
 
 ## Approaches considered

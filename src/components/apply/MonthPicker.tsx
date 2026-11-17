@@ -7,10 +7,10 @@ import { errorClass, hintClass, inputClass, labelClass } from "./styles";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-// HackHive runs in 2027, so nobody coming has graduated before then.
-// 2027–2038 is exactly one page of 12 in the year view.
-export const MIN_YEAR = 2027;
-const MAX_YEAR = 2038;
+// Applications open in 2026, so 2026 grads (e.g. December) can still apply.
+// 2026–2037 is exactly one page of 12 in the year view.
+export const MIN_YEAR = 2026;
+const MAX_YEAR = 2037;
 const PAGE = 12;
 
 // "2028-04-01" -> [2028, 3]. Older drafts may hold any day of the month.
