@@ -362,6 +362,8 @@ export function ApplyForm({
   const formStartedAt = useRef<number>(serverNow);
   const submissionIdRef = useRef<string>("");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Set while a submit is in flight or done, so a late autosave can't redirect away from confirmation.
+  const submittingRef = useRef(false);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const localDraftMergedRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -443,8 +445,11 @@ export function ApplyForm({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const persistDraft = useCallback(async (fields: Record<string, unknown>) => {
+    // The submit sends the whole form, so a save still queued behind it has nothing to add.
+    if (submittingRef.current) return;
     try {
       const result = await saveDraft(fields);
+      if (submittingRef.current) return;
       const { fieldErrors } = result;
       if (fieldErrors) {
         setErrors((prev) => ({ ...prev, ...firstErrors(fieldErrors) }));
@@ -459,9 +464,13 @@ export function ApplyForm({
       }
       // A tab left open after submitting: nothing's wrong, show them their status.
       if (result.code === "already_submitted") {
-        setSaveError("You've already submitted your application.");
+        setSaveError(null);
         clearDraftFromLocalStorage(userId);
         router.push("/apply/status");
+        return;
+      }
+      if (result.code === "locked") {
+        setSaveError(ERROR_MESSAGES.locked);
         return;
       }
       setSaveError(
@@ -595,6 +604,9 @@ export function ApplyForm({
       return;
     }
 
+    // A pending autosave firing after the submit would redirect to the status page.
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -658,6 +670,8 @@ export function ApplyForm({
         router.push("/apply/confirmation");
       } else {
         const errorCode = result.code as ErrorCode;
+        // Autosave picks up again, unless this is heading to the status page.
+        submittingRef.current = errorCode === "already_submitted";
         const fieldErrors = result.fieldErrors
           ? firstErrors(result.fieldErrors)
           : null;
@@ -687,6 +701,7 @@ export function ApplyForm({
       }
     } catch (error) {
       console.error("submitApplication failed:", error);
+      submittingRef.current = false;
       setSubmitError(ERROR_MESSAGES.network);
       setTurnstileToken(null);
       turnstileRef.current?.reset();
