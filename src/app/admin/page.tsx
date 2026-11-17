@@ -28,7 +28,7 @@ async function AdminContent() {
   const tables = Object.keys(TABLES) as TableName[];
   // Counted in the database: loading rows would stop at Supabase's 1000-row cap.
   const countApps = () => supabase.from("applications").select("*", { count: "exact", head: true });
-  const [{ count: accounts }, submittedQ, draftsQ, pendingQ, acceptedQ, waitlistedQ, rejectedQ, { data: balances }, { count: events }, ...counts] = await Promise.all([
+  const [{ count: accounts }, submittedQ, draftsQ, pendingQ, acceptedQ, waitlistedQ, rejectedQ, pointsQ, { count: events }, ...counts] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     countApps().eq("status", "submitted"),
     countApps().eq("status", "draft"),
@@ -36,12 +36,14 @@ async function AdminContent() {
     countApps().eq("decision", "accepted"),
     countApps().eq("decision", "waitlisted"),
     countApps().eq("decision", "rejected"),
-    // ponytail: sums every balance row in JS; move to a SQL view if hackers number in the tens of thousands.
-    supabase.from("point_balances").select("balance"),
+    // Summed in the database too, for the same reason.
+    supabase.rpc("admin_points_total"),
     supabase.from("events").select("*", { count: "exact", head: true }),
     ...tables.map((table) => supabase.from(table).select("*", { count: "exact", head: true })),
   ]);
   const appCounts = [submittedQ, draftsQ, pendingQ, acceptedQ, waitlistedQ, rejectedQ];
+  // Shown as a dash rather than a misleading 0.
+  const points = pointsQ.error || pointsQ.data === null ? "—" : Number(pointsQ.data);
   // A failed count would otherwise read as 0, which looks like "no applicants".
   if (appCounts.some((q) => q.error || q.count === null)) {
     return (
@@ -62,7 +64,7 @@ async function AdminContent() {
     ["Accounts", accounts ?? 0],
     ["Applications submitted", submitted],
     ["Drafts", drafts],
-    ["Points held by hackers", (balances ?? []).reduce((sum, row) => sum + row.balance, 0)],
+    ["Points held by hackers", points],
   ] as const;
   const content = [
     ["/admin/schedule", "Schedule", events ?? 0],
