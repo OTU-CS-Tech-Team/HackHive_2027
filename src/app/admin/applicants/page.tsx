@@ -126,6 +126,9 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
+const fileButton =
+  "inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
+
 function ApplicantRow({ app }: { app: Application }) {
   const name = fullName(app) || app.email;
   const school = [app.university, app.program].filter(Boolean).join(" · ");
@@ -149,15 +152,19 @@ function ApplicantRow({ app }: { app: Application }) {
         <details className="mt-2">
           <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">View application</summary>
           <div className="mt-3">
-            {app.resume_path && (
-              <a
-                href={`/admin/applicants/${app.id}/resume`}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-4 inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-              >
-                Open resume
-              </a>
+            {(app.resume_path || app.indemnification_path) && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {app.resume_path && (
+                  <a href={`/admin/applicants/${app.id}/resume`} target="_blank" rel="noreferrer" className={fileButton}>
+                    Open resume
+                  </a>
+                )}
+                {app.indemnification_path && (
+                  <a href={`/admin/applicants/${app.id}/indemnification`} target="_blank" rel="noreferrer" className={fileButton}>
+                    View indemnification form
+                  </a>
+                )}
+              </div>
             )}
             <ApplicationView application={app} />
           </div>
