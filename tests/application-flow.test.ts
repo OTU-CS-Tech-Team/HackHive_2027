@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const calls: string[] = [];
@@ -6,6 +6,13 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
     rpcError: null as { message: string } | null,
     draftCreatedAt: null as string | null,
     selected: '',
+    rateLimitChecks: 0,
+    resumeMissing: false,
+    upsertError: null as { message: string } | null,
+    ownStatus: null as string | null,
+    open: true,
+    // Rate limit checks, uploads and RPCs in the order they happened.
+    order: [] as string[],
   };
 
   const lookup = {
@@ -22,9 +29,20 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const serviceClient = {
     state,
     from: () => lookup,
-    storage: { from: () => ({ upload: async () => ({ error: null }) }) },
+    storage: {
+      from: () => ({
+        upload: async () => {
+          state.order.push('upload');
+          return { error: null };
+        },
+      }),
+    },
     rpc: async (name: string) => {
-      if (name === 'reg_check_rate_limit') return { data: true, error: null };
+      state.order.push(name);
+      if (name === 'reg_check_rate_limit') {
+        state.rateLimitChecks++;
+        return { data: true, error: null };
+      }
       calls.push(name);
       return state.rpcError
         ? { data: null, error: state.rpcError }
@@ -35,14 +53,19 @@ const { calls, serviceClient, userClient, revalidatePath } = vi.hoisted(() => {
   const settings = {
     select: () => settings,
     eq: () => settings,
-    single: async () => ({ data: { applications_open: true, deadline: null } }),
+    single: async () => ({ data: { applications_open: state.open, deadline: null } }),
+    maybeSingle: async () => ({ data: state.ownStatus ? { status: state.ownStatus } : null }),
+    upsert: async () => ({ error: state.upsertError }),
   };
 
   const userClient = {
     from: () => settings,
     storage: {
       from: () => ({
-        list: async () => ({ data: [{ name: 'resume-1.pdf', metadata: { mimetype: 'application/pdf', size: 100 } }], error: null }),
+        list: async () => ({
+          data: state.resumeMissing ? [] : [{ name: 'resume-1.pdf', metadata: { mimetype: 'application/pdf', size: 100 } }],
+          error: null,
+        }),
       }),
     },
   };
@@ -62,6 +85,11 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => serviceClient,
 }));
 vi.mock('@/lib/indemnification', () => ({ previewFilledForm: async () => new Uint8Array() }));
+
+// Puts back the console.error spies; the vi.fn() mocks above aren't spies, so they stay.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const validFields = {
   first_name: 'Test',
@@ -100,6 +128,10 @@ describe('submitApplication', () => {
     calls.length = 0;
     serviceClient.state.rpcError = null;
     serviceClient.state.draftCreatedAt = null;
+    serviceClient.state.rateLimitChecks = 0;
+    serviceClient.state.resumeMissing = false;
+    serviceClient.state.open = true;
+    serviceClient.state.order = [];
     revalidatePath.mockClear();
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
     vi.stubEnv('RATE_LIMIT_HASH_SECRET', 'test-secret');
@@ -173,5 +205,66 @@ describe('submitApplication', () => {
 
     expect(result.ok).toBe(false);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  // Fixable mistakes shouldn't use up one of the five attempts an hour.
+  it('does not count a missing resume against the rate limit', async () => {
+    serviceClient.state.resumeMissing = true;
+
+    const result = await submit();
+
+    expect(result).toMatchObject({ ok: false, code: 'validation' });
+    expect(serviceClient.state.rateLimitChecks).toBe(0);
+  });
+
+  it('checks the rate limit before a real submit', async () => {
+    await submit();
+
+    expect(serviceClient.state.rateLimitChecks).toBe(2);
+    expect(serviceClient.state.order).toEqual(['reg_check_rate_limit', 'reg_check_rate_limit', 'upload', 'reg_submit_application']);
+  });
+});
+
+describe('saveDraft', () => {
+  beforeEach(() => {
+    serviceClient.state.upsertError = null;
+    serviceClient.state.ownStatus = null;
+    serviceClient.state.open = true;
+  });
+
+  async function save() {
+    const { saveDraft } = await import('../src/app/actions/applications');
+    return saveDraft({ first_name: 'Test' });
+  }
+
+  // e.g. autosave from a tab left open after submitting: RLS refuses it with a generic error.
+  it('says the application is already submitted when the row is submitted', async () => {
+    serviceClient.state.upsertError = { message: 'new row violates row-level security policy for table "applications"' };
+    serviceClient.state.ownStatus = 'submitted';
+
+    expect(await save()).toMatchObject({ ok: false, code: 'already_submitted' });
+  });
+
+  it('still reports a real failure on a draft as a server error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    serviceClient.state.upsertError = { message: 'boom' };
+    serviceClient.state.ownStatus = 'draft';
+
+    expect(await save()).toMatchObject({ ok: false, code: 'server' });
+  });
+
+  // A tab left open past the deadline after submitting still goes to their status.
+  it('says the application is already submitted once closed, if the row is submitted', async () => {
+    serviceClient.state.open = false;
+    serviceClient.state.ownStatus = 'submitted';
+
+    expect(await save()).toMatchObject({ ok: false, code: 'already_submitted' });
+  });
+
+  it('says applications are closed once closed, if the row is a draft', async () => {
+    serviceClient.state.open = false;
+    serviceClient.state.ownStatus = 'draft';
+
+    expect(await save()).toMatchObject({ ok: false, code: 'locked' });
   });
 });

@@ -133,6 +133,14 @@ async function checkDeadlineAndOpen(): Promise<boolean> {
   return isOpen && beforeDeadline;
 }
 
+// Lets saveDraft tell a submitted applicant apart from a failed save.
+async function hasSubmitted(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<boolean> {
+  const { data: own } = await supabase.from('applications').select('status').eq('user_id', userId).maybeSingle();
+  return own?.status === 'submitted';
+}
+
+const ALREADY_SUBMITTED = { ok: false, code: 'already_submitted', error: 'Application already submitted' } as const;
+
 export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<SaveDraftResult> {
   try {
     const user = await getVerifiedUser();
@@ -159,12 +167,14 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
       }
     }
 
+    const supabase = await createClient();
+
     const canSubmit = await checkDeadlineAndOpen();
     if (!canSubmit) {
+      // A tab left open past the deadline after submitting should still go to their status.
+      if (await hasSubmitted(supabase, user.id)) return ALREADY_SUBMITTED;
       return { ok: false, code: 'locked', error: 'Applications are closed or past deadline' };
     }
-
-    const supabase = await createClient();
 
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(result.data)) {
@@ -185,10 +195,10 @@ export async function saveDraft(fields: Partial<ApplicationDraft>): Promise<Save
       );
 
     if (error) {
+      // A submitted row fails the drafts-only RLS policy with a generic error,
+      // so look at the row itself (e.g. autosave from a tab left open after submitting).
+      if (await hasSubmitted(supabase, user.id)) return ALREADY_SUBMITTED;
       console.error('Draft upsert error:', error);
-      if (error.message?.includes('already submitted') || error.message?.includes('status')) {
-        return { ok: false, code: 'already_submitted', error: 'Application already submitted' };
-      }
       return { ok: false, code: 'server', error: 'Failed to save draft' };
     }
 
@@ -406,14 +416,6 @@ export async function submitApplication(input: {
       return { ok: false, code: 'turnstile', error: 'Captcha verification failed. Please try again.' };
     }
 
-    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
-    if (rateLimitResult.limitType === 'error') {
-      return { ok: false, code: 'server', error: "Couldn't check your submission right now. Please try again in a minute." };
-    }
-    if (!rateLimitResult.allowed) {
-      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
-    }
-
     const canSubmit = await checkDeadlineAndOpen();
     if (!canSubmit) {
       return { ok: false, code: 'locked', error: 'Applications are closed or past deadline' };
@@ -440,6 +442,18 @@ export async function submitApplication(input: {
         error: resumeCheck.error || 'Resume not found',
         fieldErrors: { resume_path: [resumeCheck.error || 'Resume not found'] }
       };
+    }
+
+    // Counted only once everything they can fix is fixed, so retrying after a
+    // resume or deadline problem doesn't lock a real applicant out for an hour.
+    // Deliberately after the deadline and resume checks: Turnstile above already
+    // gates them, so bots can't use them to dodge the limit.
+    const rateLimitResult = await checkRateLimits(ipHash, emailHash);
+    if (rateLimitResult.limitType === 'error') {
+      return { ok: false, code: 'server', error: "Couldn't check your submission right now. Please try again in a minute." };
+    }
+    if (!rateLimitResult.allowed) {
+      return { ok: false, code: 'rate_limited', error: 'Too many submission attempts. Please try again later.' };
     }
 
     const stampedAt = new Date();
@@ -509,7 +523,7 @@ export async function submitApplication(input: {
 
     if (response.error) {
       if (response.error === 'already_submitted') {
-        return { ok: false, code: 'already_submitted', error: 'Application already submitted' };
+        return ALREADY_SUBMITTED;
       }
       if (response.error === 'applications_closed') {
         return { ok: false, code: 'locked', error: 'Applications are closed' };

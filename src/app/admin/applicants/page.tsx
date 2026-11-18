@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
+import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { formatDateTime } from "@/lib/time";
@@ -49,14 +50,24 @@ function matches(app: Application, query: string) {
   return [fullName(app), app.email, app.university].some((value) => value?.toLowerCase().includes(query));
 }
 
+const PAGE_SIZE = 1000;
+
+function loadAllApplications(session: Awaited<ReturnType<typeof requireAdmin>>) {
+  return loadAllByKeyset<Application>((afterId) => {
+    const query = session.from("applications").select("*").order("id").limit(PAGE_SIZE);
+    return afterId ? query.gt("id", afterId) : query;
+  });
+}
+
 async function Applicants({ searchParams }: { searchParams: SearchParams }) {
   const session = await requireAdmin("/admin/applicants");
   const { status, q } = await searchParams;
   const filter: Filter = typeof status === "string" && Object.hasOwn(FILTERS, status) ? (status as Filter) : "applied";
   const search = typeof q === "string" ? q.trim() : "";
 
-  // ponytail: loads everyone and filters here, capped by Supabase's 1000-row limit. Filter in the query past that.
-  const { data, error } = await session.from("applications").select("*").order("submitted_at", { ascending: true, nullsFirst: false });
+  // Loads everyone in pages (Supabase returns at most 1000 rows per query), oldest
+  // submission first, and filters here.
+  const { data, error } = await loadAllApplications(session);
   if (error) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
