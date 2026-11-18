@@ -13,9 +13,9 @@ export type BrowserRow = { id: string; tier: Tier | null; text: string; node: Re
 
 const FILTER_LABELS: Record<TierFilter, string> = {
   all: "All",
-  queen: `${TIER_EMOJI.queen} Queen Bee`,
-  worker: `${TIER_EMOJI.worker} Worker Bee`,
-  larva: `${TIER_EMOJI.larva} Larva`,
+  queen: `${TIER_EMOJI.queen} ${TIER_LABELS.queen}`,
+  worker: `${TIER_EMOJI.worker} ${TIER_LABELS.worker}`,
+  larva: `${TIER_EMOJI.larva} ${TIER_LABELS.larva}`,
   unscored: "Unscored",
 };
 const FILTERS: TierFilter[] = ["all", ...TIERS.toReversed(), "unscored"];

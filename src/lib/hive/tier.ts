@@ -7,9 +7,9 @@ export const TIERS = ["larva", "worker", "queen"] as const;
 export type Tier = (typeof TIERS)[number];
 
 export const TIER_LABELS: Record<Tier, string> = {
-  larva: "Larva",
-  worker: "Worker Bee",
-  queen: "Queen Bee",
+  larva: "Monty (Weak Candidate)",
+  worker: "Decent Candidate",
+  queen: "Strong Candidate",
 };
 
 export const TIER_EMOJI: Record<Tier, string> = {
@@ -41,8 +41,8 @@ export const totalScore = ({ experience, creativity, quality }: Ratings) => expe
 export const MAX_TOTAL = 15;
 
 /**
- * Lowest total for each tier, tuned on the first 55 applicants (about 20% Larva,
- * 58% Worker Bee, 22% Queen Bee). Keep in sync with the SQL in
+ * Lowest total for each tier, tuned on the first 55 applicants (about 20% larva,
+ * 58% worker, 22% queen). Keep in sync with the SQL in
  * supabase/migrations/20261119000000_hive_tier_by_total.sql if they change.
  * The self-reported hackathon count is deliberately left out: anyone can type
  * "5", so it only breaks ties within a tier.
