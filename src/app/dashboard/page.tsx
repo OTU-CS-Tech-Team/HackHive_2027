@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element -- avatars come from Storage / OAuth providers */
+/* eslint-disable @next/next/no-img-element -- shop and hardware images come from Storage */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -13,7 +13,7 @@ import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
 import { formatDateTime, formatDay, formatTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
-import { AvatarUpload } from "./AvatarUpload";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
 
@@ -123,11 +123,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
         <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
           <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 shrink-0 rounded-full object-cover" />
-              ) : (
-                <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
-              )}
+              <AvatarUpload avatarUrl={profile?.avatar_url ?? null} />
               <h1 className="truncate text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
             </div>
             {allowed.includes("passport") && (
@@ -392,9 +388,6 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
     <section>
       <h2 className="mb-1 text-2xl font-bold">Profile</h2>
       <p className={`mb-4 ${muted}`}>{email}</p>
-      <div className="mb-4">
-        <AvatarUpload />
-      </div>
 
       {!emergency && (
         <p className="mb-6 rounded border border-amber-300 bg-amber-50 p-3">

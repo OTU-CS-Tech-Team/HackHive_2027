@@ -44,6 +44,28 @@ const TEAM_LABELS: Record<string, string> = {
   looking: "Looking for teammates",
 };
 
+// Free-text "Other" answers have no label and show as typed.
+const GENDER_LABELS: Record<string, string> = {
+  woman: "Woman",
+  man: "Man",
+  "non-binary": "Non-binary",
+  other: "Other",
+  "prefer-not-to-say": "Prefer not to say",
+};
+
+const ETHNICITY_LABELS: Record<string, string> = {
+  asian: "Asian",
+  black: "Black or African American",
+  hispanic: "Hispanic or Latino",
+  indigenous: "Indigenous",
+  "middle-eastern": "Middle Eastern or North African",
+  "pacific-islander": "Native Hawaiian or Pacific Islander",
+  white: "White",
+  multiracial: "Two or more races",
+  other: "Other",
+  "prefer-not-to-say": "Prefer not to say",
+};
+
 export function applicantStatus(application: Pick<Application, "status" | "decision">): Status {
   return application.status === "draft" ? "draft" : (application.decision ?? "applied");
 }
@@ -193,20 +215,62 @@ function ExternalUrl({ url }: { url: string | null }) {
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function GroupTitle({ title, onEdit }: { title: string; onEdit?: () => void }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h4 className="text-sm font-semibold text-neutral-900">{title}</h4>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+        >
+          <PencilLine className="size-3.5" aria-hidden />
+          Edit<span className="sr-only"> {title.toLowerCase()}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Group({ title, onEdit, children }: { title: string; onEdit?: () => void; children: React.ReactNode }) {
   return (
     <section className="border-t border-neutral-100 py-5 first:border-t-0 first:pt-0 last:pb-0">
-      <h4 className="mb-3 text-sm font-semibold text-neutral-900">{title}</h4>
+      <GroupTitle title={title} onEdit={onEdit} />
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">{children}</dl>
     </section>
   );
 }
 
-function ApplicationDetails({ application }: { application: Application }) {
+// Everything ApplicationDetails shows. The apply form's Review step builds this
+// from its draft, so it doesn't need a saved row.
+export type ApplicationAnswersData = Pick<
+  Application,
+  | "first_name" | "last_name" | "preferred_name" | "email" | "phone" | "age" | "pronouns" | "city" | "country"
+  | "university" | "program" | "year_of_study" | "grad_date"
+  | "hackathons_count" | "resume_path" | "linkedin_url" | "github_url" | "portfolio_url" | "other_links"
+  | "q_proud" | "q_hack" | "q_anything_else"
+  | "team_status" | "teammate_emails" | "tshirt_size" | "needs_travel_help" | "dietary" | "accessibility"
+  | "gender" | "ethnicity" | "guardian_name" | "guardian_phone" | "guardian_relationship"
+>;
+
+// Apply form step ids, for the Review step's Edit links.
+type EditStep = "about" | "school" | "experience" | "answers" | "event";
+
+export function ApplicationDetails({
+  application,
+  onEdit,
+  showDemographics = false,
+}: {
+  application: ApplicationAnswersData;
+  onEdit?: (step: EditStep) => void;
+  showDemographics?: boolean;
+}) {
   const otherLinks = application.other_links ?? [];
+  const edit = (step: EditStep) => (onEdit ? () => onEdit(step) : undefined);
   return (
     <div>
-      <Group title="Personal">
+      <Group title="Personal" onEdit={edit("about")}>
         <Field label="Name">{[application.first_name, application.last_name].filter(Boolean).join(" ")}</Field>
         <Field label="Preferred name">{application.preferred_name}</Field>
         <Field label="Email">{application.email}</Field>
@@ -216,14 +280,14 @@ function ApplicationDetails({ application }: { application: Application }) {
         <Field label="Location">{[application.city, application.country].filter(Boolean).join(", ")}</Field>
       </Group>
 
-      <Group title="Education">
+      <Group title="Education" onEdit={edit("school")}>
         <Field label="School Name">{application.university}</Field>
         <Field label="Program">{application.program}</Field>
         <Field label="Year of study">{application.year_of_study && (YEAR_LABELS[application.year_of_study] ?? application.year_of_study)}</Field>
         <Field label="Expected graduation">{monthYear(application.grad_date)}</Field>
       </Group>
 
-      <Group title="Experience">
+      <Group title="Experience" onEdit={edit("experience")}>
         <Field label="Hackathons attended">{application.hackathons_count?.toString()}</Field>
         <Field label="Resume">{application.resume_path ? "Uploaded" : undefined}</Field>
         <Field label="LinkedIn">{application.linkedin_url && <ExternalUrl url={application.linkedin_url} />}</Field>
@@ -244,7 +308,7 @@ function ApplicationDetails({ application }: { application: Application }) {
       </Group>
 
       <section className="border-t border-neutral-100 py-5">
-        <h4 className="mb-3 text-sm font-semibold text-neutral-900">Short answers</h4>
+        <GroupTitle title="Short answers" onEdit={edit("answers")} />
         <dl className="space-y-4">
           <Field label="The project or work you're most proud of">
             <span className="whitespace-pre-wrap">{application.q_proud}</span>
@@ -258,7 +322,7 @@ function ApplicationDetails({ application }: { application: Application }) {
         </dl>
       </section>
 
-      <Group title="Team & logistics">
+      <Group title="Team & logistics" onEdit={edit("event")}>
         <Field label="Team status">{application.team_status && TEAM_LABELS[application.team_status]}</Field>
         <Field label="Teammates">{application.teammate_emails?.length ? application.teammate_emails.join(", ") : undefined}</Field>
         <Field label="T-shirt size">{application.tshirt_size}</Field>
@@ -267,8 +331,17 @@ function ApplicationDetails({ application }: { application: Application }) {
         <Field label="Accessibility needs">{application.accessibility}</Field>
       </Group>
 
+      {showDemographics && (
+        <Group title="Demographics" onEdit={edit("event")}>
+          <Field label="Gender">{application.gender ? (GENDER_LABELS[application.gender] ?? application.gender) : "Not answered"}</Field>
+          <Field label="Race/Ethnicity">
+            {application.ethnicity ? (ETHNICITY_LABELS[application.ethnicity] ?? application.ethnicity) : "Not answered"}
+          </Field>
+        </Group>
+      )}
+
       {(application.guardian_name || application.guardian_phone) && (
-        <Group title="Guardian">
+        <Group title="Guardian" onEdit={edit("about")}>
           <Field label="Name">{application.guardian_name}</Field>
           <Field label="Phone">{application.guardian_phone}</Field>
           <Field label="Relationship">{application.guardian_relationship}</Field>

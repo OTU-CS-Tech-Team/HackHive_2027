@@ -268,8 +268,9 @@ export const applicationSubmitSchema = z
     tshirt_size: requiredText(20),
     needs_travel_help: z.boolean().optional().nullable(),
 
-    gender: optionalStringForSubmit(50),
-    ethnicity: optionalStringForSubmit(100),
+    // Required, but "prefer-not-to-say" is always an option.
+    gender: requiredText(50),
+    ethnicity: requiredText(100),
 
     guardian_name: optionalStringForSubmit(200, normalizeUnicode),
     guardian_phone: optionalStringForSubmit(30),

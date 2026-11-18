@@ -757,6 +757,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer for question two about hacking',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: true,
       consent_privacy: true,
     });
@@ -778,6 +780,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer for question two about hacking',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: true,
       consent_privacy: true,
       guardian_name: 'Parent Name',
@@ -801,6 +805,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer for question two about hacking',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: true,
       consent_privacy: true,
       consent_indemnification: true,
@@ -831,6 +837,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: false,
       consent_privacy: true,
     });
@@ -852,6 +860,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: true,
       consent_privacy: false,
       consent_indemnification: true,
@@ -875,6 +885,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: true,
       consent_privacy: true,
       consent_indemnification: false,
@@ -897,6 +909,8 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'woman',
+      ethnicity: 'asian',
       consent_coc: true,
       consent_privacy: true,
       consent_indemnification: true,
@@ -959,11 +973,20 @@ describe('Schema Validation', () => {
       q_hack: 'Test answer for hack question',
       team_status: 'solo',
       tshirt_size: 'M',
+      gender: 'prefer-not-to-say',
+      ethnicity: 'prefer-not-to-say',
       consent_coc: true,
       consent_privacy: true,
       consent_indemnification: true,
       consent_esignature: true,
     };
+
+    expect(applicationSubmitSchema.safeParse(baseValidSubmission).success).toBe(true);
+    // Demographics are required; "Prefer not to say" is the way out.
+    for (const blank of [undefined, null, '', '   ']) {
+      expect(applicationSubmitSchema.safeParse({ ...baseValidSubmission, gender: blank }).success).toBe(false);
+      expect(applicationSubmitSchema.safeParse({ ...baseValidSubmission, ethnicity: blank }).success).toBe(false);
+    }
 
     // Test empty string for q_anything_else (the reported bug)
     const emptyStringResult = applicationSubmitSchema.safeParse({
@@ -992,8 +1015,6 @@ describe('Schema Validation', () => {
       pronouns: null,
       dietary: null,
       accessibility: null,
-      gender: null,
-      ethnicity: null,
       linkedin_url: null,
       github_url: null,
       portfolio_url: null,
@@ -1007,8 +1028,6 @@ describe('Schema Validation', () => {
       pronouns: '',
       dietary: '',
       accessibility: '',
-      gender: '',
-      ethnicity: '',
       linkedin_url: '',
       github_url: '',
       portfolio_url: '',
