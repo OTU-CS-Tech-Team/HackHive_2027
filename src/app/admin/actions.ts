@@ -5,6 +5,9 @@ import { sendDecisionEmail, type Decision } from "@/lib/application/decision-ema
 import { after } from "next/server";
 import { sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
+import { hiveDeps } from "@/lib/hive/openai";
+import { scoreApplication, scoreUnscored } from "@/lib/hive/score";
+import { TIER_LABELS, isTier, type Tier } from "@/lib/hive/tier";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
 import { HISTORY_PAGE_SIZE, REQUEST_COLUMNS, type HistoryCursor } from "./requests/query";
@@ -403,4 +406,58 @@ export async function deleteRows(table: TableName, ids: string[]): Promise<Actio
   const result = await deleteByIds(table, ids, "inUse" in config ? config.inUse : undefined);
   if ("cacheTag" in config) updateTag(config.cacheTag);
   return result;
+}
+
+// Hive Mind ------------------------------------------------------------------
+// Suggestions only: none of these touch an application's decision.
+
+export type ScoreBatchResult = ActionResult & { scored: number; failed: number; remaining: number };
+
+/** Scores the next few unscored applicants. The page calls it repeatedly until none are left. */
+export async function scoreHiveBacklog(): Promise<ScoreBatchResult> {
+  await requireAdmin();
+  try {
+    const { scored, failed, remaining } = await scoreUnscored(hiveDeps());
+    revalidatePath("/admin", "layout");
+    return { ok: failed === 0, message: `Scored ${scored}${failed ? `, ${failed} failed` : ""}. ${remaining} left.`, scored, failed, remaining };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Scoring failed.", scored: 0, failed: 0, remaining: -1 };
+  }
+}
+
+export async function rescoreApplicant(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
+  const result = await scoreApplication(id, hiveDeps());
+  revalidatePath("/admin", "layout");
+  return result.ok
+    ? { ok: true, message: `Re-scored: suggested ${TIER_LABELS[result.tier]}.` }
+    : { ok: false, message: `Scoring failed (${result.error}). Try again in a moment.` };
+}
+
+/** Moves an applicant to another tier (reason required), or back to the suggested tier with tier = null. */
+export async function overrideTier(id: string, tier: Tier | null, reason: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  const note = typeof reason === "string" ? reason.trim().slice(0, 500) : "";
+  if (!UUID.test(id) || (tier !== null && !isTier(tier))) return { ok: false, message: "Pick a tier." };
+  if (tier && !note) return { ok: false, message: "Add a reason for moving them." };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("hive_scores")
+    .update({
+      tier_override: tier,
+      override_reason: note || (tier ? null : "Reset to suggested tier"),
+      overridden_by: user?.id ?? null,
+      overridden_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("application_id", id)
+    .select("application_id");
+  if (error) return { ok: false, message: error.message };
+  if (!data.length) return { ok: false, message: "Score them first, then move their tier." };
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: tier ? `Moved to ${TIER_LABELS[tier]}.` : "Back to the suggested tier." };
 }

@@ -8,7 +8,7 @@ import { TableAdmin } from "../TableAdmin";
 import { TABLES, type Row, type TableName } from "../tables";
 
 // One tab per editable thing: /admin/schedule, /admin/sponsors, ...
-// (applicants, requests, scan and stats are their own folders, which win over this one.)
+// (applicants, hive, requests, scan and stats are their own folders, which win over this one.)
 
 export const metadata: Metadata = { title: "Admin | HackHive 2027" };
 

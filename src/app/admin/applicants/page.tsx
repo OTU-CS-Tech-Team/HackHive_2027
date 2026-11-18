@@ -5,9 +5,12 @@ import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
+import { displayTier, type HiveScore } from "@/lib/hive/view";
+import type { Tier } from "@/lib/hive/tier";
 import { formatDateTime } from "@/lib/time";
 import { deleteApplicants } from "../actions";
 import { DeleteButton, SelectBox, Selection } from "../Selection";
+import { MinorPill, TierBadge } from "../hive/TierBadge";
 import { DecisionControls, ReviewNotice } from "./DecisionControls";
 
 export const metadata: Metadata = { title: "Applicants | HackHive 2027" };
@@ -59,6 +62,22 @@ function loadAllApplications(session: Awaited<ReturnType<typeof requireAdmin>>) 
   });
 }
 
+type TierRow = Pick<HiveScore, "application_id" | "status" | "suggested_tier" | "tier_override">;
+
+// Tier badges only; the Hive Mind page has the rest. A failure (e.g. the migration
+// isn't applied yet) just leaves the badges off.
+async function loadTiers(session: Awaited<ReturnType<typeof requireAdmin>>) {
+  const tiers = new Map<string, { tier: Tier | null; overridden: boolean }>();
+  for (let after: string | null = null; ;) {
+    let query = session.from("hive_scores").select("application_id, status, suggested_tier, tier_override").order("application_id").limit(PAGE_SIZE);
+    if (after) query = query.gt("application_id", after);
+    const { data, error } = await query;
+    if (error || !data?.length) return tiers;
+    for (const row of data as TierRow[]) tiers.set(row.application_id, { tier: displayTier(row as HiveScore), overridden: !!row.tier_override });
+    after = data[data.length - 1].application_id;
+  }
+}
+
 async function Applicants({ searchParams }: { searchParams: SearchParams }) {
   const session = await requireAdmin("/admin/applicants");
   const { status, q } = await searchParams;
@@ -67,7 +86,7 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
 
   // Loads everyone in pages (Supabase returns at most 1000 rows per query), oldest
   // submission first, and filters here.
-  const { data, error } = await loadAllApplications(session);
+  const [{ data, error }, tiers] = await Promise.all([loadAllApplications(session), loadTiers(session)]);
   if (error) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
@@ -124,7 +143,7 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
         >
           <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
             {shown.map((app) => (
-              <ApplicantRow key={app.id} app={app} />
+              <ApplicantRow key={app.id} app={app} tier={tiers.get(app.id)} />
             ))}
           </ul>
         </Selection>
@@ -140,7 +159,7 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
 const fileButton =
   "inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
 
-function ApplicantRow({ app }: { app: Application }) {
+function ApplicantRow({ app, tier }: { app: Application; tier?: { tier: Tier | null; overridden: boolean } }) {
   const name = fullName(app) || app.email;
   const school = [app.university, app.program].filter(Boolean).join(" · ");
 
@@ -150,7 +169,19 @@ function ApplicantRow({ app }: { app: Application }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h2 className="font-semibold break-words">{name}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold break-words">{name}</h2>
+              {app.status === "submitted" && (
+                <Link
+                  href={`/admin/hive?${new URLSearchParams({ ...(tier?.tier ? { tier: tier.tier } : { tier: "unscored" }), q: app.email })}`}
+                  className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+                  title="Open in Hive Mind"
+                >
+                  <TierBadge tier={tier?.tier ?? null} overridden={tier?.overridden} />
+                </Link>
+              )}
+              {app.age !== null && app.age < 18 && <MinorPill age={app.age} />}
+            </div>
             <p className="text-sm break-words text-neutral-600">{app.email}</p>
             {school && <p className="text-sm break-words text-neutral-600">{school}</p>}
             {app.submitted_at && <p className="text-sm text-neutral-600">Submitted {formatDateTime(app.submitted_at)}</p>}
