@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CalendarDays, ClipboardList, Cpu, Hexagon, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, Cpu, Hexagon, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { ActionForm } from "@/components/ActionForm";
 import { ApplicationAnswers, ApplicationStatus } from "@/components/ApplicationView";
@@ -85,7 +85,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
       <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
           <p className={`hidden md:block ${sidebarLabel}`}>HackHive 2027</p>
           <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
-            {/* The passport opens from their name and photo in the header instead. */}
+            {/* The passport has its own button in the header instead. */}
             {allowed.filter((key) => key !== "passport").map((key) => {
               const Icon = ICONS[key];
               const active = tab === key;
@@ -122,21 +122,25 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
 
         <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
           <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
-            {allowed.includes("passport") ? (
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
+              )}
+              <h1 className="truncate text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
+            </div>
+            {allowed.includes("passport") && (
               <Link
                 href="/dashboard?tab=passport"
                 aria-current={tab === "passport" ? "page" : undefined}
-                className="-m-2 flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
+                  tab === "passport" ? "border-amber-300 bg-amber-50 text-amber-900" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                }`}
               >
-                <Greeting profile={profile} />
-                <span className={`ml-auto text-sm font-medium whitespace-nowrap ${tab === "passport" ? "text-amber-700" : "text-neutral-500"}`}>
-                  Your passport
-                </span>
+                <Hexagon className={`size-5 shrink-0 ${tab === "passport" ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
+                {TABS.passport}
               </Link>
-            ) : (
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Greeting profile={profile} />
-              </div>
             )}
             {admin && (
               <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
@@ -146,7 +150,18 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           </header>
 
           {tab === "schedule" && <ScheduleSection />}
-          {tab === "passport" && <PassportTab supabase={supabase} userId={user.id} profile={profile} />}
+          {tab === "passport" && (
+            <>
+              <Link
+                href="/dashboard?tab=profile"
+                className="-ml-2 mb-4 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+                Back to profile
+              </Link>
+              <PassportTab supabase={supabase} userId={user.id} profile={profile} />
+            </>
+          )}
           {tab === "application" && <ApplicationTab />}
           {tab === "checkout" && <CheckoutTab supabase={supabase} userId={user.id} />}
           {tab === "hunt" && <HuntTab supabase={supabase} />}
@@ -154,19 +169,6 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           {tab === "profile" && <ProfileTab supabase={supabase} userId={user.id} email={user.email} />}
         </div>
     </main>
-  );
-}
-
-function Greeting({ profile }: { profile: { full_name: string | null; avatar_url: string | null } | null }) {
-  return (
-    <>
-      {profile?.avatar_url ? (
-        <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 shrink-0 rounded-full object-cover" />
-      ) : (
-        <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
-      )}
-      <h1 className="truncate text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
-    </>
   );
 }
 
