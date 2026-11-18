@@ -33,7 +33,7 @@ const CONTENT: Record<Decision, { subject: string; paragraphs: (mark: Mark) => s
 };
 
 const DASHBOARD_HEADING = 'Your dashboard is unlocked 🔓';
-const DASHBOARD_BODY = 'Your hacker dashboard now has the schedule, your check-in pass, teammates, hardware and points.';
+const DASHBOARD_BODY = 'Your hacker dashboard now has the schedule, your passport, teammates, hardware and points.';
 
 // Returns the body only; sendDecisionEmail wraps it in the branded shell.
 export function decisionEmail(decision: Decision, firstName: string | null, siteUrl: string) {

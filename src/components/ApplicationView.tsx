@@ -24,7 +24,7 @@ const HEADLINES: Record<Status, string> = {
 const NEXT_STEPS: Record<Status, string> = {
   draft: "Your answers are saved, but we can't review them until you submit.",
   applied: "We've got your application and will email you a decision. The rest of the dashboard unlocks if you're accepted.",
-  accepted: "The full hacker dashboard is unlocked: schedule, your pass, teammates, hardware and points.",
+  accepted: "The full hacker dashboard is unlocked: schedule, your passport, teammates, hardware and points.",
   waitlisted: "We'll email you if a spot opens up.",
   rejected: "We couldn't offer you a spot this year. We hope to see you next time.",
 };

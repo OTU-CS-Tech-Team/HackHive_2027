@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { applicantStatus } from "@/components/ApplicationView";
 import { requireAdmin } from "@/lib/admin/require-admin";
-import type { Application } from "@/lib/application/schema";
 import { TABLES, type TableName } from "./tables";
 
 const card = "rounded-lg border border-neutral-200 p-5";
@@ -28,28 +26,45 @@ async function AdminContent() {
   const supabase = await requireAdmin();
 
   const tables = Object.keys(TABLES) as TableName[];
-  const [{ count: accounts }, { data: applications }, { data: balances }, { count: events }, ...counts] = await Promise.all([
+  // Counted in the database: loading rows would stop at Supabase's 1000-row cap.
+  const countApps = () => supabase.from("applications").select("*", { count: "exact", head: true });
+  const [{ count: accounts }, submittedQ, draftsQ, pendingQ, acceptedQ, waitlistedQ, rejectedQ, pointsQ, { count: events }, ...counts] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("applications").select("status, decision, submitted_at"),
-    // ponytail: sums every balance row in JS; move to a SQL view if hackers number in the tens of thousands.
-    supabase.from("point_balances").select("balance"),
+    countApps().eq("status", "submitted"),
+    countApps().eq("status", "draft"),
+    countApps().eq("status", "submitted").is("decision", null),
+    countApps().eq("decision", "accepted"),
+    countApps().eq("decision", "waitlisted"),
+    countApps().eq("decision", "rejected"),
+    // Summed in the database too, for the same reason.
+    supabase.rpc("admin_points_total"),
     supabase.from("events").select("*", { count: "exact", head: true }),
     ...tables.map((table) => supabase.from(table).select("*", { count: "exact", head: true })),
   ]);
-  const apps = (applications ?? []) as Application[];
-  const submitted = apps.filter((app) => app.status === "submitted").length;
-  const count = (status: ReturnType<typeof applicantStatus>) => apps.filter((app) => applicantStatus(app) === status).length;
+  const appCounts = [submittedQ, draftsQ, pendingQ, acceptedQ, waitlistedQ, rejectedQ];
+  // Shown as a dash rather than a misleading 0.
+  const points = pointsQ.error || pointsQ.data === null ? "—" : Number(pointsQ.data);
+  // A failed count would otherwise read as 0, which looks like "no applicants".
+  if (appCounts.some((q) => q.error || q.count === null)) {
+    return (
+      <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
+        <h2 className="font-semibold">Applicant counts couldn&apos;t be loaded</h2>
+        <p className="mt-1 text-sm">Refresh to try again.</p>
+      </div>
+    );
+  }
+  const [submitted, drafts, pending, accepted, waitlisted, rejected] = appCounts.map((q) => q.count ?? 0);
   const applicants = [
-    ["Applied", count("applied"), "applied"],
-    ["Accepted", count("accepted"), "accepted"],
-    ["Waitlisted", count("waitlisted"), "waitlisted"],
-    ["Rejected", count("rejected"), "rejected"],
+    ["Applied", pending, "applied"],
+    ["Accepted", accepted, "accepted"],
+    ["Waitlisted", waitlisted, "waitlisted"],
+    ["Rejected", rejected, "rejected"],
   ] as const;
   const stats = [
     ["Accounts", accounts ?? 0],
     ["Applications submitted", submitted],
-    ["Drafts", apps.length - submitted],
-    ["Points held by hackers", (balances ?? []).reduce((sum, row) => sum + row.balance, 0)],
+    ["Drafts", drafts],
+    ["Points held by hackers", points],
   ] as const;
   const content = [
     ["/admin/schedule", "Schedule", events ?? 0],

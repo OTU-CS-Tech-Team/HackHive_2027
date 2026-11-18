@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
+import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { formatDateTime } from "@/lib/time";
@@ -49,14 +50,24 @@ function matches(app: Application, query: string) {
   return [fullName(app), app.email, app.university].some((value) => value?.toLowerCase().includes(query));
 }
 
+const PAGE_SIZE = 1000;
+
+function loadAllApplications(session: Awaited<ReturnType<typeof requireAdmin>>) {
+  return loadAllByKeyset<Application>((afterId) => {
+    const query = session.from("applications").select("*").order("id").limit(PAGE_SIZE);
+    return afterId ? query.gt("id", afterId) : query;
+  });
+}
+
 async function Applicants({ searchParams }: { searchParams: SearchParams }) {
   const session = await requireAdmin("/admin/applicants");
   const { status, q } = await searchParams;
   const filter: Filter = typeof status === "string" && Object.hasOwn(FILTERS, status) ? (status as Filter) : "applied";
   const search = typeof q === "string" ? q.trim() : "";
 
-  // ponytail: loads everyone and filters here, capped by Supabase's 1000-row limit. Filter in the query past that.
-  const { data, error } = await session.from("applications").select("*").order("submitted_at", { ascending: true, nullsFirst: false });
+  // Loads everyone in pages (Supabase returns at most 1000 rows per query), oldest
+  // submission first, and filters here.
+  const { data, error } = await loadAllApplications(session);
   if (error) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
@@ -126,6 +137,9 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
+const fileButton =
+  "inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
+
 function ApplicantRow({ app }: { app: Application }) {
   const name = fullName(app) || app.email;
   const school = [app.university, app.program].filter(Boolean).join(" · ");
@@ -146,18 +160,25 @@ function ApplicantRow({ app }: { app: Application }) {
             <DeleteButton id={app.id} label={name} />
           </div>
         </div>
-        <details className="mt-2">
-          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">View application</summary>
+        <details className="group mt-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">
+            <span className="group-open:hidden">View application</span>
+            <span className="hidden group-open:inline">Close application</span>
+          </summary>
           <div className="mt-3">
-            {app.resume_path && (
-              <a
-                href={`/admin/applicants/${app.id}/resume`}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-4 inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-              >
-                Open resume
-              </a>
+            {(app.resume_path || app.indemnification_path) && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {app.resume_path && (
+                  <a href={`/admin/applicants/${app.id}/resume`} target="_blank" rel="noreferrer" className={fileButton}>
+                    Open resume
+                  </a>
+                )}
+                {app.indemnification_path && (
+                  <a href={`/admin/applicants/${app.id}/indemnification`} target="_blank" rel="noreferrer" className={fileButton}>
+                    View indemnification form
+                  </a>
+                )}
+              </div>
             )}
             <ApplicationView application={app} />
           </div>

@@ -15,21 +15,17 @@ export async function Navbar() {
     <>
       <div className="flex shrink-0 items-center gap-2">
         <MobileNavMenu links={links} accountLinks={accountLinks} />
-        <Link href="/" aria-label="HackHive home" className="shrink-0">
-          {/* Asks for the same file as the homepage intro's 88px logo and shows it at 44px,
-              so the page fetches one logo, sharp on retina, and eager since it's always in view. */}
-          <Image src="/Images/HackhiveLogo.png" alt="HackHive" width={88} height={88} className="size-11" loading="eager" />
-        </Link>
+       
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         <nav aria-label="Page sections" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
           {links.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium whitespace-nowrap text-neutral-900">
+            <Link key={link.href} href={link.href} className="text-md font-medium whitespace-nowrap text-neutral-900">
               {link.label}
             </Link>
           ))}
           {isSignedIn && (
-            <Link href="/dashboard" className="text-sm font-medium whitespace-nowrap text-neutral-900">
+            <Link href="/dashboard" className="text-md font-medium whitespace-nowrap text-neutral-900">
               Dashboard
             </Link>
           )}

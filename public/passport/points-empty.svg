@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="25.9808" height="30" viewBox="0 0 25.9808 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Polygon 14">
+<path d="M12.9904 0L25.9808 7.5V22.5L12.9904 30L0 22.5V7.5L12.9904 0Z" fill="black"/>
+<mask id="stroke0_0_4" fill="white">
+<path d="M12.9904 0L25.9808 7.5V22.5L12.9904 30L0 22.5V7.5L12.9904 0Z"/>
+</mask>
+<path d="M12.9904 0L25.9808 7.5V22.5L12.9904 30L0 22.5V7.5L12.9904 0Z" stroke-width="4" stroke="#F4B942" mask="url(#stroke0_0_4)"/>
+</g>
+</svg>

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import type { ApplicationStats, Breakdown } from "@/lib/admin/stats";
-
+import { number, StatRow } from "@/app/admin/stats/ExpandRow";
 const card = "rounded-lg border border-neutral-200 bg-white p-4";
-const number = (value: number) => value.toLocaleString("en-US");
+
 const views = ["Admissions", "Community", "Logistics"] as const;
 type View = typeof views[number];
 
@@ -33,6 +33,16 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
   const [view, setView] = useState<View>("Admissions");
   return <div className="space-y-4">
     {stats.total === 0 && <p className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-600">No applications yet. Counts will appear as hackers apply.</p>}
+    <div className="flex justify-end">
+      <a
+        href="/admin/stats/export"
+        download
+        aria-disabled={stats.submitted === 0}
+        className={`rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50 ${stats.submitted === 0 ? "pointer-events-none opacity-50" : ""}`}
+      >
+        Export submitted ({stats.submitted}) to CSV
+      </a>
+    </div>
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {([
         ["Submitted", stats.submitted],
@@ -68,7 +78,7 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
         </section>
       </>}
       {view === "Community" && <>
-        <Distribution title="Team formation" description={`${number(stats.firstTime)} first-time hackers.`} total={stats.submitted} rows={stats.submitted ? [
+        <Distribution title="Team formation" description={``} total={stats.submitted} rows={stats.submitted ? [
           { label: "Looking for teammates", count: stats.lookingForTeam }, { label: "Already has a team", count: stats.hasTeam }, { label: "Participating solo", count: stats.solo },
           { label: "Not provided", count: stats.submitted - stats.lookingForTeam - stats.hasTeam - stats.solo },
         ] : []} />
@@ -77,10 +87,16 @@ export function StatsOverview({ stats }: { stats: ApplicationStats }) {
       {view === "Logistics" && <>
         <section className={card}>
           <h2 className="font-semibold">Planning & support</h2>
-          <dl className="mt-2 divide-y divide-neutral-100">
-            {[["Travel help requested", stats.travelHelp], ["Dietary responses", stats.dietaryRequests], ["Accessibility responses", stats.accessibilityRequests], ["Experience not provided", stats.experienceUnknown]].map(([label, count]) => <div key={label} className="flex justify-between gap-3 py-2 text-sm"><dt className="text-neutral-600">{label}</dt><dd className="font-semibold tabular-nums">{number(count as number)}</dd></div>)}
-          </dl>
-        </section>
+          
+            <div className="mt-2 divide-y divide-neutral-100">
+              <StatRow label="Travel help requested" count={stats.travelHelp} details={["Out of country: "+ stats.outOfCountry.toString(), "In country: "+ stats.inCountry.toString()]} />
+              <StatRow label="Dietary responses" count={stats.dietaryRequests} details={["Nut allergy: "+ stats.nutAllergy.toString(), "Gluten free: "+ stats.glutenFree.toString(), 
+                "Halal: "+ stats.halal.toString(), "Vegetarian: "+ stats.vegetarian.toString(),"Lactose free: "+ stats.lactoseFree.toString()]} />
+              <StatRow label="Accessibility requests" count={stats.accessibilityRequests} details={["Accessibility requests: "+ stats.accessibilityRequests.toString()]} />
+              <StatRow label="Hackathon Experience" count={null} details={["First-time hackers: "+ stats.firstHackathon.toString(), "Second-time hackers: "+ stats.secondHackathon.toString(),
+                 "Third-time hackers: "+ stats.thirdHackathon.toString(), "Experienced hackers: "+ stats.experiencedHackers.toString()]} />
+            </div>
+          </section>
         <Distribution title="T-shirt sizes" rows={stats.shirts} total={stats.submitted} />
       </>}
     </section>
