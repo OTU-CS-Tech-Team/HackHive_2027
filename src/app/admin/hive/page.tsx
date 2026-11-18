@@ -6,7 +6,7 @@ import { applicantStatus } from "@/components/ApplicationView";
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
-import { MAX_TOTAL, TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
+import { MAX_TOTAL, TIERS, type Tier } from "@/lib/hive/tier";
 import {
   compareForReview,
   creditsRunOut,
@@ -23,6 +23,7 @@ import {
 import { formatDateTime } from "@/lib/time";
 import { DecisionControls, ReviewNotice } from "../applicants/DecisionControls";
 import { HivePanel, type HistoryEntry } from "./HivePanel";
+import { HiveBrowser } from "./HiveBrowser";
 import { ScoreBacklog } from "./ScoreBacklog";
 import { FlagPills, MinorPill, TierBadge } from "./TierBadge";
 
@@ -94,16 +95,6 @@ async function requestTime() {
 
 const fullName = (app: App) => [app.preferred_name || app.first_name, app.last_name].filter(Boolean).join(" ");
 
-const FILTER_LABELS: Record<TierFilter, string> = {
-  all: "All",
-  queen: `${TIER_EMOJI.queen} Queen Bee`,
-  worker: `${TIER_EMOJI.worker} Worker Bee`,
-  larva: `${TIER_EMOJI.larva} Larva`,
-  unscored: "Unscored",
-};
-
-const chip = "inline-flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
-
 async function Hive({ searchParams }: { searchParams: SearchParams }) {
   const session = await requireAdmin("/admin/hive");
   const { tier: tierParam, q } = await searchParams;
@@ -154,14 +145,7 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
   const backlog = rows.filter((row) => inBacklog(row.score, now)).length;
   const outOfCredits = creditsRunOut(loaded.scores);
 
-  const query = search.toLowerCase();
-  const found = rows.filter(
-    (row) => !query || [fullName(row), row.email, row.university].some((value) => value?.toLowerCase().includes(query)),
-  );
-  const shown = found
-    .filter((row) => filter === "all" || (filter === "unscored" ? !row.tier : row.tier === filter))
-    .sort(compareForReview);
-  const href = (key: TierFilter) => `/admin/hive?${new URLSearchParams({ ...(key !== "all" && { tier: key }), ...(search && { q: search }) })}`;
+  const sorted = rows.toSorted(compareForReview);
 
   return (
     <ReviewNotice>
@@ -174,77 +158,28 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
           </p>
         </div>
       )}
-      <section aria-label="Tier summary" className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {TIERS.toReversed().map((tier) => (
-          <Link
-            key={tier}
-            href={href(tier)}
-            className={`rounded-lg border p-4 hover:bg-neutral-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${filter === tier ? "border-neutral-900" : "border-neutral-200"}`}
-          >
-            <p className="text-sm font-medium">
-              <span aria-hidden>{TIER_EMOJI[tier]}</span> {TIER_LABELS[tier]}
+      <HiveBrowser
+        initialFilter={filter}
+        initialSearch={search}
+        counts={counts}
+        unscoredCard={
+          <div className="rounded-lg border border-neutral-200 p-4">
+            <p className="text-sm font-medium">Unscored</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums">{unscored.length}</p>
+            <p className="mb-3 text-sm text-neutral-600 tabular-nums">
+              {failed} failed
+              {givenUp > 0 && ` · ${givenUp} gave up after 5 tries (use Re-score)`}
             </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">{counts[tier].total}</p>
-            <p className="text-sm text-neutral-600 tabular-nums">{counts[tier].accepted} accepted</p>
-          </Link>
-        ))}
-        <div className="rounded-lg border border-neutral-200 p-4">
-          <p className="text-sm font-medium">Unscored</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums">{unscored.length}</p>
-          <p className="mb-3 text-sm text-neutral-600 tabular-nums">
-            {failed} failed
-            {givenUp > 0 && ` · ${givenUp} gave up after 5 tries (use Re-score)`}
-          </p>
-          <ScoreBacklog count={backlog} />
-        </div>
-      </section>
-
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <nav aria-label="Filter by tier" className="flex gap-1 overflow-x-auto">
-          {(["all", ...TIERS.toReversed(), "unscored"] as TierFilter[]).map((key) => (
-            <Link
-              key={key}
-              href={href(key)}
-              aria-current={key === filter ? "page" : undefined}
-              className={`${chip} ${key === filter ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`}
-            >
-              {FILTER_LABELS[key]}
-            </Link>
-          ))}
-        </nav>
-        <form action="/admin/hive" className="flex gap-2">
-          {filter !== "all" && <input type="hidden" name="tier" value={filter} />}
-          <label className="sr-only" htmlFor="hive-search">
-            Search by name, email or school
-          </label>
-          <input
-            id="hive-search"
-            type="search"
-            name="q"
-            defaultValue={search}
-            placeholder="Name, email or school"
-            className="min-h-11 w-full min-w-0 rounded-md border border-neutral-300 px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 lg:w-64 lg:text-sm"
-          />
-          <button
-            type="submit"
-            className="inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-          >
-            Search
-          </button>
-        </form>
-      </div>
-
-      {shown.length ? (
-        <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
-          {shown.map((row) => (
-            <HiveRow key={row.id} row={row} history={historyById.get(row.id) ?? []} scoring={isScoring(row.score, now)} />
-          ))}
-        </ul>
-      ) : (
-        <p className="rounded-lg border border-neutral-200 p-5 text-neutral-600">
-          {search ? `Nobody in ${FILTER_LABELS[filter]} matches “${search}”.` : rows.length ? "Nobody in this tier yet." : "Nobody has submitted yet."}
-        </p>
-      )}
+            <ScoreBacklog count={backlog} />
+          </div>
+        }
+        rows={sorted.map((row) => ({
+          id: row.id,
+          tier: row.tier,
+          text: [fullName(row), row.email, row.university].filter(Boolean).join(" ").toLowerCase(),
+          node: <HiveRow row={row} history={historyById.get(row.id) ?? []} scoring={isScoring(row.score, now)} />,
+        }))}
+      />
     </ReviewNotice>
   );
 }
@@ -265,7 +200,7 @@ function HiveRow({
   const { score } = row;
 
   return (
-    <li className="py-4">
+    <>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -318,6 +253,6 @@ function HiveRow({
           </Link>
         </div>
       </details>
-    </li>
+    </>
   );
 }
