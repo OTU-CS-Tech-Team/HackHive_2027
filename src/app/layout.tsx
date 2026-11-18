@@ -3,6 +3,7 @@ import { Space_Grotesk, Geist } from "next/font/google";
 import { Suspense } from "react";
 import Link from "next/link";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import { Navbar } from "@/components/navbar/Navbar";
 import MobileNavMenu from "@/components/navbar/MobileNavMenu";
 import NavbarShell from "@/components/navbar/NavbarShell";
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </NavbarShell>
         <Script src="/navbar-interactions.js?v=9" strategy="afterInteractive" />
         {children}
+        <Analytics />
       </body>
     </html>
   );
