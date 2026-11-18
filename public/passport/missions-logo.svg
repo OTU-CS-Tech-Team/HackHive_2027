@@ -1,0 +1,25 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="36" height="21" viewBox="0 0 36 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="BadgesLogo">
+<g id="Polygon 15">
+<path d="M11 7.5L14.75 1.00481L22.25 1.00481L26 7.5L22.25 13.9952L14.75 13.9952L11 7.5Z" fill="black" fill-opacity="0.1"/>
+<mask id="stroke0_0_31" fill="white">
+<path d="M11 7.5L14.75 1.00481L22.25 1.00481L26 7.5L22.25 13.9952L14.75 13.9952L11 7.5Z"/>
+</mask>
+<path d="M11 7.5L14.75 1.00481L22.25 1.00481L26 7.5L22.25 13.9952L14.75 13.9952L11 7.5Z" stroke-width="2" stroke="#F4B942" mask="url(#stroke0_0_31)"/>
+</g>
+<g id="Polygon 16">
+<path d="M21 13.5L24.75 7.00481L32.25 7.00481L36 13.5L32.25 19.9952L24.75 19.9952L21 13.5Z" fill="black" fill-opacity="0.1"/>
+<mask id="stroke1_0_31" fill="white">
+<path d="M21 13.5L24.75 7.00481L32.25 7.00481L36 13.5L32.25 19.9952L24.75 19.9952L21 13.5Z"/>
+</mask>
+<path d="M21 13.5L24.75 7.00481L32.25 7.00481L36 13.5L32.25 19.9952L24.75 19.9952L21 13.5Z" stroke-width="2" stroke="#F4B942" mask="url(#stroke1_0_31)"/>
+</g>
+<g id="Polygon 17">
+<path d="M0 13.5L3.75 7.00481L11.25 7.00481L15 13.5L11.25 19.9952L3.75 19.9952L0 13.5Z" fill="black" fill-opacity="0.1"/>
+<mask id="stroke2_0_31" fill="white">
+<path d="M0 13.5L3.75 7.00481L11.25 7.00481L15 13.5L11.25 19.9952L3.75 19.9952L0 13.5Z"/>
+</mask>
+<path d="M0 13.5L3.75 7.00481L11.25 7.00481L15 13.5L11.25 19.9952L3.75 19.9952L0 13.5Z" stroke-width="2" stroke="#F4B942" mask="url(#stroke2_0_31)"/>
+</g>
+</g>
+</svg>

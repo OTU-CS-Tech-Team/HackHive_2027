@@ -1,0 +1,748 @@
+/* HackHive passport, from the Figma "Hackhive Passport Design" file.
+   The card is a fixed 363x804 composition, so coordinates are the design's px,
+   measured inside each box's border. */
+
+.wrap {
+  display: flex;
+  justify-content: center;
+  font-family: var(--font-terminal), monospace;
+}
+
+.wrap img {
+  max-width: none;
+}
+
+.stage {
+  position: relative;
+  flex: none;
+  width: 393px;
+  height: 852px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(to bottom, #000 37.5%, #fff29c 71.154%);
+}
+
+/* ponytail: stepped zoom so the 393px frame fits 375/360/320px phones; move to container-query units if it ever needs to be fluid. */
+@media (max-width: 392px) {
+  .stage { zoom: 0.954; }
+}
+@media (max-width: 374px) {
+  .stage { zoom: 0.916; }
+}
+@media (max-width: 359px) {
+  .stage { zoom: 0.814; }
+}
+
+.card {
+  position: absolute;
+  left: 14px;
+  top: 21px;
+  width: 363px;
+  height: 804px;
+  border: 4px solid #f4b942;
+  border-radius: 6px;
+  background: #000;
+  box-shadow: 6px 6px 7px #000;
+}
+
+.deco {
+  position: absolute;
+  pointer-events: none;
+}
+
+.logo {
+  position: absolute;
+  left: 25px;
+  top: 14px;
+  width: 75px;
+  height: 75px;
+}
+
+/* ── Badges (quadrants of one sprite) ─────────────────────────────────────── */
+
+.badge {
+  display: block;
+  background: url(/passport/badges.png) no-repeat;
+  background-size: 200% 200%;
+}
+
+.locked {
+  filter: grayscale(1) brightness(0.7);
+  opacity: 0.35;
+}
+
+.badgeLarge {
+  width: 91px;
+  height: 91px;
+}
+
+.badgeSmall {
+  width: 62px;
+  height: 62px;
+}
+
+.badgeBox {
+  position: absolute;
+  left: 13px;
+  top: 113px;
+  width: 102px;
+  height: 117px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #f4b942;
+  border-radius: 14px;
+  background: #000;
+  box-shadow: 2px 2px 8.5px 0 #f4b942;
+}
+
+/* ── Profile header ───────────────────────────────────────────────────────── */
+
+.header {
+  position: absolute;
+  left: 130px;
+  right: 20px;
+  top: 28px;
+  height: 202px;
+  overflow: hidden;
+  border: 3px solid #f4b942;
+  border-radius: 14px;
+  background: #000;
+  box-shadow: 3px 3px 14px 0 #f4b942;
+}
+
+.headerTitle {
+  position: absolute;
+  left: 10px;
+  top: 11px;
+  margin: 0;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: normal;
+  color: #f4b942;
+  white-space: nowrap;
+}
+
+.name {
+  position: absolute;
+  left: 10px;
+  top: 43px;
+  max-width: 185px;
+  margin: 0;
+  overflow: hidden;
+  font-size: 24px;
+  line-height: normal;
+  color: #f4b942;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hexFrame {
+  position: absolute;
+  left: 48.94px;
+  top: 76.5px;
+  rotate: -90deg;
+}
+
+.avatar {
+  position: absolute;
+  left: 62px;
+  top: 95px;
+  width: 69px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.photo {
+  border: 3px solid #000;
+  background: #d9d9d9;
+}
+
+/* ── Hive status panel ────────────────────────────────────────────────────── */
+
+.status {
+  position: absolute;
+  left: 13px;
+  top: 254px;
+  width: 330px;
+  height: 303px;
+  border: 3px solid #f4b942;
+  border-radius: 14px;
+  background: #000;
+  box-shadow: 4px 4px 8.4px 0 #f4b942;
+}
+
+.statusTitle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22px;
+  margin: 0;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: normal;
+  text-align: center;
+  color: #f4b942;
+}
+
+.statusLine {
+  position: absolute;
+  top: 35px;
+}
+
+.statusLineLeft {
+  left: 14px;
+}
+
+.statusLineRight {
+  left: 257px;
+}
+
+.points {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 71px;
+  height: 48px;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  color: #fff;
+}
+
+.pointsValue {
+  font: 400 48px/1 var(--font-pixel), monospace;
+}
+
+.pointsUnit {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.track {
+  position: absolute;
+  left: 14px;
+  top: 126px;
+  width: 297px;
+  height: 57px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 3px solid #f4b942;
+  border-radius: 40px;
+  background: #000;
+}
+
+.divider {
+  position: absolute;
+  left: 14px;
+  top: 199px;
+}
+
+.badgeCount {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 203px;
+  margin: 0;
+  font-size: 24px;
+  line-height: normal;
+  text-align: center;
+  color: #fff;
+}
+
+.badgeRow {
+  position: absolute;
+  left: 68px;
+  top: 228px;
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.scan,
+.missions,
+.club {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* ── Press and hover feedback (every .press element) ─────────────────────── */
+
+.press {
+  transition: filter 150ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Release springs back past 100% and settles (easeOutBack, easings.net). */
+  .press {
+    transition:
+      filter 150ms ease,
+      translate 200ms cubic-bezier(0.23, 1, 0.32, 1),
+      scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* The pressed state's own timing runs on the way down: fast, no overshoot. */
+  .press:active {
+    scale: 0.92;
+    transition-duration: 150ms, 200ms, 100ms;
+    transition-timing-function: ease, cubic-bezier(0.23, 1, 0.32, 1), cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+
+/* Mouse only: touch screens fire hover on tap and it sticks. */
+@media (hover: hover) and (pointer: fine) {
+  .press:hover {
+    filter: brightness(1.12) drop-shadow(0 0 8px rgb(244 185 66 / 0.6));
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .press:hover {
+    translate: 0 -3px;
+  }
+}
+
+.card button:focus-visible,
+.dialog a:focus-visible,
+.close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.centered {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  rotate: -90deg;
+}
+
+.scan {
+  left: 15px;
+  top: 578px;
+  width: 326px;
+  height: 53px;
+}
+
+.scanIcon {
+  position: absolute;
+  left: 60px;
+  top: 4px;
+  width: 42px;
+  height: 46px;
+  overflow: hidden;
+}
+
+.scanIcon img {
+  position: absolute;
+  left: -23.58%;
+  top: -5.46%;
+  width: 147.84%;
+  height: 119.66%;
+}
+
+.scanDivider {
+  position: absolute;
+  left: 94.5px;
+  top: 25.5px;
+  rotate: 90deg;
+}
+
+.scanLabel {
+  position: absolute;
+  left: 132px;
+  top: 12px;
+  font-size: 27px;
+  line-height: normal;
+  color: #000;
+  white-space: nowrap;
+}
+
+.missions {
+  left: 74px;
+  top: 648px;
+  width: 214px;
+  height: 35px;
+}
+
+.missionsLogo {
+  position: absolute;
+  left: 31px;
+  top: 7px;
+}
+
+.missionsDivider {
+  position: absolute;
+  left: 62px;
+  top: 17px;
+  rotate: 90deg;
+}
+
+.missionsLabel {
+  position: absolute;
+  left: 104px;
+  top: 8px;
+  font-size: 20px;
+  line-height: normal;
+  color: #f4b942;
+  white-space: nowrap;
+}
+
+.club {
+  left: 280px;
+  top: 730px;
+  width: 63px;
+  height: 57px;
+  overflow: hidden;
+  border: 2px solid #f4b942;
+}
+
+.club img {
+  position: absolute;
+  left: 1.46%;
+  top: -0.39%;
+  width: 100%;
+  height: 110.74%;
+}
+
+/* ── Pop-ups ──────────────────────────────────────────────────────────────── */
+
+/* margin: auto puts back the native centring that Tailwind's reset removes. */
+.dialog {
+  margin: auto;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.65);
+}
+
+.popupInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.close {
+  position: absolute;
+  z-index: 1;
+  width: 99px;
+  height: 30px;
+  border: 2px solid #1a1225;
+  background: #f4b942;
+  box-shadow: 3px 3px 4.7px 0 #000;
+  font: 400 11px/1 var(--font-pixel), monospace;
+  color: #000;
+}
+
+.popup {
+  width: 274px;
+  height: 403px;
+  border: 3px solid #1a1225;
+  border-radius: 6px;
+  box-shadow: 4px 4px 4px 0 #000;
+  background: linear-gradient(to bottom, #1b003f 38%, #fff29c 71%);
+}
+
+.popup .popupInner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url(/passport/social-bg.png) center / cover;
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.popup .close {
+  left: 162px;
+  top: 10px;
+}
+
+.popupTitle,
+.socialTitle {
+  margin: 0;
+  font: 400 13px/normal var(--font-pixel), monospace;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* Check-in QR (no Figma frame; built from the social pop-up's parts). */
+.qrBody {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 44px 20px 16px;
+  text-align: center;
+}
+
+.qr img {
+  display: block;
+  width: 190px;
+  height: 190px;
+  border: 3px solid #f4b942;
+  image-rendering: pixelated;
+}
+
+.qrCaption {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.05;
+  color: #564f89;
+}
+
+/* Social links */
+.socialTitle {
+  position: absolute;
+  left: 30px;
+  top: 80px;
+}
+
+.handle {
+  position: absolute;
+  left: 79px;
+  top: 193px;
+  width: 113px;
+  margin: 0;
+  font-size: 20px;
+  line-height: normal;
+  text-align: center;
+  color: #fff;
+}
+
+.websiteCaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 299px;
+  margin: 0;
+  font-size: 20px;
+  line-height: normal;
+  text-align: center;
+  color: #564f89;
+}
+
+.instagram,
+.tiktok,
+.linkedin,
+.website {
+  position: absolute;
+  display: block;
+}
+
+.instagram img,
+.tiktok img,
+.website img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.instagram {
+  left: 12px;
+  top: 70px;
+  width: 85px;
+  height: 150px;
+}
+
+.tiktok {
+  left: 105px;
+  top: 113px;
+  width: 57px;
+  height: 63px;
+}
+
+.linkedin {
+  left: 171px;
+  top: 105px;
+  width: 98px;
+  height: 80px;
+  overflow: hidden;
+}
+
+.linkedin img {
+  position: absolute;
+  left: 0.37%;
+  top: 0;
+  width: 88.24%;
+  height: 104.35%;
+  pointer-events: none;
+}
+
+.website {
+  left: 89px;
+  top: 230px;
+  width: 89px;
+  height: 69px;
+}
+
+/* Mission log */
+.missionLog {
+  width: 363px;
+  height: 804px;
+  border-radius: 6px;
+  background: linear-gradient(to bottom, #fff29c 38%, #000 71%);
+}
+
+.missionLog .popupInner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url(/passport/mission-log-bg.png) top left / 277px 277px;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.missionLog .close {
+  right: 18px;
+  top: 14px;
+}
+
+.missionLogTitle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 55px;
+  margin: 0;
+  padding-left: 5px;
+  font-size: 70px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: -2.1px;
+  text-align: center;
+  color: #000;
+  text-shadow: -4px 0 0 #f4b942;
+  white-space: nowrap;
+}
+
+.objectives {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 116px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 24px;
+  line-height: normal;
+  color: #000;
+}
+
+.objectives::before,
+.objectives::after {
+  content: "";
+  flex: none;
+  width: 49px;
+  height: 2px;
+  background: #000;
+}
+
+.missionScroll {
+  position: absolute;
+  top: 157px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 28px;
+}
+
+.missionList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mission {
+  position: relative;
+  flex: none;
+  width: 295px;
+  height: 69px;
+  overflow: hidden;
+}
+
+.missionFrame {
+  position: absolute;
+  left: -1.68%;
+  top: -27.62%;
+  width: 103.02%;
+  height: 150.84%;
+}
+
+/* Sits inside the frame's octagon. */
+.missionBadge {
+  position: absolute;
+  left: 14.5px;
+  top: 11.5px;
+  width: 44px;
+  height: 44px;
+}
+
+.missionText {
+  position: absolute;
+  left: 68px;
+  right: 20px;
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.missionTitle,
+.missionMeta {
+  overflow: hidden;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.missionTitle {
+  font-size: 20px;
+  color: #fff;
+}
+
+.missionDone {
+  color: #f4b942;
+}
+
+.missionMeta {
+  font-size: 16px;
+  color: #f4b942;
+}
+
+.missionEmpty {
+  margin: 0 33px;
+  font-size: 22px;
+  line-height: 1.1;
+  text-align: center;
+  color: #000;
+}

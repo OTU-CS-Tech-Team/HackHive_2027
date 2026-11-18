@@ -3,19 +3,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CalendarDays, ClipboardList, Cpu, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, Cpu, Hexagon, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { ActionForm } from "@/components/ActionForm";
 import { ApplicationAnswers, ApplicationStatus } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { getMyApplication } from "@/lib/application/api";
 import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
-import { formatDateTime } from "@/lib/time";
+import { formatDateTime, formatDay, formatTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "./AvatarUpload";
-import { CheckinQr } from "./CheckinQr";
 import { ItemRequestForm } from "./ItemRequestForm";
+import { Passport } from "./Passport";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -31,12 +31,14 @@ const TABS = {
   checkout: "Hardware checkout",
   hunt: "Scavenger hunt",
   shop: "Points shop",
-  profile: "Pass & profile",
+  profile: "Profile",
+  passport: "Passport",
 } as const;
 type Tab = keyof typeof TABS;
 
 const ICONS: Record<Tab, LucideIcon> = {
   schedule: CalendarDays,
+  passport: Hexagon,
   application: ClipboardList,
   team: Users,
   checkout: Cpu,
@@ -83,7 +85,8 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
       <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
           <p className={`hidden md:block ${sidebarLabel}`}>HackHive 2027</p>
           <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
-            {allowed.map((key) => {
+            {/* The passport has its own button in the header instead. */}
+            {allowed.filter((key) => key !== "passport").map((key) => {
               const Icon = ICONS[key];
               const active = tab === key;
               return (
@@ -119,12 +122,26 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
 
         <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
           <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 rounded-full object-cover" />
-            ) : (
-              <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="size-10 shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="size-10 shrink-0 rounded-full bg-amber-200" aria-hidden />
+              )}
+              <h1 className="truncate text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
+            </div>
+            {allowed.includes("passport") && (
+              <Link
+                href="/dashboard?tab=passport"
+                aria-current={tab === "passport" ? "page" : undefined}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
+                  tab === "passport" ? "border-amber-300 bg-amber-50 text-amber-900" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                }`}
+              >
+                <Hexagon className={`size-5 shrink-0 ${tab === "passport" ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
+                {TABS.passport}
+              </Link>
             )}
-            <h1 className="flex-1 text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
             {admin && (
               <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
                 Admin
@@ -133,6 +150,18 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           </header>
 
           {tab === "schedule" && <ScheduleSection />}
+          {tab === "passport" && (
+            <>
+              <Link
+                href="/dashboard?tab=profile"
+                className="-ml-2 mb-4 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+                Back to profile
+              </Link>
+              <PassportTab supabase={supabase} userId={user.id} profile={profile} />
+            </>
+          )}
           {tab === "application" && <ApplicationTab />}
           {tab === "checkout" && <CheckoutTab supabase={supabase} userId={user.id} />}
           {tab === "hunt" && <HuntTab supabase={supabase} />}
@@ -165,12 +194,47 @@ async function ApplicationTab() {
   );
 }
 
+// Badges are the events a hacker was scanned into for points; missions are every
+// event worth points. Both come from the same tables the admin scanner writes.
+async function PassportTab({
+  supabase,
+  userId,
+  profile,
+}: {
+  supabase: Supabase;
+  userId: string;
+  profile: { full_name: string | null; avatar_url: string | null } | null;
+}) {
+  const [{ data: balance }, { data: earned }, { data: events }, qr] = await Promise.all([
+    supabase.from("point_balances").select("balance").eq("user_id", userId).maybeSingle(),
+    supabase.from("point_transactions").select("event_id, reason").eq("user_id", userId).not("event_id", "is", null).order("created_at"),
+    supabase.from("events").select("id, title, points, starts_at").gt("points", 0).order("starts_at"),
+    mintCheckinToken(),
+  ]);
+
+  return (
+    <Passport
+      fullName={profile?.full_name ?? null}
+      avatarUrl={profile?.avatar_url ?? null}
+      points={balance?.balance ?? 0}
+      badges={(earned ?? []).map((row) => ({ id: row.event_id as string, label: row.reason }))}
+      missions={(events ?? []).map((event) => ({
+        id: event.id,
+        title: event.title,
+        points: event.points,
+        when: `${formatDay(event.starts_at).slice(0, 3)} ${formatTime(event.starts_at)}`,
+      }))}
+      initialQrDataUrl={qr}
+    />
+  );
+}
+
 async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: string }) {
   const { data: hardware } = await supabase.from("hardware_items").select("*").order("sort_order").order("name");
   return (
     <section>
       <h2 className="mb-1 text-2xl font-bold">Hardware checkout</h2>
-      <p className={`mb-4 ${muted}`}>Borrow from the help desk with your pass. Bring it back before judging.</p>
+      <p className={`mb-4 ${muted}`}>Borrow from the help desk with your passport. Bring it back before judging.</p>
       {hardware?.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {hardware.map((item) => (
@@ -265,7 +329,7 @@ async function HuntTab({ supabase }: { supabase: Supabase }) {
   return (
     <section>
       <h2 className="mb-1 text-2xl font-bold">Scavenger hunt</h2>
-      <p className={`mb-4 ${muted}`}>Found one? Show it at the help desk with your pass to claim the points.</p>
+      <p className={`mb-4 ${muted}`}>Found one? Show it at the help desk with your passport to claim the points.</p>
       {hunt?.length ? (
         <ol className="flex flex-col divide-y">
           {hunt.map((item) => (
@@ -294,7 +358,7 @@ async function ShopTab({ supabase, userId }: { supabase: Supabase; userId: strin
   return (
     <section>
       <h2 className="mb-1 text-2xl font-bold">Points shop</h2>
-      <p className={`mb-4 ${muted}`}>You have {points} pts. Redeem at the help desk. They scan your pass.</p>
+      <p className={`mb-4 ${muted}`}>You have {points} pts. Redeem at the help desk. They scan your passport.</p>
       {shop?.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shop.map((item) => (
@@ -317,17 +381,16 @@ async function ShopTab({ supabase, userId }: { supabase: Supabase; userId: strin
 }
 
 async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; userId: string; email?: string }) {
-  const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }, qr] = await Promise.all([
+  const [{ data: profile }, { data: emergency }, { data: balance }, { data: history }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", userId).single(),
     supabase.from("emergency_info").select("*").eq("user_id", userId).maybeSingle(),
     supabase.from("point_balances").select("balance").eq("user_id", userId).maybeSingle(),
     supabase.from("point_transactions").select("id, amount, reason, created_at").eq("user_id", userId).order("created_at", { ascending: false }),
-    mintCheckinToken(),
   ]);
 
   return (
     <section>
-      <h2 className="mb-1 text-2xl font-bold">Pass & profile</h2>
+      <h2 className="mb-1 text-2xl font-bold">Profile</h2>
       <p className={`mb-4 ${muted}`}>{email}</p>
       <div className="mb-4">
         <AvatarUpload />
@@ -339,13 +402,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
         </p>
       )}
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <section className={`${card} flex flex-col items-center text-center`}>
-          <h3 className="mb-3 text-lg font-semibold">Your HackHive pass</h3>
-          <CheckinQr initialQrDataUrl={qr} />
-          <p className={`mt-3 ${muted}`}>Show this at check-in, events, and the help desk to earn and spend points.</p>
-        </section>
-
+      <div className="mb-6">
         <section className={card}>
           <h3 className="text-lg font-semibold">Points</h3>
           <p className="mb-4 text-4xl font-bold">{balance?.balance ?? 0}</p>
@@ -408,7 +465,7 @@ async function ProfileTab({ supabase, userId, email }: { supabase: Supabase; use
 
         <section className={card}>
           <h3 className="mb-1 text-lg font-semibold">Emergency info</h3>
-          <p className={`mb-4 ${muted}`}>Private. Only organizers can see it, when they scan your pass.</p>
+          <p className={`mb-4 ${muted}`}>Private. Only organizers can see it, when they scan your passport.</p>
           <ActionForm action={saveEmergencyInfo} submitLabel="Save emergency info">
             <label>
               Contact name
