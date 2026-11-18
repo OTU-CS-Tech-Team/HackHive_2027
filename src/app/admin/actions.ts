@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
 import { hiveDeps } from "@/lib/hive/openai";
+import { QUOTA_ERROR } from "@/lib/hive/errors";
 import { scoreApplication, scoreUnscored } from "@/lib/hive/score";
 import { TIER_LABELS, isTier, type Tier } from "@/lib/hive/tier";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -411,14 +412,15 @@ export async function deleteRows(table: TableName, ids: string[]): Promise<Actio
 // Hive Mind ------------------------------------------------------------------
 // Suggestions only: none of these touch an application's decision.
 
-export type ScoreBatchResult = ActionResult & { scored: number; failed: number; remaining: number };
+export type ScoreBatchResult = ActionResult & { scored: number; failed: number; remaining: number; quota?: boolean };
 
 /** Scores the next few unscored applicants. The page calls it repeatedly until none are left. */
 export async function scoreHiveBacklog(): Promise<ScoreBatchResult> {
   await requireAdmin();
   try {
-    const { scored, failed, remaining } = await scoreUnscored(hiveDeps());
+    const { scored, failed, remaining, quota } = await scoreUnscored(hiveDeps());
     revalidatePath("/admin", "layout");
+    if (quota) return { ok: false, message: QUOTA_ERROR, scored, failed, remaining, quota };
     return { ok: failed === 0, message: `Scored ${scored}${failed ? `, ${failed} failed` : ""}. ${remaining} left.`, scored, failed, remaining };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Scoring failed.", scored: 0, failed: 0, remaining: -1 };
@@ -428,11 +430,17 @@ export async function scoreHiveBacklog(): Promise<ScoreBatchResult> {
 export async function rescoreApplicant(id: string): Promise<ActionResult> {
   await requireAdmin();
   if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
-  const result = await scoreApplication(id, hiveDeps());
+  let result: Awaited<ReturnType<typeof scoreApplication>>;
+  try {
+    result = await scoreApplication(id, hiveDeps());
+  } catch (error) {
+    // e.g. OPENAI_API_KEY isn't set
+    return { ok: false, message: `Scoring failed (${error instanceof Error ? error.message : "unknown error"}).` };
+  }
   revalidatePath("/admin", "layout");
-  return result.ok
-    ? { ok: true, message: `Re-scored: suggested ${TIER_LABELS[result.tier]}.` }
-    : { ok: false, message: `Scoring failed (${result.error}). Try again in a moment.` };
+  if (result.ok) return { ok: true, message: `Re-scored: suggested ${TIER_LABELS[result.tier]}.` };
+  const kept = result.keptScore ? " The previous score is kept." : "";
+  return { ok: false, message: result.quota ? `${QUOTA_ERROR}${kept}` : `Scoring failed (${result.error}).${kept} Try again in a moment.` };
 }
 
 /** Moves an applicant to another tier (reason required), or back to the suggested tier with tier = null. */

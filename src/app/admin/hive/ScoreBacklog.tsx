@@ -7,7 +7,8 @@ const button =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-50";
 
 // Scores in small batches (each a separate request, so none hits the time limit)
-// until nothing is left or a whole batch fails, e.g. OpenAI is down.
+// until nothing is left, a whole batch fails (e.g. OpenAI is down), or OpenAI
+// is out of credits.
 export function ScoreBacklog({ count }: { count: number }) {
   const [pending, startTransition] = useTransition();
   const [progress, setProgress] = useState<string | null>(null);
@@ -20,7 +21,7 @@ export function ScoreBacklog({ count }: { count: number }) {
       try {
         for (;;) {
           const result = await scoreHiveBacklog();
-          if (result.remaining < 0) {
+          if (result.remaining < 0 || result.quota) {
             setProgress(result.message);
             return;
           }

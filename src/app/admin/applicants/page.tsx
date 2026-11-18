@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
-import { loadAllByKeyset } from "@/lib/admin/applicants";
+import { bySubmittedAt, loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { displayTier, type HiveScore } from "@/lib/hive/view";
@@ -56,26 +56,28 @@ function matches(app: Application, query: string) {
 const PAGE_SIZE = 1000;
 
 function loadAllApplications(session: Awaited<ReturnType<typeof requireAdmin>>) {
-  return loadAllByKeyset<Application>((afterId) => {
-    const query = session.from("applications").select("*").order("id").limit(PAGE_SIZE);
-    return afterId ? query.gt("id", afterId) : query;
-  });
+  return loadAllByKeyset<Application>(
+    (afterId) => {
+      const query = session.from("applications").select("*").order("id").limit(PAGE_SIZE);
+      return afterId ? query.gt("id", afterId) : query;
+    },
+    { sort: bySubmittedAt },
+  );
 }
 
 type TierRow = Pick<HiveScore, "application_id" | "status" | "suggested_tier" | "tier_override">;
 
 // Tier badges only; the Hive Mind page has the rest. A failure (e.g. the migration
-// isn't applied yet) just leaves the badges off.
+// isn't applied yet) leaves all the badges off, never just some of them.
 async function loadTiers(session: Awaited<ReturnType<typeof requireAdmin>>) {
-  const tiers = new Map<string, { tier: Tier | null; overridden: boolean }>();
-  for (let after: string | null = null; ;) {
-    let query = session.from("hive_scores").select("application_id, status, suggested_tier, tier_override").order("application_id").limit(PAGE_SIZE);
-    if (after) query = query.gt("application_id", after);
-    const { data, error } = await query;
-    if (error || !data?.length) return tiers;
-    for (const row of data as TierRow[]) tiers.set(row.application_id, { tier: displayTier(row as HiveScore), overridden: !!row.tier_override });
-    after = data[data.length - 1].application_id;
-  }
+  const { data } = await loadAllByKeyset<TierRow>(
+    (after) => {
+      const query = session.from("hive_scores").select("application_id, status, suggested_tier, tier_override").order("application_id").limit(PAGE_SIZE);
+      return after ? query.gt("application_id", after) : query;
+    },
+    { key: "application_id" },
+  );
+  return new Map((data ?? []).map((row) => [row.application_id, { tier: displayTier(row as HiveScore), overridden: !!row.tier_override }]));
 }
 
 async function Applicants({ searchParams }: { searchParams: SearchParams }) {

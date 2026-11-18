@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PROMPT_VERSION } from '@/lib/hive/prompt';
-import { compareForReview, displayTier, needsScoring, type HiveScore } from '@/lib/hive/view';
+import { QUOTA_ERROR } from '@/lib/hive/errors';
+import { compareForReview, creditsRunOut, displayTier, gaveUp, inBacklog, isScoring, needsScoring, type HiveScore } from '@/lib/hive/view';
 
 const score = (extra: Partial<HiveScore> = {}) =>
   ({ status: 'scored', suggested_tier: 'worker', tier_override: null, prompt_version: PROMPT_VERSION, quality: 3, creativity: 3, ...extra }) as HiveScore;
@@ -28,6 +29,46 @@ describe('needsScoring', () => {
     expect(needsScoring(score({ status: 'failed' }))).toBe(true);
     expect(needsScoring(score({ prompt_version: PROMPT_VERSION - 1 }))).toBe(true);
     expect(needsScoring(score())).toBe(false);
+  });
+});
+
+const NOW = Date.parse('2026-11-18T10:00:00Z');
+const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+
+describe('isScoring / gaveUp / inBacklog', () => {
+  it('counts a claim as scoring for 2 minutes only', () => {
+    expect(isScoring(score({ claimed_at: ago(1) }), NOW)).toBe(true);
+    expect(isScoring(score({ claimed_at: ago(3) }), NOW)).toBe(false);
+    expect(isScoring(score({ claimed_at: null }), NOW)).toBe(false);
+  });
+
+  it('gives up after 5 failures in a row', () => {
+    expect(gaveUp(score({ status: 'failed', attempts: 4 }))).toBe(false);
+    expect(gaveUp(score({ status: 'failed', attempts: 5 }))).toBe(true);
+  });
+
+  it('leaves out current, running and given-up scores, like hive_backlog()', () => {
+    expect(inBacklog(undefined, NOW)).toBe(true);
+    expect(inBacklog(score({ status: 'failed', attempts: 1 }), NOW)).toBe(true);
+    expect(inBacklog(score(), NOW)).toBe(false);
+    expect(inBacklog(score({ status: 'pending', claimed_at: ago(1) }), NOW)).toBe(false);
+    expect(inBacklog(score({ status: 'pending', claimed_at: ago(5) }), NOW)).toBe(true);
+    expect(inBacklog(score({ status: 'failed', attempts: 5 }), NOW)).toBe(false);
+  });
+});
+
+describe('creditsRunOut', () => {
+  const scoredAt = (minutes: number) => score({ error: null, scored_at: ago(minutes), updated_at: ago(minutes) });
+  const outOfCredits = (minutes: number) => score({ status: 'failed', error: QUOTA_ERROR, updated_at: ago(minutes) });
+
+  it('is true when the latest event is running out of credits', () => {
+    expect(creditsRunOut([scoredAt(10), outOfCredits(5)])).toBe(true);
+  });
+
+  it('clears once something scores again, e.g. after a top-up', () => {
+    expect(creditsRunOut([outOfCredits(10), scoredAt(5)])).toBe(false);
+    expect(creditsRunOut([scoredAt(5), score({ status: 'failed', error: '500 server error', updated_at: ago(1) })])).toBe(false);
+    expect(creditsRunOut([])).toBe(false);
   });
 });
 

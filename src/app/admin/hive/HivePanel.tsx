@@ -27,16 +27,20 @@ export function HivePanel({
   score,
   history,
   scoredAt,
+  scoring,
 }: {
   id: string;
   age: number | null;
   score: HiveScore | undefined;
   history: HistoryEntry[];
   scoredAt: string | null; // formatted on the server, so it matches the rest of the page
+  scoring: boolean; // a grading is running now (worked out on the server)
 }) {
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState<ActionResult | null>(null);
-  const [tier, setTier] = useState<Tier>(score?.tier_override ?? score?.suggested_tier ?? "worker");
+  // The page remounts this panel when the score changes, so this never goes stale.
+  // No score yet → no preselected tier: the admin has to pick one.
+  const [tier, setTier] = useState<Tier | "">(score?.tier_override ?? score?.suggested_tier ?? "");
   const [reason, setReason] = useState("");
 
   const run = (action: () => Promise<ActionResult>, after?: () => void) =>
@@ -62,12 +66,22 @@ export function HivePanel({
         <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">⚠ {minorNote(age)}</p>
       )}
 
-      {!score && <p className="mt-2 text-sm text-neutral-600">Not scored yet.</p>}
-      {score?.status === "pending" && <p className="mt-2 text-sm text-neutral-600">Scoring…</p>}
-      {score?.status === "failed" && (
-        <p className="mt-2 text-sm text-red-800">
-          Scoring failed after {score.attempts} {score.attempts === 1 ? "try" : "tries"}: {score.error}
-        </p>
+      {scoring ? (
+        <p className="mt-2 text-sm text-neutral-600">Scoring…</p>
+      ) : (
+        <>
+          {!score && <p className="mt-2 text-sm text-neutral-600">Not scored yet.</p>}
+          {score?.status === "pending" && <p className="mt-2 text-sm text-neutral-600">Scoring didn&apos;t finish. Re-score to try again.</p>}
+          {score?.status === "failed" && (
+            <p className="mt-2 text-sm text-red-800">
+              Scoring failed {score.attempts} {score.attempts === 1 ? "time" : "times"} in a row: {score.error}
+              {score.attempts >= 5 && " “Score now” skips them from here on; use Re-score."}
+            </p>
+          )}
+        </>
+      )}
+      {scored && score?.error && (
+        <p className="mt-2 text-sm text-red-800">Last re-score failed ({score.error}). Showing the earlier score.</p>
       )}
 
       {scored && score && (
@@ -98,7 +112,7 @@ export function HivePanel({
       )}
 
       <div className="mt-3">
-        <button type="button" disabled={pending} onClick={() => run(() => rescoreApplicant(id))} className={button}>
+        <button type="button" disabled={pending || scoring} onClick={() => run(() => rescoreApplicant(id))} className={button}>
           {score ? "Re-score" : "Score now"}
         </button>
       </div>
@@ -108,12 +122,15 @@ export function HivePanel({
           className="mt-4 flex flex-col gap-2 border-t border-amber-200 pt-4 lg:flex-row lg:items-end"
           onSubmit={(event) => {
             event.preventDefault();
-            run(() => overrideTier(id, tier, reason), () => setReason(""));
+            if (tier) run(() => overrideTier(id, tier, reason), () => setReason(""));
           }}
         >
           <label className="flex flex-col gap-1 text-sm font-medium">
             Move tier
-            <select value={tier} onChange={(event) => setTier(event.target.value as Tier)} className={field}>
+            <select value={tier} onChange={(event) => setTier(event.target.value as Tier | "")} className={field}>
+              <option value="" disabled>
+                Pick a tier…
+              </option>
               {TIERS.map((option) => (
                 <option key={option} value={option}>
                   {TIER_LABELS[option]}
@@ -132,7 +149,7 @@ export function HivePanel({
               className={field}
             />
           </label>
-          <button type="submit" disabled={pending || !reason.trim()} className={button}>
+          <button type="submit" disabled={pending || !tier || !reason.trim()} className={button}>
             Save
           </button>
           {score.tier_override && (

@@ -1,17 +1,23 @@
 type Row = { id: string; submitted_at: string | null };
 type Page<T> = { data: T[] | null; error: unknown };
 
-// Keyset paging on id: rows inserted mid-load can't shift the pages, so nobody
-// is duplicated or skipped. Stops on an empty page, so a server cap lower than
-// the page size can't end the loop early.
-export async function loadAllByKeyset<T extends Row>(fetchPage: (afterId: string | null) => PromiseLike<Page<T>>) {
+// Keyset paging (Supabase returns at most 1000 rows per query): rows inserted
+// mid-load can't shift the pages, so nobody is duplicated or skipped. Stops on
+// an empty page, so a server cap lower than the page size can't end the loop
+// early. Any failed page fails the whole load, never a partial list.
+// `key` is the column the pages are ordered by (default id); the cursor is its
+// last value as a string. `sort` orders the result, e.g. bySubmittedAt.
+export async function loadAllByKeyset<T extends object>(
+  fetchPage: (after: string | null) => PromiseLike<Page<T>>,
+  { key = "id" as keyof T, sort }: { key?: keyof T; sort?: (a: T, b: T) => number } = {},
+): Promise<{ data: T[]; error: null } | { data: null; error: unknown }> {
   const data: T[] = [];
-  for (let afterId: string | null = null; ;) {
-    const { data: page, error } = await fetchPage(afterId);
+  for (let after: string | null = null; ;) {
+    const { data: page, error } = await fetchPage(after);
     if (error || !page) return { data: null, error: error ?? new Error("No data") };
-    if (page.length === 0) return { data: data.sort(bySubmittedAt), error: null };
+    if (page.length === 0) return { data: sort ? data.sort(sort) : data, error: null };
     data.push(...page);
-    afterId = page[page.length - 1].id;
+    after = String(page[page.length - 1][key]);
   }
 }
 

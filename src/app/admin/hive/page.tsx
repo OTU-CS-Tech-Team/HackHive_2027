@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { applicantStatus } from "@/components/ApplicationView";
+import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import { MAX_TOTAL, TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
 import {
   compareForReview,
+  creditsRunOut,
   displayTier,
+  gaveUp,
+  inBacklog,
+  isScoring,
   isTierFilter,
-  needsScoring,
   scoreTotal,
   type HiveScore,
   type TierChange,
@@ -34,7 +39,7 @@ export default function HivePage({ searchParams }: { searchParams: SearchParams 
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Hive Mind</h1>
         <p className="mt-1 text-sm text-neutral-600">
-          AI-suggested tiers from the short answers and hackathon count, so applicants are compared with their peers. Nobody is accepted
+          AI-suggested tiers from the short answers (a total out of 15), so applicants are compared with their peers. Nobody is accepted
           or rejected by the AI: every decision is yours.
         </p>
       </header>
@@ -54,43 +59,37 @@ type App = Pick<
 const PAGE_SIZE = 1000;
 const APP_COLUMNS = "id, email, first_name, last_name, preferred_name, university, age, status, decision, submitted_at, hackathons_count";
 
-// Keyset paging: Supabase returns at most 1000 rows per query.
-async function loadAll<T extends Record<string, unknown>>(
-  page: (after: string | null) => PromiseLike<{ data: T[] | null; error: unknown }>,
-  key: keyof T,
-) {
-  const rows: T[] = [];
-  for (let after: string | null = null; ;) {
-    const { data, error } = await page(after);
-    if (error || !data) return null;
-    if (!data.length) return rows;
-    rows.push(...data);
-    after = String(data[data.length - 1][key]);
-  }
-}
-
 async function loadHive(session: Session) {
   const [apps, scores, changes] = await Promise.all([
-    loadAll<App>((after) => {
+    loadAllByKeyset<App>((after) => {
       const query = session.from("applications").select(APP_COLUMNS).eq("status", "submitted").order("id").limit(PAGE_SIZE);
       return after ? query.gt("id", after) : query;
-    }, "id"),
-    loadAll<HiveScore>((after) => {
-      const query = session.from("hive_scores").select("*").order("application_id").limit(PAGE_SIZE);
-      return after ? query.gt("application_id", after) : query;
-    }, "application_id"),
-    loadAll<TierChange>((after) => {
+    }),
+    loadAllByKeyset<HiveScore>(
+      (after) => {
+        const query = session.from("hive_scores").select("*").order("application_id").limit(PAGE_SIZE);
+        return after ? query.gt("application_id", after) : query;
+      },
+      { key: "application_id" },
+    ),
+    loadAllByKeyset<TierChange>((after) => {
       const query = session.from("hive_tier_changes").select("*").order("id").limit(PAGE_SIZE);
       return after ? query.gt("id", Number(after)) : query;
-    }, "id"),
+    }),
   ]);
-  if (!apps || !scores || !changes) return null;
+  if (!apps.data || !scores.data || !changes.data) return null;
 
-  const adminIds = [...new Set(changes.map((change) => change.changed_by).filter((id): id is string => !!id))];
+  const adminIds = [...new Set(changes.data.map((change) => change.changed_by).filter((id): id is string => !!id))];
   const { data: admins } = adminIds.length
     ? await session.from("profiles").select("id, full_name, email").in("id", adminIds)
     : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
-  return { apps, scores, changes, admins: admins ?? [] };
+  return { apps: apps.data, scores: scores.data, changes: changes.data, admins: admins ?? [] };
+}
+
+// "Scoring now" depends on the time, so it's worked out per request.
+async function requestTime() {
+  await connection();
+  return Date.now();
 }
 
 const fullName = (app: App) => [app.preferred_name || app.first_name, app.last_name].filter(Boolean).join(" ");
@@ -112,6 +111,7 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
   const search = typeof q === "string" ? q.trim() : "";
 
   const loaded = await loadHive(session);
+  const now = await requestTime();
   if (!loaded) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
@@ -150,7 +150,9 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
   ) as Record<Tier, { total: number; accepted: number }>;
   const unscored = rows.filter((row) => !row.tier);
   const failed = unscored.filter((row) => row.score?.status === "failed").length;
-  const backlog = rows.filter((row) => needsScoring(row.score)).length;
+  const givenUp = rows.filter((row) => gaveUp(row.score)).length;
+  const backlog = rows.filter((row) => inBacklog(row.score, now)).length;
+  const outOfCredits = creditsRunOut(loaded.scores);
 
   const query = search.toLowerCase();
   const found = rows.filter(
@@ -163,6 +165,15 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <ReviewNotice>
+      {outOfCredits && (
+        <div role="alert" className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-semibold">OpenAI credits are used up</p>
+          <p className="mt-1">
+            Applications are still coming in and saving normally; they just aren&apos;t being scored. Top up the OpenAI account, then press
+            &ldquo;Score now&rdquo; to catch up.
+          </p>
+        </div>
+      )}
       <section aria-label="Tier summary" className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {TIERS.toReversed().map((tier) => (
           <Link
@@ -180,7 +191,10 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
         <div className="rounded-lg border border-neutral-200 p-4">
           <p className="text-sm font-medium">Unscored</p>
           <p className="mt-1 text-2xl font-bold tabular-nums">{unscored.length}</p>
-          <p className="mb-3 text-sm text-neutral-600 tabular-nums">{failed} failed</p>
+          <p className="mb-3 text-sm text-neutral-600 tabular-nums">
+            {failed} failed
+            {givenUp > 0 && ` · ${givenUp} gave up after 5 tries (use Re-score)`}
+          </p>
           <ScoreBacklog count={backlog} />
         </div>
       </section>
@@ -223,7 +237,7 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
       {shown.length ? (
         <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
           {shown.map((row) => (
-            <HiveRow key={row.id} row={row} history={historyById.get(row.id) ?? []} />
+            <HiveRow key={row.id} row={row} history={historyById.get(row.id) ?? []} scoring={isScoring(row.score, now)} />
           ))}
         </ul>
       ) : (
@@ -237,7 +251,15 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
 
 const DECISION_LABELS = { applied: "Pending", accepted: "Accepted", waitlisted: "Waitlisted", rejected: "Rejected", draft: "Draft" } as const;
 
-function HiveRow({ row, history }: { row: App & { score?: HiveScore; tier: Tier | null }; history: HistoryEntry[] }) {
+function HiveRow({
+  row,
+  history,
+  scoring,
+}: {
+  row: App & { score?: HiveScore; tier: Tier | null };
+  history: HistoryEntry[];
+  scoring: boolean;
+}) {
   const name = fullName(row) || row.email;
   const status = applicantStatus(row);
   const { score } = row;
@@ -279,7 +301,10 @@ function HiveRow({ row, history }: { row: App & { score?: HiveScore; tier: Tier 
         </summary>
         <div className="mt-3 space-y-3">
           <HivePanel
+            // A fresh panel whenever the score changes, so "Move tier" starts from the new suggestion.
+            key={score?.updated_at ?? "unscored"}
             id={row.id}
+            scoring={scoring}
             age={row.age}
             score={score}
             history={history}

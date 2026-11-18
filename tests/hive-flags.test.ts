@@ -30,18 +30,18 @@ describe('normalizePhone', () => {
 });
 
 describe('codeFlags', () => {
-  const me = { id: 'a', age: 20, phone: '905-555-0100' };
+  const me = { age: 20 };
 
   it('flags nothing for an adult with a unique phone', () => {
-    expect(codeFlags(me, [me, { id: 'b', phone: '905-555-0101' }])).toEqual([]);
+    expect(codeFlags(me, false)).toEqual([]);
   });
 
   it('flags minors', () => {
-    expect(codeFlags({ ...me, age: 17 }, [])).toEqual(['minor']);
+    expect(codeFlags({ age: 17 }, false)).toEqual(['minor']);
   });
 
-  it('flags another submitted application with the same phone, not itself', () => {
-    expect(codeFlags(me, [me])).toEqual([]);
-    expect(codeFlags(me, [me, { id: 'b', phone: '(905) 555 0100' }])).toEqual(['possible_duplicate']);
+  it('flags a duplicate phone', () => {
+    expect(codeFlags(me, true)).toEqual(['possible_duplicate']);
+    expect(codeFlags({ age: 16 }, true)).toEqual(['minor', 'possible_duplicate']);
   });
 });

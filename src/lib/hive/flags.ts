@@ -18,21 +18,19 @@ export const isMinor = (age: number | null | undefined) => typeof age === "numbe
 
 export const minorNote = (age: number) => `Minor (age ${age}): guardian form and emergency contact required`;
 
-/** Digits only, and the last 10 so "+1 (905) 555-0100" matches "905-555-0100". Too short to compare → null. */
+/**
+ * Digits only, and the last 10 so "+1 (905) 555-0100" matches "905-555-0100". Too short to compare → null.
+ * Keep in sync with applications.phone_digits (supabase/migrations/20261120000000_hive_scoring_lock.sql).
+ */
 export function normalizePhone(phone: string | null | undefined): string | null {
   const digits = (phone ?? "").replace(/\D/g, "");
   return digits.length >= 7 ? digits.slice(-10) : null;
 }
 
-export function codeFlags(
-  app: { id: string; age: number | null; phone: string | null },
-  others: { id: string; phone: string | null }[],
-): CodeFlag[] {
+/** `duplicate`: another submitted application has the same normalized phone. */
+export function codeFlags(app: { age: number | null }, duplicate: boolean): CodeFlag[] {
   const flags: CodeFlag[] = [];
   if (isMinor(app.age)) flags.push("minor");
-  const phone = normalizePhone(app.phone);
-  if (phone && others.some((other) => other.id !== app.id && normalizePhone(other.phone) === phone)) {
-    flags.push("possible_duplicate");
-  }
+  if (duplicate) flags.push("possible_duplicate");
   return flags;
 }
