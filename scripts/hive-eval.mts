@@ -21,14 +21,14 @@ const Case = z.object({
   proud: z.string(),
   hack: z.string(),
   anything_else: z.string().default(""),
-  hackathons: z.number().int().min(0).default(0),
+  hackathons: z.number().int().min(0).default(0), // optional context only; tiers ignore it
   expected: z.object({
     built_it: z.boolean(),
     shipped: z.boolean(),
     impact: z.boolean(),
     beyond_tutorial: z.boolean(),
-    creativity: rating.optional(),
-    quality: rating.optional(),
+    creativity: rating,
+    quality: rating,
     tier: z.enum(TIERS).optional(),
   }),
 });
@@ -48,13 +48,14 @@ for (const c of cases) {
   try {
     const got = HiveGradeSchema.parse(JSON.parse(await grade({ proud: c.proud, hack: c.hack, anything_else: c.anything_else })));
     const experience = experienceScore({ builtIt: got.built_it, shipped: got.shipped, impact: got.impact, beyondTutorial: got.beyond_tutorial });
-    const tier = suggestTier(experience, c.hackathons);
+    const tier = suggestTier({ experience, creativity: got.creativity, quality: got.quality });
     const expectedTier =
       c.expected.tier ??
-      suggestTier(
-        experienceScore({ builtIt: c.expected.built_it, shipped: c.expected.shipped, impact: c.expected.impact, beyondTutorial: c.expected.beyond_tutorial }),
-        c.hackathons,
-      );
+      suggestTier({
+        experience: experienceScore({ builtIt: c.expected.built_it, shipped: c.expected.shipped, impact: c.expected.impact, beyondTutorial: c.expected.beyond_tutorial }),
+        creativity: c.expected.creativity,
+        quality: c.expected.quality,
+      });
 
     const wrong: string[] = [];
     for (const check of CHECKS) {
@@ -64,8 +65,7 @@ for (const c of cases) {
     if (tier === expectedTier) agree.tier++;
     else wrong.push(`tier AI=${tier} human=${expectedTier}`);
     for (const key of ["creativity", "quality"] as const) {
-      const expected = c.expected[key];
-      if (expected) ratingGap[key].push(Math.abs(got[key] - expected));
+      ratingGap[key].push(Math.abs(got[key] - c.expected[key]));
     }
     if (wrong.length) misses.push(`  ${c.id}: ${wrong.join(", ")}\n    AI: ${got.rationale}`);
     process.stdout.write(wrong.length ? "x" : ".");

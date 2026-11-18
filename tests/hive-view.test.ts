@@ -32,18 +32,20 @@ describe('needsScoring', () => {
 });
 
 describe('compareForReview', () => {
-  it('orders by tier, then quality, creativity and submission time', () => {
+  it('orders by tier, then total, quality, hackathons and submission time', () => {
+    const w = (quality: number, creativity: number) => score({ experience: 3, quality, creativity });
     const rows = [
       { id: 'unscored', tier: null, submitted_at: '2026-11-01' },
-      { id: 'larva', tier: 'larva' as const, submitted_at: '2026-11-01', score: score({ quality: 5 }) },
-      { id: 'worker-late', tier: 'worker' as const, submitted_at: '2026-11-05', score: score({ quality: 4, creativity: 2 }) },
-      { id: 'worker-early', tier: 'worker' as const, submitted_at: '2026-11-02', score: score({ quality: 4, creativity: 2 }) },
-      { id: 'worker-creative', tier: 'worker' as const, submitted_at: '2026-11-09', score: score({ quality: 4, creativity: 5 }) },
-      { id: 'worker-best', tier: 'worker' as const, submitted_at: '2026-11-09', score: score({ quality: 5, creativity: 1 }) },
-      { id: 'queen', tier: 'queen' as const, submitted_at: '2026-11-09', score: score({ quality: 1 }) },
+      { id: 'larva', tier: 'larva' as const, submitted_at: '2026-11-01', score: w(5, 5) },
+      { id: 'worker-late', tier: 'worker' as const, submitted_at: '2026-11-05', hackathons_count: 0, score: w(3, 2) },
+      { id: 'worker-early', tier: 'worker' as const, submitted_at: '2026-11-02', hackathons_count: 0, score: w(3, 2) },
+      { id: 'worker-hacker', tier: 'worker' as const, submitted_at: '2026-11-09', hackathons_count: 4, score: w(3, 2) },
+      { id: 'worker-quality', tier: 'worker' as const, submitted_at: '2026-11-09', score: w(4, 1) },
+      { id: 'worker-best', tier: 'worker' as const, submitted_at: '2026-11-09', score: w(4, 4) },
+      { id: 'queen', tier: 'queen' as const, submitted_at: '2026-11-09', score: w(1, 1) },
     ];
     expect([...rows].sort(compareForReview).map((row) => row.id)).toEqual([
-      'queen', 'worker-best', 'worker-creative', 'worker-early', 'worker-late', 'larva', 'unscored',
+      'queen', 'worker-best', 'worker-quality', 'worker-hacker', 'worker-early', 'worker-late', 'larva', 'unscored',
     ]);
   });
 });

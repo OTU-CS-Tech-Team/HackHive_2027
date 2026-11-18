@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { experienceScore, suggestTier, type ExperienceChecks, type Rating } from '@/lib/hive/tier';
+import { experienceScore, suggestTier, totalScore, type ExperienceChecks } from '@/lib/hive/tier';
 
 const checks = (passed: number): ExperienceChecks => {
   const [builtIt, shipped, impact, beyondTutorial] = [0, 1, 2, 3].map((i) => i < passed);
@@ -22,30 +22,41 @@ describe('experienceScore', () => {
   });
 });
 
+describe('totalScore', () => {
+  it('adds the three ratings, out of 15', () => {
+    expect(totalScore({ experience: 1, creativity: 1, quality: 1 })).toBe(3);
+    expect(totalScore({ experience: 3, creativity: 4, quality: 3 })).toBe(10);
+    expect(totalScore({ experience: 5, creativity: 5, quality: 5 })).toBe(15);
+  });
+});
+
 describe('suggestTier', () => {
-  it.each<[Rating, number | null, string]>([
-    // Larva: 0-1 hackathons and experience 1-2
-    [1, 0, 'larva'],
-    [2, 1, 'larva'],
-    [2, null, 'larva'],
-    // Worker Bee: experience 3, or 2-4 hackathons
-    [3, 0, 'worker'],
-    [1, 2, 'worker'],
-    [2, 4, 'worker'],
-    [3, 4, 'worker'],
-    // Queen Bee: experience 4-5, or 5+ hackathons
-    [4, 0, 'queen'],
-    [5, null, 'queen'],
-    [1, 5, 'queen'],
-    [2, 30, 'queen'],
-  ])('experience %i with %s hackathons is %s', (experience, hackathons, tier) => {
-    expect(suggestTier(experience, hackathons)).toBe(tier);
+  const tier = (experience: number, creativity: number, quality: number) =>
+    suggestTier({ experience, creativity, quality });
+
+  it.each([
+    // Larva: 3-7
+    [1, 1, 1, 'larva'],
+    [3, 2, 2, 'larva'],
+    // Worker Bee: 8-11
+    [3, 3, 2, 'worker'],
+    [3, 4, 4, 'worker'],
+    // Queen Bee: 12-15
+    [4, 4, 4, 'queen'],
+    [5, 5, 5, 'queen'],
+  ])('experience %i, creativity %i, quality %i is %s', (experience, creativity, quality, expected) => {
+    expect(tier(experience, creativity, quality)).toBe(expected);
   });
 
-  it('puts someone matching two rules in the higher tier', () => {
-    // Worker by experience, Queen by hackathons.
-    expect(suggestTier(3, 6)).toBe('queen');
-    // Worker by hackathons, Queen by experience.
-    expect(suggestTier(5, 3)).toBe('queen');
+  it('puts the cutoffs at exactly 8 and 12', () => {
+    expect(tier(2, 3, 2)).toBe('larva'); // 7
+    expect(tier(2, 3, 3)).toBe('worker'); // 8
+    expect(tier(4, 4, 3)).toBe('worker'); // 11
+    expect(tier(4, 4, 4)).toBe('queen'); // 12
+  });
+
+  it('ignores the hackathon count: low answers stay Larva', () => {
+    // The real case: 1/5 on everything with 5 hackathons used to be Queen Bee.
+    expect(tier(1, 1, 1)).toBe('larva');
   });
 });

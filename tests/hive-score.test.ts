@@ -102,13 +102,13 @@ describe('scoreApplication', () => {
     const { db, tables } = fakeDb({ applications: [applicant(1, { hackathons_count: 1 })] });
     const result = await scoreApplication(id(1), deps(db, async () => reply()));
 
-    expect(result).toEqual({ ok: true, tier: 'queen' }); // 3 checks → experience 4 → Queen
+    expect(result).toEqual({ ok: true, tier: 'worker' }); // experience 4 + creativity 4 + quality 3 = 11 → Worker
     expect(tables.hive_scores[0]).toMatchObject({
       status: 'scored',
       experience: 4,
       creativity: 4,
       quality: 3,
-      suggested_tier: 'queen',
+      suggested_tier: 'worker',
       model: 'test-model',
       prompt_version: PROMPT_VERSION,
       attempts: 1,

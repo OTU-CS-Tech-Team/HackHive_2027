@@ -1,5 +1,5 @@
 import { PROMPT_VERSION } from "./prompt";
-import { TIERS, type Tier } from "./tier";
+import { TIERS, totalScore, type Tier } from "./tier";
 
 // How the admin pages read hive_scores rows. Pure, so the ordering is tested.
 
@@ -55,15 +55,33 @@ export const isTierFilter = (value: unknown): value is TierFilter =>
 
 const TIER_RANK: Record<Tier, number> = { queen: 0, worker: 1, larva: 2 };
 
-type Sortable = { submitted_at: string | null; id: string; tier: Tier | null; score?: HiveScore };
+type Sortable = {
+  submitted_at: string | null;
+  id: string;
+  tier: Tier | null;
+  hackathons_count?: number | null;
+  score?: HiveScore;
+};
 
-/** Highest tier first, then best answers (quality, then creativity), then oldest submission. */
+/** Out of 15, or null until scored. */
+export function scoreTotal(score: HiveScore | undefined): number | null {
+  if (score?.status !== "scored" || score.experience === null || score.creativity === null || score.quality === null) {
+    return null;
+  }
+  return totalScore({ experience: score.experience, creativity: score.creativity, quality: score.quality });
+}
+
+/**
+ * Highest tier first, then highest total /15, then quality, then more
+ * hackathons (tie-break only), then oldest submission.
+ */
 export function compareForReview(a: Sortable, b: Sortable) {
   const rank = (row: Sortable) => (row.tier ? TIER_RANK[row.tier] : 3);
   return (
     rank(a) - rank(b) ||
+    (scoreTotal(b.score) ?? 0) - (scoreTotal(a.score) ?? 0) ||
     (b.score?.quality ?? 0) - (a.score?.quality ?? 0) ||
-    (b.score?.creativity ?? 0) - (a.score?.creativity ?? 0) ||
+    (b.hackathons_count ?? 0) - (a.hackathons_count ?? 0) ||
     (a.submitted_at ?? "").localeCompare(b.submitted_at ?? "") ||
     a.id.localeCompare(b.id)
   );

@@ -78,7 +78,7 @@ export async function scoreApplication(
       impact: graded.impact,
       beyondTutorial: graded.beyond_tutorial,
     });
-    const tier = suggestTier(experience, app.hackathons_count);
+    const tier = suggestTier({ experience, creativity: graded.creativity, quality: graded.quality });
     const { error } = await db
       .from("hive_scores")
       .update({

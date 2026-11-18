@@ -4,12 +4,13 @@ import { Suspense } from "react";
 import { applicantStatus } from "@/components/ApplicationView";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
-import { TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
+import { MAX_TOTAL, TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
 import {
   compareForReview,
   displayTier,
   isTierFilter,
   needsScoring,
+  scoreTotal,
   type HiveScore,
   type TierChange,
   type TierFilter,
@@ -260,7 +261,7 @@ function HiveRow({ row, history }: { row: App & { score?: HiveScore; tier: Tier 
           </p>
           {score?.status === "scored" && (
             <p className="mt-1 text-sm">
-              Exp {score.experience}/5 · Creativity {score.creativity}/5 · Quality {score.quality}/5
+              <strong>{scoreTotal(score)}/{MAX_TOTAL}</strong> (Exp {score.experience}/5 · Creativity {score.creativity}/5 · Quality {score.quality}/5)
             </p>
           )}
           {score && score.flags.length > 0 && (

@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { minorNote } from "@/lib/hive/flags";
-import { TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
-import type { HiveScore } from "@/lib/hive/view";
+import { MAX_TOTAL, TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
+import { scoreTotal, type HiveScore } from "@/lib/hive/view";
 import { overrideTier, rescoreApplicant, type ActionResult } from "../actions";
 
 export type HistoryEntry = { id: number; from: Tier | null; to: Tier | null; reason: string | null; by: string; at: string };
@@ -86,7 +86,7 @@ export function HivePanel({
             ))}
           </ul>
           <p className="mt-3 text-sm">
-            <strong>Experience {score.experience}/5</strong> · Creativity {score.creativity}/5 · Quality {score.quality}/5 · Suggested{" "}
+            <strong>Total {scoreTotal(score)}/{MAX_TOTAL}</strong> · Experience {score.experience}/5 · Creativity {score.creativity}/5 · Quality {score.quality}/5 · Suggested{" "}
             {tierName(score.suggested_tier)}
           </p>
           {score.rationale && <blockquote className="mt-2 border-l-2 border-amber-300 pl-3 text-sm text-neutral-800">{score.rationale}</blockquote>}

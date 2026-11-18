@@ -1,6 +1,7 @@
-// Hive Mind tiers. The AI answers four yes/no checks and gives ratings; turning
-// those into an experience score and a tier is plain code here, so the rule is
-// consistent, testable, and can be retuned without re-scoring anyone.
+// Hive Mind tiers. The AI answers four yes/no checks and gives two ratings;
+// turning those into an experience score, a total out of 15 and a tier is plain
+// code here, so the rule is consistent, testable, and can be retuned without
+// re-scoring anyone.
 
 export const TIERS = ["larva", "worker", "queen"] as const;
 export type Tier = (typeof TIERS)[number];
@@ -33,17 +34,25 @@ export function experienceScore(checks: ExperienceChecks): Rating {
   return (1 + passed) as Rating;
 }
 
+export type Ratings = { experience: number; creativity: number; quality: number };
+
+/** Experience + creativity + quality, out of 15 (each is 1-5, so 3-15). */
+export const totalScore = ({ experience, creativity, quality }: Ratings) => experience + creativity + quality;
+export const MAX_TOTAL = 15;
+
 /**
- * Starting rule from the selection plan; the highest matching tier wins.
- *   Queen Bee   experience 4-5, or 5+ hackathons
- *   Worker Bee  experience 3,   or 2-4 hackathons
- *   Larva       everything else (0-1 hackathons and experience 1-2)
- * A missing hackathon count counts as 0.
+ * Lowest total for each tier, tuned on the first 55 applicants (about 20% Larva,
+ * 58% Worker Bee, 22% Queen Bee). Keep in sync with the SQL in
+ * supabase/migrations/20261119000000_hive_tier_by_total.sql if they change.
+ * The self-reported hackathon count is deliberately left out: anyone can type
+ * "5", so it only breaks ties within a tier.
  */
-export function suggestTier(experience: Rating, hackathons: number | null | undefined): Tier {
-  const count = hackathons ?? 0;
-  if (experience >= 4 || count >= 5) return "queen";
-  if (experience === 3 || count >= 2) return "worker";
+export const TIER_CUTOFFS = { queen: 12, worker: 8 } as const;
+
+export function suggestTier(ratings: Ratings): Tier {
+  const total = totalScore(ratings);
+  if (total >= TIER_CUTOFFS.queen) return "queen";
+  if (total >= TIER_CUTOFFS.worker) return "worker";
   return "larva";
 }
 
