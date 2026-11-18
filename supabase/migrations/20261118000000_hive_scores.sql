@@ -25,7 +25,8 @@ create table if not exists public.hive_scores (
   beyond_tutorial boolean,
   -- 1 + checks passed, worked out in code (src/lib/hive/tier.ts), not by the AI.
   experience smallint check (experience between 1 and 5),
-  -- AI ratings, 1-5: the "hacked something" answer, and specificity/clarity of both.
+  -- AI ratings, 1-5, across both short answers: creativity/resourcefulness, and
+  -- quality (specific and clear vs vague). These order people within a tier only.
   creativity smallint check (creativity between 1 and 5),
   quality smallint check (quality between 1 and 5),
   rationale text, -- the AI's short explanation, shown to admins
