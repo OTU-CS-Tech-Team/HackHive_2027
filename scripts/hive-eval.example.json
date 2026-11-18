@@ -1,0 +1,24 @@
+[
+  {
+    "id": "example-queen",
+    "proud": "I wrote the entire backend (Go + Postgres) for my student club's event check-in app. We launched it in September and 400 students have used it at 12 events; it cut check-in lines from 20 minutes to about 3.",
+    "hack": "Our residence printer only accepted USB, so I flashed an old router with OpenWrt and turned it into a print server the whole floor uses.",
+    "anything_else": "",
+    "hackathons": 1,
+    "expected": { "built_it": true, "shipped": true, "impact": true, "beyond_tutorial": true, "creativity": 4, "quality": 5 }
+  },
+  {
+    "id": "example-worker",
+    "proud": "For my data structures course I built a sudoku solver in Java and added a GUI and a puzzle generator that weren't required.",
+    "hack": "I noticed the campus cafe's loyalty card didn't check dates, so I used it to plan my coffee runs around double-stamp days.",
+    "hackathons": 0,
+    "expected": { "built_it": true, "shipped": true, "impact": false, "beyond_tutorial": true, "creativity": 3, "quality": 3 }
+  },
+  {
+    "id": "example-larva",
+    "proud": "I followed a YouTube tutorial to make a to-do list website. I'm still working on it.",
+    "hack": "I used a student discount.",
+    "hackathons": 0,
+    "expected": { "built_it": true, "shipped": false, "impact": false, "beyond_tutorial": false, "creativity": 1, "quality": 1, "tier": "larva" }
+  }
+]

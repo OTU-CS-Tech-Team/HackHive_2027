@@ -130,6 +130,10 @@ async function ApplyPageContent() {
   );
 }
 
+// Submitting grades the application with the Hive Mind after the response (after()),
+// which runs within this page's time limit.
+export const maxDuration = 60;
+
 export default function ApplyPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>

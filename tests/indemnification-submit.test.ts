@@ -6,6 +6,7 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/server', () => ({ after: (task: () => unknown) => task() }));
 vi.mock('@/lib/email', () => ({ sendApplicationReceivedEmail: vi.fn() }));
+vi.mock('@/lib/hive/openai', () => ({ scoreInBackground: vi.fn() }));
 vi.mock('@/lib/auth/helpers', () => ({ getVerifiedUser: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(), createServiceClient: vi.fn() }));
 vi.mock('@/lib/indemnification', async (importOriginal) => {
