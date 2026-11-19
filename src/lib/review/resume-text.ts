@@ -100,6 +100,9 @@ const isBullet = (line: string) => BULLET.test(line);
 const hasDate = (line: string | undefined) => !!line && DATE.test(line);
 const startsUpper = (line: string) => /^[\p{Lu}\p{N}]/u.test(line);
 
+/** A short line that's mostly a date ("May 2025 - Aug 2025"), shown under an entry's title rather than as a detail. */
+export const isDateLine = (line: string) => line.length <= 40 && hasDate(line);
+
 /**
  * Splits a section's lines into separate jobs/projects. A resume entry is
  * usually a title line (often with or next to a date) followed by bullets, so

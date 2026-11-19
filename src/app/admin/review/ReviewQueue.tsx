@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useState, useTransition, type ReactNode } from "react";
 import { TIERS, TIER_EMOJI, TIER_LABELS, type Tier } from "@/lib/hive/tier";
 import { VOTE_LABELS, formatApplicantNo, type Vote } from "@/lib/review/pools";
 import { addNote, castVote, loadNotes, moveTier, type NoteView, type ReviewResult } from "./actions";
@@ -12,17 +12,30 @@ import { addNote, castVote, loadNotes, moveTier, type NoteView, type ReviewResul
 
 const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
 const base = `inline-flex min-h-11 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${ring}`;
-const field = `min-h-11 rounded-md border border-neutral-300 px-3 py-2 text-base lg:text-sm ${ring}`;
+const field = `min-h-11 rounded-md border border-hive-line bg-white px-3 py-2 text-base lg:text-sm ${ring}`;
+const quiet = "border-hive-line bg-white text-hive-ink hover:bg-hive-panel";
+const kbd = "ml-2 hidden rounded border px-1.5 text-xs font-semibold lg:inline";
 
-const VOTE_BUTTONS: { vote: Vote; label: string; className: string }[] = [
-  { vote: "yes", label: "Yes", className: "border-green-700 bg-green-700 text-white hover:bg-green-800" },
-  { vote: "no", label: "No", className: "border-red-300 bg-white text-red-700 hover:bg-red-50" },
-  { vote: "skip", label: "I know this person", className: "border-neutral-300 bg-white hover:bg-neutral-100" },
-];
+/** Y and N vote from the keyboard, unless you're typing somewhere. */
+const KEYS: Record<string, Vote> = { y: "yes", n: "no" };
+const isTyping = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
 type Voted = { applicantNo: number; vote: Vote };
 
-export function ReviewQueue({ tier, applicantNo, children }: { tier: Tier; applicantNo: number | null; children: ReactNode }) {
+export function ReviewQueue({
+  tier,
+  applicantNo,
+  facts,
+  children,
+}: {
+  tier: Tier;
+  applicantNo: number | null;
+  /** Number, scores and flags, shown in the side rail. */
+  facts: ReactNode;
+  /** The answers and resume. */
+  children: ReactNode;
+}) {
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState<ReviewResult | null>(null);
   const [voted, setVoted] = useState<Voted | null>(null);
@@ -49,6 +62,18 @@ export function ReviewQueue({ tier, applicantNo, children }: { tier: Tier; appli
     );
   };
 
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+    const choice = KEYS[event.key.toLowerCase()];
+    if (!choice || pending || applicantNo === null || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return;
+    event.preventDefault();
+    vote(choice);
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onKey(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div role="status" aria-live="polite">
@@ -64,40 +89,56 @@ export function ReviewQueue({ tier, applicantNo, children }: { tier: Tier; appli
       {voted && <JustVoted key={voted.applicantNo} voted={voted} />}
 
       {applicantNo === null ? (
-        <div className="rounded-lg border border-neutral-200 p-6 text-center">
-          <p className="font-semibold">Nothing left here you can review.</p>
-          <p className="mt-1 text-sm text-neutral-600">
-            Everyone in {TIER_EMOJI[tier]} {TIER_LABELS[tier]} is decided, voted on by you, or open for another admin right now.
+        <div className="rounded-xl bg-hive-panel p-8 text-center ring-1 ring-hive-line">
+          <p className="font-display text-lg font-semibold text-hive-ink">You&apos;re all caught up in this tier.</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-hive-muted">
+            Everyone left in {TIER_EMOJI[tier]} {TIER_LABELS[tier]} is decided, already has your vote, or is open for another admin
+            right now. Try another tier.
           </p>
-          <Link href="/admin/review" className={`mt-4 ${base} border-neutral-300 hover:bg-neutral-100`}>
+          <Link href="/admin/review" className={`mt-5 ${base} ${quiet}`}>
             Back to Reviews
           </Link>
         </div>
       ) : (
-        <>
-          <div className={pending ? "opacity-60 transition-opacity" : undefined}>{children}</div>
-          <MoveTier key={applicantNo} applicantNo={applicantNo} tier={tier} pending={pending} run={run} />
-          <section aria-label="Notes" className="rounded-lg border border-dashed border-neutral-300 p-4 text-sm text-neutral-600">
-            Notes from other admins are hidden until you vote, so they can&apos;t sway you.
-          </section>
-          {/* Stays on screen while scrolling the card. */}
-          <div className="sticky bottom-0 z-10 -mx-4 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-auto text-sm font-medium tabular-nums">{formatApplicantNo(applicantNo)}</span>
-              {VOTE_BUTTONS.map((button) => (
-                <button
-                  key={button.vote}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => vote(button.vote)}
-                  className={`${base} ${button.className}`}
-                >
-                  {button.label}
-                </button>
-              ))}
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 pb-28 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-12 lg:pb-0">
+          <aside aria-label="Applicant summary" className="lg:order-2">
+            <div className="space-y-4 lg:sticky lg:top-6">
+              <div className="rounded-xl bg-white p-5 ring-1 ring-hive-line">{facts}</div>
+
+              {/* Pinned to the bottom on phones; part of the rail on wide screens. */}
+              <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hive-line bg-white/95 px-4 py-3 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => vote("yes")}
+                    className={`${base} border-green-800 bg-green-700 text-white hover:bg-green-800`}
+                  >
+                    Yes<kbd className={`${kbd} border-white/40`}>Y</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => vote("no")}
+                    className={`${base} border-red-300 bg-white text-red-700 hover:bg-red-50`}
+                  >
+                    No<kbd className={`${kbd} border-red-200`}>N</kbd>
+                  </button>
+                  <button type="button" disabled={pending} onClick={() => vote("skip")} className={`col-span-2 ${base} ${quiet}`}>
+                    I know this person
+                  </button>
+                </div>
+              </div>
+
+              <MoveTier key={applicantNo} applicantNo={applicantNo} tier={tier} pending={pending} run={run} />
+              <p className="px-1 text-xs leading-relaxed text-hive-muted">
+                Other admins&apos; notes stay hidden until you vote, so they can&apos;t sway you.
+              </p>
             </div>
-          </div>
-        </>
+          </aside>
+
+          <div className={`lg:order-1 ${pending ? "opacity-60 transition-opacity motion-reduce:transition-none" : ""}`}>{children}</div>
+        </div>
       )}
     </div>
   );
@@ -117,10 +158,12 @@ function MoveTier({
   const [target, setTarget] = useState<Tier | "">("");
   const [reason, setReason] = useState("");
   return (
-    <details className="rounded-lg border border-neutral-200">
-      <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-medium">Move tier</summary>
+    <details className="rounded-xl bg-white ring-1 ring-hive-line">
+      <summary className={`flex min-h-11 cursor-pointer items-center rounded-xl px-4 text-sm font-medium text-hive-ink ${ring}`}>
+        Move to a different tier
+      </summary>
       <form
-        className="flex flex-col gap-2 border-t border-neutral-200 p-4 lg:flex-row lg:items-end"
+        className="flex flex-col gap-3 border-t border-hive-line p-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (target) run(() => moveTier(applicantNo, target, reason));
@@ -139,7 +182,7 @@ function MoveTier({
             ))}
           </select>
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm font-medium">
+        <label className="flex flex-col gap-1 text-sm font-medium">
           Reason (required)
           <input
             value={reason}
@@ -150,8 +193,8 @@ function MoveTier({
             className={field}
           />
         </label>
-        <button type="submit" disabled={pending || !target || !reason.trim()} className={`${base} border-neutral-300 hover:bg-neutral-100`}>
-          Move
+        <button type="submit" disabled={pending || !target || !reason.trim()} className={`${base} ${quiet}`}>
+          Move tier
         </button>
       </form>
     </details>
@@ -191,26 +234,29 @@ function JustVoted({ voted }: { voted: Voted }) {
 
   return (
     <details
-      className="rounded-lg border border-neutral-200 bg-neutral-50"
+      className="rounded-xl bg-hive-honey-soft ring-1 ring-hive-honey/40"
       onToggle={(event) => {
         if ((event.currentTarget as HTMLDetailsElement).open && notes === null) refresh();
       }}
     >
-      <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-medium">
-        You voted {VOTE_LABELS[voted.vote]} on {formatApplicantNo(voted.applicantNo)} · Notes
+      <summary className={`flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 rounded-xl px-4 text-sm text-hive-ink ${ring}`}>
+        <span>
+          You voted <strong>{VOTE_LABELS[voted.vote]}</strong> on {formatApplicantNo(voted.applicantNo)}.
+        </span>
+        <span className="font-medium underline underline-offset-2">Read or add notes</span>
       </summary>
-      <div className="space-y-3 border-t border-neutral-200 p-4">
+      <div className="space-y-3 border-t border-hive-honey/40 p-4">
         {notes === null ? (
-          <p className="text-sm text-neutral-600">{pending ? "Loading notes…" : message}</p>
+          <p className="text-sm text-hive-muted">{pending ? "Loading notes…" : message}</p>
         ) : notes.length === 0 ? (
-          <p className="text-sm text-neutral-600">No notes yet.</p>
+          <p className="text-sm text-hive-muted">No notes yet.</p>
         ) : (
           <ul className="space-y-2">
             {notes.map((note) => (
               <li key={note.id} className="text-sm">
                 <p className="break-words whitespace-pre-wrap">{note.body}</p>
-                <p className="text-xs text-neutral-600">
-                  {note.author} · {note.at}
+                <p className="text-xs text-hive-muted">
+                  {note.author}, {note.at}
                 </p>
               </li>
             ))}
@@ -228,7 +274,7 @@ function JustVoted({ voted }: { voted: Voted }) {
             <textarea value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={2000} rows={2} className={field} />
           </label>
           <div>
-            <button type="submit" disabled={pending || !draft.trim()} className={`${base} border-neutral-300 bg-white hover:bg-neutral-100`}>
+            <button type="submit" disabled={pending || !draft.trim()} className={`${base} ${quiet}`}>
               Save note
             </button>
           </div>

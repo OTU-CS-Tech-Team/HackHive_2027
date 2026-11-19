@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { TIERS, TIER_EMOJI, TIER_LABELS, isTier } from "@/lib/hive/tier";
 import { claimNextReview, loadBlindCard } from "@/lib/review/blind";
-import { BlindCardView } from "../BlindCardView";
+import { BlindFacts, BlindReading } from "../BlindCardView";
 import { ReviewQueue } from "../ReviewQueue";
 
 // The blind queue: one applicant at a time. Only the BlindCard (answers, resume sections,
@@ -21,14 +21,14 @@ type Params = Promise<{ tier: string }>;
 
 export default function QueuePage({ params }: { params: Params }) {
   return (
-    <main className="mx-auto max-w-3xl">
+    <main className="mx-auto max-w-6xl">
       <Link
         href="/admin/review"
-        className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+        className="inline-flex min-h-11 items-center text-sm font-medium text-hive-muted hover:text-hive-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
       >
         ← Reviews
       </Link>
-      <Suspense fallback={<p role="status" className="mt-4 rounded-lg border border-neutral-200 p-5">Finding your next applicant…</p>}>
+      <Suspense fallback={<p role="status" className="mt-4 rounded-xl bg-hive-panel p-5 text-hive-muted ring-1 ring-hive-line">Finding your next applicant…</p>}>
         <Queue params={params} />
       </Suspense>
     </main>
@@ -55,11 +55,11 @@ async function Queue({ params }: { params: Params }) {
 
   return (
     <>
-      <h1 className="mt-2 mb-4 text-2xl font-bold tracking-tight">
+      <h1 className="mt-1 mb-6 font-display text-2xl font-bold tracking-tight text-hive-ink sm:text-3xl">
         <span aria-hidden>{TIER_EMOJI[tier]}</span> {TIER_LABELS[tier]}
       </h1>
-      <ReviewQueue tier={tier} applicantNo={card?.applicantNo ?? null}>
-        {card && <BlindCardView card={card} />}
+      <ReviewQueue tier={tier} applicantNo={card?.applicantNo ?? null} facts={card && <BlindFacts card={card} />}>
+        {card && <BlindReading card={card} />}
       </ReviewQueue>
     </>
   );
