@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import gsap from "gsap";
 import { fallbackSrc, srcSet, type AboutProject } from "@/lib/about";
-import { AsciiPhoto } from "./AsciiPhoto";
 import styles from "./about.module.css";
 
 // #3 leans the most.
 const TILTS = [-2.5, 1.75, 5.5];
 const FLY_S = 0.32;
-const STAGGER_MS = 150;
+const THUMB_SIZES = "(min-width: 1024px) 20rem, (min-width: 640px) 40vw, 90vw";
 
 type Phase = "closed" | "flying" | "open" | "closing";
 
@@ -54,17 +53,14 @@ function GithubIcon() {
  */
 export function Polaroids({
   projects,
-  levels,
+  sequenced = false,
 }: {
   projects: readonly AboutProject[];
-  /** Scroll-driven develop for each Polaroid (ProjectsSequence): 0 = ASCII, 1 = photo. */
-  levels?: readonly (() => number)[];
+  /** Played in by scroll (ProjectsSequence): each slot is a sequence item that flies in on its turn. */
+  sequenced?: boolean;
 }) {
   const [active, setActive] = useState<number | null>(null);
   const [phase, setPhase] = useState<Phase>("closed");
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [seen, setSeen] = useState(false);
-  const listRef = useRef<HTMLOListElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
@@ -155,22 +151,6 @@ export function Polaroids({
       .fromTo(scrim, { opacity: 0 }, { opacity: 1, duration: FLY_S, ease: "power1.out" }, 0);
   }, [active, phase, slotOffset]);
 
-  // Each Polaroid develops once, the first time the row scrolls into view (touch has no hover).
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        setSeen(true);
-      },
-      { threshold: 0.35 },
-    );
-    observer.observe(list);
-    return () => observer.disconnect();
-  }, []);
-
   useEffect(() => () => {
     tween.current?.kill();
     document.documentElement.style.removeProperty("overflow");
@@ -184,14 +164,14 @@ export function Polaroids({
 
   return (
     <>
-      <ol ref={listRef} className={styles.polaroids}>
+      <ol className={styles.polaroids}>
         {projects.map((p, i) => (
           <li
             key={p.id}
-            className={levels ? `${styles.slot} ${styles.seqItem}` : styles.slot}
+            className={sequenced ? `${styles.slot} ${styles.seqItem}` : styles.slot}
             data-step={i}
-            data-seq={levels ? String(i) : undefined}
-            data-state={levels ? "hidden" : undefined}
+            data-seq={sequenced ? String(i) : undefined}
+            data-state={sequenced ? "hidden" : undefined}
           >
             <button
               ref={(el) => {
@@ -202,23 +182,22 @@ export function Polaroids({
               style={{ "--tilt": `${TILTS[i % TILTS.length]}deg` } as CSSProperties}
               aria-haspopup="dialog"
               onClick={() => open(i)}
-              onPointerEnter={() => setHovered(i)}
-              onPointerLeave={() => setHovered((h) => (h === i ? null : h))}
-              onFocus={() => setHovered(i)}
-              onBlur={() => setHovered((h) => (h === i ? null : h))}
             >
               <span className={styles.polaroidPhoto}>
-                <AsciiPhoto
-                  image={p.image}
-                  developed={seen || hovered === i || active === i}
-                  getLevel={levels?.[i]}
-                  delay={seen && hovered !== i ? i * STAGGER_MS : 0}
-                  duration={900}
-                  cell={7}
-                  width={800}
-                  height={450}
-                  sizes="(min-width: 1024px) 20rem, (min-width: 640px) 40vw, 90vw"
-                />
+                <span className={styles.asciiPhoto}>
+                  <picture>
+                    <source type="image/avif" srcSet={srcSet(p.image, "avif")} sizes={THUMB_SIZES} />
+                    <source type="image/webp" srcSet={srcSet(p.image, "webp")} sizes={THUMB_SIZES} />
+                    <img
+                      src={fallbackSrc(p.image)}
+                      alt={p.image.alt}
+                      width={800}
+                      height={450}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </picture>
+                </span>
                 <PlayMark />
               </span>
               <span className={styles.caption}>

@@ -91,7 +91,8 @@ export function HackTransition({ children }: { children: ReactNode }) {
         if (next !== title.shown) {
           title.shown = next;
           title.el.textContent = next || title.text;
-          title.el.style.visibility = next ? "" : "hidden";
+          // explicit both ways: the stylesheet starts it hidden (see .hackContent in about.module.css)
+          title.el.style.visibility = next ? "visible" : "hidden";
         }
       }
       const a = smooth(0.9, 0.995, p).toFixed(3);
