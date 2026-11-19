@@ -3,11 +3,12 @@ import "server-only";
 import { createServiceClient, type createClient } from "@/lib/supabase/server";
 import { isTier, type Tier } from "@/lib/hive/tier";
 import { scoreTotal, type HiveScore } from "@/lib/hive/view";
-import { cleanResumeText, extractPdfText, type ResumeSections } from "./resume-text";
+import { RESUME_CLEANER_VERSION, cleanResumeText, extractPdfPages, type ResumeIdentity, type ResumeSections } from "./resume-text";
 
-// The blind review card. Only the short answers, Hive Mind scores and the
-// resume's Experience and Projects sections are loaded; the name, contact
-// details, school and year never leave the database for this page. Pages
+// The blind review card: the short answers, Hive Mind scores and the resume's
+// Experience and Projects sections. The name and email are read here only to
+// drop resume lines that would identify the applicant; they never go into the
+// card, and school, year and contact details aren't loaded at all. Pages
 // must pass only a BlindCard (and the applicant number) to client components,
 // never the application id, which would open the full application.
 
@@ -16,7 +17,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 /** Flags a reviewer may see. Not "minor" or "needs_visa_letter": they hint at age and where someone's from. */
 export const SAFE_FLAGS = ["possible_duplicate", "off_topic", "nonsense", "prompt_injection"] as const;
 
-export type BlindResume = ({ status: "ok" } & ResumeSections) |{ status: "failed"; reason: string } | { status: "none" };
+export type BlindResume = ({ status: "ok" } & ResumeSections) | { status: "failed"; reason: string } | { status: "none" };
 
 export type BlindCard = {
   applicantNo: number;
@@ -36,11 +37,15 @@ const QUESTIONS = [
   ["q_anything_else", "Anything else"],
 ] as const;
 
-const APP_COLUMNS = "id, applicant_no, resume_path, q_proud, q_hack, q_anything_else, hackathons_count";
+const APP_COLUMNS = "id, applicant_no, first_name, last_name, preferred_name, email, resume_path, q_proud, q_hack, q_anything_else, hackathons_count";
 
 type BlindSource = {
   id: string;
   applicant_no: number;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
+  email: string;
   resume_path: string | null;
   q_proud: string | null;
   q_hack: string | null;
@@ -50,21 +55,45 @@ type BlindSource = {
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
 
-async function readResume(path: string | null): Promise<BlindResume> {
+type Cached = { status: "ok" | "failed"; experience?: string[][]; projects?: string[][]; reason?: string };
+
+/**
+ * Cleaned once per resume file and cached (review_resume_cache, service role
+ * only), so re-renders of the queue don't download and parse the PDF again.
+ */
+async function readResume(path: string | null, identity: ResumeIdentity): Promise<BlindResume> {
   if (!path) return { status: "none" };
+  // Admins can't read the bucket or the cache directly (see redirectToResume), hence the service role.
+  const service = createServiceClient();
+  const { data: hit } = await service
+    .from("review_resume_cache")
+    .select("result")
+    .eq("resume_path", path)
+    .eq("version", RESUME_CLEANER_VERSION)
+    .maybeSingle<{ result: Cached }>();
+  if (hit?.result.status === "ok") return { status: "ok", experience: hit.result.experience ?? [], projects: hit.result.projects ?? [] };
+  if (hit?.result.status === "failed") return { status: "failed", reason: hit.result.reason ?? "The resume couldn't be read." };
+
+  let result: BlindResume;
   try {
-    // Admins can't read the bucket directly (see redirectToResume), hence the service role.
-    const { data, error } = await createServiceClient().storage.from("resumes").download(path);
-    if (error || !data) return { status: "failed", reason: "The resume couldn't be downloaded." };
-    if (data.size > MAX_RESUME_BYTES) return { status: "failed", reason: "The resume file is too big to read." };
-    const text = await extractPdfText(new Uint8Array(await data.arrayBuffer()));
-    const cleaned = cleanResumeText(text);
-    return cleaned.ok
-      ? { status: "ok", experience: cleaned.experience, projects: cleaned.projects }
-      : { status: "failed", reason: cleaned.reason };
+    const { data, error } = await service.storage.from("resumes").download(path);
+    if (error || !data) return { status: "failed", reason: "The resume couldn't be downloaded." }; // not cached: may be temporary
+    if (data.size > MAX_RESUME_BYTES) {
+      result = { status: "failed", reason: "The resume file is too big to read." };
+    } else {
+      const cleaned = cleanResumeText(await extractPdfPages(new Uint8Array(await data.arrayBuffer())), identity);
+      result = cleaned.ok
+        ? { status: "ok", experience: cleaned.experience, projects: cleaned.projects }
+        : { status: "failed", reason: cleaned.reason };
+    }
   } catch {
-    return { status: "failed", reason: "The resume couldn't be read (it may be locked or broken)." };
+    result = { status: "failed", reason: "The resume couldn't be read (it may be locked or broken)." };
   }
+  // Best effort: a failed write just means it's cleaned again next time.
+  await service
+    .from("review_resume_cache")
+    .upsert({ resume_path: path, version: RESUME_CLEANER_VERSION, result, created_at: new Date().toISOString() });
+  return result;
 }
 
 /** The card for one applicant, or null if they're gone or not scored. */
@@ -88,7 +117,11 @@ export async function loadBlindCard(session: Supabase, applicationId: string): P
         : { experience: score.experience!, creativity: score.creativity!, quality: score.quality!, total },
     rationale: score.rationale ?? "",
     flags: score.flags.filter((flag) => (SAFE_FLAGS as readonly string[]).includes(flag)),
-    resume: await readResume(app.resume_path),
+    resume: await readResume(app.resume_path, {
+      firstNames: [app.first_name, app.preferred_name],
+      lastName: app.last_name,
+      email: app.email,
+    }),
   };
 }
 
