@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
-import { cleanResumeText, extractPdfText, extractSections, headingOf } from '@/lib/review/resume-text';
+import { cleanResumeText, extractPdfText, extractSections, headingOf, splitEntries } from '@/lib/review/resume-text';
 
 const RESUME = [
   'Jane Doe',
@@ -30,21 +30,53 @@ describe('headingOf', () => {
 describe('extractSections', () => {
   it('keeps only Experience and Projects, without the header, Education or Skills', () => {
     const { experience, projects } = extractSections(RESUME);
-    expect(experience).toContain('Software Developer Intern');
-    expect(experience).toContain('University of Toronto'); // schools inside experience are fine
-    expect(projects).toContain('HiveTracker: beehive monitoring app');
-    const all = experience + projects;
+    const flat = (entries: string[][]) => entries.flat().join(' ');
+    expect(flat(experience)).toContain('Software Developer Intern');
+    expect(flat(experience)).toContain('University of Toronto'); // schools inside experience are fine
+    expect(flat(projects)).toContain('HiveTracker: beehive monitoring app');
+    const all = flat(experience) + flat(projects);
     expect(all).not.toMatch(/Jane Doe|gmail|555|Ontario Tech|Bachelor|TypeScript|github|\[removed\]/);
   });
 
   it('works when a section is missing', () => {
-    expect(extractSections('Projects\nPollen, a bee game\nSkills\nGo')).toEqual({ experience: '', projects: 'Pollen, a bee game' });
+    expect(extractSections('Projects\nPollen, a bee game\nSkills\nGo')).toEqual({ experience: [], projects: [['Pollen, a bee game']] });
+  });
+});
+
+describe('splitEntries', () => {
+  it('starts a new entry at each title after bullets, and drops bullet markers', () => {
+    expect(
+      splitEntries([
+        'Software Developer Intern, Acme Corp',
+        'May 2025 - Aug 2025',
+        '• Built a realtime dashboard in React and Go for a',
+        'logistics client.',
+        '• Cut page load time by 40%.',
+        'Research Assistant, University of Toronto',
+        'Sep 2024 - Apr 2025',
+        '- Trained models on bee audio.',
+      ]),
+    ).toEqual([
+      ['Software Developer Intern, Acme Corp', 'May 2025 - Aug 2025', 'Built a realtime dashboard in React and Go for a', 'logistics client.', 'Cut page load time by 40%.'],
+      ['Research Assistant, University of Toronto', 'Sep 2024 - Apr 2025', 'Trained models on bee audio.'],
+    ]);
+  });
+
+  it('splits on dates when there are no bullets, keeping each title with its date', () => {
+    expect(splitEntries(['HiveTracker', '2025 - Present', 'Beehive monitoring app.', 'Pollen', 'Summer 2024', 'A bee game.'])).toEqual([
+      ['HiveTracker', '2025 - Present', 'Beehive monitoring app.'],
+      ['Pollen', 'Summer 2024', 'A bee game.'],
+    ]);
+  });
+
+  it('keeps an undated, unbulleted section as one entry', () => {
+    expect(splitEntries(['Pollen, a bee game', 'Made with Godot'])).toEqual([['Pollen, a bee game', 'Made with Godot']]);
   });
 });
 
 describe('cleanResumeText', () => {
   it('returns both sections', () => {
-    expect(cleanResumeText(RESUME)).toMatchObject({ ok: true, projects: expect.stringContaining('HiveTracker') });
+    expect(cleanResumeText(RESUME)).toMatchObject({ ok: true, projects: [[expect.stringContaining('HiveTracker')]] });
   });
 
   it('fails when neither section can be found', () => {

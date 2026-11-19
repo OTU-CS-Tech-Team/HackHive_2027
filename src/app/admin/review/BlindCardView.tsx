@@ -76,11 +76,24 @@ export function BlindCardView({ card }: { card: BlindCard }) {
                   ["Experience", card.resume.experience],
                   ["Projects", card.resume.projects],
                 ] as const
-              ).map(([title, text]) => (
+              ).map(([title, entries]) => (
                 <section key={title} aria-label={title}>
                   <h4 className="text-sm font-semibold text-neutral-700">{title}</h4>
-                  {text ? (
-                    <p className="mt-1 text-sm break-words whitespace-pre-wrap">{text}</p>
+                  {entries.length ? (
+                    <ul className="mt-2 space-y-3">
+                      {entries.map(([heading, ...details], i) => (
+                        <li key={i} className="rounded-md border border-neutral-200 bg-neutral-50/60 p-3 text-sm break-words">
+                          <p className="font-medium text-neutral-900">{heading}</p>
+                          {details.length > 0 && (
+                            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-neutral-800">
+                              {details.map((line, j) => (
+                                <li key={j}>{line}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
                     <p className="mt-1 text-sm text-neutral-500">None listed.</p>
                   )}

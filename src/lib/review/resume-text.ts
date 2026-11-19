@@ -6,7 +6,8 @@
 // If neither section can be found (a scanned image, a locked or broken PDF, an
 // unusual layout) it fails, and the card shows the original behind a warning.
 
-export type ResumeSections = { experience: string; projects: string };
+/** Each section is a list of entries (one job or project), each a list of lines; the first line is its title. */
+export type ResumeSections = { experience: string[][]; projects: string[][] };
 export type CleanResume = ({ ok: true } & ResumeSections) | { ok: false; reason: string };
 
 /** Fewer than this many letters/digits across both sections = couldn't be read. */
@@ -74,7 +75,7 @@ const meaningfulChars = (text: string) => (text.match(/[\p{L}\p{N}]/gu) ?? []).l
 
 /** Keeps only the Experience and Projects sections (heading to the next heading). */
 export function extractSections(text: string): ResumeSections {
-  const out: Record<keyof ResumeSections, string[]> = { experience: [], projects: [] };
+  const out: Record<keyof ResumeSections, string[]> = { experience: [], projects: [] }; // raw lines
   let current: Section | null = null;
   for (const line of text.split(/\r?\n/)) {
     const heading = headingOf(line);
@@ -87,12 +88,65 @@ export function extractSections(text: string): ResumeSections {
       if (cleaned) out[current].push(cleaned);
     }
   }
-  return { experience: out.experience.join("\n"), projects: out.projects.join("\n") };
+  return { experience: splitEntries(out.experience), projects: splitEntries(out.projects) };
+}
+
+const BULLET = /^[•●▪◦‣∙·*–-]\s*/;
+const MONTH = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?";
+// "May 2025", "05/2025", "2024 – Present", "Summer 2023".
+const DATE = new RegExp(`\\b(?:${MONTH}\\s*'?\\d{2,4}|\\d{1,2}/\\d{4}|(?:19|20)\\d{2}\\s*[–—-]|present|current|(?:spring|summer|fall|autumn|winter)\\s+(?:19|20)\\d{2})\\b`, "i");
+
+const isBullet = (line: string) => BULLET.test(line);
+const hasDate = (line: string | undefined) => !!line && DATE.test(line);
+const startsUpper = (line: string) => /^[\p{Lu}\p{N}]/u.test(line);
+
+/**
+ * Splits a section's lines into separate jobs/projects. A resume entry is
+ * usually a title line (often with or next to a date) followed by bullets, so
+ * a new entry starts at a non-bullet line after bullets, or at a second date
+ * line when the section has no bullets. Bullet markers are dropped.
+ */
+export function splitEntries(lines: string[]): string[][] {
+  const entries: string[][] = [];
+  let current: string[] = [];
+  let currentHasBullet = false;
+  let currentHasDate = false;
+
+  lines.forEach((line, i) => {
+    const prev = lines[i - 1] ?? "";
+    let carry: string | null = null;
+    let fresh = false;
+
+    if (current.length && !isBullet(line)) {
+      if (currentHasBullet) {
+        // A wrapped bullet continues on a line without a marker, so also want an
+        // upper-case start and a date nearby or the bullet above having ended.
+        fresh = startsUpper(line) && (hasDate(line) || hasDate(lines[i + 1]) || hasDate(lines[i + 2]) || /[.!?)]$/.test(prev));
+      } else if (hasDate(line) && currentHasDate) {
+        fresh = true;
+        // The title line just above the date belongs to the new entry.
+        if (current.length > 1 && !hasDate(prev)) carry = current.pop() ?? null;
+      }
+    }
+
+    if (fresh) {
+      entries.push(current);
+      current = carry ? [carry] : [];
+      currentHasBullet = false;
+      currentHasDate = !!carry && hasDate(carry);
+    }
+    const text = line.replace(BULLET, "").trim();
+    if (text) current.push(text);
+    currentHasBullet ||= isBullet(line);
+    currentHasDate ||= hasDate(line);
+  });
+  if (current.length) entries.push(current);
+  return entries;
 }
 
 export function cleanResumeText(text: string): CleanResume {
   const sections = extractSections(text);
-  if (meaningfulChars(sections.experience + sections.projects) < MIN_SECTION_CHARS) {
+  if (meaningfulChars([...sections.experience, ...sections.projects].flat().join(" ")) < MIN_SECTION_CHARS) {
     return { ok: false, reason: "Couldn't find an Experience or Projects section (it may be a scanned image or an unusual layout)." };
   }
   return { ok: true, ...sections };
