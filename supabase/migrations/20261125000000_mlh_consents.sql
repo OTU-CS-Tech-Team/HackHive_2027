@@ -5,6 +5,11 @@
 --                       agrees to the MLH Contest Terms and Privacy Policy
 --   consent_mlh_emails  optional: MLH + DEV may email them
 -- Saved on drafts like the other consents; submitting needs the first two.
+--
+-- Deploy together with the app code that reads these columns: the apply form's
+-- draft save writes all three, so code without this migration fails to save drafts.
+-- Adds columns to public.applications and replaces reg_submit_application (last
+-- defined in 20261113000000_preferred_name_esignature.sql, otherwise unchanged).
 
 alter table public.applications
   add column consent_mlh_coc boolean,
