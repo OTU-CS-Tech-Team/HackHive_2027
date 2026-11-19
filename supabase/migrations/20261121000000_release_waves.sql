@@ -187,7 +187,8 @@ as $$
       and (w.claimed_at is null or w.claimed_at < now() - interval '2 minutes')
       -- Never send a decision they no longer have.
       and a.decision = w.decision
-    order by w.application_id
+    -- Fewest tries first, so a few failing addresses can't hog every batch.
+    order by w.attempts, w.application_id
     limit greatest(p_limit, 0)
     for update of w skip locked
   ), claimed as (

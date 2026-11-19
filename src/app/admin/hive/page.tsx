@@ -6,6 +6,8 @@ import { applicantStatus } from "@/components/ApplicationView";
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
+import type { Decision } from "@/lib/application/decision-email";
+import { loadStagedMap } from "@/lib/decisions/staged";
 import { MAX_TOTAL, TIERS, type Tier } from "@/lib/hive/tier";
 import {
   compareForReview,
@@ -61,7 +63,7 @@ const PAGE_SIZE = 1000;
 const APP_COLUMNS = "id, email, first_name, last_name, preferred_name, university, age, status, decision, submitted_at, hackathons_count";
 
 async function loadHive(session: Session) {
-  const [apps, scores, changes] = await Promise.all([
+  const [apps, scores, changes, staged] = await Promise.all([
     loadAllByKeyset<App>((after) => {
       const query = session.from("applications").select(APP_COLUMNS).eq("status", "submitted").order("id").limit(PAGE_SIZE);
       return after ? query.gt("id", after) : query;
@@ -77,6 +79,7 @@ async function loadHive(session: Session) {
       const query = session.from("hive_tier_changes").select("*").order("id").limit(PAGE_SIZE);
       return after ? query.gt("id", Number(after)) : query;
     }),
+    loadStagedMap(session),
   ]);
   if (!apps.data || !scores.data || !changes.data) return null;
 
@@ -84,7 +87,7 @@ async function loadHive(session: Session) {
   const { data: admins } = adminIds.length
     ? await session.from("profiles").select("id, full_name, email").in("id", adminIds)
     : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
-  return { apps: apps.data, scores: scores.data, changes: changes.data, admins: admins ?? [] };
+  return { apps: apps.data, scores: scores.data, changes: changes.data, admins: admins ?? [], staged };
 }
 
 // "Scoring now" depends on the time, so it's worked out per request.
@@ -177,7 +180,14 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
           id: row.id,
           tier: row.tier,
           text: [fullName(row), row.email, row.university].filter(Boolean).join(" ").toLowerCase(),
-          node: <HiveRow row={row} history={historyById.get(row.id) ?? []} scoring={isScoring(row.score, now)} />,
+          node: (
+            <HiveRow
+              row={row}
+              history={historyById.get(row.id) ?? []}
+              scoring={isScoring(row.score, now)}
+              staged={loaded.staged.get(row.id) ?? null}
+            />
+          ),
         }))}
       />
     </ReviewNotice>
@@ -190,10 +200,12 @@ function HiveRow({
   row,
   history,
   scoring,
+  staged,
 }: {
   row: App & { score?: HiveScore; tier: Tier | null };
   history: HistoryEntry[];
   scoring: boolean;
+  staged: Decision | null;
 }) {
   const name = fullName(row) || row.email;
   const status = applicantStatus(row);
@@ -227,7 +239,7 @@ function HiveRow({
             </div>
           )}
         </div>
-        <DecisionControls id={row.id} name={name} decision={row.decision} />
+        <DecisionControls id={row.id} name={name} decision={row.decision} staged={staged} />
       </div>
       <details className="group mt-2">
         <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium underline underline-offset-2">
