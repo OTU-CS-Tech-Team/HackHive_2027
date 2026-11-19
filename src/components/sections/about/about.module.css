@@ -98,6 +98,14 @@
   height: calc(var(--track-vh, 360) * 1vh);
 }
 
+.hackAnchor {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
 .hackStage {
   position: sticky;
   top: 0;
@@ -877,6 +885,10 @@
 @media (prefers-reduced-motion: reduce) {
   .hackTrack {
     height: auto;
+  }
+
+  .hackAnchor {
+    top: 0 !important;
   }
 
   .hackStage {

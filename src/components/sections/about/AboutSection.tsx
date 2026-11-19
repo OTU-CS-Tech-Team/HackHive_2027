@@ -66,7 +66,7 @@ function TitleArt({ art, className }: { art: { fill: string; shade: string }; cl
  */
 export function AboutSection() {
   return (
-    <section id="about" aria-labelledby="about-title" className={cn(styles.section, ascii.variable, numeral.variable, hand.variable)}>
+    <section aria-labelledby="about-title" className={cn(styles.section, ascii.variable, numeral.variable, hand.variable)}>
       <AsciiField />
 
       <HackTransition>

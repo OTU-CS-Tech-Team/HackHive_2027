@@ -3,6 +3,7 @@ import Link from "next/link";
 const CLUB_EMAIL = "otu.csclub@gmail.com";
 
 const footerLinks = [
+  { href: "/#about", label: "About" },
   { href: "/#sponsors", label: "Sponsors" },
   { href: "/#judges", label: "Judges" },
   { href: "/#faq", label: "FAQs" },

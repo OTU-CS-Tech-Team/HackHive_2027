@@ -421,6 +421,9 @@ export function HackTransition({ children }: { children: ReactNode }) {
 
   return (
     <div ref={trackRef} className={styles.hackTrack} style={{ "--track-vh": TRACK_VH } as CSSProperties}>
+      {/* "/#about" lands here: where the hack has finished and the title is in place, not on the
+          see-through screen that overlaps the end of the hero */}
+      <span id="about" className={styles.hackAnchor} style={{ top: `${(ANIM_VH - HOLD) * 100}vh` } as CSSProperties} />
       <div className={styles.hackStage}>
         <canvas ref={canvasRef} className={styles.hackCanvas} aria-hidden="true" />
         <div ref={contentRef} className={styles.hackContent}>
