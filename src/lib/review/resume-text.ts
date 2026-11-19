@@ -73,11 +73,22 @@ const tidy = (line: string) =>
 
 const meaningfulChars = (text: string) => (text.match(/[\p{L}\p{N}]/gu) ?? []).length;
 
+/**
+ * Marks where a page's second column starts. A section never carries on across
+ * it, so a sidebar's unheaded contact block can't land in the main column's
+ * last section.
+ */
+export const COLUMN_BREAK = "\f";
+
 /** Keeps only the Experience and Projects sections (heading to the next heading). */
 export function extractSections(text: string): ResumeSections {
   const out: Record<keyof ResumeSections, string[]> = { experience: [], projects: [] }; // raw lines
   let current: Section | null = null;
   for (const line of text.split(/\r?\n/)) {
+    if (line.includes(COLUMN_BREAK)) {
+      current = null;
+      continue;
+    }
     const heading = headingOf(line);
     if (heading) {
       current = heading;
@@ -148,7 +159,7 @@ export function splitEntries(lines: string[]): string[][] {
 }
 
 /** Bump when the cleaning changes, so cached results are rebuilt. */
-export const RESUME_CLEANER_VERSION = 2;
+export const RESUME_CLEANER_VERSION = 3;
 
 /** What we know about the applicant, used only to drop lines that would identify them. */
 export type ResumeIdentity = { firstNames?: (string | null | undefined)[]; lastName?: string | null; email?: string | null };
@@ -271,7 +282,7 @@ export function pageLines(items: TextItem[], pageWidth: number): string[] {
   if (count < 4 || rightOnly < 1) return rows.map((row) => row.map((segment) => segment.text.trim()).join("  "));
   const left = segments.filter((segment) => segment.x < boundary - 5);
   const right = segments.filter((segment) => segment.x >= boundary - 5);
-  return [...left, ...right].map((segment) => segment.text.trim());
+  return [...left.map((segment) => segment.text.trim()), COLUMN_BREAK, ...right.map((segment) => segment.text.trim())];
 }
 
 /** Pulls the text out of a PDF, one string per page (first 5), one line per visual line. Throws on a broken or locked file. */

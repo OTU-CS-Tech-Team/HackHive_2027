@@ -64,7 +64,8 @@ export function ReviewQueue({
 
   const onKey = useEffectEvent((event: KeyboardEvent) => {
     const choice = KEYS[event.key.toLowerCase()];
-    if (!choice || pending || applicantNo === null || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return;
+    // event.repeat: a held key must never vote again on the next applicant before they've been seen.
+    if (!choice || event.repeat || pending || applicantNo === null || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return;
     event.preventDefault();
     vote(choice);
   });
