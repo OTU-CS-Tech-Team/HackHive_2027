@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
-import { cleanResumeText, extractPdfPages, extractPdfText, extractSections, headingOf, pageLines, splitEntries } from '@/lib/review/resume-text';
+import { COLUMN_BREAK, cleanResumeText, extractPdfPages, extractPdfText, extractSections, headingOf, pageLines, splitEntries } from '@/lib/review/resume-text';
 
 const RESUME = [
   'Jane Doe',
@@ -112,7 +112,19 @@ describe('pageLines', () => {
       item('BSc CS 2027', 40, 720), item('Built a dashboard', 220, 720),
       item('Projects', 220, 700),
     ];
-    expect(pageLines(items, 600)).toEqual(['Jane Doe', 'University of Toronto', 'BSc CS 2027', 'Experience', 'Intern, Acme Corp', 'Built a dashboard', 'Projects']);
+    expect(pageLines(items, 600)).toEqual(['Jane Doe', 'University of Toronto', 'BSc CS 2027', COLUMN_BREAK, 'Experience', 'Intern, Acme Corp', 'Built a dashboard', 'Projects']);
+  });
+
+  it("doesn't let an unheaded sidebar carry on the main column's last section", () => {
+    const items = [
+      item('Projects', 40, 760), item('Oshawa, ON', 400, 760),
+      item('Hive tracker: a React app for bees', 40, 740), item('Ontario Tech University – BSc CS', 400, 740),
+      item('Built the scheduler and the dashboard', 40, 720), item('Class of 2027', 400, 720),
+      item('Skills', 400, 700), // the sidebar runs longer than the main column
+    ];
+    const sections = extractSections(pageLines(items, 600).join('\n'));
+    expect(sections.projects.flat().join(' ')).not.toMatch(/Oshawa|Ontario Tech|Class of/);
+    expect(sections.projects.flat().join(' ')).toContain('Hive tracker');
   });
 
   it('keeps a single-column line with a right-aligned date together', () => {

@@ -2,6 +2,7 @@ import "server-only";
 
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import type { createClient } from "@/lib/supabase/server";
+import { loadStagedDecisions } from "@/lib/decisions/staged";
 import { TIERS, isTier, type Tier } from "@/lib/hive/tier";
 import { POOLS, isPool, type Outcome, type Pool } from "./pools";
 
@@ -67,7 +68,7 @@ export type TierProgress = Record<Tier, { needVotes: number; done: number }>;
 export async function loadTierProgress(session: Supabase, outcomes: OutcomeRow[]) {
   type App = { id: string; decision: string | null };
   type Score = { application_id: string; status: string; tier: string | null };
-  const [apps, scores] = await Promise.all([
+  const [apps, scores, staged] = await Promise.all([
     loadAllByKeyset<App>((after) => {
       const query = session.from("applications").select("id, decision").eq("status", "submitted").order("id").limit(PAGE_SIZE);
       return after ? query.gt("id", after) : query;
@@ -79,21 +80,24 @@ export async function loadTierProgress(session: Supabase, outcomes: OutcomeRow[]
       },
       { key: "application_id" },
     ),
+    loadStagedDecisions(session),
   ]);
-  if (!apps.data || !scores.data) return null;
+  if (!apps.data || !scores.data || !staged.data) return null;
 
   const decided = new Set(outcomes.map((row) => row.application_id));
+  // Staged people are out of the queue (claim_next_review), so they don't need votes.
+  const stagedIds = new Set(staged.data.map((row) => row.application_id));
   const scoreById = new Map(scores.data.map((score) => [score.application_id, score]));
   const progress = Object.fromEntries(TIERS.map((tier) => [tier, { needVotes: 0, done: 0 }])) as TierProgress;
   let unscored = 0;
   for (const app of apps.data) {
     const score = scoreById.get(app.id);
     if (score?.status !== "scored" || !isTier(score.tier)) {
-      if (!decided.has(app.id) && !app.decision) unscored++;
+      if (!decided.has(app.id) && !app.decision && !stagedIds.has(app.id)) unscored++;
       continue;
     }
     if (decided.has(app.id)) progress[score.tier].done++;
-    else if (!app.decision) progress[score.tier].needVotes++;
+    else if (!app.decision && !stagedIds.has(app.id)) progress[score.tier].needVotes++;
   }
   return { progress, unscored };
 }

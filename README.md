@@ -25,7 +25,8 @@ decision is out of the review queue. The page can also stage accepts for the top
 the waitlist: blind review's waitlist order first, then Hive Mind rank.
 
 Migrations, in order: `20261121000000_blind_review.sql`,
-`20261122000000_release_waves.sql`, `20261123000000_review_decisions.sql`.
+`20261122000000_release_waves.sql`, `20261123000000_review_decisions.sql`,
+`20261124000000_staged_clock_and_votes.sql`.
 
 **Delete** permanently removes someone's account, application, profile, points,
 team posts and uploaded files, after you type `DELETE` to confirm. It can't be

@@ -227,7 +227,8 @@ async function Decisions() {
               <span className="tabular-nums">{waitlisted === 1 ? "1 person" : `${waitlisted} people`}</span>. Promoting stages accepts in blind review&apos;s waitlist order, then by Hive Mind rank.
             </p>
           </div>
-          <PromoteWaitlist waitlisted={waitlisted} />
+          {/* key: a new waitlist size resets the count, so it never starts above what is left. */}
+          <PromoteWaitlist key={waitlisted} waitlisted={waitlisted} />
         </section>
 
         <div className="divide-y divide-neutral-200 border-y border-neutral-200">

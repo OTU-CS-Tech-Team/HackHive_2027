@@ -351,6 +351,29 @@ describe('promoteFromWaitlist', () => {
     expect((upsert.values as { application_id: string }[]).map((row) => row.application_id)).toEqual([appId(1), appId(3), appId(2)]);
   });
 
+  it("never overwrites someone another admin staged meanwhile, and says so", async () => {
+    const respond = state.respond;
+    // Only app 2 actually went in: app 3 was staged by someone else after the page loaded.
+    state.respond = (call) => (call.op === 'upsert' ? { data: [{ application_id: appId(2) }], error: null } : respond(call));
+    const { promoteFromWaitlist } = await actions();
+
+    const result = await promoteFromWaitlist(2);
+
+    const [upsert] = writes('staged_decisions');
+    expect(upsert.options).toEqual({ onConflict: 'application_id', ignoreDuplicates: true });
+    expect(result.message).toContain('Staged 1 accept from the waitlist');
+    expect(result.message).toContain('1 person had just been staged by someone else');
+  });
+
+  it('leaves staged_at to the database clock', async () => {
+    const { promoteFromWaitlist } = await actions();
+
+    await promoteFromWaitlist(2);
+
+    const [upsert] = writes('staged_decisions');
+    expect((upsert.values as Record<string, unknown>[]).every((row) => !('staged_at' in row))).toBe(true);
+  });
+
   it('says when fewer are left than asked for', async () => {
     const { promoteFromWaitlist } = await actions();
 
@@ -417,7 +440,7 @@ describe('stageReviewOutcomes', () => {
     const result = await stageReviewOutcomes();
 
     expect(result.ok).toBe(true);
-    expect(result.message).toContain('2 accept, 2 waitlist, 1 reject');
+    expect(result.message).toContain('Staged 2 accepts, 2 waitlists, 1 rejection from blind review');
     const [upsert] = writes('staged_decisions');
     expect((upsert.values as { application_id: string; decision: string }[]).map((row) => [row.application_id, row.decision])).toEqual([
       [appId(8), 'accepted'],

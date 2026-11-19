@@ -58,7 +58,8 @@ export async function stageDecision(id: string, decision: Decision | null): Prom
 
   const { error } = await supabase
     .from("staged_decisions")
-    .upsert({ application_id: id, decision, staged_by: user.id, staged_at: new Date().toISOString() }, { onConflict: "application_id" });
+    // staged_at is stamped by the database (one clock for the release cutoff).
+    .upsert({ application_id: id, decision, staged_by: user.id }, { onConflict: "application_id" });
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin", "layout");
   return { ok: true, message: `Staged: ${LABELS[decision]}. It goes out with the next wave.` };
@@ -213,17 +214,24 @@ export async function promoteFromWaitlist(count: number): Promise<ActionResult> 
     .slice(0, count);
   if (!next.length) return { ok: false, message: "Nobody on the waitlist is left to promote." };
 
-  // A millisecond apart, so the pool trackers count them in this order.
-  const now = Date.now();
-  const rows = next.map((row, i) => ({ application_id: row.id, decision: "accepted", staged_by: user.id, staged_at: new Date(now + i).toISOString() }));
-  const { error } = await supabase.from("staged_decisions").upsert(rows, { onConflict: "application_id" });
+  // The database stamps staged_at row by row in this order, so the pool trackers count them in it.
+  // ignoreDuplicates: anyone another admin staged in the meantime keeps what was staged for them.
+  const rows = next.map((row) => ({ application_id: row.id, decision: "accepted", staged_by: user.id }));
+  const { data, error } = await supabase
+    .from("staged_decisions")
+    .upsert(rows, { onConflict: "application_id", ignoreDuplicates: true })
+    .select("application_id");
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin", "layout");
+  const added = data?.length ?? rows.length;
   const short = next.length < count ? ` (only ${next.length} left on the waitlist)` : "";
-  return { ok: true, message: `Staged ${next.length} accept${next.length === 1 ? "" : "s"} from the waitlist${short}. They go out with the next wave.` };
+  const skipped = added < next.length ? ` ${plural(next.length - added, "person")} had just been staged by someone else, so they were left alone.` : "";
+  return { ok: true, message: `Staged ${plural(added, "accept")} from the waitlist${short}. They go out with the next wave.${skipped}` };
 }
 
 const OUTCOME_ORDER: Record<Decision, number> = { accepted: 0, waitlisted: 1, rejected: 2 };
+const NOUNS: Record<Decision, string> = { accepted: "accept", waitlisted: "waitlist", rejected: "rejection" };
+const plural = (n: number, word: string) => `${n} ${word === "person" && n !== 1 ? "people" : `${word}${n === 1 ? "" : "s"}`}`;
 
 /**
  * Stages blind review's outcomes (accepted, waitlisted, not accepted) for
@@ -255,15 +263,19 @@ export async function stageReviewOutcomes(): Promise<ActionResult> {
     );
   if (!ready.length) return { ok: false, message: "Every review outcome already has a decision or is staged." };
 
-  const now = Date.now();
-  const rows = ready.map((row, i) => ({ application_id: row.application_id, decision: row.outcome, staged_by: user.id, staged_at: new Date(now + i).toISOString() }));
-  // ignoreDuplicates: anyone staged by hand in the meantime keeps what was staged for them.
-  const { error } = await supabase.from("staged_decisions").upsert(rows, { onConflict: "application_id", ignoreDuplicates: true });
+  // The database stamps staged_at row by row in this order. ignoreDuplicates: anyone
+  // staged by hand in the meantime keeps what was staged for them.
+  const rows = ready.map((row) => ({ application_id: row.application_id, decision: row.outcome, staged_by: user.id }));
+  const { data, error } = await supabase
+    .from("staged_decisions")
+    .upsert(rows, { onConflict: "application_id", ignoreDuplicates: true })
+    .select("application_id, decision");
   if (error) return { ok: false, message: error.message };
   revalidatePath("/admin", "layout");
+  const added = (data as { decision: Decision }[] | null) ?? rows;
   const counts = (["accepted", "waitlisted", "rejected"] as const)
-    .map((decision) => [ready.filter((row) => row.outcome === decision).length, LABELS[decision].toLowerCase()] as const)
-    .filter(([n]) => n)
-    .map(([n, label]) => `${n} ${label}`);
+    .map((decision) => plural(added.filter((row) => row.decision === decision).length, NOUNS[decision]))
+    .filter((text) => !text.startsWith("0 "));
+  if (!counts.length) return { ok: false, message: "Someone else just staged all of them. Nothing changed." };
   return { ok: true, message: `Staged ${counts.join(", ")} from blind review. They go out with the next wave (rejections only on the final one).` };
 }

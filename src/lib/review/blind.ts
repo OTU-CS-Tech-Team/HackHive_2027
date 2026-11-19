@@ -57,6 +57,9 @@ const MAX_RESUME_BYTES = 10 * 1024 * 1024;
 
 type Cached = { status: "ok" | "failed"; experience?: string[][]; projects?: string[][]; reason?: string };
 
+/** pdfjs errors that mean the file itself can't be read, however often it's tried. */
+const BROKEN_PDF = new Set(["InvalidPDFException", "PasswordException", "FormatError"]);
+
 /**
  * Cleaned once per resume file and cached (review_resume_cache, service role
  * only), so re-renders of the queue don't download and parse the PDF again.
@@ -86,8 +89,12 @@ async function readResume(path: string | null, identity: ResumeIdentity): Promis
         ? { status: "ok", experience: cleaned.experience, projects: cleaned.projects }
         : { status: "failed", reason: cleaned.reason };
     }
-  } catch {
-    result = { status: "failed", reason: "The resume couldn't be read (it may be locked or broken)." };
+  } catch (error) {
+    const reason = "The resume couldn't be read (it may be locked or broken).";
+    // Only a broken or locked PDF is cached. Anything else (a timeout, running
+    // out of memory, a bad deploy) may be temporary, so it's tried again next time.
+    if (!(error instanceof Error && BROKEN_PDF.has(error.name))) return { status: "failed", reason };
+    result = { status: "failed", reason };
   }
   // Best effort: a failed write just means it's cleaned again next time.
   await service

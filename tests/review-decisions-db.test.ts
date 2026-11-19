@@ -24,11 +24,18 @@ beforeAll(async () => {
     insert into public.profiles values ('${A}');
   `);
   await db.exec('alter default privileges in schema public grant all on tables to authenticated, anon;');
-  for (const file of ['20261118000000_hive_scores', '20261121000000_blind_review', '20261122000000_release_waves', '20261123000000_review_decisions']) {
+  for (const file of [
+    '20261118000000_hive_scores',
+    '20261121000000_blind_review',
+    '20261122000000_release_waves',
+    '20261123000000_review_decisions',
+    '20261124000000_staged_clock_and_votes',
+  ]) {
     await db.exec(await readFile(`supabase/migrations/${file}.sql`, 'utf8'));
   }
   // Safe to run twice.
   await db.exec(await readFile('supabase/migrations/20261123000000_review_decisions.sql', 'utf8'));
+  await db.exec(await readFile('supabase/migrations/20261124000000_staged_clock_and_votes.sql', 'utf8'));
 }, 30000);
 
 beforeEach(async () => {
@@ -54,8 +61,9 @@ const asOwner = () => db.exec('reset role;');
 const set = (n: number, fields: string) => db.exec(`reset role; update public.applications set ${fields} where id = '${app(n)}';`);
 const placed = (n: number, pool: string) =>
   db.exec(`reset role; insert into public.review_outcomes (application_id, outcome, pool) values ('${app(n)}', 'accepted', '${pool}');`);
-const stage = (n: number, decision: string, at = 'now()') =>
-  db.exec(`reset role; insert into public.staged_decisions (application_id, decision, staged_at) values ('${app(n)}', '${decision}', ${at});`);
+// staged_at is stamped by the database, so rows are staged in the order they're inserted.
+const stage = (n: number, decision: string) =>
+  db.exec(`reset role; insert into public.staged_decisions (application_id, decision) values ('${app(n)}', '${decision}');`);
 const counts = async () => {
   await asAdmin();
   const { rows } = await db.query<{ pool: string; filled: number }>('select pool, filled from public.review_pool_counts()');
@@ -86,11 +94,11 @@ describe('review_pool_counts', () => {
 
   it('slots hand accepts in: review seats first, then released by submission, then staged in order', async () => {
     await placed(1, 'otu'); // review takes an Ontario Tech seat first
-    await set(9, "university = 'Ontario Tech University'");
-    await stage(9, 'accepted', "now() - interval '1 hour'"); // staged: after every released one
-    await set(5, "decision = 'accepted', university = 'Ontario Tech University'"); // released: takes the last OTU seat
     await set(6, "university = 'Ontario Tech University', year_of_study = '1'");
-    await stage(6, 'accepted', "now() - interval '2 hours'"); // staged first: OTU is full, so lower years
+    await stage(6, 'accepted'); // staged first: OTU is full by then, so lower years
+    await set(9, "university = 'Ontario Tech University'");
+    await stage(9, 'accepted'); // staged second
+    await set(5, "decision = 'accepted', university = 'Ontario Tech University'"); // released: counts before any staged one, takes the last OTU seat
     expect(await counts()).toEqual({ otu: 2, lower_years: 1, general: 1 }); // app 9 overflows to general
   });
 
@@ -127,5 +135,40 @@ describe('claim_next_review', () => {
     await asAdmin();
     const again = await db.query('select * from public.claim_next_review($1)', ['queen']);
     expect(again.rows).toEqual([]);
+  });
+});
+
+describe('staged_at', () => {
+  // In microseconds: rows a moment apart can share a millisecond.
+  const stampedAt = async (n: number) =>
+    Number(
+      (await db.query<{ us: string }>(`select (extract(epoch from staged_at) * 1000000)::bigint::text as us from public.staged_decisions where application_id = '${app(n)}'`))
+        .rows[0].us,
+    );
+
+  it("is the database's clock, whatever the caller sends", async () => {
+    await db.exec(`reset role; insert into public.staged_decisions (application_id, decision, staged_at) values ('${app(1)}', 'accepted', '2000-01-01');`);
+    expect(await stampedAt(1)).toBeGreaterThan(Date.parse('2026-01-01') * 1000);
+  });
+
+  it('moves forward when a decision is re-staged, so the release cutoff sees it as new', async () => {
+    await stage(1, 'accepted');
+    const first = await stampedAt(1);
+    await db.query('select pg_sleep(0.01)'); // the test database's clock is coarser than Postgres's
+    await db.exec(`reset role; update public.staged_decisions set decision = 'rejected', staged_at = '2000-01-01' where application_id = '${app(1)}';`);
+    expect(await stampedAt(1)).toBeGreaterThan(first);
+  });
+});
+
+describe('cast_review_vote', () => {
+  it("won't record an outcome for someone staged while their card was open", async () => {
+    await db.exec(`reset role; insert into public.review_claims (application_id, admin_id, tier) values ('${app(1)}', '${A}', 'queen');`);
+    await stage(1, 'rejected');
+    await asAdmin();
+    const { rows } = await db.query<{ result: string }>(`select result from public.cast_review_vote('${app(1)}', 'yes')`);
+    expect(rows[0].result).toBe('decided');
+    await asOwner();
+    expect((await db.query('select * from public.review_votes')).rows).toEqual([]);
+    expect((await db.query('select * from public.review_outcomes')).rows).toEqual([]);
   });
 });
