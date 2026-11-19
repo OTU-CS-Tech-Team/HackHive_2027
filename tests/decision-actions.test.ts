@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ID = '11111111-1111-1111-1111-111111111111';
+const CUTOFF = '2026-11-19T12:00:00.123456+00:00';
 const appId = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 
 type Call = { table: string; op: string; values?: unknown; options?: unknown; filters: string[]; single?: boolean };
@@ -153,14 +154,14 @@ describe('stageDecision', () => {
 });
 
 describe('releaseWave', () => {
-  it('releases through the database function and returns the wave', async () => {
-    state.rpc = () => ({ data: 3, error: null });
+  it('releases what was staged up to the cutoff and returns the wave', async () => {
+    state.rpc = () => ({ data: [{ wave_id: 3, released: 5 }], error: null });
     const { releaseWave } = await actions();
 
-    const result = await releaseWave(true);
+    const result = await releaseWave(true, CUTOFF);
 
-    expect(result).toMatchObject({ ok: true, waveId: 3 });
-    expect(state.rpcCalls).toEqual([{ name: 'release_wave', args: { p_include_rejections: true } }]);
+    expect(result).toMatchObject({ ok: true, waveId: 3, released: 5 });
+    expect(state.rpcCalls).toEqual([{ name: 'release_wave', args: { p_include_rejections: true, p_staged_before: CUTOFF } }]);
     expect(sendDecisionEmail).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalled();
   });
@@ -169,13 +170,31 @@ describe('releaseWave', () => {
     state.rpc = () => ({ data: null, error: { message: 'Nothing to release' } });
     const { releaseWave } = await actions();
 
-    expect(await releaseWave(false)).toEqual({ ok: false, message: 'Nothing is staged to release.' });
+    expect(await releaseWave(false, CUTOFF)).toEqual({ ok: false, message: 'Nothing is staged to release.' });
+  });
+
+  it('asks to wait while an earlier wave is still sending', async () => {
+    state.rpc = () => ({ data: null, error: { message: 'Emails are still sending' } });
+    const { releaseWave } = await actions();
+
+    const result = await releaseWave(false, CUTOFF);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('still sending');
+  });
+
+  it('needs a valid cutoff', async () => {
+    const { releaseWave } = await actions();
+
+    expect((await releaseWave(false, 'not a date')).ok).toBe(false);
+    expect((await releaseWave(false, undefined as never)).ok).toBe(false);
+    expect(state.rpcCalls).toEqual([]);
   });
 
   it('rejects a non-boolean', async () => {
     const { releaseWave } = await actions();
 
-    expect((await releaseWave('yes' as never)).ok).toBe(false);
+    expect((await releaseWave('yes' as never, CUTOFF)).ok).toBe(false);
     expect(state.rpcCalls).toEqual([]);
   });
 
@@ -183,7 +202,7 @@ describe('releaseWave', () => {
     state.isAdmin = false;
     const { releaseWave } = await actions();
 
-    await expect(releaseWave(false)).rejects.toThrow('Admins only');
+    await expect(releaseWave(false, CUTOFF)).rejects.toThrow('Admins only');
     expect(state.rpcCalls).toEqual([]);
   });
 });
@@ -196,7 +215,8 @@ describe('sendWaveEmails', () => {
 
   beforeEach(() => {
     state.rpc = () => ({ data: claimed, error: null });
-    state.respond = (call) => (call.op === 'select' ? { data: null, error: null, count: 4 } : { data: null, error: null });
+    // An update hands back the row it saved, as .select() does.
+    state.respond = (call) => (call.op === 'select' ? { data: null, error: null, count: 4 } : { data: [{ application_id: 'x' }], error: null });
   });
 
   it('sends each claimed email and records the result', async () => {
@@ -207,8 +227,8 @@ describe('sendWaveEmails', () => {
 
     expect(state.rpcCalls).toEqual([{ name: 'claim_wave_emails', args: { p_wave_id: 7, p_limit: 25 } }]);
     expect(sendDecisionEmail.mock.calls).toEqual([
-      [{ to: 'one@test.com', firstName: 'One', decision: 'accepted' }],
-      [{ to: 'two@test.com', firstName: null, decision: 'waitlisted' }],
+      [{ to: 'one@test.com', firstName: 'One', decision: 'accepted', idempotencyKey: `wave-7-${appId(1)}` }],
+      [{ to: 'two@test.com', firstName: null, decision: 'waitlisted', idempotencyKey: `wave-7-${appId(2)}` }],
     ]);
     expect(result).toMatchObject({ ok: false, sent: 1, failed: 1, remaining: 4 });
     expect(result.message).toContain('bounced');
@@ -217,6 +237,15 @@ describe('sendWaveEmails', () => {
     expect((updates[0].values as { sent_at: string }).sent_at).toBeTruthy();
     expect(updates[1]).toMatchObject({ values: { error: 'bounced', claimed_at: null }, filters: ['wave_id=7', `application_id=${appId(2)}`] });
     expect(state.calls.at(-1)).toMatchObject({ table: 'wave_emails', op: 'select', filters: ['wave_id=7', 'sent_at is null'] });
+  });
+
+  it('says when a result could not be saved because the email was no longer due', async () => {
+    state.respond = (call) => (call.op === 'select' ? { data: null, error: null, count: 0 } : { data: [], error: null });
+    const { sendWaveEmails } = await actions();
+
+    const result = await sendWaveEmails(7);
+
+    expect(result.message).toContain('no longer due');
   });
 
   it('spaces sends out for the rate limit', async () => {

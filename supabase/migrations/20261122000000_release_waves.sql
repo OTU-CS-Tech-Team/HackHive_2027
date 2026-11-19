@@ -99,24 +99,44 @@ grant update (sent_at, error, attempts, claimed_at) on public.wave_emails to aut
 
 -- Release ----------------------------------------------------------------------
 
--- Releases every staged decision for a submitted application (rejections only
--- when p_include_rejections), returning the new wave's id.
+-- Releases the staged decisions for submitted applications (rejections only
+-- when p_include_rejections), returning the new wave's id and how many it holds.
+-- Only rows staged at or before p_staged_before go out: the admin confirmed the
+-- counts on a page loaded at that time, so anything staged (or changed) since
+-- waits for the next wave instead of being emailed unseen.
 -- security definer: admins get no insert on release_waves / wave_emails.
-create or replace function public.release_wave(p_include_rejections boolean)
-returns bigint
+drop function if exists public.release_wave(boolean);
+create or replace function public.release_wave(p_include_rejections boolean, p_staged_before timestamptz)
+returns table (wave_id bigint, released int)
 language plpgsql
 security definer
 set search_path = ''
 as $$
+#variable_conflict use_column
 declare
   v_wave bigint;
+  v_released int;
 begin
   if not coalesce(public.is_admin(), false) then
     raise exception 'Admins only';
   end if;
+  if p_staged_before is null then
+    raise exception 'p_staged_before is required';
+  end if;
 
   -- One release at a time, so two admins can't each release half a wave.
   perform pg_advisory_xact_lock(hashtext('public.release_wave'));
+
+  -- Lock every unsent email (waiting for any claim mid-commit), then refuse while
+  -- a batch is sending: it could be about to email a decision this release
+  -- replaces. Until we commit, new claims skip these locked rows.
+  perform 1 from public.wave_emails where sent_at is null for update;
+  if exists (
+    select 1 from public.wave_emails
+    where sent_at is null and claimed_at > now() - interval '2 minutes'
+  ) then
+    raise exception 'Emails are still sending';
+  end if;
 
   -- Staged to what they already have: nothing to send.
   delete from public.staged_decisions s
@@ -127,7 +147,9 @@ begin
     select 1
     from public.staged_decisions s
     join public.applications a on a.id = s.application_id
-    where a.status = 'submitted' and (p_include_rejections or s.decision <> 'rejected')
+    where a.status = 'submitted'
+      and s.staged_at <= p_staged_before
+      and (p_include_rejections or s.decision <> 'rejected')
   ) then
     raise exception 'Nothing to release';
   end if;
@@ -141,6 +163,7 @@ begin
     using public.applications a
     where a.id = s.application_id
       and a.status = 'submitted'
+      and s.staged_at <= p_staged_before
       and (p_include_rejections or s.decision <> 'rejected')
     returning s.application_id, s.decision
   ), moved as (
@@ -152,9 +175,11 @@ begin
   )
   insert into public.wave_emails (wave_id, application_id, decision)
   select v_wave, m.id, m.decision from moved m;
+  get diagnostics v_released = row_count;
 
   -- An unsent email from an earlier wave is out of date now (e.g. waitlisted,
   -- then accepted before the waitlist email went), so it must never go out.
+  -- Nobody is sending it: we refused above while any claim was active.
   delete from public.wave_emails old
   using public.wave_emails cur
   where cur.wave_id = v_wave
@@ -162,12 +187,12 @@ begin
     and old.wave_id <> v_wave
     and old.sent_at is null;
 
-  return v_wave;
+  return query select v_wave, v_released;
 end;
 $$;
 
-revoke all on function public.release_wave(boolean) from public, anon;
-grant execute on function public.release_wave(boolean) to authenticated;
+revoke all on function public.release_wave(boolean, timestamptz) from public, anon;
+grant execute on function public.release_wave(boolean, timestamptz) to authenticated;
 
 -- Claims up to p_limit unsent emails of a wave for sending, with who to send
 -- them to. Rows another request claimed in the last 2 minutes are skipped, so

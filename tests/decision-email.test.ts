@@ -90,6 +90,17 @@ describe('sendDecisionEmail', () => {
   });
 
   // Hosts keep quotes pasted from an env file, and Resend rejects them.
+  it('sends an idempotency key only when given one', async () => {
+    fetchMock.mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));
+    const { sendDecisionEmail } = await import('../src/lib/application/decision-email');
+
+    await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted', idempotencyKey: 'wave-1-abc' });
+    await sendDecisionEmail({ to: 'sam@test.com', firstName: 'Sam', decision: 'accepted' });
+
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe('wave-1-abc');
+    expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('Idempotency-Key');
+  });
+
   it('strips quotes pasted around the sender', async () => {
     vi.stubEnv('RESEND_FROM_EMAIL', '"HackHive <hello@test.dev>"');
     fetchMock.mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));

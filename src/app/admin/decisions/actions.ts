@@ -63,22 +63,34 @@ export async function stageDecision(id: string, decision: Decision | null): Prom
   return { ok: true, message: `Staged: ${LABELS[decision]}. It goes out with the next wave.` };
 }
 
-export type ReleaseResult = ActionResult & { waveId?: number };
+export type ReleaseResult = ActionResult & { waveId?: number; released?: number };
 
-/** Releases every staged decision (rejections only on the final wave) as one wave. Emails go out with sendWaveEmails. */
-export async function releaseWave(includeRejections: boolean): Promise<ReleaseResult> {
+/**
+ * Releases the staged decisions (rejections only on the final wave) as one wave.
+ * `stagedBefore` is the newest staged_at the admin saw when they confirmed, so
+ * anything staged or changed after that waits for the next wave instead of
+ * being emailed unseen. Emails go out with sendWaveEmails.
+ */
+export async function releaseWave(includeRejections: boolean, stagedBefore: string): Promise<ReleaseResult> {
   const { supabase } = await requireAdmin();
   if (typeof includeRejections !== "boolean") return { ok: false, message: "Choose whether this is the final wave." };
+  if (typeof stagedBefore !== "string" || Number.isNaN(Date.parse(stagedBefore))) {
+    return { ok: false, message: "Refresh the page and try again." };
+  }
 
-  const { data, error } = await supabase.rpc("release_wave", { p_include_rejections: includeRejections });
+  const { data, error } = await supabase.rpc("release_wave", { p_include_rejections: includeRejections, p_staged_before: stagedBefore });
   if (error) {
     if (error.message.includes("Nothing to release")) return { ok: false, message: "Nothing is staged to release." };
+    if (error.message.includes("Emails are still sending")) {
+      return { ok: false, message: "Emails from an earlier wave are still sending. Try again in a minute. Nothing was changed." };
+    }
     if (error.message.includes("Admins only")) return { ok: false, message: "Admins only." };
     return { ok: false, message: `The wave wasn't released (${error.message}). Nothing was changed.` };
   }
   revalidatePath("/admin", "layout");
-  const waveId = Number(data);
-  return { ok: true, message: "Wave released. Sending emails…", waveId };
+  const row = (Array.isArray(data) ? data[0] : data) as { wave_id: number; released: number } | null;
+  if (!row) return { ok: false, message: "The wave wasn't released. Refresh the page and try again." };
+  return { ok: true, message: "Wave released. Sending emails…", waveId: Number(row.wave_id), released: Number(row.released) };
 }
 
 export type SendResult = ActionResult & { sent: number; failed: number; remaining: number };
@@ -106,7 +118,7 @@ export async function sendWaveEmails(waveId: number): Promise<SendResult> {
   const reasons = new Set<string>();
   let lastStart = 0;
   const record = (applicationId: string, fields: Record<string, string | null>) =>
-    supabase.from("wave_emails").update(fields).eq("wave_id", waveId).eq("application_id", applicationId);
+    supabase.from("wave_emails").update(fields).eq("wave_id", waveId).eq("application_id", applicationId).select("application_id");
   for (const row of claimed) {
     if (Date.now() - started > DEADLINE_MS) {
       // Out of time: hand the rest back for the next batch.
@@ -115,17 +127,26 @@ export async function sendWaveEmails(waveId: number): Promise<SendResult> {
     }
     await sleep(Math.max(0, lastStart + SPACING_MS - Date.now()));
     lastStart = Date.now();
-    const result = await sendDecisionEmail({ to: row.email, firstName: row.first_name, decision: row.decision });
+    // Same key for every try at this wave's email to this applicant, so if the
+    // send went through but recording it didn't, a retry is dropped by Resend
+    // (keys last 24 hours) instead of emailing them twice.
+    const result = await sendDecisionEmail({
+      to: row.email,
+      firstName: row.first_name,
+      decision: row.decision,
+      idempotencyKey: `wave-${waveId}-${row.application_id}`,
+    });
     if (result.sent) sent++;
     else {
       failed++;
       reasons.add(result.error ?? "Send failed");
     }
-    const { error: saveError } = await record(
+    const { data: saved, error: saveError } = await record(
       row.application_id,
       result.sent ? { sent_at: new Date().toISOString(), error: null, claimed_at: null } : { error: result.error ?? "Send failed", claimed_at: null },
     );
-    if (saveError) reasons.add(`Couldn't record a result (${saveError.message})`);
+    if (saveError) reasons.add(`Couldn't record a result (${saveError.message}).`);
+    else if (!saved?.length) reasons.add(`The email to ${row.email} was no longer due when its result was saved.`);
   }
 
   const { count, error: countError } = await supabase

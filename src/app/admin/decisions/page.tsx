@@ -161,6 +161,8 @@ async function Decisions() {
           waitlists={stagedCount("waitlisted")}
           rejections={stagedCount("rejected")}
           undecided={pendingReview}
+          // Release sends only what was staged up to the newest row shown here.
+          stagedBefore={staged.reduce<string | null>((max, row) => (!max || row.staged_at > max ? row.staged_at : max), null)}
         />
 
         <section aria-labelledby="seats-heading">

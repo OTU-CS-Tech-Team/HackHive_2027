@@ -65,12 +65,14 @@ export function ReleasePanel({
   waitlists,
   rejections,
   undecided,
+  stagedBefore,
 }: {
   nextWave: number;
   accepts: number;
   waitlists: number;
   rejections: number;
   undecided: number;
+  stagedBefore: string | null;
 }) {
   const checkboxId = useId();
   const [final, setFinal] = useState(false);
@@ -87,13 +89,17 @@ export function ReleasePanel({
     setError(null);
     startTransition(async () => {
       try {
-        const result = await releaseWave(final);
+        if (!stagedBefore) {
+          setError("Nothing is staged to release.");
+          return;
+        }
+        const result = await releaseWave(final, stagedBefore);
         if (!result.ok || !result.waveId) {
           setError(result.message);
           return;
         }
         setFinal(false);
-        await send(result.waveId, total);
+        await send(result.waveId, result.released ?? total);
       } catch {
         setError("The wave wasn't released. Refresh the page and try again.");
       }

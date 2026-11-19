@@ -75,8 +75,9 @@ async function asHacker() {
 
 const stage = (n: number, decision: string) =>
   db.exec(`insert into public.staged_decisions (application_id, decision, staged_by) values ('${app(n)}', '${decision}', '${ADMIN}');`);
-const release = async (final = false) =>
-  (await db.query<{ id: number }>(`select public.release_wave(${final}) as id`)).rows[0].id;
+// Tests run inside one transaction, where now() is fixed, so staged_at defaults to the cutoff.
+const release = async (final = false, cutoff = 'now()') =>
+  (await db.query<{ wave_id: number; released: number }>(`select * from public.release_wave(${final}, ${cutoff})`)).rows[0].wave_id;
 const decisions = async () =>
   (await db.query<{ id: string; decision: string | null }>('select id, decision from public.applications order by id')).rows.map(
     (row) => row.decision,
@@ -177,6 +178,40 @@ describe('release_wave', () => {
     await stage(1, 'accepted');
     await asHacker();
     await expect(release()).rejects.toThrow('Admins only');
+  });
+
+  it('says how many it released', async () => {
+    await stage(1, 'accepted');
+    await stage(2, 'waitlisted');
+    const { rows } = await db.query<{ released: number }>('select * from public.release_wave(false, now())');
+    expect(rows[0].released).toBe(2);
+  });
+
+  it('leaves anything staged after the cutoff for the next wave', async () => {
+    await stage(1, 'accepted');
+    // Staged (or changed) after the admin loaded the page they confirmed on.
+    await db.exec(`insert into public.staged_decisions (application_id, decision, staged_at) values ('${app(2)}', 'accepted', now() + interval '1 second');`);
+
+    await release();
+
+    expect(await decisions()).toEqual(['accepted', null, null, 'waitlisted', null]);
+    expect(await staged()).toEqual([{ application_id: app(2), decision: 'accepted' }]);
+  });
+
+  it('refuses while an earlier wave is mid-send, so its old email cannot go out after the new one', async () => {
+    await stage(1, 'waitlisted');
+    const first = await release();
+    expect(await claim(first)).toHaveLength(1); // a batch is sending the waitlist email
+    await stage(1, 'accepted');
+
+    await db.exec('savepoint s;');
+    await expect(release()).rejects.toThrow('Emails are still sending');
+    await db.exec('rollback to savepoint s;');
+
+    // Once that claim is stale (the batch died), releasing works again.
+    await db.exec("update public.wave_emails set claimed_at = now() - interval '3 minutes';");
+    const second = await release();
+    expect(await emails()).toEqual([{ wave_id: second, application_id: app(1), decision: 'accepted' }]);
   });
 
   it("can't be written to directly by admins", async () => {
