@@ -10,13 +10,11 @@ import { overrideTier } from "../actions";
 
 // Blind review. The queue pages only know an applicant by their number, never
 // the application id (which would open the full application), so these look
-// the id up on the server. Results-page actions take ids: names are shown there.
+// the id up on the server.
 // Nothing here sets applications.decision or emails anyone: that's the
 // Decisions page.
 
 export type ReviewResult = { ok: boolean; message: string };
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Session = Awaited<ReturnType<typeof requireAdmin>>;
 
@@ -120,15 +118,4 @@ export async function moveTier(applicantNo: number, tier: Tier, reason: string):
   if (!result.ok) return result;
   revalidatePath("/admin/review", "layout");
   return { ok: true, message: `${formatApplicantNo(applicantNo)}: ${result.message} Here's your next applicant.` };
-}
-
-/** Clears an outcome and its Yes/No votes (freeing the seat) so the applicant is reviewed again. Skips stay. */
-export async function reopenOutcome(id: string): Promise<ReviewResult> {
-  const session = await requireAdmin("/admin/review/results");
-  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
-  const { data, error } = await session.rpc("reopen_review", { p_application_id: id });
-  if (error) return { ok: false, message: error.message };
-  if (!data) return { ok: false, message: "Can't reopen: a decision has already been set or staged for them. Change it from the Decisions or Applicants page instead." };
-  revalidatePath("/admin", "layout");
-  return { ok: true, message: "Reopened. They're back in the queue." };
 }

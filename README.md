@@ -17,8 +17,7 @@ it; use **Retry** there. **Resend email** on an applicant only works once their 
 email has gone (otherwise it would email them twice).
 
 Blind review (`/admin/review`) only votes and places people in pools. Its
-outcomes show on **Results** and are staged from `/admin/decisions` with **From
-blind review → Stage** (anyone already staged by hand keeps what they have). The
+outcomes are staged from `/admin/decisions` with **From blind review → Stage** (anyone already staged by hand keeps what they have). The
 Decisions page's seat trackers use the blind review seat targets
 (`review_settings`) and count released, staged and review-accepted people the same
 way blind review does, so accepting by hand uses up seats too. Anyone with a staged

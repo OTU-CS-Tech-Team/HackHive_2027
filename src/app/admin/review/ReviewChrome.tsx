@@ -1,29 +1,11 @@
-import Link from "next/link";
 import { POOL_LABELS } from "@/lib/review/pools";
 import type { PoolStats } from "@/lib/review/summary";
 
-const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
-
-export function ReviewHeader({ active, description }: { active: "review" | "results"; description: string }) {
-  const tab = (href: string, label: string, isActive: boolean) => (
-    <Link
-      href={href}
-      aria-current={isActive ? "page" : undefined}
-      className={`inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium ${ring} ${
-        isActive ? "border-amber-500 text-neutral-900" : "border-transparent text-neutral-600 hover:text-neutral-900"
-      }`}
-    >
-      {label}
-    </Link>
-  );
+export function ReviewHeader({ description }: { description: string }) {
   return (
     <header className="mb-6">
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Reviews</h1>
       <p className="mt-1 text-sm text-neutral-600">{description}</p>
-      <nav aria-label="Reviews" className="mt-4 flex gap-1 border-b border-neutral-200">
-        {tab("/admin/review", "Review", active === "review")}
-        {tab("/admin/review/results", "Results", active === "results")}
-      </nav>
     </header>
   );
 }

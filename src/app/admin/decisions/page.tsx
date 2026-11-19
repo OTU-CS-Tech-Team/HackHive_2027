@@ -167,11 +167,11 @@ async function Decisions() {
             <p className="text-sm text-neutral-600 tabular-nums">
               {fromReview.length === 0 ? (
                 <>
-                  Nothing waiting. Outcomes land here once two reviewers agree (see{" "}
-                  <Link href="/admin/review/results" className={link}>
-                    Results
-                  </Link>
-                  ).
+                  Nothing waiting. Outcomes land here once two{" "}
+                  <Link href="/admin/review" className={link}>
+                    reviewers
+                  </Link>{" "}
+                  agree.
                 </>
               ) : (
                 <>

@@ -17,8 +17,7 @@ export default function ReviewPage() {
   return (
     <main className="mx-auto max-w-5xl">
       <ReviewHeader
-        active="review"
-        description="Two admins vote on each applicant without seeing who they are. 2 Yes places them in a seat pool, 2 No declines them, and a split goes to a third admin. This only places people: decisions are released and emailed from the Decisions page."
+        description="Two admins vote on each applicant without seeing who they are. 2 Yes places them in a seat pool, 2 No declines them, and a split goes to a third admin. This only places people: stage and release them from the Decisions page."
       />
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading reviews…</p>}>
         <Overview />
