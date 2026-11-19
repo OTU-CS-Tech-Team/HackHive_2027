@@ -15,8 +15,8 @@ type SearchParams = Promise<{ view?: string | string[] }>;
 
 export default function RequestsPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <main className="mx-auto max-w-4xl">
-      <header className="mb-4">
+    <main className="mx-auto max-w-3xl mt-6">
+      <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Item requests</h1>
         <p className="mt-1 text-sm text-neutral-600">
           First come, first served: review the request at the top before moving on. The hacker is emailed your decision.

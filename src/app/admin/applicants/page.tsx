@@ -6,6 +6,8 @@ import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
 import { bySubmittedAt, loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
+import type { Decision } from "@/lib/application/decision-email";
+import { STAGED_LOAD_FAILED, loadStagedMap } from "@/lib/decisions/staged";
 import { displayTier, type HiveScore } from "@/lib/hive/view";
 import type { Tier } from "@/lib/hive/tier";
 import { formatDateTime } from "@/lib/time";
@@ -38,7 +40,7 @@ type SearchParams = Promise<{ status?: string | string[]; q?: string | string[] 
 
 export default function ApplicantsPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <main className="mx-auto max-w-5xl">
+    <main className="mx-auto max-w-5xl mt-6">
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Applicants</h1>
       </header>
@@ -90,7 +92,7 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
 
   // Loads everyone in pages (Supabase returns at most 1000 rows per query), oldest
   // submission first, and filters here.
-  const [{ data, error }, tiers] = await Promise.all([loadAllApplications(session), loadTiers(session)]);
+  const [{ data, error }, tiers, staged] = await Promise.all([loadAllApplications(session), loadTiers(session), loadStagedMap(session)]);
   if (error) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
@@ -108,6 +110,11 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <ReviewNotice>
+      {staged.failed && (
+        <p role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+          {STAGED_LOAD_FAILED}
+        </p>
+      )}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <nav aria-label="Filter applicants" className="flex gap-1 overflow-x-auto">
           {(Object.keys(FILTERS) as Filter[]).map((key) => (
@@ -155,7 +162,7 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
         >
           <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
             {shown.map((app) => (
-              <ApplicantRow key={app.id} app={app} tier={tiers.get(app.id)} />
+              <ApplicantRow key={app.id} app={app} tier={tiers.get(app.id)} staged={staged.map.get(app.id) ?? null} />
             ))}
           </ul>
         </Selection>
@@ -226,7 +233,7 @@ async function LastReminder({ session }: { session: Awaited<ReturnType<typeof re
 const fileButton =
   "inline-flex min-h-11 items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
 
-function ApplicantRow({ app, tier }: { app: Application; tier?: { tier: Tier | null; overridden: boolean } }) {
+function ApplicantRow({ app, tier, staged }: { app: Application; tier?: { tier: Tier | null; overridden: boolean }; staged: Decision | null }) {
   const name = fullName(app) || app.email;
   const school = [app.university, app.program].filter(Boolean).join(" · ");
 
@@ -254,7 +261,7 @@ function ApplicantRow({ app, tier }: { app: Application; tier?: { tier: Tier | n
             {app.submitted_at && <p className="text-sm text-neutral-600">Submitted {formatDateTime(app.submitted_at)}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-            {app.status === "submitted" && <DecisionControls id={app.id} name={name} decision={app.decision} />}
+            {app.status === "submitted" && <DecisionControls id={app.id} name={name} decision={app.decision} staged={staged} />}
             <DeleteButton id={app.id} label={name} />
           </div>
         </div>

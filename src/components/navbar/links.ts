@@ -1,9 +1,11 @@
 // "#top" is the homepage's <main>, so Home lands at the very top from any page.
 export const links = [
   { href: "/#top", label: "Home" },
+  { href: "/#about", label: "About" },
+  { href: "/hackhive/archive", label: "HackHive history" },
   { href: "/#sponsors", label: "Sponsors" },
   { href: "/#judges", label: "Judges" },
-  { href: "/#faq", label: "FAQs" }
+  { href: "/#faq", label: "FAQs" },
 ] as const;
 
 export function getAccountLinks(isSignedIn: boolean) {

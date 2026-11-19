@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
     // Email logos are attached to every email, and emails go out from several routes.
     "/**": ["./public/email/*.png"],
   },
+  // Blind review reads resume text with pdfjs on the server; bundling it breaks its worker import.
+  serverExternalPackages: ["pdfjs-dist"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

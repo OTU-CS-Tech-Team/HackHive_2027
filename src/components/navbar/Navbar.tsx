@@ -43,11 +43,12 @@ export async function Navbar() {
             </form>
           </>
         ) : (
+          // Returning hackers reach log in from the signup page.
           <Link
-            href="/auth/login"
-            className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 sm:px-4"
+            href="/signup"
+            className="rounded-lg bg-hive-ink px-3 py-2 text-sm font-semibold text-white hover:bg-[#1c4258] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-ink sm:px-4"
           >
-            Log in
+            Apply
           </Link>
         )}
         {/* MLH trust badge: required on MLH member events, in the top right. It hangs
