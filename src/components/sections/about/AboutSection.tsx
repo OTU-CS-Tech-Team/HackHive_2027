@@ -61,7 +61,7 @@ function TitleArt({ art, className }: { art: { fill: string; shade: string }; cl
 }
 
 /**
- * "What is HackHive": the hero gets hacked into ASCII, the title decrypts, then the year in
+ * "HackHive": the hero gets hacked into ASCII, the title decrypts, then the year in
  * numbers and the top three projects step down the page on an ink night, over a faint ASCII
  * meadow that brightens into Sponsors' sunrise at the bottom.
  */
@@ -73,10 +73,7 @@ export function AboutSection() {
       <HackTransition>
         <div className={cn(styles.titleBlock, styles.quiet)}>
           <h2 id="about-title" className={styles.title}>
-            <span className={styles.titleLead} data-hack-after="">
-              What is
-            </span>
-            <span className="sr-only"> HackHive?</span>
+            <span className="sr-only">HackHive</span>
             <TitleArt art={TITLE_WIDE} className={styles.titleWide} />
             <TitleArt art={TITLE_STACKED} className={styles.titleStacked} />
           </h2>
@@ -93,7 +90,7 @@ export function AboutSection() {
           {RULE}
         </div>
 
-        <h3 className={cn(styles.subhead, styles.quiet)}>HackHive 2026, in two numbers</h3>
+        <h3 className={cn(styles.subhead, styles.quiet)}>HackHive 2026, in three numbers</h3>
         <div className={styles.stats}>
           {ABOUT_STATS.map((stat, i) => (
             <StatBubble key={stat.id} stat={stat} step={i} />

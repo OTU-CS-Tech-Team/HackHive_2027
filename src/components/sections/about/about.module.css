@@ -107,8 +107,8 @@
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 5rem var(--gutter) 3rem var(--left);
+  justify-content: flex-start;
+  padding: clamp(5rem, 16vh, 9rem) var(--gutter) 3rem var(--left);
 }
 
 .titleBlock {
@@ -124,15 +124,6 @@
 .title {
   margin: 0;
   font-weight: 500;
-}
-
-.titleLead {
-  display: block;
-  margin-bottom: 0.9rem;
-  color: var(--wax);
-  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem);
-  letter-spacing: -0.01em;
-  line-height: 1.1;
 }
 
 .titleArt {
@@ -178,12 +169,15 @@
 .body {
   position: relative;
   z-index: 1;
+  /* Pulls the stats up into the bottom of the pinned title screen, which is empty by then: the hack
+     finishes before the track ends (HackTransition's HOLD), so nothing is still animating there. */
+  margin-top: -30vh;
   padding: 0 var(--gutter) 60vh var(--left);
 }
 
 .rule {
   overflow: hidden;
-  margin: 0 0 clamp(4rem, 12vh, 8rem);
+  margin: 0 0 clamp(2rem, 5vh, 3.5rem);
   color: var(--honey);
   font-family: var(--font-ascii), ui-monospace, monospace;
   font-size: 0.9rem;
@@ -218,26 +212,50 @@
 .stats {
   display: flex;
   flex-direction: column;
+  gap: clamp(5rem, 14vh, 9rem);
+  max-width: 76rem;
 }
 
+/* steps alternate: photo then words on the left, words then photo on the right */
 .stat {
   display: flex;
   align-items: center;
+  gap: clamp(1.5rem, 3vw, 3rem);
   margin: 0;
 }
 
-/* second step: lower and to the right */
-.stat[data-step="1"] {
-  margin-top: clamp(-6rem, -6vw, -2rem);
-  margin-left: clamp(0rem, 30vw, 30rem);
+.stat[data-side="right"] {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+  text-align: right;
 }
 
-.bubble {
+.stat[data-side="right"] .statText {
+  align-items: flex-end;
+}
+
+/* a photo held in honey crop marks, like a viewfinder */
+.frame {
+  --mark: 1.4rem;
+  --mark-w: 2px;
+  position: relative;
   flex: none;
-  width: clamp(13rem, 26vw, 24rem);
-  aspect-ratio: 5 / 4;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px rgb(245 184 61 / 0.4);
+  width: clamp(16rem, 34vw, 30rem);
+  padding: 0.7rem;
+  background:
+    linear-gradient(var(--honey), var(--honey)) top left / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) top left / var(--mark-w) var(--mark) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) top right / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) top right / var(--mark-w) var(--mark) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom left / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom left / var(--mark-w) var(--mark) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom right / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom right / var(--mark-w) var(--mark) no-repeat;
+}
+
+.framePhoto {
+  width: 100%;
+  aspect-ratio: 3 / 2;
 }
 
 .statText {
@@ -245,7 +263,6 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  margin-left: clamp(1.5rem, 3vw, 3rem);
   isolation: isolate;
 }
 
@@ -253,7 +270,7 @@
   content: "";
   position: absolute;
   z-index: -1;
-  inset: -1.5rem -2.5rem -1.5rem -1.5rem;
+  inset: -1.5rem -2.5rem;
   background: radial-gradient(closest-side, rgb(20 17 11 / 0.92), rgb(20 17 11 / 0.6) 65%, rgb(20 17 11 / 0));
 }
 
@@ -567,23 +584,29 @@
     display: grid;
   }
 
+  .section .body {
+    margin-top: -20vh;
+  }
+
+  .stats {
+    gap: 4rem;
+  }
+
   .stat,
-  .stat[data-step="1"] {
+  .stat[data-side="right"] {
     flex-direction: column;
     align-items: flex-start;
-    margin: 0 0 3.5rem;
+    align-self: stretch;
+    gap: 1rem;
+    text-align: left;
   }
 
-  .stat[data-step="1"] {
-    margin-left: 0;
+  .stat[data-side="right"] .statText {
+    align-items: flex-start;
   }
 
-  .bubble {
-    width: min(20rem, 82vw);
-  }
-
-  .statText {
-    margin: 1rem 0 0;
+  .frame {
+    width: min(100%, 26rem);
   }
 
   .subheadProjects,
@@ -629,7 +652,6 @@
   .hackStage {
     position: relative;
     height: auto;
-    min-height: 100vh;
   }
 
   .hackCanvas {
@@ -638,7 +660,10 @@
 
   .hackContent {
     position: relative;
-    min-height: 100vh;
+  }
+
+  .section .body {
+    margin-top: 0;
   }
 
   .polaroid,

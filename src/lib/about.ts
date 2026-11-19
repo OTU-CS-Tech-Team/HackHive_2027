@@ -63,6 +63,18 @@ export const ABOUT_STATS: readonly AboutStat[] = [
       alt: "Two HackHive organizers presenting the judging rules at the front of the room.",
     },
   },
+  {
+    id: "projects",
+    value: 55,
+    label: "projects demoed to the judges",
+    placeholder: false,
+    image: {
+      base: "/about/projects",
+      widths: [800],
+      ascii: "/about/projects-ascii.png",
+      alt: "Two hackers giving a thumbs up beside their hardware demo.",
+    },
+  },
 ];
 
 // PLACEHOLDER PROJECTS: names, teams and video ids are stand-ins until the 2026 winners are filled in.

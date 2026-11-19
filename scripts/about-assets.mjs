@@ -15,14 +15,14 @@ const out = path.join(root, "public/about");
 mkdirSync(out, { recursive: true });
 
 // Crops are fractions of the (EXIF-rotated) original, so they survive a re-export at another size.
-// Bubbles are 5:4 ovals; the Polaroid photo area is 16:9 (an Instax Wide frame, and a video's shape).
+// Stat photos are 3:2 frames; the Polaroid photo area is 16:9 (an Instax Wide frame, and a video's shape).
 const PHOTOS = [
   {
     // Hackers listening in a lecture hall.
     src: "hackhive_photo3.JPG",
     name: "attendees",
     crop: { left: 0.2, top: 0.16, width: 0.72 },
-    aspect: 5 / 4,
+    aspect: 3 / 2,
     widths: [1600, 800],
   },
   {
@@ -30,11 +30,19 @@ const PHOTOS = [
     src: "hackhive_photo1.JPG",
     name: "applicants",
     crop: { left: 0.14, top: 0.1, width: 0.76 },
-    aspect: 5 / 4,
+    aspect: 3 / 2,
     widths: [1600, 800],
   },
   {
-    // Two hackers demoing, thumbs up. Only 400x267, so it is upscaled once and no further.
+    // Two hackers demoing, thumbs up: the "projects" stat. Only 400x267 (already 3:2), upscaled once.
+    src: "hackhive_photo2.jpg",
+    name: "projects",
+    crop: { left: 0, top: 0, width: 1 },
+    aspect: 3 / 2,
+    widths: [800],
+  },
+  {
+    // The same photo, as the Polaroids' stand-in until the real project thumbnails arrive.
     src: "hackhive_photo2.jpg",
     name: "project",
     crop: { left: 0, top: 0.03, width: 1 },

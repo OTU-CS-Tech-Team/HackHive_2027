@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { AboutStat } from "@/lib/about";
 import { AsciiPhoto } from "./AsciiPhoto";
 import { decrypt } from "./ascii";
@@ -9,13 +9,13 @@ import styles from "./about.module.css";
 const DECRYPT_MS = 1100;
 
 /**
- * An oval ASCII photo that develops into the real one the first time it scrolls into view, and a
- * big number that decrypts at the same moment. Screen readers get the plain number and label.
+ * A framed photo that turns into ASCII as you scroll past it (and back into the photo when you
+ * scroll up), and a big number that decrypts the first time it comes into view. Steps alternate
+ * left and right down the page. Screen readers get the plain number and label.
  */
 export function StatBubble({ stat, step }: { stat: AboutStat; step: number }) {
   const rootRef = useRef<HTMLElement>(null);
   const numberRef = useRef<HTMLSpanElement>(null);
-  const [seen, setSeen] = useState(false);
   const value = stat.value.toLocaleString("en-CA");
 
   useEffect(() => {
@@ -30,7 +30,6 @@ export function StatBubble({ stat, step }: { stat: AboutStat; step: number }) {
       ([entry]) => {
         if (!entry.isIntersecting) return;
         observer.disconnect();
-        setSeen(true);
         if (reduced) return;
         const start = performance.now();
         const tick = (now: number) => {
@@ -51,17 +50,19 @@ export function StatBubble({ stat, step }: { stat: AboutStat; step: number }) {
   }, [value]);
 
   return (
-    <figure ref={rootRef} className={styles.stat} data-step={step}>
-      <AsciiPhoto
-        image={stat.image}
-        developed={seen}
-        duration={1900}
-        cell={7}
-        width={800}
-        height={640}
-        sizes="(min-width: 1024px) 26rem, (min-width: 640px) 22rem, 70vw"
-        className={styles.bubble}
-      />
+    <figure ref={rootRef} className={styles.stat} data-side={step % 2 ? "right" : "left"}>
+      <span className={styles.frame}>
+        <AsciiPhoto
+          image={stat.image}
+          developed
+          scrub
+          cell={7}
+          width={800}
+          height={533}
+          sizes="(min-width: 1024px) 30rem, (min-width: 640px) 24rem, 90vw"
+          className={styles.framePhoto}
+        />
+      </span>
       <figcaption className={styles.statText}>
         <span ref={numberRef} className={styles.statNumber} aria-hidden="true">
           {value}

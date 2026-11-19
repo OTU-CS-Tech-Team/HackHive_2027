@@ -33,6 +33,9 @@ import styles from "./about.module.css";
 
 const ANIM_VH = 2.6; // screens of scroll the sequence plays over
 const TRACK_VH = 100 + ANIM_VH * 100;
+// The sequence finishes this many screens before the pin lets go, so the stats (pulled up under the
+// title by .body's negative margin) only ever slide in over a finished, still title.
+const HOLD = 0.35;
 const MAX_DPR = 1.5; // full-screen text every frame: 3x phones gain nothing past this
 const FS_FROM = 10; // ASCII font size at the start of the ASCII beat (cells ~6x12 px)...
 const FS_TO = 18; // ... and at its end (~11x22). Quantised to whole px so samples can be reused.
@@ -281,7 +284,7 @@ export function HackTransition({ children }: { children: ReactNode }) {
       if (!running || !W || !poster || !fontOk) return;
 
       const top = track!.getBoundingClientRect().top;
-      const target = clamp(-top / (ANIM_VH * window.innerHeight));
+      const target = clamp(-top / ((ANIM_VH - HOLD) * window.innerHeight));
       sp = sp < 0 || Math.abs(target - sp) < 1e-4 ? target : sp + (target - sp) * Math.min(1, dt * 12);
       const p = sp;
       const step = Math.floor(p * 140); // glitch pattern changes every 1/140th of the track
