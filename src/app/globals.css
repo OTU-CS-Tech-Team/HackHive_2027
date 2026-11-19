@@ -39,7 +39,9 @@ html {
 body {
   background: #ffffff;
   color: #171717;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  /* Geist, from app/layout.tsx. This rule is unlayered, so it beats Tailwind's
+     html { font-sans } and must name the variable itself. */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Application portal palette, taken from the HackHive logo. */
