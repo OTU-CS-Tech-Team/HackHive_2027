@@ -1,0 +1,129 @@
+import "server-only";
+
+import { createServiceClient, type createClient } from "@/lib/supabase/server";
+import { isTier, type Tier } from "@/lib/hive/tier";
+import { scoreTotal, type HiveScore } from "@/lib/hive/view";
+import { cleanResumeText, extractPdfText } from "./resume-text";
+import { makeScrubber } from "./scrub";
+
+// The blind review card. Everything identifying is loaded and used here, on the
+// server, only to scrub the text; the card itself carries nothing else. Pages
+// must pass only a BlindCard (and the applicant number) to client components,
+// never the application id, which would open the full application.
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** Flags a reviewer may see. Not "minor" or "needs_visa_letter": they hint at age and where someone's from. */
+export const SAFE_FLAGS = ["possible_duplicate", "off_topic", "nonsense", "prompt_injection"] as const;
+
+export type BlindResume = { status: "ok"; text: string } | { status: "failed"; reason: string } | { status: "none" };
+
+export type BlindCard = {
+  applicantNo: number;
+  tier: Tier;
+  movedTier: boolean;
+  answers: { question: string; text: string }[];
+  hackathons: number | null;
+  scores: { experience: number; creativity: number; quality: number; total: number } | null;
+  rationale: string;
+  flags: string[];
+  resume: BlindResume;
+};
+
+const QUESTIONS = [
+  ["q_proud", "The project or work they're most proud of"],
+  ["q_hack", "A time they hacked something to their advantage"],
+  ["q_anything_else", "Anything else"],
+] as const;
+
+const APP_COLUMNS =
+  "id, applicant_no, first_name, last_name, preferred_name, email, phone, university, program, city, linkedin_url, github_url, portfolio_url, other_links, resume_path, q_proud, q_hack, q_anything_else, hackathons_count";
+
+type BlindSource = {
+  id: string;
+  applicant_no: number;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
+  email: string;
+  phone: string | null;
+  university: string | null;
+  program: string | null;
+  city: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  other_links: string[] | null;
+  resume_path: string | null;
+  q_proud: string | null;
+  q_hack: string | null;
+  q_anything_else: string | null;
+  hackathons_count: number | null;
+};
+
+const MAX_RESUME_BYTES = 10 * 1024 * 1024;
+
+async function readResume(path: string | null, scrub: (text: string) => string): Promise<BlindResume> {
+  if (!path) return { status: "none" };
+  try {
+    // Admins can't read the bucket directly (see redirectToResume), hence the service role.
+    const { data, error } = await createServiceClient().storage.from("resumes").download(path);
+    if (error || !data) return { status: "failed", reason: "The resume couldn't be downloaded." };
+    if (data.size > MAX_RESUME_BYTES) return { status: "failed", reason: "The resume file is too big to read." };
+    const text = await extractPdfText(new Uint8Array(await data.arrayBuffer()));
+    const cleaned = cleanResumeText(text, scrub);
+    return cleaned.ok ? { status: "ok", text: cleaned.text } : { status: "failed", reason: cleaned.reason };
+  } catch {
+    return { status: "failed", reason: "The resume couldn't be read (it may be locked or broken)." };
+  }
+}
+
+/** The card for one applicant, or null if they're gone or not scored. */
+export async function loadBlindCard(session: Supabase, applicationId: string): Promise<BlindCard | null> {
+  const [{ data: app }, { data: score }] = await Promise.all([
+    session.from("applications").select(APP_COLUMNS).eq("id", applicationId).maybeSingle<BlindSource>(),
+    session.from("hive_scores").select("*").eq("application_id", applicationId).maybeSingle<HiveScore>(),
+  ]);
+  if (!app || !score || !isTier(score.tier)) return null;
+
+  const scrub = makeScrubber({
+    names: [app.first_name, app.last_name, app.preferred_name],
+    email: app.email,
+    phone: app.phone,
+    school: app.university,
+    program: app.program,
+    city: app.city,
+    links: [app.linkedin_url, app.github_url, app.portfolio_url, ...(app.other_links ?? [])],
+  });
+
+  const total = scoreTotal(score);
+  return {
+    applicantNo: app.applicant_no,
+    tier: score.tier,
+    movedTier: !!score.tier_override,
+    answers: QUESTIONS.map(([key, question]) => ({ question, text: scrub(app[key]) })),
+    hackathons: app.hackathons_count,
+    scores:
+      total === null
+        ? null
+        : { experience: score.experience!, creativity: score.creativity!, quality: score.quality!, total },
+    rationale: scrub(score.rationale),
+    flags: score.flags.filter((flag) => (SAFE_FLAGS as readonly string[]).includes(flag)),
+    resume: await readResume(app.resume_path, scrub),
+  };
+}
+
+/** Your next applicant in a tier (the same one again if you already have one open), or null when none are left. */
+export async function claimNextReview(session: Supabase, tier: Tier) {
+  const { data, error } = await session.rpc("claim_next_review", { p_tier: tier });
+  if (error) throw new Error(error.message);
+  const row = (data as { application_id: string; applicant_no: number }[] | null)?.[0];
+  return row ? { applicationId: row.application_id, applicantNo: row.applicant_no } : null;
+}
+
+/** The application id behind an applicant number. Server side only. */
+export async function applicationIdFor(session: Supabase, applicantNo: unknown): Promise<string | null> {
+  if (typeof applicantNo !== "number" || !Number.isSafeInteger(applicantNo) || applicantNo <= 0) return null;
+  const { data } = await session.from("applications").select("id").eq("applicant_no", applicantNo).maybeSingle();
+  return data?.id ?? null;
+}

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import { applyDecision, DECISIONS } from "@/lib/admin/decisions";
 import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
 import { after } from "next/server";
 import { sendItemRequestReviewedEmail } from "@/lib/email";
@@ -124,27 +125,13 @@ export async function redeemItem(userId: string, itemId: string): Promise<Action
   return insertTransaction(supabase, { user_id: userId, amount: -1, reason: item.name, shop_item_id: itemId }, `Redeemed ${item.name}`);
 }
 
-const DECISIONS: readonly string[] = ["accepted", "waitlisted", "rejected"];
-
 // null = back to "applied", which emails nobody.
 export async function setDecision(id: string, decision: Decision | null): Promise<ActionResult> {
   const supabase = await requireAdmin();
   if (!UUID.test(id) || (decision !== null && !DECISIONS.includes(decision))) return { ok: false, message: "Pick a decision." };
-
-  // Only a real change matches a row, so a double click can't send two emails.
-  const change = supabase.from("applications").update({ decision }).eq("id", id).eq("status", "submitted");
-  const { data, error } = await (decision ? change.or(`decision.is.null,decision.neq.${decision}`) : change.not("decision", "is", null))
-    .select("email, first_name");
-  if (error) return { ok: false, message: error.message };
-  revalidatePath("/admin", "layout");
-
-  const applicant = data[0];
-  if (!applicant) return { ok: true, message: "Already saved. No email sent." };
-  if (!decision) return { ok: true, message: "Moved back to pending. No email sent." };
-  const { sent, error: emailError } = await sendDecisionEmail({ to: applicant.email, firstName: applicant.first_name, decision });
-  return sent
-    ? { ok: true, message: `Saved as ${decision} and emailed ${applicant.email}.` }
-    : { ok: false, message: `Saved as ${decision}, but the email to ${applicant.email} failed (${emailError}). Use Resend email to try again.` };
+  const { ok, message, saved } = await applyDecision(supabase, id, decision);
+  if (saved) revalidatePath("/admin", "layout");
+  return { ok, message };
 }
 
 export async function resendDecisionEmail(id: string): Promise<ActionResult> {
