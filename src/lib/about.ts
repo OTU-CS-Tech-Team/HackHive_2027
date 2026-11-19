@@ -23,6 +23,8 @@ export type AboutStat = {
 export type AboutProject = {
   id: string;
   name: string;
+  /** One sentence on what it does, shown under the name when the Polaroid is opened. */
+  description: string;
   /** YouTube video id of the demo. */
   youtubeId: string;
   devpost: string;
@@ -87,22 +89,30 @@ export const ABOUT_PROJECTS: readonly AboutProject[] = [
   {
     id: "neurodetect",
     name: "NeuroDetect",
+    description: "An educational prototype that uses a trained image model to classify brain MRI scans.",
     youtubeId: "TcK3JO73CKs",
     devpost: "https://devpost.com/software/neurodetect-rst574",
+    github: "https://github.com/KrishnaKMA/hackathon-app",
     image: projectImage("neurodetect", [800], "Two NeuroDetect team members working at their laptops."),
   },
   {
     id: "lockblock",
     name: "LockBlock",
+    description:
+      "A smart door lock that recognizes faces, locks itself when it spots a stranger, and unlocks with a Solana wallet.",
     youtubeId: "1hwgS66tB9k",
     devpost: "https://devpost.com/software/lockblock-9ct281",
+    github: "https://github.com/e-yang6/lockblock",
     image: projectImage("lockblock", [800], "The LockBlock team giving a thumbs up beside their hardware demo."),
   },
   {
     id: "cutos",
     name: "CutOS",
+    description:
+      "An AI video editor you drive in plain English, with search across your footage and dubbing into 29 languages.",
     youtubeId: "t0zHzwyXm_Q",
     devpost: "https://devpost.com/software/cutos",
+    github: "https://github.com/shamsharoon/CutOS",
     image: projectImage("cutos", [1600, 800], "The four members of the CutOS team smiling together."),
   },
 ];

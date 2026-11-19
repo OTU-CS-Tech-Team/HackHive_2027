@@ -530,6 +530,17 @@
   font-size: 1.45rem;
 }
 
+.projectDescription {
+  /* its own row under the name and links */
+  order: 3;
+  flex-basis: 100%;
+  max-width: 60ch;
+  margin: 0.45rem 0 0;
+  color: rgb(20 17 11 / 0.82);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
 .projectLinks {
   display: flex;
   gap: 1.1rem;

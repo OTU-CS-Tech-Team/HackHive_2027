@@ -252,6 +252,7 @@ export function Polaroids({ projects }: { projects: readonly AboutProject[] }) {
               <h3 id="about-project-title" className={styles.captionName}>
                 {project.name}
               </h3>
+              <p className={styles.projectDescription}>{project.description}</p>
               <p className={styles.projectLinks}>
                 <a href={project.devpost} target="_blank" rel="noopener noreferrer" className={styles.projectLink}>
                   <DevpostIcon />
