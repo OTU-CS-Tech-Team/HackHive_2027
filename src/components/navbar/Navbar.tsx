@@ -35,6 +35,7 @@ export async function Navbar() {
             <form action={signOut}>
               <button
                 type="submit"
+                data-nav-logout
                 className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:px-4"
               >
                 Log out
@@ -45,6 +46,7 @@ export async function Navbar() {
           // Returning hackers reach log in from the signup page.
           <Link
             href="/signup"
+            data-nav-cta
             className="rounded-lg bg-hive-ink px-3 py-2 text-sm font-semibold text-white hover:bg-[#1c4258] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-ink sm:px-4"
           >
             Apply
