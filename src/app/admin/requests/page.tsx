@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Item requests | HackHive 2027" };
 
 export default function RequestsPage() {
   return (
-    <main className="mx-auto max-w-3xl">
+    <main className="mx-auto max-w-3xl mt-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Item requests</h1>
         <p className="text-neutral-600">First come, first served: review the top request before moving on.</p>

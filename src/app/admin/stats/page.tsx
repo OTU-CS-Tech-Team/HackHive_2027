@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Stats | HackHive 2027" };
 
 export default function StatsPage() {
   return (
-    <main className="mx-auto max-w-5xl">
+    <main className="mx-auto max-w-5xl mt-6">
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Hackathon stats</h1>
         <div className="mt-3 flex flex-wrap gap-2">

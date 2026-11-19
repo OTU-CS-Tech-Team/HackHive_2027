@@ -32,7 +32,7 @@ type SearchParams = Promise<{ status?: string | string[]; q?: string | string[] 
 
 export default function ApplicantsPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <main className="mx-auto max-w-5xl">
+    <main className="mx-auto max-w-5xl mt-6">
       <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Applicants</h1>
       </header>
