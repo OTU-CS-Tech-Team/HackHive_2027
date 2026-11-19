@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
+import { loadStagedMap } from "@/lib/decisions/staged";
 import { isTier } from "@/lib/hive/tier";
 import { VOTE_LABELS, type Outcome, type Vote } from "@/lib/review/pools";
 import { loadOutcomes, loadPoolCounts, poolStats } from "@/lib/review/summary";
@@ -16,7 +17,7 @@ export default function ResultsPage() {
     <main className="mx-auto max-w-6xl">
       <ReviewHeader
         active="results"
-        description="Names come back here. Review outcomes are handed to the Decisions page, which stages and releases them. Reopen sends someone back to the queue, until a decision has been set or staged for them."
+        description="Names come back here. Stage outcomes from the Decisions page, then release them there in waves. Reopen sends someone back to the queue, until a decision has been set or staged for them."
       />
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading results…</p>}>
         <Results />
@@ -48,7 +49,7 @@ async function loadVotes(session: Session) {
 
 async function Results() {
   const session = await requireAdmin("/admin/review/results");
-  const [pools, outcomes, apps, scores, votes] = await Promise.all([
+  const [pools, outcomes, apps, scores, votes, staged] = await Promise.all([
     loadPoolCounts(session),
     loadOutcomes(session),
     loadAllByKeyset<App>((after) => {
@@ -68,12 +69,13 @@ async function Results() {
       { key: "application_id" },
     ),
     loadVotes(session),
+    loadStagedMap(session),
   ]);
-  if (!pools || !outcomes.data || !apps.data || !scores.data || !votes) {
+  if (!pools || !outcomes.data || !apps.data || !scores.data || !votes || staged.failed) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
         <h2 className="font-semibold">Results couldn&apos;t be loaded</h2>
-        <p className="mt-1 text-sm">Refresh to try again. If it keeps failing, check the blind_review migration has been applied.</p>
+        <p className="mt-1 text-sm">Refresh to try again. If it keeps failing, check the blind_review and release_waves migrations have been applied.</p>
       </div>
     );
   }
@@ -107,6 +109,7 @@ async function Results() {
         waitlistPosition: outcome.waitlist_position,
         decidedAt: formatDateTime(outcome.decided_at),
         decision: app?.decision ?? null,
+        staged: staged.map.get(outcome.application_id) ?? null,
       };
     });
 

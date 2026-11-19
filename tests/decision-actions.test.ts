@@ -62,6 +62,7 @@ const { state, client, sendDecisionEmail, revalidatePath } = vi.hoisted(() => {
   return { state, client, sendDecisionEmail: vi.fn(), revalidatePath: vi.fn() };
 });
 
+vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath, updateTag: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => client, createServiceClient: () => ({}) }));
 vi.mock('@/lib/application/decision-email', () => ({ sendDecisionEmail }));
@@ -330,6 +331,26 @@ describe('promoteFromWaitlist', () => {
     expect(sendDecisionEmail).not.toHaveBeenCalled();
   });
 
+  it("puts blind review's waitlist first, in its order, ahead of Hive rank", async () => {
+    const respond = state.respond;
+    state.respond = (call) =>
+      call.table === 'review_outcomes' && !call.filters.some((filter) => filter.includes('>'))
+        ? {
+            data: [
+              { application_id: appId(3), outcome: 'waitlisted', pool: null, waitlist_position: 2, decided_at: '2026-11-10T00:00:00Z' },
+              { application_id: appId(1), outcome: 'waitlisted', pool: null, waitlist_position: 1, decided_at: '2026-11-11T00:00:00Z' },
+            ],
+            error: null,
+          }
+        : respond(call);
+    const { promoteFromWaitlist } = await actions();
+
+    await promoteFromWaitlist(3);
+
+    const [upsert] = writes('staged_decisions');
+    expect((upsert.values as { application_id: string }[]).map((row) => row.application_id)).toEqual([appId(1), appId(3), appId(2)]);
+  });
+
   it('says when fewer are left than asked for', async () => {
     const { promoteFromWaitlist } = await actions();
 
@@ -350,5 +371,90 @@ describe('promoteFromWaitlist', () => {
     const { promoteFromWaitlist } = await actions();
 
     await expect(promoteFromWaitlist(1)).rejects.toThrow('Admins only');
+  });
+});
+
+describe('stageReviewOutcomes', () => {
+  const outcome = (n: number, result: string, extra: Record<string, unknown> = {}) => ({
+    application_id: appId(n),
+    outcome: result,
+    pool: result === 'accepted' ? 'general' : null,
+    waitlist_position: null,
+    decided_at: `2026-11-1${n}T00:00:00Z`,
+    ...extra,
+  });
+
+  beforeEach(() => {
+    state.respond = (call) => {
+      if (call.op !== 'select') return { data: null, error: null };
+      if (call.filters.some((filter) => filter.includes('>'))) return { data: [], error: null }; // second page
+      if (call.table === 'review_outcomes') {
+        return {
+          data: [
+            outcome(1, 'rejected'),
+            outcome(2, 'waitlisted', { waitlist_position: 2 }),
+            outcome(3, 'accepted'),
+            outcome(4, 'accepted'), // already decided by hand
+            outcome(5, 'accepted'), // already staged
+            outcome(6, 'waitlisted', { waitlist_position: 1 }),
+            outcome(7, 'accepted'), // withdrawn: not a submitted application
+            outcome(8, 'accepted', { decided_at: '2026-11-01T00:00:00Z' }),
+          ],
+          error: null,
+        };
+      }
+      if (call.table === 'applications') {
+        return { data: [1, 2, 3, 4, 5, 6, 8].map((n) => ({ id: appId(n), decision: n === 4 ? 'accepted' : null })), error: null };
+      }
+      if (call.table === 'staged_decisions') return { data: [{ application_id: appId(5), decision: 'rejected' }], error: null };
+      return { data: [], error: null };
+    };
+  });
+
+  it('stages every undecided, unstaged outcome: accepts in review order, then the waitlist, then rejections', async () => {
+    const { stageReviewOutcomes } = await actions();
+
+    const result = await stageReviewOutcomes();
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain('2 accept, 2 waitlist, 1 reject');
+    const [upsert] = writes('staged_decisions');
+    expect((upsert.values as { application_id: string; decision: string }[]).map((row) => [row.application_id, row.decision])).toEqual([
+      [appId(8), 'accepted'],
+      [appId(3), 'accepted'],
+      [appId(6), 'waitlisted'],
+      [appId(2), 'waitlisted'],
+      [appId(1), 'rejected'],
+    ]);
+    // Never overwrites something staged by hand in the meantime.
+    expect(upsert.options).toEqual({ onConflict: 'application_id', ignoreDuplicates: true });
+    expect(sendDecisionEmail).not.toHaveBeenCalled();
+    expect(state.rpcCalls).toEqual([]);
+  });
+
+  it('says when nothing is left to stage', async () => {
+    state.respond = (call) => (call.table === 'review_outcomes' && !call.filters.length ? { data: [outcome(4, 'accepted')], error: null } : { data: [], error: null });
+    const { stageReviewOutcomes } = await actions();
+
+    const result = await stageReviewOutcomes();
+
+    expect(result.ok).toBe(false);
+    expect(writes('staged_decisions')).toEqual([]);
+  });
+
+  it('stages nothing if anything fails to load', async () => {
+    const respond = state.respond;
+    state.respond = (call) => (call.table === 'staged_decisions' ? { data: null, error: { message: 'boom' } } : respond(call));
+    const { stageReviewOutcomes } = await actions();
+
+    expect((await stageReviewOutcomes()).ok).toBe(false);
+    expect(writes('staged_decisions')).toEqual([]);
+  });
+
+  it('blocks people who are not admins', async () => {
+    state.isAdmin = false;
+    const { stageReviewOutcomes } = await actions();
+
+    await expect(stageReviewOutcomes()).rejects.toThrow('Admins only');
   });
 });

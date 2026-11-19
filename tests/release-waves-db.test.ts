@@ -100,6 +100,18 @@ describe('staged_decisions', () => {
     expect(await staged()).toEqual([]);
     await expect(stage(2, 'accepted')).rejects.toThrow(/row-level security/);
   });
+
+  it('always records whoever staged it', async () => {
+    await db.exec(`insert into public.staged_decisions (application_id, decision) values ('${app(1)}', 'accepted');`);
+    const { rows } = await db.query<{ staged_by: string }>('select staged_by from public.staged_decisions');
+    expect(rows).toEqual([{ staged_by: ADMIN }]);
+    await db.exec('savepoint s;');
+    await expect(
+      db.exec(`insert into public.staged_decisions (application_id, decision, staged_by) values ('${app(2)}', 'accepted', '${HACKER}');`),
+    ).rejects.toThrow(/row-level security/);
+    await db.exec('rollback to savepoint s;');
+    await expect(db.exec(`update public.staged_decisions set staged_by = '${HACKER}';`)).rejects.toThrow(/row-level security/);
+  });
 });
 
 describe('release_wave', () => {

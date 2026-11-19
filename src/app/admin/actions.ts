@@ -131,6 +131,14 @@ export async function resendDecisionEmail(id: string): Promise<ActionResult> {
   if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
   const { data: applicant } = await supabase.from("applications").select("email, first_name, decision").eq("id", id).maybeSingle();
   if (!applicant?.decision) return { ok: false, message: "There's no decision to email yet." };
+  // Their wave email hasn't gone yet: sending now as well would email them twice.
+  const { count: unsent, error: unsentError } = await supabase
+    .from("wave_emails")
+    .select("application_id", { count: "exact", head: true })
+    .eq("application_id", id)
+    .is("sent_at", null);
+  if (unsentError) return { ok: false, message: "Couldn't check their wave email. Refresh and try again." };
+  if (unsent) return { ok: false, message: "Their decision email from a wave hasn't gone out yet. Use Retry on the Decisions page instead." };
   const { sent, error } = await sendDecisionEmail({ to: applicant.email, firstName: applicant.first_name, decision: applicant.decision });
   return sent
     ? { ok: true, message: `Emailed ${applicant.email} again.` }

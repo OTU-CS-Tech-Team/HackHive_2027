@@ -7,7 +7,7 @@ import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import type { Decision } from "@/lib/application/decision-email";
-import { loadStagedMap } from "@/lib/decisions/staged";
+import { STAGED_LOAD_FAILED, loadStagedMap } from "@/lib/decisions/staged";
 import { MAX_TOTAL, TIERS, type Tier } from "@/lib/hive/tier";
 import {
   compareForReview,
@@ -152,6 +152,11 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <ReviewNotice>
+      {loaded.staged.failed && (
+        <p role="alert" className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+          {STAGED_LOAD_FAILED}
+        </p>
+      )}
       {outOfCredits && (
         <div role="alert" className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
           <p className="font-semibold">OpenAI credits are used up</p>
@@ -185,7 +190,7 @@ async function Hive({ searchParams }: { searchParams: SearchParams }) {
               row={row}
               history={historyById.get(row.id) ?? []}
               scoring={isScoring(row.score, now)}
-              staged={loaded.staged.get(row.id) ?? null}
+              staged={loaded.staged.map.get(row.id) ?? null}
             />
           ),
         }))}

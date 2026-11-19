@@ -20,10 +20,13 @@ export function loadStagedDecisions(session: Session) {
 }
 
 /**
- * application_id -> staged decision. A failure (e.g. the release_waves migration
- * isn't applied yet) shows nobody as staged rather than just some of them.
+ * application_id -> staged decision. On a failure (e.g. the release_waves
+ * migration isn't applied yet) the map is empty and `failed` is set, so pages
+ * can say staged decisions aren't showing instead of showing nobody as staged.
  */
-export async function loadStagedMap(session: Session): Promise<Map<string, Decision>> {
+export async function loadStagedMap(session: Session): Promise<{ map: Map<string, Decision>; failed: boolean }> {
   const { data } = await loadStagedDecisions(session);
-  return new Map((data ?? []).map((row) => [row.application_id, row.decision]));
+  return { map: new Map((data ?? []).map((row) => [row.application_id, row.decision])), failed: !data };
 }
+
+export const STAGED_LOAD_FAILED = "Staged decisions couldn't be loaded, so nobody shows as staged. Refresh before deciding on anyone.";

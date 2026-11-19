@@ -6,11 +6,13 @@ import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Decision } from "@/lib/application/decision-email";
 import type { Application } from "@/lib/application/schema";
-import { POOLS, POOL_LABELS, SEATS, tallyPools, type Accept, type PoolTally } from "@/lib/decisions/pools";
+import { tallyPools, targetsFrom, totalSeats, type Accept, type PoolTally } from "@/lib/decisions/pools";
 import { loadStagedDecisions } from "@/lib/decisions/staged";
+import { POOLS, POOL_LABELS } from "@/lib/review/pools";
+import { loadOutcomes } from "@/lib/review/summary";
 import { formatDateTime } from "@/lib/time";
 import { ReviewNotice } from "../applicants/DecisionControls";
-import { PromoteWaitlist, ReleasePanel, RetryUnsent, UndoStaged } from "./DecisionsClient";
+import { PromoteWaitlist, ReleasePanel, RetryUnsent, StageReviewOutcomes, UndoStaged } from "./DecisionsClient";
 
 export const metadata: Metadata = { title: "Decisions | HackHive 2027" };
 
@@ -40,15 +42,17 @@ const PAGE_SIZE = 1000;
 const APP_COLUMNS = "id, email, first_name, last_name, preferred_name, university, year_of_study, decision, submitted_at";
 
 async function loadDecisions(session: Session) {
-  const [apps, staged, waves] = await Promise.all([
+  const [apps, staged, waves, outcomes, settings] = await Promise.all([
     loadAllByKeyset<App>((after) => {
       const query = session.from("applications").select(APP_COLUMNS).eq("status", "submitted").order("id").limit(PAGE_SIZE);
       return after ? query.gt("id", after) : query;
     }),
     loadStagedDecisions(session),
     session.from("release_waves").select("id, includes_rejections, released_by, released_at").order("released_at").order("id"),
+    loadOutcomes(session),
+    session.from("review_settings").select("otu_seats, lower_years_seats, general_seats").eq("id", 1).maybeSingle(),
   ]);
-  if (!apps.data || !staged.data || waves.error || !waves.data) return null;
+  if (!apps.data || !staged.data || waves.error || !waves.data || !outcomes.data || !settings.data) return null;
 
   // One wave at a time: wave_emails' key is (wave, applicant), and keyset paging needs a single column.
   const emails = await Promise.all(
@@ -77,6 +81,8 @@ async function loadDecisions(session: Session) {
   return {
     apps: apps.data,
     staged: staged.data,
+    outcomes: outcomes.data,
+    targets: targetsFrom(settings.data),
     waves: waves.data as Wave[],
     emails: emails.flatMap((result) => result.data ?? []),
     admins: admins ?? [],
@@ -94,7 +100,7 @@ async function Decisions() {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
         <h2 className="font-semibold">Decisions couldn&apos;t be loaded</h2>
-        <p className="mt-1 text-sm">Refresh to try again. If it keeps failing, check the release_waves migration has been applied.</p>
+        <p className="mt-1 text-sm">Refresh to try again. If it keeps failing, check the blind_review, release_waves and review_decisions migrations have been applied.</p>
       </div>
     );
   }
@@ -110,24 +116,24 @@ async function Decisions() {
   const pendingReview = loaded.apps.filter((app) => !app.decision && !stagedById.has(app.id)).length;
   const waitlisted = loaded.apps.filter((app) => app.decision === "waitlisted" && !stagedById.has(app.id)).length;
 
-  // When the wave that accepted each applicant went out (none for accepts from before waves).
-  const waveTime = new Map(loaded.waves.map((wave) => [wave.id, wave.released_at]));
-  const acceptedAt = new Map<string, string>();
-  for (const email of loaded.emails) {
-    if (email.decision !== "accepted") continue;
-    const at = waveTime.get(email.wave_id)!;
-    const current = acceptedAt.get(email.application_id);
-    if (!current || Date.parse(at) > Date.parse(current)) acceptedAt.set(email.application_id, at);
-  }
-  const accepts: Accept[] = [
-    ...loaded.apps
-      .filter((app) => app.decision === "accepted")
-      .map((app) => ({ ...poolFields(app), sent: true, releasedAt: acceptedAt.get(app.id) ?? null, stagedAt: null })),
-    ...staged
-      .filter((row) => row.decision === "accepted")
-      .map((row) => ({ ...poolFields(appById.get(row.application_id)!), sent: false, releasedAt: null, stagedAt: row.staged_at })),
-  ];
-  const pools = tallyPools(accepts);
+  // Seats: released accepts, staged accepts, and blind review accepts with nothing staged yet.
+  const reviewPool = new Map(loaded.outcomes.flatMap((row) => (row.outcome === "accepted" && row.pool ? [[row.application_id, row.pool] as const] : [])));
+  const accepts: Accept[] = loaded.apps.flatMap((app) => {
+    const stagedRow = stagedById.get(app.id);
+    const effective = stagedRow?.decision ?? app.decision ?? (reviewPool.has(app.id) ? "accepted" : null);
+    if (effective !== "accepted") return [];
+    const state = stagedRow ? "staged" : app.decision ? "sent" : "review";
+    return [{ ...poolFields(app), state, reviewPool: reviewPool.get(app.id) ?? null, stagedAt: stagedRow?.staged_at ?? null }];
+  });
+  const pools = tallyPools(accepts, loaded.targets);
+  const seats = totalSeats(loaded.targets);
+
+  // Blind review outcomes waiting to be staged (no decision, nothing staged).
+  const fromReview = loaded.outcomes.filter((row) => {
+    const app = appById.get(row.application_id);
+    return app && !app.decision && !stagedById.has(app.id);
+  });
+  const fromReviewCount = (decision: Decision) => fromReview.filter((row) => row.outcome === decision).length;
 
   const adminName = new Map(loaded.admins.map((admin) => [admin.id, admin.full_name || admin.email || "Admin"]));
   const emailsByWave = new Map<number, WaveEmail[]>();
@@ -155,6 +161,29 @@ async function Decisions() {
           </div>
         ))}
 
+        <section aria-labelledby="review-heading" className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="review-heading" className="font-semibold">From blind review</h2>
+            <p className="text-sm text-neutral-600 tabular-nums">
+              {fromReview.length === 0 ? (
+                <>
+                  Nothing waiting. Outcomes land here once two reviewers agree (see{" "}
+                  <Link href="/admin/review/results" className={link}>
+                    Results
+                  </Link>
+                  ).
+                </>
+              ) : (
+                <>
+                  {plural(fromReviewCount("accepted"), "accept")}, {plural(fromReviewCount("waitlisted"), "waitlist")} and{" "}
+                  {plural(fromReviewCount("rejected"), "rejection")} ready to stage. Staging emails nobody.
+                </>
+              )}
+            </p>
+          </div>
+          <StageReviewOutcomes count={fromReview.length} />
+        </section>
+
         <ReleasePanel
           nextWave={loaded.waves.length + 1}
           accepts={stagedCount("accepted")}
@@ -169,7 +198,7 @@ async function Decisions() {
           <div className="mb-3 flex items-baseline justify-between gap-2">
             <h2 id="seats-heading" className="font-semibold">Seats</h2>
             <p className="text-sm text-neutral-600 tabular-nums">
-              {acceptedTotal} of {SEATS}
+              {acceptedTotal} of {seats}
             </p>
           </div>
           <ul className="space-y-3">
@@ -182,9 +211,12 @@ async function Decisions() {
               <span aria-hidden className="size-2 rounded-full bg-amber-600" /> Accepted
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden className="size-2 rounded-full bg-amber-300" /> Staged
+              <span aria-hidden className="size-2 rounded-full bg-amber-400" /> Staged
             </span>
-            <span>For reference only. Nobody is moved up or down because of these.</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="size-2 rounded-full bg-amber-200" /> Accepted in review, not staged
+            </span>
+            <span>Targets are the blind review seats. Accepting by hand uses up seats too.</span>
           </p>
         </section>
 
@@ -192,7 +224,7 @@ async function Decisions() {
           <div>
             <h2 id="waitlist-heading" className="font-semibold">Waitlist</h2>
             <p className="text-sm text-neutral-600">
-              <span className="tabular-nums">{waitlisted === 1 ? "1 person" : `${waitlisted} people`}</span>. Promoting stages accepts for the top by Hive Mind rank.
+              <span className="tabular-nums">{waitlisted === 1 ? "1 person" : `${waitlisted} people`}</span>. Promoting stages accepts in blind review&apos;s waitlist order, then by Hive Mind rank.
             </p>
           </div>
           <PromoteWaitlist waitlisted={waitlisted} />
@@ -202,7 +234,7 @@ async function Decisions() {
           <Disclosure title="Staged, not sent" count={staged.length}>
             {staged.length === 0 ? (
               <p className="text-sm text-neutral-600">
-                Nothing staged. Decide on people from{" "}
+                Nothing staged. Stage blind review outcomes above, or decide on people from{" "}
                 <Link href="/admin/applicants" className={link}>
                   Applicants
                 </Link>{" "}
@@ -305,18 +337,21 @@ function poolFields(app: App) {
 }
 
 function PoolRow({ label, tally }: { label: string; tally: PoolTally }) {
-  const total = tally.sent + tally.staged;
-  const width = (n: number) => `${Math.min(100, (n / tally.target) * 100)}%`;
+  const total = tally.sent + tally.staged + tally.review;
+  // A pool over its target fills the bar in proportion.
+  const scale = Math.max(tally.target, total, 1);
+  const width = (n: number) => `${(n / scale) * 100}%`;
   return (
     <li className="grid grid-cols-[7.5rem_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[9rem_1fr_6rem]">
       <span className="font-medium">{label}</span>
       <div
         role="img"
-        aria-label={`${tally.sent} accepted and ${tally.staged} staged of ${tally.target}`}
+        aria-label={`${tally.sent} accepted, ${tally.staged} staged and ${tally.review} accepted in review, of ${tally.target}`}
         className="flex h-2.5 overflow-hidden rounded-full bg-neutral-100"
       >
         <div className="h-full bg-amber-600" style={{ width: width(tally.sent) }} />
-        <div className="h-full bg-amber-300" style={{ width: `calc(${width(total)} - ${width(tally.sent)})` }} />
+        <div className="h-full bg-amber-400" style={{ width: width(tally.staged) }} />
+        <div className="h-full bg-amber-200" style={{ width: width(tally.review) }} />
       </div>
       <span className={`text-right tabular-nums ${total > tally.target ? "font-semibold text-amber-800" : "text-neutral-700"}`}>
         {total} / {tally.target}

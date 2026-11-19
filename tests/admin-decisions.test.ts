@@ -11,6 +11,7 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
     updates: [] as unknown[],
     filters: [] as string[],
     deleteErrors: {} as Record<string, { code: string; message: string }>,
+    unsentWaveEmails: 0,
   };
 
   const service = {
@@ -77,13 +78,21 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
         state.filters.push(`or=${filter}`);
         return query;
       },
+      is: (column: string, value: unknown) => {
+        state.filters.push(`${column} is ${value}`);
+        return query;
+      },
       not: (column: string, op: string) => {
         state.filters.push(`not=${column}.${op}`);
         return query;
       },
       maybeSingle: async () => ({ data: state.isAdmin ? state.lookup : null }),
       then: (resolve: (value: unknown) => void) =>
-        resolve(deleting ? { error: state.deleteErrors[id] ?? null } : { data: state.updateRows, error: state.updateError }),
+        resolve(
+          deleting
+            ? { error: state.deleteErrors[id] ?? null }
+            : { data: state.updateRows, error: state.updateError, count: state.unsentWaveEmails },
+        ),
     };
     return query;
   };
@@ -114,6 +123,7 @@ beforeEach(() => {
   state.updates = [];
   state.filters = [];
   state.deleteErrors = {};
+  state.unsentWaveEmails = 0;
   service.targetIsAdmin = false;
   service.adminLookupError = null;
   service.deleteError = null;
@@ -147,6 +157,17 @@ describe('resendDecisionEmail', () => {
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain('domain not verified');
+  });
+
+  it("won't resend while their wave email is still unsent (Retry would email them again)", async () => {
+    state.unsentWaveEmails = 1;
+    const { resendDecisionEmail } = await actions();
+
+    const result = await resendDecisionEmail(ID);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Retry');
+    expect(sendDecisionEmail).not.toHaveBeenCalled();
   });
 
   it('has nothing to send for an undecided application', async () => {

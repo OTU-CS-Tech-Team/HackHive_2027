@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { useReviewAction } from "../applicants/DecisionControls";
-import { promoteFromWaitlist, releaseWave, sendWaveEmails, stageDecision } from "./actions";
+import { promoteFromWaitlist, releaseWave, sendWaveEmails, stageDecision, stageReviewOutcomes } from "./actions";
 
 const primary =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-50";
@@ -203,6 +203,15 @@ export function UndoStaged({ id, name }: { id: string; name: string }) {
   return (
     <button type="button" disabled={pending} onClick={() => run(() => stageDecision(id, null))} className={quiet} aria-label={`Undo staged decision for ${name}`}>
       Undo
+    </button>
+  );
+}
+
+export function StageReviewOutcomes({ count }: { count: number }) {
+  const { pending, run } = useReviewAction();
+  return (
+    <button type="button" disabled={pending || count === 0} onClick={() => run(stageReviewOutcomes)} className={`${secondary} shrink-0`}>
+      {pending ? "Staging…" : count ? `Stage ${count}` : "Stage"}
     </button>
   );
 }

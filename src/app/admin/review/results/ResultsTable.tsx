@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Tier } from "@/lib/hive/tier";
 import { POOL_LABELS, type Outcome, type Pool, type Vote } from "@/lib/review/pools";
@@ -19,9 +20,17 @@ export type ResultRow = {
   decidedAt: string;
   /** applications.decision: set once the Decisions page releases them (or someone decides by hand). */
   decision: Outcome | null;
+  /** Staged on the Decisions page, not released yet. */
+  staged: Outcome | null;
 };
 
-type Filter = "waiting" | "decided" | "all";
+type Filter = "waiting" | "staged" | "decided" | "all";
+
+const FILTER_LABELS: Record<Filter, string> = { waiting: "Not staged yet", staged: "Staged", decided: "Released", all: "All" };
+
+const stateOf = (row: ResultRow): Exclude<Filter, "all"> => (row.staged ? "staged" : row.decision ? "decided" : "waiting");
+/** What they'll get: staged, else released. */
+const effective = (row: ResultRow) => row.staged ?? row.decision;
 
 const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
 const button = `inline-flex min-h-11 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${ring}`;
@@ -47,9 +56,9 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
   const [notice, setNotice] = useState<ReviewResult | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const shown = rows.filter((row) => filter === "all" || (filter === "decided") === !!row.decision);
-  const counts = { waiting: rows.filter((row) => !row.decision).length, decided: rows.filter((row) => row.decision).length, all: rows.length };
-  const mismatches = rows.filter((row) => row.decision && row.decision !== row.outcome).length;
+  const shown = rows.filter((row) => filter === "all" || stateOf(row) === filter);
+  const count = (option: Filter) => (option === "all" ? rows.length : rows.filter((row) => stateOf(row) === option).length);
+  const mismatches = rows.filter((row) => effective(row) && effective(row) !== row.outcome).length;
 
   const run = (action: () => Promise<ReviewResult>) =>
     startTransition(async () => {
@@ -74,13 +83,23 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
 
       {mismatches > 0 && (
         <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
-          <strong className="tabular-nums">{mismatches}</strong> {mismatches === 1 ? "applicant has" : "applicants have"} a decision that
-          doesn&apos;t match their review outcome (set by hand). They&apos;re marked below.
+          <strong className="tabular-nums">{mismatches}</strong> {mismatches === 1 ? "applicant has" : "applicants have"} a staged or released
+          decision that doesn&apos;t match their review outcome (set by hand). They&apos;re marked below.
+        </p>
+      )}
+
+      {count("waiting") > 0 && (
+        <p className="mb-4 text-sm text-neutral-700">
+          <strong className="tabular-nums">{count("waiting")}</strong> not staged yet. Stage them from the{" "}
+          <Link href="/admin/decisions" className="underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+            Decisions page
+          </Link>
+          , then release a wave there.
         </p>
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {(["waiting", "decided", "all"] as const).map((option) => (
+        {(["waiting", "staged", "decided", "all"] as const).map((option) => (
           <button
             key={option}
             type="button"
@@ -88,8 +107,7 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
             onClick={() => setFilter(option)}
             className={`${button} ${filter === option ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 hover:bg-neutral-100"}`}
           >
-            {option === "waiting" ? "No decision yet" : option === "decided" ? "Decided" : "All"}{" "}
-            <span className="ml-1 tabular-nums opacity-75">{counts[option]}</span>
+            {FILTER_LABELS[option]} <span className="ml-1 tabular-nums opacity-75">{count(option)}</span>
           </button>
         ))}
       </div>
@@ -113,7 +131,7 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
             </thead>
             <tbody className="divide-y divide-neutral-200">
               {shown.map((row) => {
-                const mismatch = !!row.decision && row.decision !== row.outcome;
+                const mismatch = !!effective(row) && effective(row) !== row.outcome;
                 return (
                   <tr key={row.id} className={`align-top ${mismatch ? "bg-amber-50/60" : ""}`}>
                     <td className="px-3 py-3">
@@ -138,17 +156,20 @@ export function ResultsTable({ rows }: { rows: ResultRow[] }) {
                       <p className="mt-1 text-xs text-neutral-600">{row.decidedAt}</p>
                     </td>
                     <td className="px-3 py-3 text-neutral-700">
-                      {row.decision ? (
+                      {row.staged ? (
                         <>
-                          {DECISION_LABELS[row.decision]}
-                          {mismatch && <p className="mt-1 text-xs font-medium text-amber-900">Doesn&apos;t match the review</p>}
+                          Staged: {DECISION_LABELS[row.staged]}
+                          <p className="text-xs text-neutral-600">{row.decision ? `Was ${DECISION_LABELS[row.decision].toLowerCase()}. ` : ""}Not sent yet</p>
                         </>
+                      ) : row.decision ? (
+                        DECISION_LABELS[row.decision]
                       ) : (
-                        <span className="text-neutral-500">Not yet</span>
+                        <span className="text-neutral-500">Not staged yet</span>
                       )}
+                      {mismatch && <p className="mt-1 text-xs font-medium text-amber-900">Doesn&apos;t match the review</p>}
                     </td>
                     <td className="px-3 py-3">
-                      {!row.decision && (
+                      {!row.decision && !row.staged && (
                         <button
                           type="button"
                           disabled={pending}

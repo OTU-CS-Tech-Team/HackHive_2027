@@ -5,6 +5,7 @@ import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
 import { loadStagedDecisions } from "@/lib/decisions/staged";
 import { compareForReview, displayTier, type HiveScore } from "@/lib/hive/view";
+import { loadOutcomes } from "@/lib/review/summary";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "../actions";
 
@@ -162,12 +163,16 @@ export async function sendWaveEmails(waveId: number): Promise<SendResult> {
 type WaitlistRow = { id: string; submitted_at: string | null; hackathons_count: number | null };
 const PAGE_SIZE = 1000;
 
-/** Stages accepts for the top `count` waitlisted applicants by Hive rank (anyone already staged is skipped). */
+/**
+ * Stages accepts for the top `count` waitlisted applicants (anyone already
+ * staged is skipped): blind review's waitlist first, in its order, then
+ * everyone else by Hive rank.
+ */
 export async function promoteFromWaitlist(count: number): Promise<ActionResult> {
   const { supabase, user } = await requireAdmin();
   if (!Number.isInteger(count) || count < 1 || count > 500) return { ok: false, message: "Pick a number from 1 to 500." };
 
-  const [waitlisted, staged, scores] = await Promise.all([
+  const [waitlisted, staged, scores, outcomes] = await Promise.all([
     loadAllByKeyset<WaitlistRow>((after) => {
       const query = supabase
         .from("applications")
@@ -186,22 +191,29 @@ export async function promoteFromWaitlist(count: number): Promise<ActionResult> 
       },
       { key: "application_id" },
     ),
+    loadOutcomes(supabase),
   ]);
-  if (!waitlisted.data || !staged.data || !scores.data) return { ok: false, message: "Couldn't load the waitlist. Refresh and try again." };
+  if (!waitlisted.data || !staged.data || !scores.data || !outcomes.data) return { ok: false, message: "Couldn't load the waitlist. Refresh and try again." };
 
   const stagedIds = new Set(staged.data.map((row) => row.application_id));
   const scoreById = new Map(scores.data.map((score) => [score.application_id, score]));
+  const reviewSpot = new Map(
+    outcomes.data.filter((row) => row.outcome === "waitlisted" && row.waitlist_position !== null).map((row) => [row.application_id, row.waitlist_position!]),
+  );
   const next = waitlisted.data
     .filter((row) => !stagedIds.has(row.id))
     .map((row) => {
       const score = scoreById.get(row.id);
-      return { ...row, score, tier: displayTier(score) };
+      return { ...row, score, tier: displayTier(score), spot: reviewSpot.get(row.id) ?? null };
     })
-    .sort(compareForReview)
+    .sort((a, b) => {
+      if (a.spot !== null || b.spot !== null) return a.spot === null ? 1 : b.spot === null ? -1 : a.spot - b.spot;
+      return compareForReview(a, b);
+    })
     .slice(0, count);
   if (!next.length) return { ok: false, message: "Nobody on the waitlist is left to promote." };
 
-  // A millisecond apart, so the pool trackers count them in rank order.
+  // A millisecond apart, so the pool trackers count them in this order.
   const now = Date.now();
   const rows = next.map((row, i) => ({ application_id: row.id, decision: "accepted", staged_by: user.id, staged_at: new Date(now + i).toISOString() }));
   const { error } = await supabase.from("staged_decisions").upsert(rows, { onConflict: "application_id" });
@@ -209,4 +221,49 @@ export async function promoteFromWaitlist(count: number): Promise<ActionResult> 
   revalidatePath("/admin", "layout");
   const short = next.length < count ? ` (only ${next.length} left on the waitlist)` : "";
   return { ok: true, message: `Staged ${next.length} accept${next.length === 1 ? "" : "s"} from the waitlist${short}. They go out with the next wave.` };
+}
+
+const OUTCOME_ORDER: Record<Decision, number> = { accepted: 0, waitlisted: 1, rejected: 2 };
+
+/**
+ * Stages blind review's outcomes (accepted, waitlisted, not accepted) for
+ * everyone with no decision and nothing staged. Never overwrites a decision
+ * someone staged by hand. Emails nobody: they go out with the next wave.
+ */
+export async function stageReviewOutcomes(): Promise<ActionResult> {
+  const { supabase, user } = await requireAdmin();
+  const [outcomes, apps, staged] = await Promise.all([
+    loadOutcomes(supabase),
+    loadAllByKeyset<{ id: string; decision: Decision | null }>((after) => {
+      const query = supabase.from("applications").select("id, decision").eq("status", "submitted").order("id").limit(PAGE_SIZE);
+      return after ? query.gt("id", after) : query;
+    }),
+    loadStagedDecisions(supabase),
+  ]);
+  if (!outcomes.data || !apps.data || !staged.data) return { ok: false, message: "Couldn't load the review results. Refresh and try again." };
+
+  const undecided = new Set(apps.data.filter((app) => !app.decision).map((app) => app.id));
+  const stagedIds = new Set(staged.data.map((row) => row.application_id));
+  const ready = outcomes.data
+    .filter((row) => undecided.has(row.application_id) && !stagedIds.has(row.application_id))
+    // Accepts in the order review placed them (so the seat trackers agree), then the waitlist in order, then the rest.
+    .toSorted(
+      (a, b) =>
+        OUTCOME_ORDER[a.outcome] - OUTCOME_ORDER[b.outcome] ||
+        (a.waitlist_position ?? 0) - (b.waitlist_position ?? 0) ||
+        a.decided_at.localeCompare(b.decided_at),
+    );
+  if (!ready.length) return { ok: false, message: "Every review outcome already has a decision or is staged." };
+
+  const now = Date.now();
+  const rows = ready.map((row, i) => ({ application_id: row.application_id, decision: row.outcome, staged_by: user.id, staged_at: new Date(now + i).toISOString() }));
+  // ignoreDuplicates: anyone staged by hand in the meantime keeps what was staged for them.
+  const { error } = await supabase.from("staged_decisions").upsert(rows, { onConflict: "application_id", ignoreDuplicates: true });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin", "layout");
+  const counts = (["accepted", "waitlisted", "rejected"] as const)
+    .map((decision) => [ready.filter((row) => row.outcome === decision).length, LABELS[decision].toLowerCase()] as const)
+    .filter(([n]) => n)
+    .map(([n, label]) => `${n} ${label}`);
+  return { ok: true, message: `Staged ${counts.join(", ")} from blind review. They go out with the next wave (rejections only on the final one).` };
 }

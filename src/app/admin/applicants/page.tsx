@@ -6,7 +6,7 @@ import { bySubmittedAt, loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Application } from "@/lib/application/schema";
 import type { Decision } from "@/lib/application/decision-email";
-import { loadStagedMap } from "@/lib/decisions/staged";
+import { STAGED_LOAD_FAILED, loadStagedMap } from "@/lib/decisions/staged";
 import { displayTier, type HiveScore } from "@/lib/hive/view";
 import type { Tier } from "@/lib/hive/tier";
 import { formatDateTime } from "@/lib/time";
@@ -108,6 +108,11 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <ReviewNotice>
+      {staged.failed && (
+        <p role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+          {STAGED_LOAD_FAILED}
+        </p>
+      )}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <nav aria-label="Filter applicants" className="flex gap-1 overflow-x-auto">
           {(Object.keys(FILTERS) as Filter[]).map((key) => (
@@ -147,7 +152,7 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
         >
           <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
             {shown.map((app) => (
-              <ApplicantRow key={app.id} app={app} tier={tiers.get(app.id)} staged={staged.get(app.id) ?? null} />
+              <ApplicantRow key={app.id} app={app} tier={tiers.get(app.id)} staged={staged.map.get(app.id) ?? null} />
             ))}
           </ul>
         </Selection>

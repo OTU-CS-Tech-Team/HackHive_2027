@@ -22,7 +22,7 @@ begin;
 create table if not exists public.staged_decisions (
   application_id uuid primary key references public.applications on delete cascade,
   decision text not null check (decision in ('accepted', 'waitlisted', 'rejected')),
-  staged_by uuid references public.profiles on delete set null,
+  staged_by uuid default auth.uid() references public.profiles on delete set null,
   staged_at timestamptz not null default now()
 );
 
@@ -33,13 +33,16 @@ create policy "staged_decisions_admin_read" on public.staged_decisions
   for select to authenticated using ((select public.is_admin()));
 
 drop policy if exists "staged_decisions_admin_insert" on public.staged_decisions;
+-- staged_by is always whoever staged it.
 create policy "staged_decisions_admin_insert" on public.staged_decisions
-  for insert to authenticated with check ((select public.is_admin()));
+  for insert to authenticated
+  with check ((select public.is_admin()) and staged_by is not distinct from (select auth.uid()));
 
 drop policy if exists "staged_decisions_admin_update" on public.staged_decisions;
 create policy "staged_decisions_admin_update" on public.staged_decisions
   for update to authenticated
-  using ((select public.is_admin())) with check ((select public.is_admin()));
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()) and staged_by is not distinct from (select auth.uid()));
 
 drop policy if exists "staged_decisions_admin_delete" on public.staged_decisions;
 create policy "staged_decisions_admin_delete" on public.staged_decisions
