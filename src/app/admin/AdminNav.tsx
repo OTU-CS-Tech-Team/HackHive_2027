@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChartColumn,
   Cpu,
+  EyeOff,
   Handshake,
   Hexagon,
   Inbox,
@@ -43,6 +44,7 @@ const GROUPS: { title?: string; links: NavLink[] }[] = [
     links: [
       { href: "/admin/applicants", label: "Applicants", icon: Users },
       { href: "/admin/hive", label: "Hive Mind", icon: Hexagon },
+      { href: "/admin/review", label: "Reviews", icon: EyeOff },
       { href: "/admin/decisions", label: "Decisions", icon: Send },
       { href: "/admin/requests", label: "Item requests", icon: Inbox },
       { href: "/admin/scan", label: "Scanner", icon: ScanLine },
