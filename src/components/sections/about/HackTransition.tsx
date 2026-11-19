@@ -33,11 +33,11 @@ import styles from "./about.module.css";
  * The heading and blurb are real DOM (children); their final state is what the server renders.
  */
 
-const ANIM_VH = 2.25; // screens of scroll the sequence plays over
+const ANIM_VH = 1.9; // screens of scroll the sequence plays over
 const TRACK_VH = 100 + ANIM_VH * 100;
 // The sequence finishes this many screens before the pin lets go, so the stats (pulled up under the
 // title by .body's negative margin) only ever slide in over a finished, still title.
-const HOLD = 0.35;
+const HOLD = 0.3;
 const MAX_DPR = 1.5; // full-screen text every frame: 3x phones gain nothing past this
 const FS_FROM = 10; // ASCII font size at the start of the ASCII beat (cells ~6x12 px)...
 const FS_TO = 18; // ... and at its end (~11x22). Quantised to whole px so samples can be reused.

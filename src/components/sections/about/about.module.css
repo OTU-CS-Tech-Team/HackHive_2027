@@ -182,8 +182,8 @@
   z-index: 1;
   /* Pulls the stats up into the bottom of the pinned title screen, which is empty by then: the hack
      finishes before the track ends (HackTransition's HOLD), so nothing is still animating there. */
-  margin-top: -30vh;
-  padding: 0 var(--gutter) 60vh var(--left);
+  margin-top: -40vh;
+  padding: 0 var(--gutter) 45vh var(--left);
 }
 
 .rule {
@@ -221,9 +221,8 @@
 /* ---------- Projects, played in one at a time (ProjectsSequence) ---------- */
 
 .projectsTrack {
-  /* one pinned screen, plus about 0.6 of a screen of scroll per turn */
-  height: calc(100vh + var(--turns, 4.6) * 60vh);
-  margin-top: clamp(3rem, 8vh, 6rem);
+  /* one pinned screen, plus about half a screen of scroll per turn */
+  height: calc(100vh + var(--turns, 2.4) * 50vh);
 }
 
 .projectsStage {
@@ -278,8 +277,8 @@
 /* ---------- Stats ---------- */
 
 .statsTrack {
-  /* one pinned screen, plus about a screen of scroll per stat */
-  height: calc(100vh + var(--n, 3) * 85vh);
+  /* one pinned screen, plus a little over half a screen of scroll per stat */
+  height: calc(100vh + var(--n, 3) * 55vh);
 }
 
 .statsStage {
@@ -796,7 +795,7 @@
   }
 
   .section .body {
-    margin-top: -20vh;
+    margin-top: -36vh;
   }
 
   /* one stat at a time: each finished one moves up and out for the next */
@@ -841,6 +840,8 @@
   .slot,
   .slot[data-step="1"],
   .slot[data-step="2"] {
+    /* the desktop flex-basis would become a height in this column */
+    flex: none;
     width: 100%;
     margin: 0;
   }
@@ -849,26 +850,16 @@
     transform: rotate(calc(var(--tilt, 0deg) * 0.4));
   }
 
-  /* pinned: one Polaroid at a time, each finished one moves up and out for the next */
-  .projectsStage .polaroids {
-    position: relative;
-    display: block;
+  /* not pinned: the three Polaroids scroll as a column and develop by position (ProjectsSequence) */
+  .projectsTrack {
+    height: auto;
+    margin-top: 3rem;
   }
 
-  .projectsStage .slot {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-  }
-
-  .projectsStage .slot[data-step="0"] {
-    position: relative;
-  }
-
-  .projectsStage .slot[data-state="done"] {
-    opacity: 0;
-    transform: translateY(-1.5rem);
+  .projectsStage {
+    position: static;
+    height: auto;
+    padding: 0;
   }
 
   .dialogCard {
