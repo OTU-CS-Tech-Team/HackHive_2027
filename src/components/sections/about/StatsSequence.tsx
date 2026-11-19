@@ -18,6 +18,9 @@ import styles from "./about.module.css";
 // Within a stat's turn (0 to 1): the number decrypts first, then the photo turns into ASCII, then a short hold.
 const DECRYPT = [0.02, 0.3] as const;
 const TO_ASCII = [0.2, 0.8] as const;
+// ...but the real photo holds this many px of scroll longer before it starts turning (the turn
+// is ~55vh, so this shifts the start by a share of it and keeps the end before the next stat)
+const PHOTO_HOLD_PX = 50;
 
 export function StatsSequence({ stats }: { stats: readonly AboutStat[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -33,7 +36,13 @@ export function StatsSequence({ stats }: { stats: readonly AboutStat[] }) {
 
   // One stable getter per stat for AsciiPhoto: 1 = photo, 0 = ASCII.
   const levels = useMemo(
-    () => Array.from({ length: n }, (_, i) => () => 1 - smooth(TO_ASCII[0], TO_ASCII[1], progress() * n - i)),
+    () =>
+      Array.from({ length: n }, (_, i) => () => {
+        const track = trackRef.current;
+        const turnPx = track ? (track.offsetHeight - window.innerHeight) / n : 1;
+        const hold = Math.min(0.15, PHOTO_HOLD_PX / Math.max(1, turnPx));
+        return 1 - smooth(TO_ASCII[0] + hold, Math.min(0.95, TO_ASCII[1] + hold), progress() * n - i);
+      }),
     [n],
   );
 
