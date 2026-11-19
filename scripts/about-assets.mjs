@@ -41,13 +41,30 @@ const PHOTOS = [
     aspect: 3 / 2,
     widths: [800],
   },
+  // Polaroids (16:9). Originals sit at the repo root and are git-ignored like the photos above.
   {
-    // The same photo, as the Polaroids' stand-in until the real project thumbnails arrive.
+    // NeuroDetect: two hackers at their laptops. Only 400x267, upscaled once.
+    src: "neurodetect.png",
+    name: "neurodetect",
+    crop: { left: 0, top: 0.04, width: 1 },
+    aspect: 16 / 9,
+    widths: [800],
+  },
+  {
+    // LockBlock: the same demo-table photo as the projects stat.
     src: "hackhive_photo2.jpg",
-    name: "project",
+    name: "lockblock",
     crop: { left: 0, top: 0.03, width: 1 },
     aspect: 16 / 9,
     widths: [800],
+  },
+  {
+    // CutOS: the team of four, cropped to their faces and jackets.
+    src: "cutos.png",
+    name: "cutos",
+    crop: { left: 0, top: 0.2, width: 1 },
+    aspect: 16 / 9,
+    widths: [1600, 800],
   },
 ];
 

@@ -62,7 +62,7 @@ function TitleArt({ art, className }: { art: { fill: string; shade: string }; cl
 
 /**
  * "HackHive": the hero gets hacked into ASCII, the title decrypts, then the year in
- * numbers and the top three projects step down the page on an ink night, over a faint ASCII
+ * numbers and projects from 2026 step down the page on an ink night, over a faint ASCII
  * meadow that brightens into Sponsors' sunrise at the bottom.
  */
 export function AboutSection() {
@@ -92,7 +92,7 @@ export function AboutSection() {
 
         <StatsSequence stats={ABOUT_STATS} />
 
-        <h3 className={cn(styles.subhead, styles.subheadProjects, styles.quiet)}>The top three projects from 2026</h3>
+        <h3 className={cn(styles.subhead, styles.subheadProjects, styles.quiet)}>Projects from HackHive 2026</h3>
         <p className={cn(styles.hint, styles.quiet)}>Open a Polaroid to watch the team&rsquo;s demo.</p>
         <Polaroids projects={ABOUT_PROJECTS} />
 

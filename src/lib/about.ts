@@ -23,12 +23,12 @@ export type AboutStat = {
 export type AboutProject = {
   id: string;
   name: string;
-  place: string;
-  team: string;
   /** YouTube video id of the demo. */
   youtubeId: string;
+  devpost: string;
+  /** The code, when the team has shared it. */
+  github?: string;
   image: AboutImage;
-  placeholder: boolean;
 };
 
 export const ABOUT_INTRO = [
@@ -75,42 +75,35 @@ export const ABOUT_STATS: readonly AboutStat[] = [
   },
 ];
 
-// PLACEHOLDER PROJECTS: names, teams and video ids are stand-ins until the 2026 winners are filled in.
-// They all share one photo (public/about/project-*) for now.
-const PROJECT_PHOTO: AboutImage = {
-  base: "/about/project",
-  widths: [800],
-  ascii: "/about/project-ascii.png",
-  alt: "Two hackers giving a thumbs up beside their hardware demo.",
-};
+// Projects from HackHive 2026. Images are built by scripts/about-assets.mjs.
+const projectImage = (name: string, widths: readonly number[], alt: string): AboutImage => ({
+  base: `/about/${name}`,
+  widths,
+  ascii: `/about/${name}-ascii.png`,
+  alt,
+});
 
 export const ABOUT_PROJECTS: readonly AboutProject[] = [
   {
-    id: "first",
-    name: "Project One",
-    place: "1st place",
-    team: "Team Placeholder A",
-    youtubeId: "dQw4w9WgXcQ",
-    image: PROJECT_PHOTO,
-    placeholder: true,
+    id: "neurodetect",
+    name: "NeuroDetect",
+    youtubeId: "TcK3JO73CKs",
+    devpost: "https://devpost.com/software/neurodetect-rst574",
+    image: projectImage("neurodetect", [800], "Two NeuroDetect team members working at their laptops."),
   },
   {
-    id: "second",
-    name: "Project Two",
-    place: "2nd place",
-    team: "Team Placeholder B",
-    youtubeId: "dQw4w9WgXcQ",
-    image: PROJECT_PHOTO,
-    placeholder: true,
+    id: "lockblock",
+    name: "LockBlock",
+    youtubeId: "1hwgS66tB9k",
+    devpost: "https://devpost.com/software/lockblock-9ct281",
+    image: projectImage("lockblock", [800], "The LockBlock team giving a thumbs up beside their hardware demo."),
   },
   {
-    id: "third",
-    name: "Project Three",
-    place: "3rd place",
-    team: "Team Placeholder C",
-    youtubeId: "dQw4w9WgXcQ",
-    image: PROJECT_PHOTO,
-    placeholder: true,
+    id: "cutos",
+    name: "CutOS",
+    youtubeId: "t0zHzwyXm_Q",
+    devpost: "https://devpost.com/software/cutos",
+    image: projectImage("cutos", [1600, 800], "The four members of the CutOS team smiling together."),
   },
 ];
 
