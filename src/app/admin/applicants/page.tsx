@@ -15,6 +15,7 @@ import { deleteApplicants } from "../actions";
 import { DeleteButton, SelectBox, Selection } from "../Selection";
 import { MinorPill, TierBadge } from "../hive/TierBadge";
 import { DecisionControls, ReviewNotice } from "./DecisionControls";
+import { nextReminderAt } from "@/lib/admin/draft-reminders";
 import { DraftReminder } from "./DraftReminder";
 
 export const metadata: Metadata = { title: "Applicants | HackHive 2027" };
@@ -149,8 +150,10 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
       {filter === "draft" && (
         <>
           {/* Every draft, not just the ones matching the search. */}
-          <DraftReminder ids={((data ?? []) as Application[]).filter((app) => applicantStatus(app) === "draft").map((app) => app.id)} />
-          <LastReminder session={session} />
+          <Reminders
+            session={session}
+            ids={((data ?? []) as Application[]).filter((app) => applicantStatus(app) === "draft").map((app) => app.id)}
+          />
         </>
       )}
 
@@ -188,8 +191,9 @@ function daysAgo(iso: string, now: number) {
   return days <= 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
 }
 
-// When the last "finish your application" reminder went out, who sent it, and how it went.
-async function LastReminder({ session }: { session: Awaited<ReturnType<typeof requireAdmin>> }) {
+// The "remind every draft" box, then when the last reminder went out, who sent it, and
+// how it went. The last run also sets the cooldown before the next one can go out.
+async function Reminders({ session, ids }: { session: Awaited<ReturnType<typeof requireAdmin>>; ids: string[] }) {
   const { data: run, error } = await session
     .from("draft_reminder_runs")
     .select("started_at, recipients, sent, failed, skipped, sender:profiles!sent_by(full_name, email)")
@@ -202,31 +206,36 @@ async function LastReminder({ session }: { session: Awaited<ReturnType<typeof re
   const joined = run?.sender as Sender | Sender[] | null | undefined;
   const sender = Array.isArray(joined) ? joined[0] : joined;
   const handled = run ? run.sent + run.failed + run.skipped : 0;
+  const next = nextReminderAt(run?.started_at);
+  const cooldown = next && next > now ? { until: next, label: formatDateTime(new Date(next).toISOString()) } : null;
 
   return (
-    <section aria-labelledby="last-reminder-heading" className="mb-4 rounded-lg border border-neutral-200 p-5">
-      <h2 id="last-reminder-heading" className="text-sm font-medium text-neutral-600">
-        Last reminder
-      </h2>
-      {error ? (
-        <p className="mt-1 text-sm text-red-700">Couldn&apos;t load it. Check the draft_reminder_runs migration has been applied.</p>
-      ) : !run ? (
-        <p className="mt-1 font-semibold">No reminders sent yet.</p>
-      ) : (
-        <>
-          <p className="mt-1 font-semibold">
-            {formatDateTime(run.started_at)} <span className="font-normal text-neutral-600">({daysAgo(run.started_at, now)})</span>
-          </p>
-          <p className="mt-1 text-sm text-neutral-600">
-            {sender && <>By {sender.full_name || sender.email} · </>}
-            {run.sent} of {run.recipients} sent
-            {run.failed > 0 && ` · ${run.failed} failed`}
-            {run.skipped > 0 && ` · ${run.skipped} skipped (already submitted)`}
-            {handled < run.recipients && ` · still sending, or stopped early`}
-          </p>
-        </>
-      )}
-    </section>
+    <>
+      <DraftReminder ids={ids} now={now} cooldown={cooldown} />
+      <section aria-labelledby="last-reminder-heading" className="mb-4 rounded-lg border border-neutral-200 p-5">
+        <h2 id="last-reminder-heading" className="text-sm font-medium text-neutral-600">
+          Last reminder
+        </h2>
+        {error ? (
+          <p className="mt-1 text-sm text-red-700">Couldn&apos;t load it. Check the draft_reminder_runs migration has been applied.</p>
+        ) : !run ? (
+          <p className="mt-1 font-semibold">No reminders sent yet.</p>
+        ) : (
+          <>
+            <p className="mt-1 font-semibold">
+              {formatDateTime(run.started_at)} <span className="font-normal text-neutral-600">({daysAgo(run.started_at, now)})</span>
+            </p>
+            <p className="mt-1 text-sm text-neutral-600">
+              {sender && <>By {sender.full_name || sender.email} · </>}
+              {run.sent} of {run.recipients} sent
+              {run.failed > 0 && ` · ${run.failed} failed`}
+              {run.skipped > 0 && ` · ${run.skipped} skipped (already submitted)`}
+              {handled < run.recipients && ` · still sending, or stopped early`}
+            </p>
+          </>
+        )}
+      </section>
+    </>
   );
 }
 

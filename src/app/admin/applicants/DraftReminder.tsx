@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, type MouseEvent } from "react";
-import { Mail } from "lucide-react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { Clock, Mail } from "lucide-react";
+import { REMINDER_COOLDOWN_HOURS } from "@/lib/admin/draft-reminders";
 import { sendDraftReminders, startDraftReminderRun } from "../actions";
 
 const ring = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
@@ -14,17 +15,46 @@ type Outcome = { sent: number; skipped: number; failed: { email: string; error: 
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+// "23h 04m 09s", "4m 09s", "9s": the time left on the cooldown.
+function countdown(ms: number) {
+  const total = Math.ceil(ms / 1000);
+  const [h, m, s] = [Math.floor(total / 3600), Math.floor((total % 3600) / 60), total % 60];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h ? `${h}h ${pad(m)}m ${pad(s)}s` : m ? `${m}m ${pad(s)}s` : `${s}s`;
+}
+
 // The "remind every draft" box on the Drafts tab. Nothing is sent until the admin
 // confirms in the dialog; then the drafts go out in small batches with a progress bar.
-export function DraftReminder({ ids }: { ids: string[] }) {
+// After a reminder goes out the button waits out the cooldown, counting down to when
+// the next one can go (the server checks it too).
+export function DraftReminder({
+  ids,
+  now,
+  cooldown,
+}: {
+  ids: string[];
+  now: number; // the server's clock when the page was made
+  cooldown: { until: number; label: string } | null;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [clock, setClock] = useState(now);
   const sending = progress !== null;
   const count = ids.length;
 
+  // Ticks once a second while there's a cooldown; the page refreshes after a send, so
+  // a new one starts counting straight away.
+  useEffect(() => {
+    if (!cooldown) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+  const left = cooldown ? cooldown.until - Math.max(clock, now) : 0;
+  const coolingDown = left > 0;
+
   const ask = () => {
-    if (!count || sending) return;
+    if (!count || sending || coolingDown) return;
     dialog.current!.returnValue = "";
     dialog.current!.showModal();
   };
@@ -84,11 +114,29 @@ export function DraftReminder({ ids }: { ids: string[] }) {
             Email everyone with a draft a friendly reminder to finish and submit their application.
           </p>
         </div>
-        <button type="button" onClick={ask} disabled={!count || sending} className={`${button} shrink-0 bg-neutral-900 text-white hover:bg-neutral-700`}>
-          <Mail className="size-4" aria-hidden />
-          {count ? `Email ${plural(count, "draft")}` : "No drafts to email"}
+        <button
+          type="button"
+          onClick={ask}
+          disabled={!count || sending || coolingDown}
+          className={`${button} shrink-0 bg-neutral-900 text-white hover:bg-neutral-700`}
+        >
+          {coolingDown ? <Clock className="size-4" aria-hidden /> : <Mail className="size-4" aria-hidden />}
+          {coolingDown ? (
+            <span className="tabular-nums">Available in {countdown(left)}</span>
+          ) : count ? (
+            `Email ${plural(count, "draft")}`
+          ) : (
+            "No drafts to email"
+          )}
         </button>
       </div>
+
+      {coolingDown && cooldown && (
+        <p className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+          Reminders can go out once every {REMINDER_COOLDOWN_HOURS} hours, so nobody gets the same email twice. The next one can go out on{" "}
+          <span className="font-medium">{cooldown.label}</span>.
+        </p>
+      )}
 
       <div role="status" className="empty:hidden">
         {progress && (

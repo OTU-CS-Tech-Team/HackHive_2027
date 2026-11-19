@@ -4,7 +4,8 @@ import { revalidatePath, updateTag } from "next/cache";
 import { sendDecisionEmail } from "@/lib/application/decision-email";
 import { after } from "next/server";
 import { firstNameOf, sendDraftReminderEmail, sendItemRequestReviewedEmail } from "@/lib/email";
-import { fromLocalInput } from "@/lib/time";
+import { formatDateTime, fromLocalInput } from "@/lib/time";
+import { nextReminderAt } from "@/lib/admin/draft-reminders";
 import { hiveDeps } from "@/lib/hive/openai";
 import { QUOTA_ERROR } from "@/lib/hive/errors";
 import { scoreApplication, scoreUnscored } from "@/lib/hive/score";
@@ -160,6 +161,24 @@ const MAX_REMINDER_BATCH = 25;
 export async function startDraftReminderRun(recipients: number): Promise<{ ok: true; runId: string } | { ok: false; message: string }> {
   const supabase = await requireAdmin();
   if (!Number.isInteger(recipients) || recipients < 1) return { ok: false, message: "Nothing to send." };
+
+  // One reminder per cooldown, so a double press or two admins at once can't email
+  // the same drafts twice.
+  const { data: last, error: lastError } = await supabase
+    .from("draft_reminder_runs")
+    .select("started_at")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastError) return { ok: false, message: lastError.message };
+  const next = nextReminderAt(last?.started_at);
+  if (next && next > Date.now()) {
+    return {
+      ok: false,
+      message: `A reminder already went out on ${formatDateTime(last!.started_at)}. The next one can go out on ${formatDateTime(new Date(next).toISOString())}.`,
+    };
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -180,11 +199,16 @@ export async function sendDraftReminders(ids: string[], runId: string): Promise<
   const supabase = await requireAdmin();
   if (!isIdList(ids) || ids.length > MAX_REMINDER_BATCH || !UUID.test(runId)) return { ok: false, message: "Nothing to send." };
 
-  const [{ data: drafts, error }, { data: settings }] = await Promise.all([
+  const [{ data: drafts, error }, { data: settings }, { data: thisRun }] = await Promise.all([
     supabase.from("applications").select("email, first_name").in("id", ids).eq("status", "draft"),
     supabase.from("reg_settings").select("deadline").eq("id", 1).maybeSingle(),
+    supabase.from("draft_reminder_runs").select("started_at").eq("id", runId).maybeSingle(),
   ]);
   if (error) return { ok: false, message: error.message };
+  // Batches only belong to a run that's still in its cooldown, so an old run can't be
+  // reused to get around it.
+  const runEnds = nextReminderAt(thisRun?.started_at);
+  if (!runEnds || runEnds <= Date.now()) return { ok: false, message: "This reminder run has ended. Refresh and start a new one." };
   // Only mention a deadline that hasn't passed yet.
   const deadline = settings?.deadline && new Date(settings.deadline) > new Date() ? (settings.deadline as string) : null;
 

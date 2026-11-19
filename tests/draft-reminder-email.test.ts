@@ -60,3 +60,13 @@ describe('firstNameOf', () => {
     expect(firstNameOf(null)).toBeNull();
   });
 });
+
+describe('reminder cooldown', () => {
+  it('opens the next reminder one cooldown after the last one started', async () => {
+    const { nextReminderAt, REMINDER_COOLDOWN_MS } = await import('../src/lib/admin/draft-reminders');
+
+    expect(nextReminderAt('2026-11-19T15:00:00Z')).toBe(Date.parse('2026-11-19T15:00:00Z') + REMINDER_COOLDOWN_MS);
+    expect(nextReminderAt(null)).toBeNull();
+    expect(nextReminderAt(undefined)).toBeNull();
+  });
+});
