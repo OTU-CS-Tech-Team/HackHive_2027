@@ -7,6 +7,7 @@ const footerLinks = [
   { href: "/#sponsors", label: "Sponsors" },
   { href: "/#judges", label: "Judges" },
   { href: "/#faq", label: "FAQs" },
+  { href: "/hackhive/archive", label: "HackHive history" },
 ] as const;
 
 export function SiteFooter() {

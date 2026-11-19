@@ -10,18 +10,19 @@ import styles from "./about.module.css";
 
 /**
  * Projects from 2026, played in like the stats (StatsSequence). A short track pins a screen and
- * scroll plays two turns: the heading decrypts, then all three Polaroids come in together as ASCII
- * and develop into their photos. Once they have, the link to the archive appears. Scrolling back
- * up runs it in reverse.
+ * scroll plays one quick turn: the heading decrypts while all three Polaroids come in together as
+ * ASCII and develop into their photos. Once they have, the link to the archive appears. Scrolling
+ * back up runs it in reverse.
  * Phones: three Polaroids don't fit one pinned screen, so they scroll as a column and each one
  * develops as it rises to the middle of the screen.
  * Reduced motion, or no JS: everything as a plain list, photos already developed.
  */
 
-const TURNS = 2; // the heading, then the Polaroids
-const HOLD = 0.4; // turns of scroll at the end with everything in place
-const DEVELOP = [0.15, 0.75] as const; // within the Polaroids' turn: ASCII to photo
-const LINK_AT = 0.8; // into the Polaroids' turn, the archive link comes in
+const TURNS = 1; // the heading and the Polaroids play together
+const HOLD = 0.3; // turns of scroll at the end with everything in place
+const HEADING = [0, 0.3] as const; // the heading decrypts first...
+const DEVELOP = [0.05, 0.55] as const; // ...while the Polaroids go from ASCII to photo
+const LINK_AT = 0.55; // then the archive link comes in
 const PHONE = "(max-width: 639px)";
 
 export function ProjectsSequence({ projects, archiveHref }: { projects: readonly AboutProject[]; archiveHref: string }) {
@@ -47,7 +48,7 @@ export function ProjectsSequence({ projects, archiveHref }: { projects: readonly
           const r = slot.getBoundingClientRect();
           return 1 - smooth(0.45, 0.85, (r.top + r.height / 2) / window.innerHeight);
         }
-        return smooth(DEVELOP[0], DEVELOP[1], turn() - 1);
+        return smooth(DEVELOP[0], DEVELOP[1], turn());
       }),
     [projects],
   );
@@ -77,10 +78,10 @@ export function ProjectsSequence({ projects, archiveHref }: { projects: readonly
       for (const el of items) {
         const kind = el.dataset.seq;
         const state =
-          kind === "heading" ? "active" : kind === "link" ? (t - 1 >= LINK_AT ? "active" : "hidden") : t - 1 < 0.02 ? "hidden" : "active";
+          kind === "heading" ? "active" : kind === "link" ? (t >= LINK_AT ? "active" : "hidden") : "active";
         if (el.dataset.state !== state) el.dataset.state = state;
       }
-      const text = decrypt(headingText, smooth(0.05, 0.7, t), Math.floor(performance.now() / 50));
+      const text = decrypt(headingText, smooth(HEADING[0], HEADING[1], t), Math.floor(performance.now() / 50));
       if (heading.textContent !== text) heading.textContent = text;
     }
     const schedule = () => {
