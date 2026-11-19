@@ -6,6 +6,26 @@ import { asciiFamily, cellSize, createSampler, drawDeveloping, fontReady, loadIm
 import styles from "./about.module.css";
 
 const MAX_DPR = 2;
+const GLARE = 0.82; // brightness above which a cell counts as blown out
+
+/**
+ * Blown-out areas (a projector screen, a window) would otherwise be a solid wall of the densest
+ * glyph. Cells inside such an area, with blown-out neighbours on all four sides, drop to a light
+ * mid-tone fill, so the area's edges still draw it and the inside stays airy.
+ */
+function softenGlare(lum: Float32Array, cols: number, rows: number) {
+  const out = lum.slice();
+  for (let r = 1; r < rows - 1; r++) {
+    for (let c = 1; c < cols - 1; c++) {
+      const i = r * cols + c;
+      if (lum[i] < GLARE) continue;
+      if (lum[i - 1] >= GLARE && lum[i + 1] >= GLARE && lum[i - cols] >= GLARE && lum[i + cols] >= GLARE) {
+        out[i] = 0.3 + 0.12 * ((r + c) % 2); // a faint checker, not a flat field
+      }
+    }
+  }
+  return out;
+}
 
 type Props = {
   image: AboutImage;
@@ -18,10 +38,10 @@ type Props = {
   /** Wait this long before developing, ms (to stagger a row of photos). */
   delay?: number;
   /**
-   * Scroll drives it instead of `developed`: the real photo while the frame is low on the screen,
-   * turning to ASCII as it rises past the middle, and back to the photo when scrolled back down.
+   * Scroll drives it instead of `developed`: read on every scroll, 1 = the photo, 0 = all ASCII.
+   * It follows softly, so scrolling back up turns the ASCII back into the photo.
    */
-  scrub?: boolean;
+  getLevel?: () => number;
   sizes: string;
   width: number;
   height: number;
@@ -32,13 +52,13 @@ type Props = {
  * A real photo (<picture>, with alt text) under a canvas that draws it as ASCII. The canvas is
  * decoration only (aria-hidden); with no JS, or once developed, the photo is what shows.
  */
-export function AsciiPhoto({ image, developed, duration = 1600, cell = 7, delay = 0, scrub = false, sizes, width, height, className }: Props) {
+export function AsciiPhoto({ image, developed, duration = 1600, cell = 7, delay = 0, getLevel, sizes, width, height, className }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const target = useRef(developed ? 1 : 0);
   const kick = useRef<() => void>(() => undefined);
 
   useEffect(() => {
-    if (scrub) return;
+    if (getLevel) return;
     if (!developed || !delay) {
       target.current = developed ? 1 : 0;
       kick.current();
@@ -49,7 +69,7 @@ export function AsciiPhoto({ image, developed, duration = 1600, cell = 7, delay 
       kick.current();
     }, delay);
     return () => window.clearTimeout(id);
-  }, [developed, delay, scrub]);
+  }, [developed, delay, getLevel]);
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -84,7 +104,7 @@ export function AsciiPhoto({ image, developed, duration = 1600, cell = 7, delay 
       cols = Math.ceil(W / cw);
       rows = Math.ceil(H / ch);
       const lum = sample(sampler, src, cols, rows, cw, ch, { contrast: 1.4, gamma: 0.95 });
-      lines = toRows(lum, cols, rows);
+      lines = toRows(softenGlare(lum, cols, rows), cols, rows);
       thr = thresholds(cols * rows, cols);
       draw(0);
     }
@@ -116,15 +136,11 @@ export function AsciiPhoto({ image, developed, duration = 1600, cell = 7, delay 
       raf = requestAnimationFrame(step);
     };
 
-    // Scrubbed: 1 (photo) while the frame's centre is below 78% of the screen, 0 (ASCII) once it's above 38%.
-    // Reduced motion keeps the photo.
-    const scrubbing = scrub && !reduced;
-    if (scrub && reduced) target.current = 1;
+    // Scrubbed by the caller's level. Reduced motion keeps the photo.
+    const scrubbing = !!getLevel && !reduced;
+    if (getLevel && reduced) target.current = 1;
     function onScroll() {
-      const r = box!.getBoundingClientRect();
-      const vh = window.innerHeight || 1;
-      const centre = (r.top + r.height / 2) / vh;
-      const goal = Math.min(1, Math.max(0, (centre - 0.38) / 0.4));
+      const goal = Math.min(1, Math.max(0, getLevel!()));
       if (goal === target.current) return;
       target.current = goal;
       kick.current();
@@ -158,7 +174,7 @@ export function AsciiPhoto({ image, developed, duration = 1600, cell = 7, delay 
       window.removeEventListener("resize", onScroll);
       kick.current = () => undefined;
     };
-  }, [image.ascii, duration, cell, scrub]);
+  }, [image.ascii, duration, cell, getLevel]);
 
   return (
     <span className={`${styles.asciiPhoto} ${className ?? ""}`}>

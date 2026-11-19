@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { AsciiField } from "./AsciiField";
 import { HackTransition } from "./HackTransition";
 import { Polaroids } from "./Polaroids";
-import { StatBubble } from "./StatBubble";
+import { StatsSequence } from "./StatsSequence";
 import { blockLetters } from "./ascii";
 import styles from "./about.module.css";
 
@@ -90,12 +90,7 @@ export function AboutSection() {
           {RULE}
         </div>
 
-        <h3 className={cn(styles.subhead, styles.quiet)}>HackHive 2026, in three numbers</h3>
-        <div className={styles.stats}>
-          {ABOUT_STATS.map((stat, i) => (
-            <StatBubble key={stat.id} stat={stat} step={i} />
-          ))}
-        </div>
+        <StatsSequence stats={ABOUT_STATS} />
 
         <h3 className={cn(styles.subhead, styles.subheadProjects, styles.quiet)}>The top three projects from 2026</h3>
         <p className={cn(styles.hint, styles.quiet)}>Open a Polaroid to watch the team&rsquo;s demo.</p>

@@ -209,24 +209,60 @@
 
 /* ---------- Stats ---------- */
 
-.stats {
+.statsTrack {
+  /* one pinned screen, plus about a screen of scroll per stat */
+  height: calc(100vh + var(--n, 3) * 85vh);
+}
+
+.statsStage {
+  position: sticky;
+  top: 0;
   display: flex;
   flex-direction: column;
-  gap: clamp(5rem, 14vh, 9rem);
+  height: 100vh;
+  padding: clamp(4.5rem, 11vh, 6.5rem) 0 clamp(1.5rem, 4vh, 3rem);
+}
+
+.statsStage .subhead {
+  flex: none;
+  margin-bottom: clamp(1rem, 3vh, 2rem);
+}
+
+/* the stage the stats step down: left, right, left, each row overlapping the last a little */
+.stats {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   max-width: 76rem;
 }
 
-/* steps alternate: photo then words on the left, words then photo on the right */
 .stat {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  position: absolute;
+  top: calc(var(--i, 0) * 31%);
+  left: 0;
   display: flex;
   align-items: center;
   gap: clamp(1.5rem, 3vw, 3rem);
+  height: 38%;
   margin: 0;
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s var(--ease-out);
+}
+
+.stat[data-state="active"],
+.stat[data-state="done"] {
+  opacity: 1;
+  transform: none;
 }
 
 .stat[data-side="right"] {
+  right: 0;
+  left: auto;
   flex-direction: row-reverse;
-  align-self: flex-end;
   text-align: right;
 }
 
@@ -240,7 +276,9 @@
   --mark-w: 2px;
   position: relative;
   flex: none;
-  width: clamp(16rem, 34vw, 30rem);
+  box-sizing: border-box;
+  height: 100%;
+  aspect-ratio: 3 / 2;
   padding: 0.7rem;
   background:
     linear-gradient(var(--honey), var(--honey)) top left / var(--mark) var(--mark-w) no-repeat,
@@ -255,7 +293,7 @@
 
 .framePhoto {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  height: 100%;
 }
 
 .statText {
@@ -263,6 +301,7 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   isolation: isolate;
 }
 
@@ -588,17 +627,22 @@
     margin-top: -20vh;
   }
 
-  .stats {
-    gap: 4rem;
-  }
-
+  /* one stat at a time: each finished one moves up and out for the next */
   .stat,
   .stat[data-side="right"] {
+    top: 0;
+    right: 0;
+    left: 0;
     flex-direction: column;
     align-items: flex-start;
-    align-self: stretch;
     gap: 1rem;
+    height: auto;
     text-align: left;
+  }
+
+  .stat[data-state="done"] {
+    opacity: 0;
+    transform: translateY(-1.5rem);
   }
 
   .stat[data-side="right"] .statText {
@@ -606,7 +650,8 @@
   }
 
   .frame {
-    width: min(100%, 26rem);
+    width: 100%;
+    height: auto;
   }
 
   .subheadProjects,
@@ -673,5 +718,53 @@
 
   .polaroid:hover {
     transform: rotate(var(--tilt, 0deg));
+  }
+}
+
+/* ---------- Reduced motion or no JS: the stats as a plain list ---------- */
+
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .statsTrack {
+    height: auto;
+  }
+
+  .statsStage {
+    position: static;
+    height: auto;
+    padding: 0 0 4rem;
+  }
+
+  .stats {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3.5rem, 10vh, 7rem);
+  }
+
+  .stat,
+  .stat[data-state] {
+    position: static;
+    height: auto;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .stat[data-side="right"] {
+    align-self: flex-end;
+  }
+
+  .frame {
+    width: clamp(16rem, 34vw, 30rem);
+    height: auto;
+  }
+}
+
+@media (max-width: 639px) and ((prefers-reduced-motion: reduce) or (scripting: none)) {
+  .stat[data-side="right"] {
+    align-self: stretch;
+  }
+
+  .frame {
+    width: 100%;
   }
 }

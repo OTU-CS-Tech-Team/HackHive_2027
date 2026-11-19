@@ -32,9 +32,7 @@ export type AboutProject = {
 };
 
 export const ABOUT_INTRO = [
-  "HackHive is the Ontario Tech University Computer Science Club's annual hackathon, held on campus in Oshawa.",
-  "For about 36 hours, 375 hackers form teams, build something real from scratch, and show it to judges at the end.",
-  "Come with a team or meet one there. Most people leave with a project and a few new friends.",
+  "Ontario Tech’s very own hackathon, the largest in the Durham Region. A weekend to build with people from here and far beyond.",
 ] as const;
 
 // PLACEHOLDER NUMBERS: swap in the real 2026 counts.
@@ -42,7 +40,7 @@ export const ABOUT_STATS: readonly AboutStat[] = [
   {
     id: "attendees",
     value: 300,
-    label: "hackers came to build at HackHive 2026",
+    label: "attendees",
     placeholder: true,
     image: {
       base: "/about/attendees",
