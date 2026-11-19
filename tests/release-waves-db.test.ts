@@ -44,7 +44,7 @@ beforeAll(async () => {
   `);
   // Supabase grants table privileges to authenticated by default; RLS does the rest.
   await db.exec('alter default privileges in schema public grant all on tables to authenticated, anon;');
-  const migration = await readFile('supabase/migrations/20261121000000_release_waves.sql', 'utf8');
+  const migration = await readFile('supabase/migrations/20261122000000_release_waves.sql', 'utf8');
   await db.exec(migration);
   await db.exec(migration); // safe to run twice
 }, 30000);
