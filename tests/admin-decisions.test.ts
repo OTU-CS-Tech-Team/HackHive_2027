@@ -100,6 +100,7 @@ vi.mock('next/cache', () => ({ revalidatePath, updateTag: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => client, createServiceClient: () => service }));
 vi.mock('@/lib/application/decision-email', () => ({ sendDecisionEmail }));
 vi.mock('@/lib/email', () => ({ sendItemRequestReviewedEmail: vi.fn() }));
+vi.mock('@/lib/hive/openai', () => ({ hiveDeps: vi.fn() }));
 
 async function actions() {
   return import('../src/app/admin/actions');

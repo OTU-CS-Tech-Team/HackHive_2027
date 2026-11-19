@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { sendApplicationReceivedEmail } from '@/lib/email';
+import { scoreInBackground } from '@/lib/hive/openai';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getVerifiedUser } from '@/lib/auth/helpers';
 import {
@@ -555,6 +556,9 @@ export async function submitApplication(input: {
       if (response.submitted_at && new Date(response.submitted_at).getTime() === stampedAt.getTime()) {
         const to = user.email;
         after(() => sendApplicationReceivedEmail(to, { firstName: data.first_name, pdf: indemnificationPdf }));
+        // Hive Mind grading: only writes a suggested tier for admins, never a decision.
+        const applicationId = response.application_id;
+        after(() => scoreInBackground(applicationId));
       }
       return {
         ok: true,
