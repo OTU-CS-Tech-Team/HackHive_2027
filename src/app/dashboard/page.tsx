@@ -233,6 +233,8 @@ async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: s
     <section>
       <h2 className="mb-1 text-2xl font-bold">Hardware checkout</h2>
       <p className={`mb-4 ${muted}`}>Borrow from the help desk with your passport. Bring it back before judging.</p>
+      {/* Live stock, if admins track it under Hardware. Without it there's nothing to
+          show here: the full MLH list is in the request form below. */}
       {hardware?.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {hardware.map((item) => (
@@ -252,9 +254,7 @@ async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: s
             </li>
           ))}
         </ul>
-      ) : (
-        <p className={`rounded-lg border border-dashed border-neutral-300 p-6 text-center ${muted}`}>The hardware list is coming soon.</p>
-      )}
+      ) : null}
       <ItemRequests supabase={supabase} userId={userId} />
     </section>
   );
