@@ -15,7 +15,7 @@ const ORDER: Tier[] = ["queen", "worker", "larva"];
 
 export default function ReviewPage() {
   return (
-    <main className="mx-auto max-w-5xl">
+    <main className="mx-auto max-w-5xl mt-6">
       <ReviewHeader
         description="Two admins vote on each applicant without seeing who they are. 2 Yes places them in a seat pool, 2 No declines them, and a split goes to a third admin. This only places people: stage and release them from the Decisions page."
       />
