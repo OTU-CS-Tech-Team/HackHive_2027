@@ -285,8 +285,8 @@
 /* ---------- Stats ---------- */
 
 .statsTrack {
-  /* one pinned screen, plus a little over half a screen of scroll per stat */
-  height: calc(100vh + var(--n, 3) * 55vh);
+  /* one pinned screen, plus 70% of a screen of scroll per stat */
+  height: calc(100vh + var(--n, 3) * 70vh);
 }
 
 .statsStage {
