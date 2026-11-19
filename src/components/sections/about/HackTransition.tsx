@@ -123,6 +123,7 @@ export function HackTransition({ children }: { children: ReactNode }) {
     let poster: HTMLImageElement | null = null; // fallback when the live meadow can't be read
     let shot: HTMLCanvasElement | null = null; // the hero's last frame, captured as the hack begins
     let armed = true; // capture again the next time the hack starts from the top
+    let failed = false; // nothing to hack (no picture): show the finished title and stop drawing
     const picture = () => shot ?? poster;
     let posterSrc = "";
     let fontOk = false;
@@ -206,6 +207,8 @@ export function HackTransition({ children }: { children: ReactNode }) {
           buildBase();
         }, () => {
           // No picture to hack: show the finished state rather than a hidden title.
+          if (shot) return;
+          failed = true;
           setText(1, 0);
           cv!.style.display = "none";
         });
@@ -311,7 +314,7 @@ export function HackTransition({ children }: { children: ReactNode }) {
       raf = requestAnimationFrame(frame);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (!running || !W || !fontOk) return;
+      if (failed || !running || !W || !fontOk) return;
 
       const top = track!.getBoundingClientRect().top;
       const target = clamp(-top / ((ANIM_VH - HOLD) * window.innerHeight));
@@ -391,14 +394,19 @@ export function HackTransition({ children }: { children: ReactNode }) {
     // Before the first frame (and before the hero has scrolled away) the title and copy wait hidden.
     setText(0, 0);
     layout();
-    fontReady(family).then(() => {
-      fontOk = true;
+    const fontDone = () => {
+      fontOk = true; // a font that never arrives falls back to the system monospace
       gridFs = 0;
       drawn = "";
-    });
+    };
+    fontReady(family).then(fontDone, fontDone);
+    const fontTimeout = window.setTimeout(() => {
+      if (!fontOk) fontDone();
+    }, 3000);
     raf = requestAnimationFrame(frame);
 
     return () => {
+      window.clearTimeout(fontTimeout);
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
       visibility.disconnect();
