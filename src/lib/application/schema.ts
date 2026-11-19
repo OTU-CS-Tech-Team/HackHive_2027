@@ -202,6 +202,9 @@ export const applicationDraftSchema = z.object({
   consent_esignature: z.boolean().optional().nullable(),
   consent_photo: z.boolean().optional().nullable(),
   share_resume_with_sponsors: z.boolean().optional().nullable(),
+  consent_mlh_coc: z.boolean().optional().nullable(),
+  consent_mlh_share: z.boolean().optional().nullable(),
+  consent_mlh_emails: z.boolean().optional().nullable(),
 });
 
 export type ApplicationDraft = z.infer<typeof applicationDraftSchema>;
@@ -290,6 +293,14 @@ export const applicationSubmitSchema = z
     }),
     consent_photo: z.boolean().optional().nullable(),
     share_resume_with_sponsors: z.boolean().optional().nullable(),
+    // MLH requires the first two on member events; the email one is the hacker's choice.
+    consent_mlh_coc: z.literal(true, {
+      error: 'You must agree to the MLH Code of Conduct',
+    }),
+    consent_mlh_share: z.literal(true, {
+      error: 'You must agree to share your information with MLH and to its terms',
+    }),
+    consent_mlh_emails: z.boolean().optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.age < 18) {
@@ -416,6 +427,9 @@ export type Application = {
   consent_esignature: boolean | null;
   consent_photo: boolean | null;
   share_resume_with_sponsors: boolean | null;
+  consent_mlh_coc: boolean | null;
+  consent_mlh_share: boolean | null;
+  consent_mlh_emails: boolean | null;
 };
 
 export type GetMyApplicationResult =

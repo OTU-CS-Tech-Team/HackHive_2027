@@ -3,7 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
 import { after } from "next/server";
-import { sendItemRequestReviewedEmail } from "@/lib/email";
+import { firstNameOf, sendDraftReminderEmail, sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
 import { hiveDeps } from "@/lib/hive/openai";
 import { QUOTA_ERROR } from "@/lib/hive/errors";
@@ -156,6 +156,72 @@ export async function resendDecisionEmail(id: string): Promise<ActionResult> {
   return sent
     ? { ok: true, message: `Emailed ${applicant.email} again.` }
     : { ok: false, message: `The email to ${applicant.email} failed (${error}). Try again in a moment.` };
+}
+
+export type ReminderBatchResult =
+  | { ok: true; sent: number; skipped: number; failed: { email: string; error: string }[] }
+  | { ok: false; message: string };
+
+// Resend allows a few requests a second, so the emails go one at a time with a gap.
+const RESEND_GAP_MS = 600;
+// The page sends the drafts a few at a time (DraftReminder.tsx), so one call never
+// runs long; this caps what a single call will take on.
+const MAX_REMINDER_BATCH = 25;
+
+// Records a reminder run when the admin confirms, before anything is sent, so the
+// "Last reminder" section shows it even if the page is closed partway through.
+export async function startDraftReminderRun(recipients: number): Promise<{ ok: true; runId: string } | { ok: false; message: string }> {
+  const supabase = await requireAdmin();
+  if (!Number.isInteger(recipients) || recipients < 1) return { ok: false, message: "Nothing to send." };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("draft_reminder_runs")
+    .insert({ recipients, sent_by: user!.id })
+    .select("id")
+    .single();
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/applicants");
+  return { ok: true, runId: data.id };
+}
+
+// Emails a "finish your application" reminder to one batch of the drafts the admin
+// confirmed, and adds the results to the run. Anyone who has submitted since the
+// page loaded is skipped.
+export async function sendDraftReminders(ids: string[], runId: string): Promise<ReminderBatchResult> {
+  const supabase = await requireAdmin();
+  if (!isIdList(ids) || ids.length > MAX_REMINDER_BATCH || !UUID.test(runId)) return { ok: false, message: "Nothing to send." };
+
+  const [{ data: drafts, error }, { data: settings }] = await Promise.all([
+    supabase.from("applications").select("email, first_name").in("id", ids).eq("status", "draft"),
+    supabase.from("reg_settings").select("deadline").eq("id", 1).maybeSingle(),
+  ]);
+  if (error) return { ok: false, message: error.message };
+  // Only mention a deadline that hasn't passed yet.
+  const deadline = settings?.deadline && new Date(settings.deadline) > new Date() ? (settings.deadline as string) : null;
+
+  let sent = 0;
+  const failed: { email: string; error: string }[] = [];
+  for (const [i, draft] of drafts.entries()) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, RESEND_GAP_MS));
+    const result = await sendDraftReminderEmail(draft.email, { firstName: draft.first_name, deadline });
+    if (result.sent) sent++;
+    else failed.push({ email: draft.email, error: result.error ?? "Unknown error" });
+  }
+  const skipped = ids.length - drafts.length;
+
+  // The page sends one batch at a time, so adding to the totals read here is safe.
+  // The emails are already out, so a failed tally doesn't fail the batch.
+  const { data: run } = await supabase.from("draft_reminder_runs").select("sent, failed, skipped").eq("id", runId).maybeSingle();
+  if (run) {
+    await supabase
+      .from("draft_reminder_runs")
+      .update({ sent: run.sent + sent, failed: run.failed + failed.length, skipped: run.skipped + skipped })
+      .eq("id", runId);
+    revalidatePath("/admin/applicants");
+  }
+  return { ok: true, sent, skipped, failed };
 }
 
 // Resumes, avatars and indemnification forms live in Storage, so the account's cascade doesn't reach them.
@@ -336,17 +402,29 @@ export async function reviewItemRequest(id: string, decision: "accepted" | "reje
     .update({ status: decision, reviewed_by: user!.id, reviewed_at: new Date().toISOString(), admin_note: note.trim() || null })
     .eq("id", id)
     .eq("status", "pending")
-    .select("id, items, admin_note, requester:profiles!user_id(email)");
+    .select("id, items, admin_note, requester:profiles!user_id(email, full_name)");
   if (error) return { ok: false, message: error.message };
   if (!data.length) return { ok: false, message: "Someone already reviewed this one. Refresh the page." };
   revalidatePath("/admin/requests");
+  // The request leaves the hacker's dashboard, and everyone behind it moves up a place.
+  revalidatePath("/dashboard");
 
   // Tell the hacker, after the response so a slow or failed email never holds up the review.
   const [reviewed] = data;
-  const requester = reviewed.requester as { email: string | null } | { email: string | null }[] | null;
-  const email = Array.isArray(requester) ? requester[0]?.email : requester?.email;
+  type Requester = { email: string | null; full_name: string | null };
+  const joined = reviewed.requester as Requester | Requester[] | null;
+  const requester = Array.isArray(joined) ? joined[0] : joined;
+  const email = requester?.email;
+  const firstName = firstNameOf(requester?.full_name);
   if (email) {
-    after(() => sendItemRequestReviewedEmail(email, { items: reviewed.items, decision, note: reviewed.admin_note }));
+    after(() =>
+      sendItemRequestReviewedEmail(email, {
+        firstName,
+        items: reviewed.items,
+        decision,
+        note: reviewed.admin_note,
+      }),
+    );
   }
   return { ok: true, message: decision === "accepted" ? "Accepted." : "Rejected." };
 }

@@ -22,6 +22,8 @@ export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 const card = "rounded-lg border border-neutral-200 p-5";
 const input = "w-full rounded border border-neutral-300 px-3 py-2";
 const muted = "text-sm text-neutral-600";
+// Status pills, the same shape as the admin pages' badges.
+const pill = "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset";
 
 // Sidebar entries; the panel on the right is picked by ?tab=, schedule by default.
 const TABS = {
@@ -234,42 +236,40 @@ async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: s
       {hardware?.length ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {hardware.map((item) => (
-            <li key={item.id} className={`rounded border p-4 ${item.stock === 0 ? "opacity-50" : ""}`}>
-              {item.image_url && <img src={item.image_url} alt="" className="mb-3 h-32 w-full rounded object-cover" />}
-              <h3 className="font-semibold">{item.name}</h3>
+            <li key={item.id} className={`${card} flex flex-col ${item.stock === 0 ? "bg-neutral-50" : ""}`}>
+              {item.image_url && (
+                <img src={item.image_url} alt="" className={`mb-3 h-32 w-full rounded-md object-cover ${item.stock === 0 ? "opacity-50 grayscale" : ""}`} />
+              )}
+              <h3 className="font-semibold [overflow-wrap:anywhere]">{item.name}</h3>
               {item.description && <p className={muted}>{item.description}</p>}
-              {item.stock !== null && <p className="mt-2 text-sm font-medium">{item.stock === 0 ? "All checked out" : `${item.stock} available`}</p>}
+              {item.stock !== null && (
+                <p className="mt-auto pt-3">
+                  <span className={`${pill} ${item.stock === 0 ? "bg-neutral-100 text-neutral-600 ring-neutral-300" : "bg-green-50 text-green-800 ring-green-300"}`}>
+                    {item.stock === 0 ? "All checked out" : `${item.stock} available`}
+                  </span>
+                </p>
+              )}
             </li>
           ))}
         </ul>
       ) : (
-        <p className={muted}>Hardware list coming soon.</p>
+        <p className={`rounded-lg border border-dashed border-neutral-300 p-6 text-center ${muted}`}>The hardware list is coming soon.</p>
       )}
       <ItemRequests supabase={supabase} userId={userId} />
     </section>
   );
 }
 
-// The badge on each of the hacker's item requests.
-const statusStyles = {
-  pending: { label: "Pending", badge: "bg-amber-100 text-amber-800" },
-  accepted: { label: "Accepted", badge: "bg-green-100 text-green-800" },
-  rejected: { label: "Rejected", badge: "bg-red-100 text-red-800" },
-};
-
-// The hacker's item requests (pending ones with their place in the queue, then
-// reviewed ones) and the form to send another, up to MAX_PENDING_REQUESTS waiting.
+// The hacker's pending item requests with their place in the queue, and the form to
+// send another, up to MAX_PENDING_REQUESTS waiting. Once an organizer accepts or
+// rejects a request it drops off here; the hacker hears the decision by email.
 async function ItemRequests({ supabase, userId }: { supabase: Supabase; userId: string }) {
-  const [{ data: itemRequests }, { data: queuePositions }] = await Promise.all([
-    supabase.from("item_requests").select("id, items, created_at, status, reviewed_at, admin_note").eq("user_id", userId).order("queue_number"),
+  const [{ data: pendingRequests }, { data: queuePositions }] = await Promise.all([
+    supabase.from("item_requests").select("id, items, created_at").eq("user_id", userId).eq("status", "pending").order("queue_number"),
     supabase.rpc("my_item_request_positions"),
   ]);
 
-  // Pending requests in queue order, then reviewed ones, most recently reviewed first.
-  const pending = (itemRequests ?? []).filter((request) => request.status === "pending");
-  const reviewed = (itemRequests ?? [])
-    .filter((request) => request.status !== "pending")
-    .sort((a, b) => (b.reviewed_at ?? "").localeCompare(a.reviewed_at ?? ""));
+  const pending = pendingRequests ?? [];
   const positionOf = new Map(
     ((queuePositions ?? []) as { id: string; queue_position: number }[]).map((row) => [row.id, row.queue_position]),
   );
@@ -277,42 +277,49 @@ async function ItemRequests({ supabase, userId }: { supabase: Supabase; userId: 
   return (
     <section className={`${card} mt-8`}>
       <h3 className="mb-1 text-lg font-semibold">Request items</h3>
-      {pending.length + reviewed.length > 0 && (
-        <ul className="mb-6 mt-3 flex flex-col gap-3">
-          {[...pending, ...reviewed].map((request) => {
-            const position = positionOf.get(request.id);
-            const status = statusStyles[request.status as keyof typeof statusStyles];
-            return (
-              <li key={request.id} className="rounded border border-neutral-200 p-4 [overflow-wrap:anywhere]">
-                <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600">
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${status.badge}`}>{status.label}</span>
-                  {request.status === "pending" && (
-                    <span className="font-semibold text-neutral-900">{position ? `#${position} in the queue` : "In the queue"}</span>
-                  )}
-                  <span>· sent {formatDateTime(request.created_at)}</span>
-                  {request.reviewed_at && <span>· reviewed {formatDateTime(request.reviewed_at)}</span>}
-                </p>
-                <ul className="list-inside list-disc text-sm">
-                  {(request.items as { name: string; quantity: number }[]).map((item, i) => (
-                    <li key={i}>
-                      {item.quantity} × {item.name}
-                    </li>
-                  ))}
-                </ul>
-                {request.admin_note && (
-                  <p className="mt-2 text-sm">
-                    <span className="font-medium">Note from the organizers:</span> {request.admin_note}
+      <p className={`mb-4 ${muted}`}>
+        Need hardware or forgot your toothbrush? Send a request and an organizer will email you once it&apos;s been reviewed.
+      </p>
+      {pending.length > 0 && (
+        <div className="mb-6">
+          <h4 className="mb-2 text-sm font-semibold text-neutral-600">
+            Waiting for review <span className="tabular-nums opacity-70">{pending.length}</span>
+          </h4>
+          <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
+            {pending.map((request) => {
+              const position = positionOf.get(request.id);
+              return (
+                <li key={request.id} className="py-3 [overflow-wrap:anywhere]">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600">
+                    <span className={`${pill} bg-amber-50 text-amber-900 ring-amber-300`}>
+                      {position ? `#${position} in the queue` : "In the queue"}
+                    </span>
+                    <span>Sent {formatDateTime(request.created_at)}</span>
                   </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  <ul className="mt-2 flex flex-wrap gap-2" aria-label="Items">
+                    {(request.items as { name: string; quantity: number }[]).map((item, i) => (
+                      <li key={i} className="inline-flex items-baseline gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-sm">
+                        <span className="font-semibold tabular-nums">{item.quantity}×</span>
+                        {item.name}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
       {pending.length < MAX_PENDING_REQUESTS ? (
-        <ItemRequestForm pendingCount={pending.length} />
+        <ItemRequestForm
+          pendingCount={pending.length}
+          // Hardware is one of each, so anything already waiting can't be picked again.
+          requestedHardware={pending.flatMap((request) =>
+            (request.items as { category: string; name: string }[]).filter((item) => item.category === "hardware").map((item) => item.name),
+          )}
+        />
       ) : (
-        <p className={muted}>
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           You have {MAX_PENDING_REQUESTS} requests in the queue. You can send another once an organizer has reviewed one of them.
         </p>
       )}

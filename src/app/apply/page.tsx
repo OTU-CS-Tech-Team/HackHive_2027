@@ -109,6 +109,9 @@ async function ApplyPageContent() {
     consent_esignature: result.application.consent_esignature || false,
     consent_photo: result.application.consent_photo || false,
     share_resume_with_sponsors: result.application.share_resume_with_sponsors || false,
+    consent_mlh_coc: result.application.consent_mlh_coc || false,
+    consent_mlh_share: result.application.consent_mlh_share || false,
+    consent_mlh_emails: result.application.consent_mlh_emails || false,
   } : null;
 
   const serverUpdatedAt = result.ok && result.application?.updated_at 

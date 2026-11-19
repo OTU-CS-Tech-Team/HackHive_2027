@@ -1,10 +1,12 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { errorClass } from "./styles";
 
 interface CheckboxFieldProps {
-  label: string;
+  // Links inside the label need `relative z-10`: the label stretches over the whole
+  // card to make it clickable, and would otherwise catch their clicks.
+  label: ReactNode;
   name: string;
   checked: boolean;
   onChange: (checked: boolean) => void;

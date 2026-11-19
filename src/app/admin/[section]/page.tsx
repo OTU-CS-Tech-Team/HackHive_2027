@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/admin/require-admin";
@@ -30,13 +31,14 @@ export default function SectionPage({ params }: { params: Params }) {
   );
 }
 
-function Header({ title, count }: { title: string; count: number }) {
+function Header({ title, count, note }: { title: string; count: number; note?: React.ReactNode }) {
   return (
     <header className="mb-6">
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
         {title} <span className="text-neutral-400 tabular-nums">{count}</span>
       </h1>
       <p className="mt-1 text-sm text-neutral-600">Changes show on the site right away. Shift-click to select a range.</p>
+      {note && <p className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">{note}</p>}
     </header>
   );
 }
@@ -62,7 +64,25 @@ async function Section({ params }: { params: Params }) {
   const { data: rows } = await supabase.from(section).select("*").order("sort_order").order("name");
   return (
     <>
-      <Header title={TABLES[section].heading} count={rows?.length ?? 0} />
+      <Header
+        title={TABLES[section].heading}
+        count={rows?.length ?? 0}
+        note={
+          // This is the stock list; hackers' requests are reviewed on their own page.
+          section === "hardware_items" && (
+            <>
+              This is the stock hackers see. Their requests are reviewed on{" "}
+              <Link
+                href="/admin/requests"
+                className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+              >
+                Item requests
+              </Link>
+              .
+            </>
+          )
+        }
+      />
       <TableAdmin table={section} rows={(rows ?? []) as Row[]} />
     </>
   );
