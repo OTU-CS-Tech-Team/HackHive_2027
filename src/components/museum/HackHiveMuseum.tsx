@@ -6,7 +6,35 @@ import type { ArchiveCollection } from "@/data/hackhive";
 import Constellation from "./Constellation";
 import YearIdentity from "./YearIdentity";
 import SpaceBackground from "./SpaceBackground";
+import { PageStyle } from "@/components/PageStyle";
 import styles from "./museum.module.css";
+
+// The site bar joins the night sky here: no white band, a black fade that mirrors the
+// year nav's at the bottom, and the museum's cream and gold in place of the bar's ink.
+// Unlayered, so it beats the Tailwind utilities on the bar; scoped by PageStyle to this page.
+const NAVBAR_IN_SPACE = `
+html, body { background: #000; }
+html [data-navbar-shell] { background: transparent; color: #fff6e0; }
+html [data-navbar-shell]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 -16px;
+  pointer-events: none;
+  background: linear-gradient(#000 0%, #000c 55%, #0000 100%);
+}
+html [data-navbar-shell] :is(a, summary) { color: #fff6e0; transition: color .25s; }
+html [data-navbar-shell] nav a:hover { color: #f5b83d; }
+html [data-navbar-shell] :is(a, button, summary):focus-visible { outline: 2px solid #f5b83d; outline-offset: 3px; }
+html [data-navbar-shell] [data-nav-cta] { border-radius: 999px; background: #f5b83d; color: #1d1608; transition: background .2s; }
+html [data-navbar-shell] [data-nav-cta]:hover { background: #ffd27a; color: #1d1608; }
+html [data-navbar-shell] [data-nav-logout] { border-color: #fff6e059; border-radius: 999px; background: transparent; color: #fff6e0; }
+html [data-navbar-shell] [data-nav-logout]:hover { border-color: #f5b83d; background: transparent; color: #f5b83d; }
+html [data-navbar-shell] [data-mobile-page-navigation] { border-right-color: #fff6e01f; background: #000; box-shadow: none; }
+html [data-navbar-shell] [data-mobile-page-navigation] [role="group"] { border-top-color: #fff6e01f; }
+html [data-navbar-shell] [data-mobile-page-navigation] a:is(:hover, :focus-visible) { background: #fff6e00f; color: #f5b83d; }
+html [data-navbar-shell] [data-mobile-menu] > button { background: #0009; }
+`;
 
 type SceneState = { year: number; revealed: number[]; crossed: boolean };
 
@@ -82,6 +110,7 @@ export default function HackHiveMuseum({ collections }: { collections: ArchiveCo
   }, [ordered, firstYear]);
 
   return <div ref={museum} className={styles.museum}>
+    <PageStyle css={NAVBAR_IN_SPACE} />
     <SpaceBackground />
     <aside className={styles.sidebar}>
       <YearIdentity year={scene.year} reducedMotion={reducedMotion} crossed={scene.crossed} />
