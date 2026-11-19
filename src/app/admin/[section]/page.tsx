@@ -68,10 +68,12 @@ async function Section({ params }: { params: Params }) {
         title={TABLES[section].heading}
         count={rows?.length ?? 0}
         note={
-          // This is the stock list; hackers' requests are reviewed on their own page.
+          // This table only fills the stock cards on the hackers' dashboard. What they
+          // can request is the MLH list in src/lib/itemRequests.ts (HARDWARE_GROUPS).
           section === "hardware_items" && (
             <>
-              This is the stock hackers see. Their requests are reviewed on{" "}
+              Items added here show as stock cards on the hackers&apos; Hardware checkout page. They don&apos;t change what hackers
+              can request: that&apos;s the MLH hardware list, set in the code. Requests are reviewed on{" "}
               <Link
                 href="/admin/requests"
                 className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
