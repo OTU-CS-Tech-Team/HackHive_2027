@@ -7,6 +7,7 @@ import MeadowWorld from "@/components/landing/meadow/World";
 import { VIEW } from "@/components/landing/meadow/palette";
 import { countsFor, detectQuality, readForcedQuality, webglAvailable, type Quality } from "@/components/landing/meadow/quality";
 import { reportIntroProgress, reportIntroReady } from "@/components/landing/intro/introBus";
+import { heroFrame } from "@/components/landing/heroHandoff";
 
 const FALLBACK =
   "linear-gradient(180deg, #e2f2f8 0%, #d7eef8 20%, #f4e4b4 48%, #c5de8a 70%, #78a84a 100%)";
@@ -103,6 +104,9 @@ export default function MeadowScene({
     mountedAt.current = performance.now();
     // The scene's code has arrived and mounted.
     reportIntroProgress(0.3);
+    return () => {
+      heroFrame.capture = null;
+    };
   }, []);
   const markReady = useCallback(() => {
     if (readyRef.current) return;
@@ -179,7 +183,18 @@ export default function MeadowScene({
               failIfMajorPerformanceCaveat: false,
             }}
             camera={{ fov: VIEW.fov, near: 0.08, far: 160, position: [0, VIEW.eye, VIEW.startZ] }}
-            onCreated={({ gl }) => {
+            onCreated={({ gl, scene, camera }) => {
+              // Lets the About section's hack start from exactly this frame (see heroHandoff).
+              heroFrame.capture = () => {
+                const source = gl.domElement;
+                if (!source.width || !source.height || gl.getContext().isContextLost()) return null;
+                gl.render(scene, camera);
+                const copy = document.createElement("canvas");
+                copy.width = source.width;
+                copy.height = source.height;
+                copy.getContext("2d")?.drawImage(source, 0, 0);
+                return copy;
+              };
               gl.outputColorSpace = LinearSRGBColorSpace;
               gl.toneMapping = NoToneMapping;
               gl.domElement.style.pointerEvents = "none";

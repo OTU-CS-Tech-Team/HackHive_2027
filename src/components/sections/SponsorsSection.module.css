@@ -26,10 +26,11 @@
   color: var(--ink);
 }
 
-/* Lifts the white hero into the honey-colored sky. Ends on the sky's first colour. */
+/* Sunrise out of the About section into the honey-colored sky. Starts on the honey the About
+   section's floor climbs to (about.module.css, .section::after) and ends on the sky's first colour. */
 .dawn {
   height: clamp(3.25rem, 9vh, 6rem);
-  background: linear-gradient(to bottom, #fff, #fff1cf 55%, #f5cc7c);
+  background: linear-gradient(to bottom, #f5b83d, #f9cd76 45%, #fbdc9c 72%, #f5cc7c);
 }
 
 /* ---------- Out of the hive ---------- */

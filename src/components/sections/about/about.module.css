@@ -1,0 +1,1183 @@
+/* "What is HackHive": an ink night between the hero meadow and Sponsors' sunrise.
+   Everything sits on one left-aligned column and steps down to the right. */
+.section {
+  --honey: #f5b83d;
+  --honey-deep: #c98a0b;
+  --wax: #f3d58a;
+  --paper: #fffdf7;
+  --ink: #14110b;
+  --ink-soft: #3b2c08;
+  /* left edge of the column: a 16px gutter on phones, wider on desktop, capped on very wide screens */
+  --gutter: clamp(1rem, 6vw, 6rem);
+  --left: max(var(--gutter), calc((100vw - 84rem) / 2));
+  /* The hack starts the moment the hero lets go of its pinned meadow: the section is pulled up a
+     screen so the hack's pinned stage lands right on top of it (above the hero, z-index 2). That
+     first screen is see-through and click-through until the hack draws on it. */
+  --overlap: 100vh;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  overflow-x: clip;
+  margin-top: calc(-1 * var(--overlap));
+  background: linear-gradient(to bottom, transparent var(--overlap), var(--ink) var(--overlap));
+  color: var(--paper);
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.section .body {
+  pointer-events: auto;
+}
+
+.section ::selection {
+  background: var(--honey);
+  color: var(--ink);
+}
+
+/* Text over the ASCII backdrop sits on a soft pool of ink so the glyphs fall away behind it. */
+.quiet {
+  position: relative;
+}
+
+.quiet::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -2.5rem -3rem;
+  background: radial-gradient(closest-side, rgb(20 17 11 / 0.94), rgb(20 17 11 / 0.75) 62%, rgb(20 17 11 / 0));
+  pointer-events: none;
+}
+
+/* ---------- Backdrop ---------- */
+
+.field {
+  position: absolute;
+  z-index: 0;
+  inset: var(--overlap) 0 0;
+  pointer-events: none;
+  /* feathers the last glyphs into the honey floor below */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
+}
+
+/* Over the last ~24vh the night warms to honey, the exact colour Sponsors' .dawn starts on,
+   so the ASCII brightens straight into the sunrise with no dark band or seam. */
+.section::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 24vh;
+  background: linear-gradient(
+    to bottom,
+    rgb(245 184 61 / 0) 0%,
+    rgb(245 184 61 / 0.06) 25%,
+    rgb(245 184 61 / 0.22) 50%,
+    rgb(245 184 61 / 0.55) 72%,
+    rgb(245 184 61 / 0.88) 90%,
+    #f5b83d 100%
+  );
+  pointer-events: none;
+}
+
+.fieldCanvas {
+  position: sticky;
+  top: 0;
+  display: block;
+  width: 100%;
+  height: 100vh;
+}
+
+/* ---------- The hack ---------- */
+
+.hackTrack {
+  position: relative;
+  z-index: 1;
+  height: calc(var(--track-vh, 360) * 1vh);
+}
+
+.hackAnchor {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.hackStage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.hackCanvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hackContent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: clamp(5rem, 16vh, 9rem) var(--gutter) 3rem var(--left);
+}
+
+.titleBlock {
+  isolation: isolate;
+  max-width: 72rem;
+}
+
+/* Before HackTransition's script runs, the title, intro and ink pool start hidden, as at the start of
+   the hack. The pinned stage already overlaps the bottom of the hero at the top of the page, so a
+   server-rendered, finished title would flash over the hero on every refresh until hydration.
+   No JS or reduced motion: there from the start. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .hackContent {
+    --halo: 0;
+  }
+
+  .hackContent [data-hack-title] {
+    visibility: hidden;
+  }
+
+  .hackContent [data-hack-after] {
+    opacity: 0;
+  }
+}
+
+/* HackTransition fades the pool in as the picture clears (no JS: there from the start) */
+.titleBlock::before {
+  opacity: var(--halo, 1);
+}
+
+.title {
+  margin: 0;
+  font-weight: 500;
+}
+
+.titleArt {
+  display: grid;
+  color: var(--honey);
+  font-family: var(--font-ascii), ui-monospace, monospace;
+  font-weight: 500;
+  /* 116 columns ("HACK HIVE" plus shadow), sized for 124 as slack. JetBrains Mono advances about 0.6em */
+  font-size: min(1.25rem, calc((100vw - var(--left) - var(--gutter)) / 124 / 0.6));
+  line-height: 1;
+  white-space: pre;
+}
+
+/* letters and their shadow share one grid cell, shadow underneath */
+.titleArt > span {
+  grid-area: 1 / 1;
+}
+
+.titleShade {
+  color: rgb(245 184 61 / 0.25);
+}
+
+.titleStacked {
+  display: none;
+  /* 56 columns: HACK over HIVE, plus slack */
+  font-size: min(1.25rem, calc((100vw - 2rem) / 56 / 0.6));
+}
+
+.intro {
+  max-width: 34rem;
+  margin-top: clamp(1.5rem, 4vh, 2.75rem);
+  color: rgb(255 253 247 / 0.88);
+  font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.2rem);
+  line-height: 1.6;
+}
+
+.intro p + p {
+  margin-top: 0.75em;
+}
+
+/* ---------- Below the hack ---------- */
+
+.body {
+  /* the stats heading lands this far below the top of the screen when the title lets go: the
+     title's top padding (.hackContent), the title and intro (--title-h), then a short gap */
+  --title-h: 18rem;
+  --stats-at: calc(clamp(5rem, 16vh, 9rem) + var(--title-h));
+  position: relative;
+  z-index: 1;
+  /* Pulls the stats up into the bottom of the pinned title screen, right under the intro. That part
+     of the screen is empty by then: the hack finishes before the track ends (HackTransition's HOLD),
+     so nothing is still animating there. The stats stage's own top padding is taken back off. */
+  margin-top: calc(var(--stats-at) - 100vh - clamp(4.5rem, 11vh, 6.5rem));
+  /* just enough room for the last Polaroids to clear before the floor warms into Sponsors' dawn */
+  padding: 0 var(--gutter) 12vh var(--left);
+}
+
+.subhead {
+  width: fit-content;
+  margin: 0 0 2.5rem;
+  color: var(--wax);
+  font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.subheadProjects {
+  margin: clamp(6rem, 16vh, 11rem) 0 0.6rem;
+  margin-left: clamp(0rem, 6vw, 7rem);
+}
+
+.hint {
+  width: fit-content;
+  margin: 0 0 3rem clamp(0rem, 6vw, 7rem);
+  color: rgb(255 253 247 / 0.7);
+}
+
+/* ---------- Projects, played in one at a time (ProjectsSequence) ---------- */
+
+.projectsTrack {
+  /* one pinned screen, plus about half a screen of scroll per turn */
+  height: calc(100vh + var(--turns, 2.4) * 50vh);
+}
+
+.projectsStage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100vh;
+  padding: clamp(4.5rem, 10vh, 6rem) 0 clamp(1.5rem, 4vh, 3rem);
+}
+
+.projectsStage .subheadProjects {
+  margin-top: 0;
+}
+
+.projectsStage .hint {
+  margin-bottom: clamp(1.5rem, 4vh, 3rem);
+}
+
+.projectsStage .projects {
+  margin-top: clamp(2rem, 6vh, 4rem);
+}
+
+/* each part of the sequence comes in when its turn starts */
+.seqItem {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seqItem[data-state="active"],
+.seqItem[data-state="done"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* not yet in (or, on phones, already moved on): out of the way of the pointer, but a keyboard
+   user tabbing to it still sees it */
+.seqItem[data-state="hidden"],
+.projectsStage .slot[data-state="done"] {
+  pointer-events: none;
+}
+
+.seqItem:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
+/* The Polaroids are tossed in from below the screen, each from its own side and spin, and settle
+   into their slots. Flying back out (scrolling up) is quicker. */
+.slot.seqItem {
+  --fly-x: 0vw;
+  --fly-r: 0deg;
+  transition:
+    opacity 0.25s ease,
+    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slot.seqItem[data-step="0"] {
+  --fly-x: -18vw;
+  --fly-r: -16deg;
+}
+
+.slot.seqItem[data-step="1"] {
+  --fly-x: 4vw;
+  --fly-r: 10deg;
+}
+
+.slot.seqItem[data-step="2"] {
+  --fly-x: 22vw;
+  --fly-r: 22deg;
+}
+
+.slot.seqItem[data-state="hidden"] {
+  transform: translate3d(var(--fly-x), 75vh, 0) rotate(var(--fly-r)) scale(0.85);
+  transition:
+    opacity 0.3s ease 0.15s,
+    transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2);
+}
+
+/* ---------- Stats ---------- */
+
+.statsTrack {
+  /* one pinned screen, plus 70% of a screen of scroll per stat */
+  height: calc(100vh + var(--n, 3) * 70vh);
+}
+
+.statsStage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: clamp(4.5rem, 11vh, 6.5rem) 0 clamp(1.5rem, 4vh, 3rem);
+}
+
+.statsStage .subhead {
+  flex: none;
+  margin-bottom: clamp(1rem, 3vh, 2rem);
+}
+
+/* the stage the stats step down: left, right, left, each row overlapping the last a little */
+.stats {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  max-width: 76rem;
+}
+
+.stat {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  position: absolute;
+  top: calc(var(--i, 0) * 31%);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(1.5rem, 3vw, 3rem);
+  /* rows are sized by the stage's height, but never so tall that a 3:2 photo outgrows ~42% of a
+     narrow screen's width (portrait tablets), where the steps would pile on top of each other */
+  height: min(38%, 28vw);
+  margin: 0;
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s var(--ease-out);
+}
+
+.stat[data-state="active"],
+.stat[data-state="done"] {
+  opacity: 1;
+  transform: none;
+}
+
+.stat[data-side="right"] {
+  right: 0;
+  left: auto;
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.stat[data-side="right"] .statText {
+  align-items: flex-end;
+}
+
+/* a photo held in honey crop marks, like a viewfinder */
+.frame {
+  --mark: 1.4rem;
+  --mark-w: 2px;
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  height: 100%;
+  aspect-ratio: 3 / 2;
+  padding: 0.7rem;
+  background:
+    linear-gradient(var(--honey), var(--honey)) top left / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) top left / var(--mark-w) var(--mark) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) top right / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) top right / var(--mark-w) var(--mark) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom left / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom left / var(--mark-w) var(--mark) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom right / var(--mark) var(--mark-w) no-repeat,
+    linear-gradient(var(--honey), var(--honey)) bottom right / var(--mark-w) var(--mark) no-repeat;
+}
+
+.framePhoto {
+  width: 100%;
+  height: 100%;
+}
+
+.statText {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  isolation: isolate;
+}
+
+.statText::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -1.5rem -2.5rem;
+  background: radial-gradient(closest-side, rgb(20 17 11 / 0.92), rgb(20 17 11 / 0.6) 65%, rgb(20 17 11 / 0));
+}
+
+.statNumber {
+  color: var(--honey);
+  font-family: var(--font-numeral), ui-monospace, monospace;
+  font-size: clamp(4rem, 2.5rem + 4.5vw, 7rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.8;
+  white-space: pre;
+}
+
+.statLabel {
+  max-width: 15rem;
+  margin-top: 0.6rem;
+  color: rgb(255 253 247 / 0.86);
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+/* ---------- Photos drawn as ASCII ---------- */
+
+.asciiPhoto {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.asciiPhoto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.asciiPhoto canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Polaroids ---------- */
+
+.polaroids {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(1.5rem, 3vw, 3rem);
+  margin: 0;
+  padding: 0 0 0 clamp(0rem, 5vw, 6rem);
+  list-style: none;
+}
+
+.slot {
+  flex: 0 1 24rem;
+  min-width: 0;
+}
+
+.slot[data-step="1"] {
+  margin-top: 3rem;
+}
+
+.slot[data-step="2"] {
+  margin-top: 6.5rem;
+}
+
+.polaroid {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.7rem 0;
+  border: 0;
+  border-radius: 2px;
+  background: #fbf7ec;
+  box-shadow:
+    0 1px 0 rgb(0 0 0 / 0.5),
+    0 22px 34px -18px rgb(0 0 0 / 0.85);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.polaroid:hover {
+  transform: rotate(calc(var(--tilt, 0deg) * 0.4)) translateY(-6px);
+}
+
+.polaroid:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 5px;
+}
+
+.polaroidPhoto {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+}
+
+.polaroidPhoto > .asciiPhoto {
+  width: 100%;
+  height: 100%;
+}
+
+.play {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid var(--honey);
+  border-radius: 50%;
+  background: rgb(20 17 11 / 0.78);
+  color: var(--honey);
+}
+
+.play svg {
+  margin-left: 2px;
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0.2rem 0.9rem;
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+}
+
+.captionName {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  font-size: 1.65rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.captionMeta {
+  margin: 0.2rem 0 0;
+  color: #5b4a24;
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+/* ---------- The opened Polaroid ---------- */
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.dialog[open] {
+  display: grid;
+  place-items: center;
+}
+
+.dialog::backdrop {
+  background: transparent;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 8 4 / 0.84);
+  opacity: 0;
+}
+
+.dialogCard {
+  position: relative;
+  width: min(60rem, calc(100vw - 2rem), calc((100dvh - 10rem) * 16 / 9));
+  padding: 1rem 1rem 0;
+  border-radius: 2px;
+  background: #fbf7ec;
+  box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.9);
+  transform-origin: 50% 50%;
+}
+
+.dialogPhoto {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.dialogPhoto img,
+.dialogPhoto iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+
+.dialogCaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 1rem;
+  padding: 0.8rem 0.25rem 1.1rem;
+}
+
+.dialogCaption .captionName {
+  font-size: 2.1rem;
+}
+
+.dialogCaption .captionMeta {
+  font-size: 1.45rem;
+}
+
+.projectDescription {
+  /* its own row under the name and links */
+  order: 3;
+  flex: 0 0 100%;
+  /* a full row, so it always wraps under; the padding keeps lines to about 60 characters */
+  padding-right: max(0px, calc(100% - 60ch));
+  margin: 0.45rem 0 0;
+  color: rgb(20 17 11 / 0.82);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.projectLinks {
+  display: flex;
+  gap: 1.1rem;
+  margin: 0 0 0 auto;
+  align-self: center;
+}
+
+.projectLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 2px;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgb(20 17 11 / 0.3);
+  text-underline-offset: 0.2em;
+}
+
+.projectLink:hover {
+  text-decoration-color: currentColor;
+}
+
+.projectLink:focus-visible {
+  outline: 2px solid var(--honey-deep);
+  outline-offset: 3px;
+}
+
+.close {
+  position: absolute;
+  top: -2.9rem;
+  right: 0;
+  padding: 0.15rem 0.5rem;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--wax);
+  cursor: pointer;
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.close:hover {
+  color: var(--honey);
+}
+
+.close:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 2px;
+}
+
+/* ---------- All projects ---------- */
+
+.projects {
+  width: fit-content;
+  margin-top: clamp(7rem, 18vh, 12rem);
+}
+
+.projects::before {
+  inset: -2.5rem -4rem;
+  background: radial-gradient(closest-side, rgb(20 17 11 / 0.97), rgb(20 17 11 / 0.88) 60%, rgb(20 17 11 / 0));
+}
+
+.projectsLink {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 1rem;
+  row-gap: 0.25rem;
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.6rem);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* The archive button: a honey keycap with a hard ink-brown shadow that lifts on hover and presses
+   on click, a hex for the hive, and an arrow that nudges forward. A light sheen sweeps across on hover. */
+.archiveButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  overflow: hidden;
+  padding: 0.7rem 1.15rem 0.7rem 1rem;
+  border: 1px solid #ffd77a;
+  border-radius: 6px;
+  background: linear-gradient(to bottom, #ffcb57, var(--honey) 55%, #e9a52a);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.45),
+    0 4px 0 var(--honey-deep),
+    0 4px 0 1px rgb(20 17 11 / 0.6),
+    0 14px 26px -10px rgb(245 184 61 / 0.55);
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition:
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 160ms ease;
+}
+
+.archiveButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.55) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.archiveHex {
+  flex: none;
+  color: var(--ink-soft);
+}
+
+.archiveGo {
+  display: inline-block;
+  font-weight: 700;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.projectsLink:hover .archiveButton,
+.projectsLink:focus-visible .archiveButton {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 6px 0 var(--honey-deep),
+    0 6px 0 1px rgb(20 17 11 / 0.6),
+    0 20px 34px -10px rgb(245 184 61 / 0.7);
+  filter: brightness(1.04);
+}
+
+.projectsLink:hover .archiveButton::after {
+  transform: translateX(120%);
+  transition: transform 650ms ease;
+}
+
+.projectsLink:hover .archiveGo {
+  transform: translateX(4px);
+}
+
+.projectsLink:active .archiveButton {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 1px 0 var(--honey-deep),
+    0 1px 0 1px rgb(20 17 11 / 0.6),
+    0 6px 14px -8px rgb(245 184 61 / 0.5);
+  transition-duration: 60ms;
+}
+
+/* The link's parts fly in one after another once the Polaroids have landed, tossed up from below
+   like them; the ink pool behind fades in under them. Flying back out is quicker and all at once. */
+.projects.seqItem,
+.projects.seqItem[data-state] {
+  opacity: 1;
+  transform: none;
+}
+
+.projects.seqItem::before {
+  transition: opacity 0.5s ease;
+}
+
+.projects.seqItem[data-state="hidden"]::before {
+  opacity: 0;
+}
+
+.flyPart {
+  display: inline-block;
+  transition:
+    opacity 0.25s ease,
+    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.flyPart:nth-child(2) {
+  transition-delay: 0.12s;
+}
+
+.flyPart:nth-child(3) {
+  transition-delay: 0.24s;
+}
+
+.projects.seqItem[data-state="hidden"] .flyPart {
+  opacity: 0;
+  transition:
+    opacity 0.2s ease 0.1s,
+    transform 0.4s cubic-bezier(0.55, 0, 0.75, 0.2);
+}
+
+.projects.seqItem[data-state="hidden"] .flyPart:nth-child(1) {
+  transform: translate3d(-8vw, 40vh, 0) rotate(-10deg) scale(0.9);
+}
+
+.projects.seqItem[data-state="hidden"] .flyPart:nth-child(2) {
+  transform: translate3d(4vw, 45vh, 0) rotate(14deg) scale(0.9);
+}
+
+.projects.seqItem[data-state="hidden"] .flyPart:nth-child(3) {
+  transform: translate3d(16vw, 50vh, 0) rotate(20deg) scale(0.85);
+}
+
+.projectsLink:focus-visible {
+  border-radius: 2px;
+  outline: 3px solid var(--honey);
+  outline-offset: 6px;
+}
+
+.arrow {
+  color: var(--honey);
+  font-family: var(--font-ascii), ui-monospace, monospace;
+  font-size: 1.4em;
+  line-height: 1;
+  white-space: pre;
+  transition: letter-spacing 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.projectsLink:hover .arrow {
+  letter-spacing: 0.12em;
+}
+
+/* ---------- Short screens (landscape phones): everything pinned has to fit one short screen ---------- */
+
+@media (min-width: 640px) and (max-height: 560px) {
+  .statsStage,
+  .projectsStage {
+    padding-top: 3.5rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .projectsStage .subheadProjects {
+    font-size: 1.15rem;
+  }
+
+  .projectsStage .hint {
+    margin-bottom: 0.75rem;
+  }
+
+  .projectsStage .projects {
+    margin-top: 1rem;
+  }
+
+  /* smaller Polaroids, stepping down less */
+  .projectsStage .slot {
+    flex-basis: 34vh;
+  }
+
+  .projectsStage .slot[data-step="1"] {
+    margin-top: 1rem;
+  }
+
+  .projectsStage .slot[data-step="2"] {
+    margin-top: 2rem;
+  }
+
+  .projectsStage .captionName {
+    font-size: 1.2rem;
+  }
+
+  .projectsLink {
+    font-size: 1.05rem;
+  }
+
+  .archiveButton {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* ---------- Phones: one column, Polaroids stacked ---------- */
+
+@media (max-width: 639px) {
+  .section {
+    --gutter: 1rem;
+    --left: 1rem;
+  }
+
+  .titleWide {
+    display: none;
+  }
+
+  .titleStacked {
+    display: grid;
+  }
+
+  .section .body {
+    /* HACK over HIVE, and a longer intro on the narrow column */
+    --title-h: 24rem;
+  }
+
+  /* one stat at a time: each finished one moves up and out for the next */
+  .stat,
+  .stat[data-side="right"] {
+    top: 0;
+    right: 0;
+    left: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    height: auto;
+    text-align: left;
+  }
+
+  .stat[data-state="done"] {
+    opacity: 0;
+    transform: translateY(-1.5rem);
+  }
+
+  .stat[data-side="right"] .statText {
+    align-items: flex-start;
+  }
+
+  .frame {
+    width: 100%;
+    height: auto;
+  }
+
+  .subheadProjects,
+  .hint,
+  .polaroids {
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .polaroids {
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  .slot,
+  .slot[data-step="1"],
+  .slot[data-step="2"] {
+    /* the desktop flex-basis would become a height in this column */
+    flex: none;
+    width: 100%;
+    margin: 0;
+  }
+
+  .polaroid {
+    transform: rotate(calc(var(--tilt, 0deg) * 0.4));
+  }
+
+  /* in from the side as each one comes up the column */
+  .slot.seqItem[data-state="hidden"] {
+    transform: translate3d(calc(var(--fly-x) * 2), 25vh, 0) rotate(var(--fly-r)) scale(0.9);
+  }
+
+  .slot.seqItem[data-step="1"] {
+    --fly-x: -14vw;
+    --fly-r: -10deg;
+  }
+
+  /* not pinned: the three Polaroids scroll as a column and develop by position (ProjectsSequence) */
+  .projectsTrack {
+    height: auto;
+    margin-top: 3rem;
+  }
+
+  .projectsStage {
+    position: static;
+    height: auto;
+    padding: 0;
+  }
+
+  .dialogCard {
+    width: 100vw;
+    padding: 0.5rem 0.5rem 0;
+  }
+
+  .close {
+    right: 0.5rem;
+  }
+}
+
+/* ---------- Reduced motion: no scrubbed sequence, nothing tilting about ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .hackTrack {
+    height: auto;
+  }
+
+  .hackAnchor {
+    top: 0 !important;
+  }
+
+  .hackStage {
+    position: relative;
+    height: auto;
+  }
+
+  .hackCanvas {
+    display: none;
+  }
+
+  .hackContent {
+    position: relative;
+  }
+
+  .section .body {
+    margin-top: 0;
+  }
+
+  .polaroid,
+  .arrow,
+  .archiveButton,
+  .archiveGo {
+    transition: none;
+  }
+
+  .archiveButton::after {
+    display: none;
+  }
+
+  .polaroid:hover {
+    transform: rotate(var(--tilt, 0deg));
+  }
+}
+
+/* ---------- Reduced motion or no JS: the stats as a plain list ---------- */
+
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .statsTrack {
+    height: auto;
+  }
+
+  .statsStage {
+    position: static;
+    height: auto;
+    padding: 0 0 4rem;
+  }
+
+  .stats {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3.5rem, 10vh, 7rem);
+  }
+
+  .stat,
+  .stat[data-state] {
+    position: static;
+    height: auto;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .stat[data-side="right"] {
+    align-self: flex-end;
+  }
+
+  .frame {
+    width: clamp(16rem, 34vw, 30rem);
+    height: auto;
+  }
+}
+
+@media (max-width: 639px) and ((prefers-reduced-motion: reduce) or (scripting: none)) {
+  .stat[data-side="right"] {
+    align-self: stretch;
+  }
+
+  .frame {
+    width: 100%;
+  }
+}
+
+/* Reduced motion or no JS: no hack to hand over to, so the section simply follows the hero. */
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .section {
+    --overlap: 0px;
+  }
+}
+
+/* Reduced motion or no JS: the projects as a plain list, already developed. */
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .projectsTrack {
+    height: auto;
+  }
+
+  .projectsStage {
+    position: static;
+    display: block;
+    height: auto;
+    padding: 0;
+  }
+
+  .seqItem,
+  .seqItem[data-state],
+  .slot.seqItem[data-state] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .flyPart,
+  .projects.seqItem[data-state] .flyPart {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 639px) and ((prefers-reduced-motion: reduce) or (scripting: none)) {
+  .projectsStage .polaroids {
+    display: flex;
+  }
+
+  .projectsStage .slot {
+    position: static;
+  }
+}
