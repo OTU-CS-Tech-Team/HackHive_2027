@@ -1,0 +1,652 @@
+/* "What is HackHive": an ink night between the hero meadow and Sponsors' sunrise.
+   Everything sits on one left-aligned column and steps down to the right. */
+.section {
+  --honey: #f5b83d;
+  --honey-deep: #c98a0b;
+  --wax: #f3d58a;
+  --paper: #fffdf7;
+  --ink: #14110b;
+  --ink-soft: #3b2c08;
+  /* left edge of the column: a 16px gutter on phones, wider on desktop, capped on very wide screens */
+  --gutter: clamp(1rem, 6vw, 6rem);
+  --left: max(var(--gutter), calc((100vw - 84rem) / 2));
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+.section ::selection {
+  background: var(--honey);
+  color: var(--ink);
+}
+
+/* Text over the ASCII backdrop sits on a soft pool of ink so the glyphs fall away behind it. */
+.quiet {
+  position: relative;
+}
+
+.quiet::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -2.5rem -3rem;
+  background: radial-gradient(closest-side, rgb(20 17 11 / 0.94), rgb(20 17 11 / 0.75) 62%, rgb(20 17 11 / 0));
+  pointer-events: none;
+}
+
+/* ---------- Backdrop ---------- */
+
+.field {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  /* feathers the last glyphs into the honey floor below */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
+}
+
+/* Over the last ~30vh the night warms to honey, the exact colour Sponsors' .dawn starts on,
+   so the ASCII brightens straight into the sunrise with no dark band or seam. */
+.section::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 30vh;
+  background: linear-gradient(
+    to bottom,
+    rgb(245 184 61 / 0) 0%,
+    rgb(245 184 61 / 0.06) 25%,
+    rgb(245 184 61 / 0.22) 50%,
+    rgb(245 184 61 / 0.55) 72%,
+    rgb(245 184 61 / 0.88) 90%,
+    #f5b83d 100%
+  );
+  pointer-events: none;
+}
+
+.fieldCanvas {
+  position: sticky;
+  top: 0;
+  display: block;
+  width: 100%;
+  height: 100vh;
+}
+
+/* ---------- The hack ---------- */
+
+.hackTrack {
+  position: relative;
+  z-index: 1;
+  height: calc(var(--track-vh, 360) * 1vh);
+}
+
+.hackStage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.hackCanvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hackContent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5rem var(--gutter) 3rem var(--left);
+}
+
+.titleBlock {
+  isolation: isolate;
+  max-width: 72rem;
+}
+
+/* HackTransition fades the pool in as the picture clears (no JS: there from the start) */
+.titleBlock::before {
+  opacity: var(--halo, 1);
+}
+
+.title {
+  margin: 0;
+  font-weight: 500;
+}
+
+.titleLead {
+  display: block;
+  margin-bottom: 0.9rem;
+  color: var(--wax);
+  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.titleArt {
+  display: grid;
+  color: var(--honey);
+  font-family: var(--font-ascii), ui-monospace, monospace;
+  font-weight: 500;
+  /* 116 columns ("HACK HIVE" plus shadow), sized for 124 as slack. JetBrains Mono advances about 0.6em */
+  font-size: min(1.25rem, calc((100vw - var(--left) - var(--gutter)) / 124 / 0.6));
+  line-height: 1;
+  white-space: pre;
+}
+
+/* letters and their shadow share one grid cell, shadow underneath */
+.titleArt > span {
+  grid-area: 1 / 1;
+}
+
+.titleShade {
+  color: rgb(245 184 61 / 0.25);
+}
+
+.titleStacked {
+  display: none;
+  /* 56 columns: HACK over HIVE, plus slack */
+  font-size: min(1.25rem, calc((100vw - 2rem) / 56 / 0.6));
+}
+
+.intro {
+  max-width: 34rem;
+  margin-top: clamp(1.5rem, 4vh, 2.75rem);
+  color: rgb(255 253 247 / 0.88);
+  font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.2rem);
+  line-height: 1.6;
+}
+
+.intro p + p {
+  margin-top: 0.75em;
+}
+
+/* ---------- Below the hack ---------- */
+
+.body {
+  position: relative;
+  z-index: 1;
+  padding: 0 var(--gutter) 60vh var(--left);
+}
+
+.rule {
+  overflow: hidden;
+  margin: 0 0 clamp(4rem, 12vh, 8rem);
+  color: var(--honey);
+  font-family: var(--font-ascii), ui-monospace, monospace;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.45;
+  white-space: nowrap;
+}
+
+.subhead {
+  width: fit-content;
+  margin: 0 0 2.5rem;
+  color: var(--wax);
+  font-size: clamp(1.3rem, 1.1rem + 0.8vw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.subheadProjects {
+  margin: clamp(6rem, 16vh, 11rem) 0 0.6rem;
+  margin-left: clamp(0rem, 6vw, 7rem);
+}
+
+.hint {
+  width: fit-content;
+  margin: 0 0 3rem clamp(0rem, 6vw, 7rem);
+  color: rgb(255 253 247 / 0.7);
+}
+
+/* ---------- Stats ---------- */
+
+.stats {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+/* second step: lower and to the right */
+.stat[data-step="1"] {
+  margin-top: clamp(-6rem, -6vw, -2rem);
+  margin-left: clamp(0rem, 30vw, 30rem);
+}
+
+.bubble {
+  flex: none;
+  width: clamp(13rem, 26vw, 24rem);
+  aspect-ratio: 5 / 4;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(245 184 61 / 0.4);
+}
+
+.statText {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: clamp(1.5rem, 3vw, 3rem);
+  isolation: isolate;
+}
+
+.statText::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -1.5rem -2.5rem -1.5rem -1.5rem;
+  background: radial-gradient(closest-side, rgb(20 17 11 / 0.92), rgb(20 17 11 / 0.6) 65%, rgb(20 17 11 / 0));
+}
+
+.statNumber {
+  color: var(--honey);
+  font-family: var(--font-numeral), ui-monospace, monospace;
+  font-size: clamp(4rem, 2.5rem + 4.5vw, 7rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.8;
+  white-space: pre;
+}
+
+.statLabel {
+  max-width: 15rem;
+  margin-top: 0.6rem;
+  color: rgb(255 253 247 / 0.86);
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+/* ---------- Photos drawn as ASCII ---------- */
+
+.asciiPhoto {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.asciiPhoto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.asciiPhoto canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Polaroids ---------- */
+
+.polaroids {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(1.5rem, 3.5vw, 3.5rem);
+  margin: 0;
+  padding: 0 0 0 clamp(0rem, 10vw, 12rem);
+  list-style: none;
+}
+
+.slot {
+  flex: 0 1 19rem;
+  min-width: 0;
+}
+
+.slot[data-step="1"] {
+  margin-top: 3rem;
+}
+
+.slot[data-step="2"] {
+  margin-top: 6.5rem;
+}
+
+.polaroid {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.7rem 0;
+  border: 0;
+  border-radius: 2px;
+  background: #fbf7ec;
+  box-shadow:
+    0 1px 0 rgb(0 0 0 / 0.5),
+    0 22px 34px -18px rgb(0 0 0 / 0.85);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.polaroid:hover {
+  transform: rotate(calc(var(--tilt, 0deg) * 0.4)) translateY(-6px);
+}
+
+.polaroid:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 5px;
+}
+
+.polaroidPhoto {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+}
+
+.polaroidPhoto > .asciiPhoto {
+  width: 100%;
+  height: 100%;
+}
+
+.play {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid var(--honey);
+  border-radius: 50%;
+  background: rgb(20 17 11 / 0.78);
+  color: var(--honey);
+}
+
+.play svg {
+  margin-left: 2px;
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0.2rem 0.9rem;
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+}
+
+.captionName {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  font-size: 1.65rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.captionMeta {
+  margin: 0.2rem 0 0;
+  color: #5b4a24;
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+/* ---------- The opened Polaroid ---------- */
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.dialog[open] {
+  display: grid;
+  place-items: center;
+}
+
+.dialog::backdrop {
+  background: transparent;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 8 4 / 0.84);
+  opacity: 0;
+}
+
+.dialogCard {
+  position: relative;
+  width: min(60rem, calc(100vw - 2rem), calc((100dvh - 10rem) * 16 / 9));
+  padding: 1rem 1rem 0;
+  border-radius: 2px;
+  background: #fbf7ec;
+  box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.9);
+  transform-origin: 50% 50%;
+}
+
+.dialogPhoto {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.dialogPhoto img,
+.dialogPhoto iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+
+.dialogCaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 1rem;
+  padding: 0.8rem 0.25rem 1.1rem;
+}
+
+.dialogCaption .captionName {
+  font-size: 2.1rem;
+}
+
+.dialogCaption .captionMeta {
+  font-size: 1.45rem;
+}
+
+.close {
+  position: absolute;
+  top: -2.9rem;
+  right: 0;
+  padding: 0.15rem 0.5rem;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--wax);
+  cursor: pointer;
+  font-family: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.close:hover {
+  color: var(--honey);
+}
+
+.close:focus-visible {
+  outline: 3px solid var(--honey);
+  outline-offset: 2px;
+}
+
+/* ---------- All projects ---------- */
+
+.projects {
+  width: fit-content;
+  margin-top: clamp(7rem, 18vh, 12rem);
+}
+
+.projects::before {
+  inset: -2.5rem -4rem;
+  background: radial-gradient(closest-side, rgb(20 17 11 / 0.97), rgb(20 17 11 / 0.88) 60%, rgb(20 17 11 / 0));
+}
+
+.projectsLink,
+.projectsSoon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 1rem;
+  row-gap: 0.25rem;
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.6rem);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.projectsLink:focus-visible {
+  border-radius: 2px;
+  outline: 3px solid var(--honey);
+  outline-offset: 6px;
+}
+
+.arrow {
+  color: var(--honey);
+  font-family: var(--font-ascii), ui-monospace, monospace;
+  font-size: 1.4em;
+  line-height: 1;
+  white-space: pre;
+  transition: letter-spacing 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.projectsLink:hover .arrow {
+  letter-spacing: 0.12em;
+}
+
+.soon {
+  flex-basis: 100%;
+  color: rgb(255 253 247 / 0.7);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+/* ---------- Phones: one column, Polaroids stacked ---------- */
+
+@media (max-width: 639px) {
+  .section {
+    --gutter: 1rem;
+    --left: 1rem;
+  }
+
+  .titleWide {
+    display: none;
+  }
+
+  .titleStacked {
+    display: grid;
+  }
+
+  .stat,
+  .stat[data-step="1"] {
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0 0 3.5rem;
+  }
+
+  .stat[data-step="1"] {
+    margin-left: 0;
+  }
+
+  .bubble {
+    width: min(20rem, 82vw);
+  }
+
+  .statText {
+    margin: 1rem 0 0;
+  }
+
+  .subheadProjects,
+  .hint,
+  .polaroids {
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .polaroids {
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  .slot,
+  .slot[data-step="1"],
+  .slot[data-step="2"] {
+    width: 100%;
+    margin: 0;
+  }
+
+  .polaroid {
+    transform: rotate(calc(var(--tilt, 0deg) * 0.4));
+  }
+
+  .dialogCard {
+    width: 100vw;
+    padding: 0.5rem 0.5rem 0;
+  }
+
+  .close {
+    right: 0.5rem;
+  }
+}
+
+/* ---------- Reduced motion: no scrubbed sequence, nothing tilting about ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .hackTrack {
+    height: auto;
+  }
+
+  .hackStage {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .hackCanvas {
+    display: none;
+  }
+
+  .hackContent {
+    position: relative;
+    min-height: 100vh;
+  }
+
+  .polaroid,
+  .arrow {
+    transition: none;
+  }
+
+  .polaroid:hover {
+    transform: rotate(var(--tilt, 0deg));
+  }
+}
