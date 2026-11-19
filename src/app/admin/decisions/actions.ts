@@ -78,7 +78,7 @@ export async function releaseWave(includeRejections: boolean): Promise<ReleaseRe
   }
   revalidatePath("/admin", "layout");
   const waveId = Number(data);
-  return { ok: true, message: `Released wave ${waveId}. Sending emails…`, waveId };
+  return { ok: true, message: "Wave released. Sending emails…", waveId };
 }
 
 export type SendResult = ActionResult & { sent: number; failed: number; remaining: number };
