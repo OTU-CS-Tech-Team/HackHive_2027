@@ -22,7 +22,7 @@ type Params = Promise<{ section: string }>;
 
 export default function SectionPage({ params }: { params: Params }) {
   return (
-    <main className="mx-auto max-w-3xl">
+    <main className="mx-auto max-w-3xl mt-6">
       <Suspense fallback={<p role="status">Loading…</p>}>
         <Section params={params} />
       </Suspense>

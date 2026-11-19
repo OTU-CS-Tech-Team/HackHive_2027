@@ -8,9 +8,9 @@ export const metadata: Metadata = { title: "Scanner | HackHive 2027" };
 
 export default function ScanPage() {
   return (
-    <main className="w-full px-3 sm:px-4">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight sm:text-3xl">Scan a pass</h1>
-      <p className="mb-3 text-sm text-neutral-600">Event points and attendee info.</p>
+    <main className="mx-auto max-w-xl sm:px-4 mt-6">
+      <h1 className="mb-2 text-2xl font-bold tracking-tight sm:text-3xl">Scan a pass</h1>
+      <p className="mb-6 text-neutral-600">Check-in, event points, help desk redemptions, and emergency info.</p>
       <Suspense fallback={<p>Loading…</p>}>
         <ScanContent />
       </Suspense>
