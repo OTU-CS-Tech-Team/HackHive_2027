@@ -33,7 +33,7 @@ function useSendLoop() {
         const result = await sendWaveEmails(waveId);
         sent += result.sent;
         if (result.remaining < 0) {
-          setProgress(`Sent ${sent} of ${total}. Stopped: ${result.message} Use Retry unsent below.`);
+          setProgress(`Sent ${sent} of ${total}. Stopped: ${result.message} Press Retry to try again.`);
           return;
         }
         if (result.remaining === 0) {
@@ -42,14 +42,14 @@ function useSendLoop() {
         }
         if (result.sent === 0) {
           setProgress(
-            `Sent ${sent} of ${total}. ${result.remaining} still unsent${result.failed ? ` (${result.message})` : " (another admin may be sending them)"}. Use Retry unsent below.`,
+            `Sent ${sent} of ${total}. ${result.remaining} still unsent${result.failed ? ` (${result.message})` : " (another admin may be sending them)"}. Press Retry to try again.`,
           );
           return;
         }
         setProgress(`Sending… ${sent} of ${total}${result.failed ? `, some failed (${result.message})` : ""}`);
       }
     } catch {
-      setProgress(`Stopped after ${sent} of ${total}. Refresh and use Retry unsent below.`);
+      setProgress(`Stopped after ${sent} of ${total}. Refresh and press Retry.`);
     } finally {
       setSending(false);
       router.refresh();
@@ -64,11 +64,13 @@ export function ReleasePanel({
   accepts,
   waitlists,
   rejections,
+  undecided,
 }: {
   nextWave: number;
   accepts: number;
   waitlists: number;
   rejections: number;
+  undecided: number;
 }) {
   const checkboxId = useId();
   const [final, setFinal] = useState(false);
@@ -99,14 +101,22 @@ export function ReleasePanel({
   };
 
   return (
-    <section aria-labelledby="release-heading" className="rounded-lg border border-neutral-200 p-4">
-      <h2 id="release-heading" className="font-semibold">Release a wave</h2>
-      <p className="mt-1 text-sm">
-        Ready to release: <strong className="tabular-nums">{plural(accepts, "accept")}</strong>,{" "}
-        <strong className="tabular-nums">{plural(waitlists, "waitlist")}</strong>
+    <section aria-labelledby="release-heading" className="rounded-xl border border-neutral-300 bg-white p-5 shadow-sm sm:p-6">
+      <h2 id="release-heading" className="text-lg font-semibold">Wave {nextWave}</h2>
+      <p className="mt-1 text-base tabular-nums">
+        {accepts + waitlists === 0 ? (
+          "Nothing ready yet."
+        ) : (
+          <>
+            <strong>{plural(accepts, "accept")}</strong> and <strong>{plural(waitlists, "waitlist")}</strong> ready to send.
+          </>
+        )}
       </p>
-      <p className="text-sm text-neutral-600 tabular-nums">{plural(rejections, "rejection")} held until the final wave</p>
-      <div className="mt-3 flex flex-col items-start gap-3">
+      <p className="text-sm text-neutral-600 tabular-nums">
+        {rejections > 0 && `${plural(rejections, "rejection")} held for the final wave. `}
+        {undecided} not decided yet.
+      </p>
+      <div className="mt-4 flex flex-col items-start gap-3">
         <label htmlFor={checkboxId} className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm">
           <input
             id={checkboxId}
@@ -116,7 +126,7 @@ export function ReleasePanel({
             disabled={busy}
             className="size-5 accent-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
           />
-          Final wave: also send rejections
+          Final wave: include rejections
         </label>
         <button type="button" onClick={release} disabled={busy || total === 0} className={primary}>
           {releasing && !sending ? "Releasing…" : sending ? "Sending…" : `Release wave ${nextWave}`}
@@ -136,7 +146,7 @@ export function RetryUnsent({ waveId, unsent }: { waveId: number; unsent: number
   return (
     <div className="flex flex-col items-start gap-1">
       <button type="button" onClick={() => send(waveId, unsent)} disabled={sending || unsent === 0} className={secondary}>
-        {sending ? "Sending…" : `Retry ${unsent} unsent`}
+        {sending ? "Sending…" : "Retry"}
       </button>
       {progress && (
         <p role="status" className="text-sm text-neutral-700">
@@ -155,17 +165,16 @@ export function PromoteWaitlist({ waitlisted }: { waitlisted: number }) {
 
   return (
     <form
-      className="mt-3 flex flex-wrap items-end gap-2"
+      className="flex shrink-0 items-center gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) run(() => promoteFromWaitlist(count));
       }}
     >
-      <div className="flex flex-col gap-1">
-        <label htmlFor={inputId} className="text-sm font-medium">
-          How many
-        </label>
-        <input
+      <label htmlFor={inputId} className="sr-only">
+        How many to promote
+      </label>
+      <input
           id={inputId}
           type="number"
           inputMode="numeric"
@@ -174,11 +183,10 @@ export function PromoteWaitlist({ waitlisted }: { waitlisted: number }) {
           value={Number.isNaN(count) ? "" : count}
           onChange={(event) => setCount(event.target.valueAsNumber)}
           disabled={waitlisted === 0}
-          className="min-h-11 w-24 rounded-md border border-neutral-300 px-3 py-2 text-base tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 sm:text-sm"
+          className="min-h-11 w-20 rounded-md border border-neutral-300 px-3 py-2 text-base tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 sm:text-sm"
         />
-      </div>
       <button type="submit" disabled={pending || !valid} className={secondary}>
-        {pending ? "Staging…" : `Promote next ${valid ? count : "N"}`}
+        {pending ? "Promoting…" : "Promote"}
       </button>
     </form>
   );
