@@ -52,7 +52,14 @@ function GithubIcon() {
  * away), straightens it, dims the page, and once it lands swaps the photo for the YouTube demo.
  * A native <dialog> gives Esc, the focus trap and returning focus to the button.
  */
-export function Polaroids({ projects }: { projects: readonly AboutProject[] }) {
+export function Polaroids({
+  projects,
+  levels,
+}: {
+  projects: readonly AboutProject[];
+  /** Scroll-driven develop for each Polaroid (ProjectsSequence): 0 = ASCII, 1 = photo. */
+  levels?: readonly (() => number)[];
+}) {
   const [active, setActive] = useState<number | null>(null);
   const [phase, setPhase] = useState<Phase>("closed");
   const [hovered, setHovered] = useState<number | null>(null);
@@ -179,7 +186,13 @@ export function Polaroids({ projects }: { projects: readonly AboutProject[] }) {
     <>
       <ol ref={listRef} className={styles.polaroids}>
         {projects.map((p, i) => (
-          <li key={p.id} className={styles.slot} data-step={i}>
+          <li
+            key={p.id}
+            className={levels ? `${styles.slot} ${styles.seqItem}` : styles.slot}
+            data-step={i}
+            data-seq={levels ? String(i) : undefined}
+            data-state={levels ? "hidden" : undefined}
+          >
             <button
               ref={(el) => {
                 buttons.current[i] = el;
@@ -198,6 +211,7 @@ export function Polaroids({ projects }: { projects: readonly AboutProject[] }) {
                 <AsciiPhoto
                   image={p.image}
                   developed={seen || hovered === i || active === i}
+                  getLevel={levels?.[i]}
                   delay={seen && hovered !== i ? i * STAGGER_MS : 0}
                   duration={900}
                   cell={7}

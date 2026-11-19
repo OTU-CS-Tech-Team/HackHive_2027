@@ -1,10 +1,9 @@
 import { Caveat, JetBrains_Mono, VT323 } from "next/font/google";
-import Link from "next/link";
 import { ABOUT_INTRO, ABOUT_PROJECTS, ABOUT_STATS, ARCHIVE_PAGE } from "@/lib/about";
 import { cn } from "@/lib/utils";
 import { AsciiField } from "./AsciiField";
 import { HackTransition } from "./HackTransition";
-import { Polaroids } from "./Polaroids";
+import { ProjectsSequence } from "./ProjectsSequence";
 import { StatsSequence } from "./StatsSequence";
 import { blockLetters } from "./ascii";
 import styles from "./about.module.css";
@@ -92,18 +91,7 @@ export function AboutSection() {
 
         <StatsSequence stats={ABOUT_STATS} />
 
-        <h3 className={cn(styles.subhead, styles.subheadProjects, styles.quiet)}>Projects from HackHive 2026</h3>
-        <p className={cn(styles.hint, styles.quiet)}>Open a Polaroid to watch the team&rsquo;s demo.</p>
-        <Polaroids projects={ABOUT_PROJECTS} />
-
-        <div className={cn(styles.projects, styles.quiet)}>
-          <Link href={ARCHIVE_PAGE} className={styles.projectsLink}>
-            <span>See the full history of HackHive</span>
-            <span className={styles.arrow} aria-hidden="true">
-              ---------&gt;
-            </span>
-          </Link>
-        </div>
+        <ProjectsSequence projects={ABOUT_PROJECTS} archiveHref={ARCHIVE_PAGE} />
       </div>
     </section>
   );

@@ -218,6 +218,63 @@
   color: rgb(255 253 247 / 0.7);
 }
 
+/* ---------- Projects, played in one at a time (ProjectsSequence) ---------- */
+
+.projectsTrack {
+  /* one pinned screen, plus about 0.6 of a screen of scroll per turn */
+  height: calc(100vh + var(--turns, 4.6) * 60vh);
+  margin-top: clamp(3rem, 8vh, 6rem);
+}
+
+.projectsStage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100vh;
+  padding: clamp(4.5rem, 10vh, 6rem) 0 clamp(1.5rem, 4vh, 3rem);
+}
+
+.projectsStage .subheadProjects {
+  margin-top: 0;
+}
+
+.projectsStage .hint {
+  margin-bottom: clamp(1.5rem, 4vh, 3rem);
+}
+
+.projectsStage .projects {
+  margin-top: clamp(2rem, 6vh, 4rem);
+}
+
+/* each part of the sequence comes in when its turn starts */
+.seqItem {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seqItem[data-state="active"],
+.seqItem[data-state="done"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* not yet in (or, on phones, already moved on): out of the way of the pointer, but a keyboard
+   user tabbing to it still sees it */
+.seqItem[data-state="hidden"],
+.projectsStage .slot[data-state="done"] {
+  pointer-events: none;
+}
+
+.seqItem:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
 /* ---------- Stats ---------- */
 
 .statsTrack {
@@ -544,8 +601,9 @@
 .projectDescription {
   /* its own row under the name and links */
   order: 3;
-  flex-basis: 100%;
-  max-width: 60ch;
+  flex: 0 0 100%;
+  /* a full row, so it always wraps under; the padding keeps lines to about 60 characters */
+  padding-right: max(0px, calc(100% - 60ch));
   margin: 0.45rem 0 0;
   color: rgb(20 17 11 / 0.82);
   font-size: 1rem;
@@ -629,6 +687,27 @@
   font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.6rem);
   font-weight: 500;
   text-decoration: none;
+}
+
+.archiveButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 1.1rem;
+  border: 2px solid var(--honey);
+  border-radius: 2px;
+  background: var(--honey);
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.projectsLink:hover .archiveButton {
+  background: transparent;
+  color: var(--honey);
 }
 
 .projectsLink:focus-visible {
@@ -718,6 +797,28 @@
 
   .polaroid {
     transform: rotate(calc(var(--tilt, 0deg) * 0.4));
+  }
+
+  /* pinned: one Polaroid at a time, each finished one moves up and out for the next */
+  .projectsStage .polaroids {
+    position: relative;
+    display: block;
+  }
+
+  .projectsStage .slot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+  }
+
+  .projectsStage .slot[data-step="0"] {
+    position: relative;
+  }
+
+  .projectsStage .slot[data-state="done"] {
+    opacity: 0;
+    transform: translateY(-1.5rem);
   }
 
   .dialogCard {
@@ -816,5 +917,36 @@
 @media (prefers-reduced-motion: reduce), (scripting: none) {
   .section {
     --overlap: 0px;
+  }
+}
+
+/* Reduced motion or no JS: the projects as a plain list, already developed. */
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .projectsTrack {
+    height: auto;
+  }
+
+  .projectsStage {
+    position: static;
+    display: block;
+    height: auto;
+    padding: 0;
+  }
+
+  .seqItem,
+  .seqItem[data-state] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 639px) and ((prefers-reduced-motion: reduce) or (scripting: none)) {
+  .projectsStage .polaroids {
+    display: flex;
+  }
+
+  .projectsStage .slot {
+    position: static;
   }
 }
