@@ -10,20 +10,31 @@ import styles from "./about.module.css";
 
 /**
  * Projects from 2026, played in like the stats (StatsSequence). A short track pins a screen and
- * scroll plays one quick turn: the heading decrypts while all three Polaroids come in together as
- * ASCII and develop into their photos. Once they have, the link to the archive appears. Scrolling
- * back up runs it in reverse.
- * Phones: three Polaroids don't fit one pinned screen, so they scroll as a column and each one
- * develops as it rises to the middle of the screen.
+ * scroll plays one quick turn: the heading decrypts, then the Polaroids fly in one after another
+ * as ASCII, each developing into its photo once it lands. Once they have, the link to the archive
+ * appears. Scrolling back up runs it in reverse (they fly back out).
+ * Phones: three Polaroids don't fit one pinned screen, so they scroll as a column; each one flies in
+ * as it comes up the screen and develops as it rises to the middle.
  * Reduced motion, or no JS: everything as a plain list, photos already developed.
  */
 
-const TURNS = 1; // the heading and the Polaroids play together
+const TURNS = 1.2; // the heading, then the Polaroids
 const HOLD = 0.3; // turns of scroll at the end with everything in place
 const HEADING = [0, 0.3] as const; // the heading decrypts first...
-const DEVELOP = [0.05, 0.55] as const; // ...while the Polaroids go from ASCII to photo
-const LINK_AT = 0.55; // then the archive link comes in
+const FLY_AT = [0.06, 0.22, 0.38] as const; // ...as the Polaroids fly in, one after another...
+const LANDED = 0.14; // ...each landing (and starting to develop) this long after it flies...
+const DEVELOP = 0.4; // ...and taking this long to go from ASCII to photo
+const LINK_AT = 0.95; // then, once the last has developed, the archive link comes in
 const PHONE = "(max-width: 639px)";
+const PHONE_FLY_AT = 0.92; // phones: a Polaroid flies in once its slot's top is this far up the screen
+
+const flyAt = (i: number) => FLY_AT[Math.min(i, FLY_AT.length - 1)];
+
+/** Where a slot's top sits on the screen, ignoring its own fly-in transform. */
+function slotTop(slot: HTMLElement) {
+  const parent = slot.offsetParent;
+  return parent ? parent.getBoundingClientRect().top + slot.offsetTop : slot.getBoundingClientRect().top;
+}
 
 export function ProjectsSequence({ projects, archiveHref }: { projects: readonly AboutProject[]; archiveHref: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -48,7 +59,8 @@ export function ProjectsSequence({ projects, archiveHref }: { projects: readonly
           const r = slot.getBoundingClientRect();
           return 1 - smooth(0.45, 0.85, (r.top + r.height / 2) / window.innerHeight);
         }
-        return smooth(DEVELOP[0], DEVELOP[1], turn());
+        const from = flyAt(i) + LANDED;
+        return smooth(from, from + DEVELOP, turn());
       }),
     [projects],
   );
@@ -69,16 +81,30 @@ export function ProjectsSequence({ projects, archiveHref }: { projects: readonly
     function update() {
       raf = 0;
       if (phone.matches) {
-        // not pinned on phones: everything is in place, the photos develop by position
-        for (const el of items) if (el.dataset.state !== "active") el.dataset.state = "active";
+        // not pinned on phones: each Polaroid flies in as its slot comes up the screen, and the
+        // photos develop by position (levels)
+        const line = window.innerHeight * PHONE_FLY_AT;
+        for (const el of items) {
+          const kind = el.dataset.seq;
+          const state = kind === "heading" || kind === "link" || slotTop(el) < line ? "active" : "hidden";
+          if (el.dataset.state !== state) el.dataset.state = state;
+        }
         if (heading.textContent !== headingText) heading.textContent = headingText;
         return;
       }
       const t = turn();
       for (const el of items) {
-        const kind = el.dataset.seq;
+        const kind = el.dataset.seq!;
         const state =
-          kind === "heading" ? "active" : kind === "link" ? (t >= LINK_AT ? "active" : "hidden") : "active";
+          kind === "heading"
+            ? "active"
+            : kind === "link"
+              ? t >= LINK_AT
+                ? "active"
+                : "hidden"
+              : t >= flyAt(Number(kind))
+                ? "active"
+                : "hidden";
         if (el.dataset.state !== state) el.dataset.state = state;
       }
       const text = decrypt(headingText, smooth(HEADING[0], HEADING[1], t), Math.floor(performance.now() / 50));

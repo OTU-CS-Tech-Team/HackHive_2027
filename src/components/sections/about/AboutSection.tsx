@@ -43,7 +43,6 @@ const TITLE_STACKED = {
   fill: [...HACK.fill, BLANK, ...HIVE.fill].join("\n"),
   shade: [...HACK.shade, BLANK, ...HIVE.shade].join("\n"),
 };
-const RULE = "- ".repeat(120);
 
 /** The block letters: the shadow layer underneath (fades in), the letters on top (decrypt). */
 function TitleArt({ art, className }: { art: { fill: string; shade: string }; className: string }) {
@@ -85,10 +84,6 @@ export function AboutSection() {
       </HackTransition>
 
       <div className={styles.body}>
-        <div className={styles.rule} aria-hidden="true">
-          {RULE}
-        </div>
-
         <StatsSequence stats={ABOUT_STATS} />
 
         <ProjectsSequence projects={ABOUT_PROJECTS} archiveHref={ARCHIVE_PAGE} />

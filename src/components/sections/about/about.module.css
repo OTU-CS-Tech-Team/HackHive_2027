@@ -60,7 +60,7 @@
   mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
 }
 
-/* Over the last ~30vh the night warms to honey, the exact colour Sponsors' .dawn starts on,
+/* Over the last ~24vh the night warms to honey, the exact colour Sponsors' .dawn starts on,
    so the ASCII brightens straight into the sunrise with no dark band or seam. */
 .section::after {
   content: "";
@@ -69,7 +69,7 @@
   right: 0;
   bottom: 0;
   left: 0;
-  height: 30vh;
+  height: 24vh;
   background: linear-gradient(
     to bottom,
     rgb(245 184 61 / 0) 0%,
@@ -186,23 +186,18 @@
 /* ---------- Below the hack ---------- */
 
 .body {
+  /* the stats heading lands this far below the top of the screen when the title lets go: the
+     title's top padding (.hackContent), the title and intro (--title-h), then a short gap */
+  --title-h: 18rem;
+  --stats-at: calc(clamp(5rem, 16vh, 9rem) + var(--title-h));
   position: relative;
   z-index: 1;
-  /* Pulls the stats up into the bottom of the pinned title screen, which is empty by then: the hack
-     finishes before the track ends (HackTransition's HOLD), so nothing is still animating there. */
-  margin-top: -40vh;
-  padding: 0 var(--gutter) 45vh var(--left);
-}
-
-.rule {
-  overflow: hidden;
-  margin: 0 0 clamp(2rem, 5vh, 3.5rem);
-  color: var(--honey);
-  font-family: var(--font-ascii), ui-monospace, monospace;
-  font-size: 0.9rem;
-  line-height: 1;
-  opacity: 0.45;
-  white-space: nowrap;
+  /* Pulls the stats up into the bottom of the pinned title screen, right under the intro. That part
+     of the screen is empty by then: the hack finishes before the track ends (HackTransition's HOLD),
+     so nothing is still animating there. The stats stage's own top padding is taken back off. */
+  margin-top: calc(var(--stats-at) - 100vh - clamp(4.5rem, 11vh, 6.5rem));
+  /* just enough room for the last Polaroids to clear before the floor warms into Sponsors' dawn */
+  padding: 0 var(--gutter) 12vh var(--left);
 }
 
 .subhead {
@@ -280,6 +275,38 @@
 .seqItem:focus-within {
   opacity: 1;
   transform: none;
+}
+
+/* The Polaroids are tossed in from below the screen, each from its own side and spin, and settle
+   into their slots. Flying back out (scrolling up) is quicker. */
+.slot.seqItem {
+  --fly-x: 0vw;
+  --fly-r: 0deg;
+  transition:
+    opacity 0.25s ease,
+    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slot.seqItem[data-step="0"] {
+  --fly-x: -18vw;
+  --fly-r: -16deg;
+}
+
+.slot.seqItem[data-step="1"] {
+  --fly-x: 4vw;
+  --fly-r: 10deg;
+}
+
+.slot.seqItem[data-step="2"] {
+  --fly-x: 22vw;
+  --fly-r: 22deg;
+}
+
+.slot.seqItem[data-state="hidden"] {
+  transform: translate3d(var(--fly-x), 75vh, 0) rotate(var(--fly-r)) scale(0.85);
+  transition:
+    opacity 0.3s ease 0.15s,
+    transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2);
 }
 
 /* ---------- Stats ---------- */
@@ -803,7 +830,8 @@
   }
 
   .section .body {
-    margin-top: -36vh;
+    /* HACK over HIVE, and a longer intro on the narrow column */
+    --title-h: 24rem;
   }
 
   /* one stat at a time: each finished one moves up and out for the next */
@@ -856,6 +884,16 @@
 
   .polaroid {
     transform: rotate(calc(var(--tilt, 0deg) * 0.4));
+  }
+
+  /* in from the side as each one comes up the column */
+  .slot.seqItem[data-state="hidden"] {
+    transform: translate3d(calc(var(--fly-x) * 2), 25vh, 0) rotate(var(--fly-r)) scale(0.9);
+  }
+
+  .slot.seqItem[data-step="1"] {
+    --fly-x: -14vw;
+    --fly-r: -10deg;
   }
 
   /* not pinned: the three Polaroids scroll as a column and develop by position (ProjectsSequence) */
@@ -987,7 +1025,8 @@
   }
 
   .seqItem,
-  .seqItem[data-state] {
+  .seqItem[data-state],
+  .slot.seqItem[data-state] {
     opacity: 1;
     transform: none;
     transition: none;

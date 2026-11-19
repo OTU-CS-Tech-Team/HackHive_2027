@@ -81,12 +81,13 @@ export function AsciiField() {
       const vh = H;
       const offset = inSection * parallax; // field px at the canvas's top edge
       const first = Math.floor(offset / ch);
-      // starts below the "See all projects" line, so that text sits on the calm part
-      const heatFrom = sectionH - vh * 0.75;
-      const heatTo = sectionH - vh * 0.3;
-      // over the last ~30vh the cells thin out as the background climbs to honey
-      const goneFrom = sectionH - vh * 0.3;
-      const goneTo = sectionH + vh * 0.05;
+      // starts just below the archive link (the section ends ~12vh under the projects), so that text
+      // sits on the calm part and the warming begins as soon as the projects leave
+      const heatFrom = sectionH - vh * 0.42;
+      const heatTo = sectionH - vh * 0.16;
+      // over the last ~22vh the cells thin out as the background climbs to honey
+      const goneFrom = sectionH - vh * 0.22;
+      const goneTo = sectionH + vh * 0.04;
       const c = ctx!;
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, W, H);

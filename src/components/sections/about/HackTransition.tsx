@@ -33,11 +33,12 @@ import styles from "./about.module.css";
  * The heading and blurb are real DOM (children); their final state is what the server renders.
  */
 
-const ANIM_VH = 1.9; // screens of scroll the sequence plays over
+const ANIM_VH = 2.2; // screens of scroll the track adds: the sequence, then HOLD
 const TRACK_VH = 100 + ANIM_VH * 100;
-// The sequence finishes this many screens before the pin lets go, so the stats (pulled up under the
-// title by .body's negative margin) only ever slide in over a finished, still title.
-const HOLD = 0.3;
+// The sequence finishes this many screens before the pin lets go, so the stats (pulled up right under
+// the intro by .body's negative margin) only ever slide in over a finished, still title. They start
+// about half a screen from the top, so they come into view about half a screen before the pin lets go.
+const HOLD = 0.6;
 const MAX_DPR = 1.5; // full-screen text every frame: 3x phones gain nothing past this
 const FS_FROM = 10; // ASCII font size at the start of the ASCII beat (cells ~6x12 px)...
 const FS_TO = 18; // ... and at its end (~11x22). Quantised to whole px so samples can be reused.
