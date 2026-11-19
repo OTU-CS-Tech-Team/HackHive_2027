@@ -81,3 +81,11 @@ export function veilBackground(scroll: number) {
     `rgba(245,204,124,${a(1)}) 100%)`,
   ].join(" ");
 }
+
+/**
+ * A copy of the meadow as it looks right now, for the About section's hack to start from. Set by
+ * MeadowScene while its WebGL canvas is alive. It renders a fresh frame and copies it in the same
+ * task, since WebGL clears its buffer once a frame is shown (and the canvas has no
+ * preserveDrawingBuffer). Null when there is no live scene: the hack falls back to the poster.
+ */
+export const heroFrame: { capture: (() => HTMLCanvasElement | null) | null } = { capture: null };

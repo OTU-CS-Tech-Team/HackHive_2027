@@ -18,12 +18,14 @@ import {
   smooth,
   toRows,
 } from "./ascii";
+import { heroFrame } from "@/components/landing/heroHandoff";
 import styles from "./about.module.css";
 
 /**
  * "The page gets hacked." A tall track holds a sticky full-screen canvas (the CodeToRain pattern);
- * scroll progress through the track scrubs the sequence:
- *   0    - 0.15  the hero meadow, still
+ * it is pinned right over the hero's own pinned meadow (see .section's --overlap), and its first
+ * frame is a capture of that meadow at the end of the walk to the tree, so the hand-over is
+ * seamless. Until then the canvas is empty and the hero shows through. Scroll then scrubs:
  *   0.15 - 0.45  glitch: sliced rows slide sideways, RGB channels split, scanlines
  *   0.45 - 0.70  the picture turns to ASCII, cells growing, colour draining to honey on ink
  *   0.70 - 1     characters scramble and clear from the centre while the title decrypts
@@ -31,7 +33,7 @@ import styles from "./about.module.css";
  * The heading and blurb are real DOM (children); their final state is what the server renders.
  */
 
-const ANIM_VH = 2.6; // screens of scroll the sequence plays over
+const ANIM_VH = 2.25; // screens of scroll the sequence plays over
 const TRACK_VH = 100 + ANIM_VH * 100;
 // The sequence finishes this many screens before the pin lets go, so the stats (pulled up under the
 // title by .body's negative margin) only ever slide in over a finished, still title.
@@ -118,7 +120,10 @@ export function HackTransition({ children }: { children: ReactNode }) {
     const scanPattern = ctx.createPattern(scan, "repeat");
 
     let W = 0, H = 0, dpr = 1, bs = 1; // stage size (CSS px), device scale, base canvas scale
-    let poster: HTMLImageElement | null = null;
+    let poster: HTMLImageElement | null = null; // fallback when the live meadow can't be read
+    let shot: HTMLCanvasElement | null = null; // the hero's last frame, captured as the hack begins
+    let armed = true; // capture again the next time the hack starts from the top
+    const picture = () => shot ?? poster;
     let posterSrc = "";
     let fontOk = false;
     // the current ASCII grid, rebuilt only when the font size changes
@@ -132,7 +137,32 @@ export function HackTransition({ children }: { children: ReactNode }) {
     let running = false;
     let drawn = "";
 
+    // The hero's WebGL meadow, as it looks right now. Null if it isn't there or reads back blank.
+    function captureHero() {
+      let gl: HTMLCanvasElement | null = null;
+      try {
+        gl = heroFrame.capture?.() ?? null;
+      } catch {
+        gl = null;
+      }
+      if (!gl || !gl.width || !gl.height) return null;
+      const probe = document.createElement("canvas");
+      probe.width = probe.height = 8;
+      const pctx = probe.getContext("2d", { willReadFrequently: true })!;
+      try {
+        pctx.drawImage(gl, 0, 0, 8, 8);
+        const d = pctx.getImageData(0, 0, 8, 8).data;
+        let sum = 0;
+        for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
+        if (sum < 64 * 30) return null; // black: the scene hasn't drawn yet
+        return gl;
+      } catch {
+        return null;
+      }
+    }
+
     function buildBase() {
+      const poster = picture();
       if (!poster || !W) return;
       bs = Math.min(1, 1100 / W);
       const bw = Math.round(W * bs), bh = Math.round(H * bs);
@@ -186,7 +216,7 @@ export function HackTransition({ children }: { children: ReactNode }) {
     }
 
     function grid(fs: number) {
-      if (fs === gridFs || !poster) return;
+      if (fs === gridFs || !picture()) return;
       gridFs = fs;
       ({ cw, ch } = cellSize(ctx!, family, fs, LINE));
       cols = Math.ceil(W / cw);
@@ -281,12 +311,36 @@ export function HackTransition({ children }: { children: ReactNode }) {
       raf = requestAnimationFrame(frame);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (!running || !W || !poster || !fontOk) return;
+      if (!running || !W || !fontOk) return;
 
       const top = track!.getBoundingClientRect().top;
       const target = clamp(-top / ((ANIM_VH - HOLD) * window.innerHeight));
-      sp = sp < 0 || Math.abs(target - sp) < 1e-4 ? target : sp + (target - sp) * Math.min(1, dt * 12);
-      const p = sp;
+      if (target <= 0) {
+        // The hero is still walking to the tree: stay clear and let it show through.
+        sp = 0;
+        armed = true;
+        if (drawn !== "idle") {
+          drawn = "idle";
+          setText(0, 0);
+          ctx!.setTransform(1, 0, 0, 1, 0, 0);
+          ctx!.clearRect(0, 0, cv!.width, cv!.height);
+        }
+        return;
+      }
+      if (armed) {
+        // The hero has just let go: take its final frame as the picture that gets hacked.
+        armed = false;
+        const next = captureHero();
+        if (next) {
+          shot = next;
+          buildBase();
+        }
+      }
+      if (!picture()) return;
+      sp = sp <= 0 || Math.abs(target - sp) < 1e-4 ? target : sp + (target - sp) * Math.min(1, dt * 12);
+      // The sequence used to open on the meadow held still (0 to 0.15). It now starts glitching
+      // straight away, since the hero itself has just been that still picture.
+      const p = 0.15 + 0.85 * sp;
       const step = Math.floor(p * 140); // glitch pattern changes every 1/140th of the track
       const tick = Math.floor(now / 70); // scramble rate while characters are still settling
       const settling = p > 0.7 && p < 0.999;

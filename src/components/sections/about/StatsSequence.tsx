@@ -46,7 +46,7 @@ export function StatsSequence({ stats }: { stats: readonly AboutStat[] }) {
     }
     const figs = [...track.querySelectorAll<HTMLElement>("[data-stat]")];
     const nums = figs.map((fig) => fig.querySelector<HTMLElement>("[data-stat-number]")!);
-    const values = stats.map((s) => s.value.toLocaleString("en-CA"));
+    const values = stats.map((s) => s.value.toLocaleString("en-CA") + (s.suffix ?? ""));
     let raf = 0;
 
     function update() {
@@ -81,7 +81,7 @@ export function StatsSequence({ stats }: { stats: readonly AboutStat[] }) {
         <h3 className={cn(styles.subhead, styles.quiet)}>HackHive 2026, in numbers</h3>
         <div className={styles.stats}>
           {stats.map((stat, i) => {
-            const value = stat.value.toLocaleString("en-CA");
+            const value = stat.value.toLocaleString("en-CA") + (stat.suffix ?? "");
             return (
               <figure
                 key={stat.id}

@@ -10,12 +10,23 @@
   /* left edge of the column: a 16px gutter on phones, wider on desktop, capped on very wide screens */
   --gutter: clamp(1rem, 6vw, 6rem);
   --left: max(var(--gutter), calc((100vw - 84rem) / 2));
+  /* The hack starts the moment the hero lets go of its pinned meadow: the section is pulled up a
+     screen so the hack's pinned stage lands right on top of it (above the hero, z-index 2). That
+     first screen is see-through and click-through until the hack draws on it. */
+  --overlap: 100vh;
   position: relative;
+  z-index: 2;
   isolation: isolate;
   overflow-x: clip;
-  background: var(--ink);
+  margin-top: calc(-1 * var(--overlap));
+  background: linear-gradient(to bottom, transparent var(--overlap), var(--ink) var(--overlap));
   color: var(--paper);
   font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.section .body {
+  pointer-events: auto;
 }
 
 .section ::selection {
@@ -42,7 +53,7 @@
 .field {
   position: absolute;
   z-index: 0;
-  inset: 0;
+  inset: var(--overlap) 0 0;
   pointer-events: none;
   /* feathers the last glyphs into the honey floor below */
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 120px), transparent);
@@ -358,14 +369,14 @@
 .polaroids {
   display: flex;
   align-items: flex-start;
-  gap: clamp(1.5rem, 3.5vw, 3.5rem);
+  gap: clamp(1.5rem, 3vw, 3rem);
   margin: 0;
-  padding: 0 0 0 clamp(0rem, 10vw, 12rem);
+  padding: 0 0 0 clamp(0rem, 5vw, 6rem);
   list-style: none;
 }
 
 .slot {
-  flex: 0 1 19rem;
+  flex: 0 1 24rem;
   min-width: 0;
 }
 
@@ -607,8 +618,7 @@
   background: radial-gradient(closest-side, rgb(20 17 11 / 0.97), rgb(20 17 11 / 0.88) 60%, rgb(20 17 11 / 0));
 }
 
-.projectsLink,
-.projectsSoon {
+.projectsLink {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -638,13 +648,6 @@
 
 .projectsLink:hover .arrow {
   letter-spacing: 0.12em;
-}
-
-.soon {
-  flex-basis: 100%;
-  color: rgb(255 253 247 / 0.7);
-  font-size: 1rem;
-  font-weight: 400;
 }
 
 /* ---------- Phones: one column, Polaroids stacked ---------- */
@@ -806,5 +809,12 @@
 
   .frame {
     width: 100%;
+  }
+}
+
+/* Reduced motion or no JS: no hack to hand over to, so the section simply follows the hero. */
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .section {
+    --overlap: 0px;
   }
 }

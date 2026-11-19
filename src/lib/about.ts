@@ -14,10 +14,10 @@ export type AboutImage = {
 export type AboutStat = {
   id: string;
   value: number;
+  /** Shown after the number, e.g. "+" for "300+". */
+  suffix?: string;
   label: string;
   image: AboutImage;
-  /** True while the number is a stand-in. */
-  placeholder: boolean;
 };
 
 export type AboutProject = {
@@ -37,13 +37,12 @@ export const ABOUT_INTRO = [
   "Ontario Tech’s very own hackathon, the largest in the Durham Region. A weekend to build with people from here and far beyond.",
 ] as const;
 
-// PLACEHOLDER NUMBERS: swap in the real 2026 counts.
 export const ABOUT_STATS: readonly AboutStat[] = [
   {
     id: "attendees",
     value: 300,
+    suffix: "+",
     label: "attendees",
-    placeholder: true,
     image: {
       base: "/about/attendees",
       widths: [1600, 800],
@@ -53,9 +52,9 @@ export const ABOUT_STATS: readonly AboutStat[] = [
   },
   {
     id: "applicants",
-    value: 1200,
-    label: "people applied for a seat",
-    placeholder: true,
+    value: 500,
+    suffix: "+",
+    label: "applicants",
     image: {
       base: "/about/applicants",
       widths: [1600, 800],
@@ -66,8 +65,8 @@ export const ABOUT_STATS: readonly AboutStat[] = [
   {
     id: "projects",
     value: 55,
-    label: "projects demoed to the judges",
-    placeholder: false,
+    suffix: "+",
+    label: "projects built over the weekend",
     image: {
       base: "/about/projects",
       widths: [800],
@@ -117,8 +116,8 @@ export const ABOUT_PROJECTS: readonly AboutProject[] = [
   },
 ];
 
-/** Where "See all 2026 projects" goes. The page does not exist yet, so the link shows as coming soon. */
-export const PROJECTS_PAGE = { href: "/projects", ready: false } as const;
+/** The HackHive museum: every year's projects. */
+export const ARCHIVE_PAGE = "/hackhive/archive";
 
 export function srcSet(image: AboutImage, ext: "avif" | "webp") {
   return image.widths.map((w) => `${image.base}-${w}.${ext} ${w}w`).join(", ");

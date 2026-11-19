@@ -1,6 +1,6 @@
 import { Caveat, JetBrains_Mono, VT323 } from "next/font/google";
 import Link from "next/link";
-import { ABOUT_INTRO, ABOUT_PROJECTS, ABOUT_STATS, PROJECTS_PAGE } from "@/lib/about";
+import { ABOUT_INTRO, ABOUT_PROJECTS, ABOUT_STATS, ARCHIVE_PAGE } from "@/lib/about";
 import { cn } from "@/lib/utils";
 import { AsciiField } from "./AsciiField";
 import { HackTransition } from "./HackTransition";
@@ -97,22 +97,12 @@ export function AboutSection() {
         <Polaroids projects={ABOUT_PROJECTS} />
 
         <div className={cn(styles.projects, styles.quiet)}>
-          {PROJECTS_PAGE.ready ? (
-            <Link href={PROJECTS_PAGE.href} className={styles.projectsLink}>
-              <span>See all 2026 projects</span>
-              <span className={styles.arrow} aria-hidden="true">
-                ---------&gt;
-              </span>
-            </Link>
-          ) : (
-            <p className={styles.projectsSoon}>
-              <span className={styles.projectsLabel}>See all 2026 projects</span>
-              <span className={styles.arrow} aria-hidden="true">
-                ---------&gt;
-              </span>
-              <span className={styles.soon}>The full gallery is coming soon.</span>
-            </p>
-          )}
+          <Link href={ARCHIVE_PAGE} className={styles.projectsLink}>
+            <span>See the full history of HackHive</span>
+            <span className={styles.arrow} aria-hidden="true">
+              ---------&gt;
+            </span>
+          </Link>
         </div>
       </div>
     </section>
