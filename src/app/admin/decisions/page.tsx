@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Decision } from "@/lib/application/decision-email";
 import type { Application } from "@/lib/application/schema";
 import { POOLS, POOL_LABELS, SEATS, tallyPools, type Accept, type PoolTally } from "@/lib/decisions/pools";
-import { loadStagedDecisions, type StagedDecision } from "@/lib/decisions/staged";
+import { loadStagedDecisions } from "@/lib/decisions/staged";
 import { formatDateTime } from "@/lib/time";
 import { ReviewNotice } from "../applicants/DecisionControls";
 import { PromoteWaitlist, ReleasePanel, RetryUnsent, UndoStaged } from "./DecisionsClient";
@@ -211,13 +211,23 @@ async function Decisions() {
                 .
               </p>
             ) : (
-              <ul className="divide-y divide-neutral-100">
-                {staged
-                  .toSorted((a, b) => DECISIONS.indexOf(a.decision) - DECISIONS.indexOf(b.decision) || a.staged_at.localeCompare(b.staged_at))
-                  .map((row) => (
-                    <StagedRow key={row.application_id} row={row} app={appById.get(row.application_id)!} />
-                  ))}
-              </ul>
+              <div className="space-y-4">
+                {DECISIONS.map((decision) => {
+                  const rows = staged.filter((row) => row.decision === decision).toSorted((a, b) => a.staged_at.localeCompare(b.staged_at));
+                  return (
+                    <NameGroup key={decision} title={GROUP_TITLES[decision]} count={rows.length}>
+                      {rows.map((row) => {
+                        const app = appById.get(row.application_id)!;
+                        return (
+                          <NameRow key={row.application_id} app={app} note={app.decision ? `was ${app.decision}` : null}>
+                            <UndoStaged id={row.application_id} name={fullName(app)} />
+                          </NameRow>
+                        );
+                      })}
+                    </NameGroup>
+                  );
+                })}
+              </div>
             )}
           </Disclosure>
           <Disclosure title="Past waves" count={waves.length}>
@@ -226,18 +236,49 @@ async function Decisions() {
             ) : (
               <ol className="divide-y divide-neutral-100">
                 {waves.toReversed().map(({ wave, number, emails, unsent }) => (
-                  <li key={wave.id} className="py-2 text-sm">
-                    <p className="font-medium">
-                      Wave {number}
-                      {wave.includes_rejections && <span className="font-normal text-neutral-600"> (final)</span>}
-                    </p>
-                    <p className="text-neutral-600">
-                      {formatDateTime(wave.released_at)} by {(wave.released_by && adminName.get(wave.released_by)) || "Admin"}.{" "}
-                      {DECISIONS.map((decision) => countOf(emails, decision))
-                        .filter(Boolean)
-                        .join(", ")}
-                      . {unsent ? `${unsent} unsent.` : "All sent."}
-                    </p>
+                  <li key={wave.id}>
+                    <details className="group/wave">
+                      <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 [&::-webkit-details-marker]:hidden">
+                        <span className="min-w-0">
+                          <span className="block font-medium">
+                            Wave {number}
+                            {wave.includes_rejections && <span className="font-normal text-neutral-600"> (final)</span>}
+                          </span>
+                          <span className="block text-neutral-600">
+                            {formatDateTime(wave.released_at)} by {(wave.released_by && adminName.get(wave.released_by)) || "Admin"}.{" "}
+                            {DECISIONS.map((decision) => countOf(emails, decision))
+                              .filter(Boolean)
+                              .join(", ")}
+                            . {unsent ? `${unsent} unsent.` : "All sent."}
+                          </span>
+                        </span>
+                        <span className="shrink-0 pt-0.5 text-sm underline underline-offset-2">
+                          <span className="group-open/wave:hidden">Show names</span>
+                          <span className="hidden group-open/wave:inline">Hide names</span>
+                        </span>
+                      </summary>
+                      <div className="space-y-4 pt-1 pb-3">
+                        {DECISIONS.map((decision) => {
+                          const rows = emails
+                            .filter((email) => email.decision === decision)
+                            .map((email) => ({ email, app: appById.get(email.application_id) }))
+                            .filter((row): row is { email: WaveEmail; app: App } => !!row.app)
+                            .toSorted((a, b) => fullName(a.app).localeCompare(fullName(b.app)));
+                          return (
+                            <NameGroup key={decision} title={SENT_TITLES[decision]} count={rows.length}>
+                              {rows.map(({ email, app }) => (
+                                <NameRow
+                                  key={app.id}
+                                  app={app}
+                                  note={app.decision !== decision ? `now ${app.decision ?? "pending"}` : null}
+                                  warning={email.sent_at ? null : email.error ? "email failed" : "email not sent yet"}
+                                />
+                              ))}
+                            </NameGroup>
+                          );
+                        })}
+                      </div>
+                    </details>
                   </li>
                 ))}
               </ol>
@@ -296,21 +337,31 @@ function Disclosure({ title, count, children }: { title: string; count: number; 
   );
 }
 
-const DECISION_WORDS: Record<Decision, string> = { accepted: "Accept", waitlisted: "Waitlist", rejected: "Reject" };
+const GROUP_TITLES: Record<Decision, string> = { accepted: "Accepting", waitlisted: "Waitlisting", rejected: "Rejecting (held for the final wave)" };
+const SENT_TITLES: Record<Decision, string> = { accepted: "Accepted", waitlisted: "Waitlisted", rejected: "Rejected" };
 
-function StagedRow({ row, app }: { row: StagedDecision; app: App }) {
-  const name = fullName(app);
+function NameGroup({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  if (!count) return null;
   return (
-    <li className="flex items-center justify-between gap-3 py-1.5">
+    <div>
+      <h3 className="text-sm font-semibold">
+        {title} <span className="font-normal text-neutral-600 tabular-nums">({count})</span>
+      </h3>
+      <ul className="mt-1 divide-y divide-neutral-100">{children}</ul>
+    </div>
+  );
+}
+
+function NameRow({ app, note, warning, children }: { app: App; note?: string | null; warning?: string | null; children?: ReactNode }) {
+  return (
+    <li className="flex min-h-11 items-center justify-between gap-3 py-1">
       <p className="min-w-0 text-sm break-words">
-        <span className="font-medium">{name}</span>
-        <span className="text-neutral-600">
-          {" "}
-          {DECISION_WORDS[row.decision].toLowerCase()}
-          {app.decision && ` (was ${app.decision})`}
-        </span>
+        <span className="font-medium">{fullName(app)}</span>
+        {fullName(app) !== app.email && <span className="text-neutral-600"> {app.email}</span>}
+        {note && <span className="text-neutral-600"> ({note})</span>}
+        {warning && <span className="font-medium text-red-700"> {warning}</span>}
       </p>
-      <UndoStaged id={row.application_id} name={name} />
+      {children}
     </li>
   );
 }
