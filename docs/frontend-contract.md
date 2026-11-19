@@ -53,8 +53,8 @@ This file contains:
 | accessibility | string | no | 1000 | |
 | tshirt_size | enum | yes | - | 'XS' \| 'S' \| 'M' \| 'L' \| 'XL' \| 'XXL' |
 | needs_travel_help | boolean | yes | - | |
-| gender | string | no | 100 | |
-| ethnicity | string | no | 200 | |
+| gender | string | yes | 100 | 'prefer-not-to-say' allowed |
+| ethnicity | string | yes | 200 | 'prefer-not-to-say' allowed |
 | guardian_name | string | conditional | 100 | Required if age < 18 |
 | guardian_phone | string | conditional | 30 | Required if age < 18 |
 | guardian_relationship | string | conditional | 100 | Required if age < 18 |

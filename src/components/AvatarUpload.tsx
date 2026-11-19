@@ -2,8 +2,10 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Camera } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 import { createClient } from "@/lib/supabase/client";
-import { saveAvatarUrl } from "./actions";
+import { saveAvatarUrl } from "@/app/dashboard/actions";
 
 // Phone photos are megabytes; avatars render small. Square-crop and shrink to
 // a 512px webp in the browser so each hacker stores one ~50 KB file.
@@ -24,7 +26,8 @@ async function downscale(file: File): Promise<Blob> {
   );
 }
 
-export function AvatarUpload() {
+// The avatar itself is the button; `label` adds a visible text button next to it.
+export function AvatarUpload({ avatarUrl, className = "size-10", label }: { avatarUrl: string | null; className?: string; label?: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
@@ -59,8 +62,10 @@ export function AvatarUpload() {
     setPending(false);
   }
 
+  const pick = () => inputRef.current?.click();
+
   return (
-    <div>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       <input
         ref={inputRef}
         type="file"
@@ -72,10 +77,29 @@ export function AvatarUpload() {
           if (file) void handleFile(file);
         }}
       />
-      <button type="button" className="text-sm underline" onClick={() => inputRef.current?.click()} disabled={pending}>
-        {pending ? "Uploading…" : "Change photo"}
+      <button
+        type="button"
+        onClick={pick}
+        disabled={pending}
+        aria-label={avatarUrl ? "Change profile photo" : "Upload profile photo"}
+        title={avatarUrl ? "Change photo" : "Upload photo"}
+        className="group relative shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-60"
+      >
+        <Avatar src={avatarUrl} className={className} />
+        <span className="absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full border-2 border-white bg-neutral-900 text-white transition-colors group-hover:bg-amber-600">
+          <Camera className="size-2.5" aria-hidden />
+        </span>
       </button>
-      {status && <p className="text-sm text-red-600">{status}</p>}
+      {label && (
+        <button type="button" onClick={pick} disabled={pending} className="text-sm font-medium underline underline-offset-2 disabled:opacity-60">
+          {pending ? "Uploading…" : label}
+        </button>
+      )}
+      {status && (
+        <p className="basis-full text-sm text-red-600" role="alert">
+          {status}
+        </p>
+      )}
     </div>
   );
 }

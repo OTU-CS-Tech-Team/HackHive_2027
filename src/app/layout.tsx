@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Geist } from "next/font/google";
+import { Geist, Geist_Mono, Host_Grotesk } from "next/font/google";
 import { Suspense } from "react";
 import Link from "next/link";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import { Navbar } from "@/components/navbar/Navbar";
 import MobileNavMenu from "@/components/navbar/MobileNavMenu";
 import NavbarShell from "@/components/navbar/NavbarShell";
@@ -19,11 +20,23 @@ const geist = Geist({
   preload: true,
 });
 
-// Used by the section CSS modules as var(--font-grotesk).
+// The heading face: the homepage title, section headings, the apply flow and
+// admin, as var(--font-grotesk) in CSS modules and Tailwind's font-display.
+// (The variable name dates from Space Grotesk; the face is now Host Grotesk.)
 // optional: use the face if it is ready for first paint, and do not swap later.
-const grotesk = Space_Grotesk({
+const grotesk = Host_Grotesk({
   subsets: ["latin"],
   variable: "--font-grotesk",
+  display: "optional",
+  adjustFontFallback: true,
+  preload: true,
+});
+
+// The navbar, as var(--font-nav) in NavbarShell.module.css.
+const navFont = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-nav",
+  weight: ["500"],
   display: "optional",
   adjustFontFallback: true,
   preload: true,
@@ -58,8 +71,9 @@ function NavbarFallback() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={cn("font-sans", geist.variable, grotesk.variable)}>
-      <body>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={cn("font-sans", geist.variable, grotesk.variable, navFont.variable)}>
+      {/* Extensions like Grammarly add attributes to <body> before React hydrates. */}
+      <body suppressHydrationWarning>
         {/* Picks the homepage intro phase before first paint. See decideScript.ts. */}
         <script dangerouslySetInnerHTML={{ __html: INTRO_DECIDE_SCRIPT }} />
         <NavbarShell>
@@ -69,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </NavbarShell>
         <Script src="/navbar-interactions.js?v=9" strategy="afterInteractive" />
         {children}
+        <Analytics />
       </body>
     </html>
   );

@@ -33,7 +33,7 @@ const CONTENT: Record<Decision, { subject: string; paragraphs: (mark: Mark) => s
 };
 
 const DASHBOARD_HEADING = 'Your dashboard is unlocked 🔓';
-const DASHBOARD_BODY = 'Your hacker dashboard now has the schedule, your check-in pass, teammates, hardware and points.';
+const DASHBOARD_BODY = 'Your hacker dashboard now has the schedule, your passport, teammates, hardware and points.';
 
 // Returns the body only; sendDecisionEmail wraps it in the branded shell.
 export function decisionEmail(decision: Decision, firstName: string | null, siteUrl: string) {
@@ -60,10 +60,12 @@ export function decisionEmail(decision: Decision, firstName: string | null, site
   return { subject, text, html };
 }
 
-export async function sendDecisionEmail({ to, firstName, decision }: {
+export async function sendDecisionEmail({ to, firstName, decision, idempotencyKey }: {
   to: string;
   firstName: string | null;
   decision: Decision;
+  /** Resend drops a repeat send with the same key for 24 hours. Leave it out for a deliberate resend. */
+  idempotencyKey?: string;
 }): Promise<{ sent: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   // Hosts keep quotes pasted from an env file, and Resend rejects them.
@@ -86,7 +88,11 @@ export async function sendDecisionEmail({ to, firstName, decision }: {
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...(idempotencyKey && { 'Idempotency-Key': idempotencyKey }),
+      },
       body: JSON.stringify({ from, to: [to], subject, text, html: emailShell(html), attachments }),
       signal: AbortSignal.timeout(10_000),
     });

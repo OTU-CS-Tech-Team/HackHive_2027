@@ -43,20 +43,6 @@ const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
   tier: (typeof PREVIOUS_TIERS)[number]["tier"];
 })[] = [
   {
-    id: "microsoft",
-    name: "Microsoft",
-    tier: "diamond",
-    logo_url: "/sponsors/previous/microsoft.webp",
-    website_url: "https://careers.microsoft.com/v2/global/en/home.html",
-  },
-  {
-    id: "kyndryl",
-    name: "Kyndryl",
-    tier: "diamond",
-    logo_url: "/sponsors/previous/kyndryl.webp",
-    website_url: "https://www.kyndryl.com/us/en",
-  },
-  {
     id: "science-council",
     name: "Ontario Tech Science Council",
     tier: "diamond",
@@ -104,13 +90,6 @@ const PREVIOUS_SPONSORS: (Omit<Sponsor, "tier"> & {
     tier: "gold",
     logo_url: "/sponsors/previous/nordprotect.webp",
     website_url: "https://nordprotect.com/",
-  },
-  {
-    id: "disabilities-at-microsoft",
-    name: "Disabilities @ Microsoft",
-    tier: "silver",
-    logo_url: "/sponsors/previous/disabilities-at-microsoft.webp",
-    website_url: "https://careers.microsoft.com/v2/global/en/home.html",
   },
   {
     id: "fantuan",

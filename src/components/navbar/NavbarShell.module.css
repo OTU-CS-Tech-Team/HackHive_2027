@@ -1,4 +1,6 @@
 .header {
+  /* --font-nav is set in app/layout.tsx; covers the links, buttons and mobile drawer. */
+  font-family: var(--font-nav), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   background: #fff;
   transition-property: transform;
   transition-duration: 300ms;

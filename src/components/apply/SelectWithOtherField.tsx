@@ -12,6 +12,8 @@ interface SelectWithOtherFieldProps {
   options: readonly { value: string; label: string }[];
   maxLength: number;
   placeholder?: string;
+  required?: boolean;
+  error?: string;
 }
 
 const OTHER = "other";
@@ -19,7 +21,7 @@ const OTHER = "other";
 // A select whose "Other" option opens a box to describe it in their own words.
 // The saved value is the option, or what they typed for Other ("other" if blank),
 // so an answer that isn't one of the options is read back as Other + that text.
-export function SelectWithOtherField({ label, name, value, onChange, options, maxLength, placeholder }: SelectWithOtherFieldProps) {
+export function SelectWithOtherField({ label, name, value, onChange, options, maxLength, placeholder, required, error }: SelectWithOtherFieldProps) {
   const id = useId();
   const listed = options.some((option) => option.value === value);
   const selected = value === "" ? "" : listed ? value : OTHER;
@@ -34,6 +36,8 @@ export function SelectWithOtherField({ label, name, value, onChange, options, ma
         onChange={onChange}
         options={options}
         placeholder={placeholder}
+        required={required}
+        error={error}
       />
       {selected === OTHER && (
         <div>

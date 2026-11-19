@@ -1,0 +1,83 @@
+# Fast checks that run on every push and every pull request.
+# Slower browser (end-to-end) tests live in a separate workflow that runs on PRs only.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Cancel an in-progress run when a newer commit lands on the same branch or PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, type check, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Generates src/data/generated/hackhive.json (gitignored), which the type check and app code import.
+      - name: Sync museum content
+        run: npm run museum:sync
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # The homepage reads from Supabase while the site is built, so a real URL and anon key are needed.
+      # Both are public values (they ship to every browser). The service role key is not needed.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      # Secrets are unavailable on PRs from forks and until they are added in the repo settings.
+      - name: Check for Supabase secrets
+        id: secrets
+        run: |
+          if [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] && [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the build: add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY as repository secrets to enable it."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.available == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.available == 'true'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.secrets.outputs.available == 'true'
+        run: npm ci
+
+      - name: Build
+        if: steps.secrets.outputs.available == 'true'
+        run: npm run build

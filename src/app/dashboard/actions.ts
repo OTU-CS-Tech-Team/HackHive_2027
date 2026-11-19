@@ -93,14 +93,20 @@ export async function saveEmergencyInfo(formData: FormData) {
 }
 
 // The browser uploads to Storage itself (RLS keeps hackers in their own
-// folder); this just records the URL, and only if it's in that folder.
+// folder); this just records the URL, and only if it's in that folder of our
+// own Storage. Any signed-in account can set a photo, accepted or not.
 export async function saveAvatarUrl(avatarUrl: string) {
-  const { supabase, user } = await requireHubUser();
-  if (!avatarUrl.includes(`/storage/v1/object/public/avatars/${user.id}/`)) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+  if (!avatarUrl.startsWith(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${user.id}/`)) {
     throw new Error("That image does not belong to your account.");
   }
   const { error } = await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
   if (error) throw new Error(error.message);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/team");
+  revalidatePath("/apply");
 }

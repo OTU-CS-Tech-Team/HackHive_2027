@@ -4,6 +4,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { getVerifiedUser } from "@/lib/auth/helpers";
 import { getMyApplication } from "@/lib/application/api";
+import { createClient } from "@/lib/supabase/server";
 import { ApplyForm } from "@/components/apply/ApplyForm";
 import { APPLICATION_DEADLINE } from "@/lib/constants";
 
@@ -30,7 +31,11 @@ async function ApplyPageContent() {
     redirect("/auth/login?next=/apply");
   }
 
-  const result = await getMyApplication();
+  const supabase = await createClient();
+  const [result, { data: profile }] = await Promise.all([
+    getMyApplication(),
+    supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle(),
+  ]);
   
   if (result.ok && result.application?.status === "submitted") {
     return (
@@ -121,6 +126,7 @@ async function ApplyPageContent() {
     <ApplyForm
       userEmail={user.email}
       userId={user.id}
+      avatarUrl={profile?.avatar_url ?? null}
       initialDraft={initialDraft}
       serverUpdatedAt={serverUpdatedAt}
       serverNow={serverNow}
@@ -129,6 +135,10 @@ async function ApplyPageContent() {
     />
   );
 }
+
+// Submitting grades the application with the Hive Mind after the response (after()),
+// which runs within this page's time limit.
+export const maxDuration = 60;
 
 export default function ApplyPage() {
   return (

@@ -1,10 +1,14 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { sendDecisionEmail, type Decision } from "@/lib/application/decision-email";
+import { sendDecisionEmail } from "@/lib/application/decision-email";
 import { after } from "next/server";
 import { sendItemRequestReviewedEmail } from "@/lib/email";
 import { fromLocalInput } from "@/lib/time";
+import { hiveDeps } from "@/lib/hive/openai";
+import { QUOTA_ERROR } from "@/lib/hive/errors";
+import { scoreApplication, scoreUnscored } from "@/lib/hive/score";
+import { TIER_LABELS, isTier, type Tier } from "@/lib/hive/tier";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { TABLES, type Field, type TableName } from "./tables";
 import { HISTORY_PAGE_SIZE, REQUEST_COLUMNS, type HistoryCursor } from "./requests/query";
@@ -120,34 +124,21 @@ export async function redeemItem(userId: string, itemId: string): Promise<Action
   return insertTransaction(supabase, { user_id: userId, amount: -1, reason: item.name, shop_item_id: itemId }, `Redeemed ${item.name}`);
 }
 
-const DECISIONS: readonly string[] = ["accepted", "waitlisted", "rejected"];
-
-// null = back to "applied", which emails nobody.
-export async function setDecision(id: string, decision: Decision | null): Promise<ActionResult> {
-  const supabase = await requireAdmin();
-  if (!UUID.test(id) || (decision !== null && !DECISIONS.includes(decision))) return { ok: false, message: "Pick a decision." };
-
-  // Only a real change matches a row, so a double click can't send two emails.
-  const change = supabase.from("applications").update({ decision }).eq("id", id).eq("status", "submitted");
-  const { data, error } = await (decision ? change.or(`decision.is.null,decision.neq.${decision}`) : change.not("decision", "is", null))
-    .select("email, first_name");
-  if (error) return { ok: false, message: error.message };
-  revalidatePath("/admin", "layout");
-
-  const applicant = data[0];
-  if (!applicant) return { ok: true, message: "Already saved. No email sent." };
-  if (!decision) return { ok: true, message: "Moved back to pending. No email sent." };
-  const { sent, error: emailError } = await sendDecisionEmail({ to: applicant.email, firstName: applicant.first_name, decision });
-  return sent
-    ? { ok: true, message: `Saved as ${decision} and emailed ${applicant.email}.` }
-    : { ok: false, message: `Saved as ${decision}, but the email to ${applicant.email} failed (${emailError}). Use Resend email to try again.` };
-}
+// Decisions are staged and released in waves: see ./decisions/actions.ts.
 
 export async function resendDecisionEmail(id: string): Promise<ActionResult> {
   const supabase = await requireAdmin();
   if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
   const { data: applicant } = await supabase.from("applications").select("email, first_name, decision").eq("id", id).maybeSingle();
   if (!applicant?.decision) return { ok: false, message: "There's no decision to email yet." };
+  // Their wave email hasn't gone yet: sending now as well would email them twice.
+  const { count: unsent, error: unsentError } = await supabase
+    .from("wave_emails")
+    .select("application_id", { count: "exact", head: true })
+    .eq("application_id", id)
+    .is("sent_at", null);
+  if (unsentError) return { ok: false, message: "Couldn't check their wave email. Refresh and try again." };
+  if (unsent) return { ok: false, message: "Their decision email from a wave hasn't gone out yet. Use Retry on the Decisions page instead." };
   const { sent, error } = await sendDecisionEmail({ to: applicant.email, firstName: applicant.first_name, decision: applicant.decision });
   return sent
     ? { ok: true, message: `Emailed ${applicant.email} again.` }
@@ -403,4 +394,65 @@ export async function deleteRows(table: TableName, ids: string[]): Promise<Actio
   const result = await deleteByIds(table, ids, "inUse" in config ? config.inUse : undefined);
   if ("cacheTag" in config) updateTag(config.cacheTag);
   return result;
+}
+
+// Hive Mind ------------------------------------------------------------------
+// Suggestions only: none of these touch an application's decision.
+
+export type ScoreBatchResult = ActionResult & { scored: number; failed: number; remaining: number; quota?: boolean };
+
+/** Scores the next few unscored applicants. The page calls it repeatedly until none are left. */
+export async function scoreHiveBacklog(): Promise<ScoreBatchResult> {
+  await requireAdmin();
+  try {
+    const { scored, failed, remaining, quota } = await scoreUnscored(hiveDeps());
+    revalidatePath("/admin", "layout");
+    if (quota) return { ok: false, message: QUOTA_ERROR, scored, failed, remaining, quota };
+    return { ok: failed === 0, message: `Scored ${scored}${failed ? `, ${failed} failed` : ""}. ${remaining} left.`, scored, failed, remaining };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Scoring failed.", scored: 0, failed: 0, remaining: -1 };
+  }
+}
+
+export async function rescoreApplicant(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
+  let result: Awaited<ReturnType<typeof scoreApplication>>;
+  try {
+    result = await scoreApplication(id, hiveDeps());
+  } catch (error) {
+    // e.g. OPENAI_API_KEY isn't set
+    return { ok: false, message: `Scoring failed (${error instanceof Error ? error.message : "unknown error"}).` };
+  }
+  revalidatePath("/admin", "layout");
+  if (result.ok) return { ok: true, message: `Re-scored: suggested ${TIER_LABELS[result.tier]}.` };
+  const kept = result.keptScore ? " The previous score is kept." : "";
+  return { ok: false, message: result.quota ? `${QUOTA_ERROR}${kept}` : `Scoring failed (${result.error}).${kept} Try again in a moment.` };
+}
+
+/** Moves an applicant to another tier (reason required), or back to the suggested tier with tier = null. */
+export async function overrideTier(id: string, tier: Tier | null, reason: string): Promise<ActionResult> {
+  const supabase = await requireAdmin();
+  const note = typeof reason === "string" ? reason.trim().slice(0, 500) : "";
+  if (!UUID.test(id) || (tier !== null && !isTier(tier))) return { ok: false, message: "Pick a tier." };
+  if (tier && !note) return { ok: false, message: "Add a reason for moving them." };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("hive_scores")
+    .update({
+      tier_override: tier,
+      override_reason: note || (tier ? null : "Reset to suggested tier"),
+      overridden_by: user?.id ?? null,
+      overridden_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("application_id", id)
+    .select("application_id");
+  if (error) return { ok: false, message: error.message };
+  if (!data.length) return { ok: false, message: "Score them first, then move their tier." };
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: tier ? `Moved to ${TIER_LABELS[tier]}.` : "Back to the suggested tier." };
 }

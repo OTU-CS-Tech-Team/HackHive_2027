@@ -16,12 +16,15 @@ import { ResumeUpload } from "./ResumeUpload";
 import { TeammateEmails } from "./TeammateEmails";
 import { SchoolField } from "./SchoolField";
 import { OtherLinks } from "./OtherLinks";
+import { MonthPicker, MIN_YEAR as GRAD_YEAR_MIN } from "./MonthPicker";
 import { SelectWithOtherField } from "./SelectWithOtherField";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "./TurnstileWidget";
 import { Countdown } from "./Countdown";
-import { errorClass, hintClass, labelClass, linkClass } from "./styles";
+import { Optional, errorClass, hintClass, labelClass, linkClass } from "./styles";
 import { signOut } from "@/app/actions/auth";
 import { HideSiteNavbar } from "@/components/PageStyle";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import { ApplicationDetails, type ApplicationAnswersData } from "@/components/ApplicationView";
 import {
   saveDraft,
   submitApplication,
@@ -169,6 +172,13 @@ const STEPS: {
     ],
   },
   {
+    id: "review",
+    title: "Review",
+    blurb: "Read it over once before you send it. Use Edit to fix anything.",
+    sections: [{ id: "review", title: "Your application" }],
+    fields: [],
+  },
+  {
     id: "submit",
     title: "Submit",
     blurb: "Check what's left, agree to the policies, and send it in.",
@@ -188,6 +198,7 @@ const STEPS: {
 ];
 
 const LAST_STEP = STEPS.length - 1;
+const REVIEW_STEP = LAST_STEP - 1;
 
 const HEX = "[clip-path:polygon(50%_0,100%_25%,100%_75%,50%_100%,0_75%,0_25%)]";
 
@@ -197,6 +208,7 @@ const HONEYCOMB =
 interface ApplyFormProps {
   userEmail: string;
   userId: string;
+  avatarUrl: string | null;
   initialDraft?: Partial<FormData> | null;
   serverUpdatedAt?: string | null;
   serverNow: number;
@@ -288,6 +300,9 @@ export function getErrors(data: FormData): Record<string, string> {
   if (!data.year_of_study) errors.year_of_study = "Year of study is required";
   if (!data.grad_date)
     errors.grad_date = "Expected graduation date is required";
+  // An older draft can still hold a year the picker no longer offers.
+  else if (parseInt(data.grad_date, 10) < GRAD_YEAR_MIN)
+    errors.grad_date = `Pick a month in ${GRAD_YEAR_MIN} or later`;
   if (!data.resume_path) errors.resume_path = "Resume is required";
   if (!data.q_proud.trim()) errors.q_proud = "This answer is required";
   else if (countWords(data.q_proud) > WORD_LIMITS.q_proud)
@@ -302,6 +317,8 @@ export function getErrors(data: FormData): Record<string, string> {
     errors.q_anything_else = `Maximum ${WORD_LIMITS.q_anything_else} words`;
   if (!data.team_status) errors.team_status = "Please select your team status";
   if (!data.tshirt_size) errors.tshirt_size = "T-shirt size is required";
+  if (!data.gender) errors.gender = "Pick one, or choose “Prefer not to say”";
+  if (!data.ethnicity) errors.ethnicity = "Pick one, or choose “Prefer not to say”";
   if (!data.consent_coc || !data.consent_privacy)
     errors.consent_coc =
       "You must agree to the Code of Conduct and Privacy Policy";
@@ -352,6 +369,7 @@ function StepMarker({
 export function ApplyForm({
   userEmail,
   userId,
+  avatarUrl,
   initialDraft,
   serverUpdatedAt,
   serverNow,
@@ -362,6 +380,8 @@ export function ApplyForm({
   const formStartedAt = useRef<number>(serverNow);
   const submissionIdRef = useRef<string>("");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Set while a submit is in flight or done, so a late autosave can't redirect away from confirmation.
+  const submittingRef = useRef(false);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const localDraftMergedRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -370,6 +390,8 @@ export function ApplyForm({
     createInitialFormData(initialDraft),
   );
   const [step, setStep] = useState(0);
+  // Review has nothing to fill in, so it only counts as done once they've opened it.
+  const [reviewed, setReviewed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -443,8 +465,11 @@ export function ApplyForm({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const persistDraft = useCallback(async (fields: Record<string, unknown>) => {
+    // The submit sends the whole form, so a save still queued behind it has nothing to add.
+    if (submittingRef.current) return;
     try {
       const result = await saveDraft(fields);
+      if (submittingRef.current) return;
       const { fieldErrors } = result;
       if (fieldErrors) {
         setErrors((prev) => ({ ...prev, ...firstErrors(fieldErrors) }));
@@ -457,6 +482,17 @@ export function ApplyForm({
         );
         return;
       }
+      // A tab left open after submitting: nothing's wrong, show them their status.
+      if (result.code === "already_submitted") {
+        setSaveError(null);
+        clearDraftFromLocalStorage(userId);
+        router.push("/apply/status");
+        return;
+      }
+      if (result.code === "locked") {
+        setSaveError(ERROR_MESSAGES.locked);
+        return;
+      }
       setSaveError(
         fieldErrors
           ? "Couldn't save draft. Check the highlighted fields."
@@ -465,7 +501,7 @@ export function ApplyForm({
     } catch {
       setSaveError("Couldn't save draft");
     }
-  }, []);
+  }, [router, userId]);
 
   // Latest form data, so saving happens outside the state updater (which React
   // may run twice) and every save sends the current draft, never a stale one.
@@ -536,6 +572,7 @@ export function ApplyForm({
   // The security check only lives on the last step, so its token goes when they leave.
   const changeStep = (index: number) => {
     if (index !== LAST_STEP) setTurnstileToken(null);
+    if (index === REVIEW_STEP) setReviewed(true);
     setStep(index);
   };
 
@@ -556,6 +593,8 @@ export function ApplyForm({
   const missingPerStep = STEPS.map(
     (s) => s.fields.filter((f) => liveErrors[f]).length,
   );
+  const stepDone = (i: number) =>
+    i === REVIEW_STEP ? reviewed : missingPerStep[i] === 0;
 
   const validateForm = (): boolean => {
     const newErrors = getErrors(formData);
@@ -588,6 +627,9 @@ export function ApplyForm({
       return;
     }
 
+    // A pending autosave firing after the submit would redirect to the status page.
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -651,6 +693,8 @@ export function ApplyForm({
         router.push("/apply/confirmation");
       } else {
         const errorCode = result.code as ErrorCode;
+        // Autosave picks up again, unless this is heading to the status page.
+        submittingRef.current = errorCode === "already_submitted";
         const fieldErrors = result.fieldErrors
           ? firstErrors(result.fieldErrors)
           : null;
@@ -680,6 +724,7 @@ export function ApplyForm({
       }
     } catch (error) {
       console.error("submitApplication failed:", error);
+      submittingRef.current = false;
       setSubmitError(ERROR_MESSAGES.network);
       setTurnstileToken(null);
       turnstileRef.current?.reset();
@@ -708,6 +753,16 @@ export function ApplyForm({
   // The slider runs 0 to 5, where 5 means "5 or more"; a bigger number from an older draft shows as 5+.
   const hackathons = Math.min(parseInt(formData.hackathons_count, 10) || 0, 5);
   const sectionId = (id: string) => `apply-${id}`;
+  // The Review step shows the draft in the same layout hackers see after submitting.
+  const reviewData: ApplicationAnswersData = {
+    ...formData,
+    email: userEmail,
+    age: formData.age ? Number(formData.age) : null,
+    hackathons_count: Number(formData.hackathons_count) || 0,
+    team_status: (formData.team_status || null) as ApplicationAnswersData["team_status"],
+    other_links: cleanLinks(formData.other_links),
+    teammate_emails: formData.teammate_emails.filter((email) => email.trim()),
+  };
   const sections = current.sections.filter((s) => !s.under18 || under18);
 
   const saveStatus = saveError ? (
@@ -772,7 +827,7 @@ export function ApplyForm({
                     state={
                       i === step
                         ? "current"
-                        : missingPerStep[i] === 0
+                        : stepDone(i)
                           ? "done"
                           : "todo"
                     }
@@ -897,7 +952,7 @@ export function ApplyForm({
                   className={`h-1.5 flex-1 rounded-full ${
                     i === step
                       ? "bg-hive-honey"
-                      : missingPerStep[i] === 0
+                      : stepDone(i)
                         ? "bg-hive-ink"
                         : "bg-hive-line"
                   }`}
@@ -922,6 +977,21 @@ export function ApplyForm({
             0,
             <>
               <FormSection id={sectionId("basics")} title="The basics">
+                <div>
+                  <p className={labelClass}>
+                    Profile picture<Optional />
+                  </p>
+                  <p className={`mt-1 ${hintClass}`}>
+                    Shows on your dashboard. You can change it any time.
+                  </p>
+                  <div className="mt-3">
+                    <AvatarUpload
+                      avatarUrl={avatarUrl}
+                      className="size-16"
+                      label={avatarUrl ? "Change photo" : "Upload photo"}
+                    />
+                  </div>
+                </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
                     label="First name"
@@ -1096,13 +1166,11 @@ export function ApplyForm({
                   placeholder="Select your year"
                   error={errors.year_of_study}
                 />
-                <FormField
+                <MonthPicker
                   label="Expected graduation"
                   name="grad_date"
-                  type="date"
                   value={formData.grad_date}
                   onChange={(v) => updateField("grad_date", v)}
-                  required
                   error={errors.grad_date}
                 />
               </div>
@@ -1320,7 +1388,7 @@ export function ApplyForm({
               <FormSection
                 id={sectionId("demographics")}
                 title="Demographics"
-                description="Optional. This helps us understand who we're reaching, and never affects your application."
+                description="This helps us understand who we're reaching, and never affects your application. Choose “Prefer not to say” if you'd rather not share."
               >
                 <SelectWithOtherField
                   label="Gender"
@@ -1328,6 +1396,8 @@ export function ApplyForm({
                   value={formData.gender}
                   onChange={(v) => updateField("gender", v)}
                   maxLength={FIELD_LIMITS.gender}
+                  required
+                  error={errors.gender}
                   options={[
                     { value: "woman", label: "Woman" },
                     { value: "man", label: "Man" },
@@ -1343,6 +1413,8 @@ export function ApplyForm({
                   value={formData.ethnicity}
                   onChange={(v) => updateField("ethnicity", v)}
                   maxLength={FIELD_LIMITS.ethnicity}
+                  required
+                  error={errors.ethnicity}
                   options={[
                     { value: "asian", label: "Asian" },
                     { value: "black", label: "Black or African American" },
@@ -1368,6 +1440,24 @@ export function ApplyForm({
           )}
 
           {panel(
+            REVIEW_STEP,
+            <FormSection id={sectionId("review")} title="Your application">
+              <div className="border-b border-hive-line pb-5">
+                <AvatarUpload
+                  avatarUrl={avatarUrl}
+                  className="size-14"
+                  label={avatarUrl ? "Change photo" : "Add a photo"}
+                />
+              </div>
+              <ApplicationDetails
+                application={reviewData}
+                showDemographics
+                onEdit={(id) => goToStep(STEPS.findIndex((s) => s.id === id))}
+              />
+            </FormSection>,
+          )}
+
+          {panel(
             LAST_STEP,
             <>
               <FormSection id={sectionId("left")} title="What's left">
@@ -1383,7 +1473,7 @@ export function ApplyForm({
                   </p>
                 ) : (
                   <ul className="divide-y divide-hive-line">
-                    {STEPS.slice(0, LAST_STEP).map((s, i) => (
+                    {STEPS.slice(0, LAST_STEP).map((s, i) => s.fields.length > 0 && (
                       <li
                         key={s.id}
                         className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
@@ -1532,7 +1622,7 @@ export function ApplyForm({
                 <button
                   type="button"
                   onClick={() => goToStep(step + 1)}
-                  className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-hive-ink px-5 text-sm font-semibold text-white transition-[background-color,transform] hover:bg-[#1d4258] active:scale-[0.98]"
+                  className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-hive-honey px-5 text-sm font-semibold text-hive-ink transition-[filter,transform] hover:brightness-95 active:scale-[0.98]"
                 >
                   Next: {STEPS[step + 1].title}
                   <ArrowRight className="size-4" aria-hidden="true" />

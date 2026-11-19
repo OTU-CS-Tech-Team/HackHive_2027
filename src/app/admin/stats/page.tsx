@@ -16,6 +16,7 @@ export default function StatsPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/admin/applicants" className="inline-flex min-h-11 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">Review applications</Link>
           <RefreshStats />
+          
         </div>
       </header>
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading hackathon stats…</p>}>

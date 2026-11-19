@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Template only; copy to .env.local.
 !.env.example
+
+# Hive Mind eval answers (real or hand-scored): never commit
+scripts/hive-eval.local.json

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import styles from "@/components/path/path.module.css";
 
 const EVENT_DATE = "January 29–31, 2027";
-const EVENT_PLACE = "In-person event";
+const EVENT_PLACE = "Ontario Tech University";
 const HERO_APPLY_LINE = "Applications are open, join us as a hacker!";
 
 function Wordmark() {

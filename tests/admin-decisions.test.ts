@@ -11,6 +11,7 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
     updates: [] as unknown[],
     filters: [] as string[],
     deleteErrors: {} as Record<string, { code: string; message: string }>,
+    unsentWaveEmails: 0,
   };
 
   const service = {
@@ -77,13 +78,21 @@ const { state, client, service, sendDecisionEmail, revalidatePath } = vi.hoisted
         state.filters.push(`or=${filter}`);
         return query;
       },
+      is: (column: string, value: unknown) => {
+        state.filters.push(`${column} is ${value}`);
+        return query;
+      },
       not: (column: string, op: string) => {
         state.filters.push(`not=${column}.${op}`);
         return query;
       },
       maybeSingle: async () => ({ data: state.isAdmin ? state.lookup : null }),
       then: (resolve: (value: unknown) => void) =>
-        resolve(deleting ? { error: state.deleteErrors[id] ?? null } : { data: state.updateRows, error: state.updateError }),
+        resolve(
+          deleting
+            ? { error: state.deleteErrors[id] ?? null }
+            : { data: state.updateRows, error: state.updateError, count: state.unsentWaveEmails },
+        ),
     };
     return query;
   };
@@ -100,6 +109,7 @@ vi.mock('next/cache', () => ({ revalidatePath, updateTag: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => client, createServiceClient: () => service }));
 vi.mock('@/lib/application/decision-email', () => ({ sendDecisionEmail }));
 vi.mock('@/lib/email', () => ({ sendItemRequestReviewedEmail: vi.fn() }));
+vi.mock('@/lib/hive/openai', () => ({ hiveDeps: vi.fn() }));
 
 async function actions() {
   return import('../src/app/admin/actions');
@@ -113,6 +123,7 @@ beforeEach(() => {
   state.updates = [];
   state.filters = [];
   state.deleteErrors = {};
+  state.unsentWaveEmails = 0;
   service.targetIsAdmin = false;
   service.adminLookupError = null;
   service.deleteError = null;
@@ -122,106 +133,6 @@ beforeEach(() => {
   sendDecisionEmail.mockReset();
   sendDecisionEmail.mockResolvedValue({ sent: true });
   revalidatePath.mockClear();
-});
-
-describe('setDecision', () => {
-  it('emails the applicant when the decision changes', async () => {
-    const { setDecision } = await actions();
-
-    const result = await setDecision(ID, 'accepted');
-
-    expect(result.ok).toBe(true);
-    expect(sendDecisionEmail).toHaveBeenCalledTimes(1);
-    expect(sendDecisionEmail).toHaveBeenCalledWith({
-      to: 'sam@test.com',
-      firstName: 'Sam',
-      decision: 'accepted',
-    });
-  });
-
-  // The filter is what stops a double click emailing twice.
-  it('only updates submitted applications that are not already on that decision', async () => {
-    const { setDecision } = await actions();
-
-    await setDecision(ID, 'rejected');
-
-    expect(state.updates).toEqual([{ decision: 'rejected' }]);
-    expect(state.filters.filter((filter) => !filter.startsWith('user_id='))).toEqual([
-      `id=${ID}`,
-      'status=submitted',
-      'or=decision.is.null,decision.neq.rejected',
-    ]);
-  });
-
-  it('sends nothing when the decision was already saved', async () => {
-    state.updateRows = [];
-    const { setDecision } = await actions();
-
-    const result = await setDecision(ID, 'accepted');
-
-    expect(result.ok).toBe(true);
-    expect(sendDecisionEmail).not.toHaveBeenCalled();
-  });
-
-  it('moves back to pending without emailing anyone', async () => {
-    const { setDecision } = await actions();
-
-    const result = await setDecision(ID, null);
-
-    expect(result.ok).toBe(true);
-    expect(state.updates).toEqual([{ decision: null }]);
-    expect(state.filters).toContain('not=decision.is');
-    expect(sendDecisionEmail).not.toHaveBeenCalled();
-  });
-
-  it('keeps the decision but warns the admin when the email fails', async () => {
-    sendDecisionEmail.mockResolvedValue({ sent: false, error: 'RESEND_API_KEY is not set' });
-    const { setDecision } = await actions();
-
-    const result = await setDecision(ID, 'accepted');
-
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain('sam@test.com');
-    expect(result.message).toContain('RESEND_API_KEY is not set');
-    expect(revalidatePath).toHaveBeenCalled();
-  });
-
-  it('sends nothing when the save fails', async () => {
-    state.updateError = { message: 'nope' };
-    const { setDecision } = await actions();
-
-    const result = await setDecision(ID, 'accepted');
-
-    expect(result).toEqual({ ok: false, message: 'nope' });
-    expect(sendDecisionEmail).not.toHaveBeenCalled();
-  });
-
-  it('rejects anything that is not a decision', async () => {
-    const { setDecision } = await actions();
-
-    const result = await setDecision(ID, 'admitted-by-curl' as never);
-
-    expect(result.ok).toBe(false);
-    expect(state.updates).toHaveLength(0);
-  });
-
-  it('rejects an id that is not a uuid', async () => {
-    const { setDecision } = await actions();
-
-    const result = await setDecision('1 or 1=1', 'accepted');
-
-    expect(result.ok).toBe(false);
-    expect(state.updates).toHaveLength(0);
-  });
-
-  it('blocks people who are not admins', async () => {
-    state.isAdmin = false;
-    const { setDecision } = await actions();
-
-    await expect(setDecision(ID, 'accepted')).rejects.toThrow('Admins only');
-    expect(state.updates).toHaveLength(0);
-    expect(sendDecisionEmail).not.toHaveBeenCalled();
-  });
 });
 
 describe('resendDecisionEmail', () => {
@@ -246,6 +157,17 @@ describe('resendDecisionEmail', () => {
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain('domain not verified');
+  });
+
+  it("won't resend while their wave email is still unsent (Retry would email them again)", async () => {
+    state.unsentWaveEmails = 1;
+    const { resendDecisionEmail } = await actions();
+
+    const result = await resendDecisionEmail(ID);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Retry');
+    expect(sendDecisionEmail).not.toHaveBeenCalled();
   });
 
   it('has nothing to send for an undecided application', async () => {

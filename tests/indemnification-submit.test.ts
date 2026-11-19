@@ -6,6 +6,7 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/server', () => ({ after: (task: () => unknown) => task() }));
 vi.mock('@/lib/email', () => ({ sendApplicationReceivedEmail: vi.fn() }));
+vi.mock('@/lib/hive/openai', () => ({ scoreInBackground: vi.fn() }));
 vi.mock('@/lib/auth/helpers', () => ({ getVerifiedUser: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(), createServiceClient: vi.fn() }));
 vi.mock('@/lib/indemnification', async (importOriginal) => {
@@ -87,6 +88,8 @@ const fields = {
   q_hack: 'Hacked a loom',
   team_status: 'solo',
   tshirt_size: 'M',
+  gender: 'woman',
+  ethnicity: 'asian',
   consent_coc: true,
   consent_privacy: true,
   consent_indemnification: true,
