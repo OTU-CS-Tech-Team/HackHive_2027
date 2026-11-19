@@ -4,7 +4,7 @@ import type { BlindCard } from "@/lib/review/blind";
 import { formatApplicantNo } from "@/lib/review/pools";
 import { TierBadge } from "../hive/TierBadge";
 
-// Server component: renders only what's in the BlindCard (already scrubbed).
+// Server component: renders only what's in the BlindCard.
 
 const pill = "inline-flex shrink-0 items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300 ring-inset";
 
@@ -64,15 +64,29 @@ export function BlindCardView({ card }: { card: BlindCard }) {
 
       <details className="group rounded-lg border border-neutral-200">
         <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-medium">
-          <span className="group-open:hidden">Show resume</span>
+          <span className="group-open:hidden">View resume</span>
           <span className="hidden group-open:inline">Hide resume</span>
         </summary>
         <div className="border-t border-neutral-200 p-4">
           {card.resume.status === "ok" && (
-            <>
-              <p className="mb-3 text-xs text-neutral-600">Cleaned text: education, names, schools, contact details and links are removed.</p>
-              <pre className="font-sans text-sm break-words whitespace-pre-wrap">{card.resume.text}</pre>
-            </>
+            <div className="space-y-4">
+              <p className="text-xs text-neutral-600">Only the Experience and Projects sections are shown.</p>
+              {(
+                [
+                  ["Experience", card.resume.experience],
+                  ["Projects", card.resume.projects],
+                ] as const
+              ).map(([title, text]) => (
+                <section key={title} aria-label={title}>
+                  <h4 className="text-sm font-semibold text-neutral-700">{title}</h4>
+                  {text ? (
+                    <p className="mt-1 text-sm break-words whitespace-pre-wrap">{text}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-neutral-500">None listed.</p>
+                  )}
+                </section>
+              ))}
+            </div>
           )}
           {card.resume.status === "none" && <p className="text-sm text-neutral-600">No resume uploaded.</p>}
           {card.resume.status === "failed" && (

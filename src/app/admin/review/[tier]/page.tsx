@@ -8,7 +8,7 @@ import { claimNextReview, loadBlindCard } from "@/lib/review/blind";
 import { BlindCardView } from "../BlindCardView";
 import { ReviewQueue } from "../ReviewQueue";
 
-// The blind queue: one applicant at a time. Only the BlindCard (scrubbed text,
+// The blind queue: one applicant at a time. Only the BlindCard (answers, resume sections,
 // scores, applicant number) reaches the browser; never the application id.
 
 export const metadata: Metadata = { title: "Blind review | HackHive 2027" };

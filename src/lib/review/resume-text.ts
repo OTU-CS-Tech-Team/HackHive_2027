@@ -1,76 +1,50 @@
-// Turns a resume PDF into text a blind reviewer can read: pulls the text out
-// with pdfjs, drops the Education section and any GPA/degree line, then runs
-// the scrubber. If too little text is left (a scanned image, a locked or broken
-// PDF) it fails, and the card shows the original behind a warning instead.
+// Turns a resume PDF into what a blind reviewer reads: just the Experience and
+// Projects sections, pulled out of the text with pdfjs. Everything else (the
+// header with name and contact details, Education, Skills and so on) is left
+// out entirely, so nothing needs to be blanked out. Schools mentioned inside
+// experience (e.g. research at a university) are fine to show.
+// If neither section can be found (a scanned image, a locked or broken PDF, an
+// unusual layout) it fails, and the card shows the original behind a warning.
 
-export type CleanResume = { ok: true; text: string } | { ok: false; reason: string };
+export type ResumeSections = { experience: string; projects: string };
+export type CleanResume = ({ ok: true } & ResumeSections) | { ok: false; reason: string };
 
-/** Less than this many letters/digits after cleaning = couldn't be read. */
-export const MIN_RESUME_CHARS = 200;
+/** Fewer than this many letters/digits across both sections = couldn't be read. */
+export const MIN_SECTION_CHARS = 40;
 
-const HEADINGS = [
-  "education",
-  "academic background",
-  "academics",
-  "academic history",
-  "education and training",
-  "education & training",
-  "experience",
-  "work experience",
-  "professional experience",
-  "relevant experience",
-  "employment",
-  "employment history",
-  "work history",
-  "internships",
-  "projects",
-  "personal projects",
-  "technical projects",
-  "selected projects",
-  "side projects",
-  "skills",
-  "technical skills",
-  "skills and interests",
-  "skills & interests",
-  "core competencies",
-  "technologies",
-  "tools",
-  "languages",
-  "awards",
-  "honors",
-  "honours",
-  "awards and honors",
-  "awards & honors",
-  "honors & awards",
-  "honours & awards",
-  "achievements",
-  "certifications",
-  "certificates",
-  "licenses and certifications",
-  "volunteer",
-  "volunteering",
-  "volunteer experience",
-  "leadership",
-  "leadership experience",
-  "activities",
-  "extracurriculars",
-  "extracurricular activities",
-  "involvement",
-  "publications",
-  "research",
-  "research experience",
-  "interests",
-  "hobbies",
-  "summary",
-  "profile",
-  "about",
-  "about me",
-  "objective",
-  "hackathons",
-  "contact",
+type Section = keyof ResumeSections | "other";
+
+const SECTIONS: Record<string, Section> = {
+  experience: "experience",
+  "work experience": "experience",
+  "professional experience": "experience",
+  "relevant experience": "experience",
+  "technical experience": "experience",
+  employment: "experience",
+  "employment history": "experience",
+  "work history": "experience",
+  internships: "experience",
+  "research experience": "experience",
+  research: "experience",
+  projects: "projects",
+  "personal projects": "projects",
+  "technical projects": "projects",
+  "selected projects": "projects",
+  "side projects": "projects",
+  "academic projects": "projects",
+  "relevant projects": "projects",
+};
+
+// Any other heading ends the current section.
+const OTHER_HEADINGS = [
+  "education", "academic background", "academics", "academic history", "education and training", "education & training",
+  "skills", "technical skills", "skills and interests", "skills & interests", "core competencies", "technologies", "tools",
+  "languages", "awards", "honors", "honours", "awards and honors", "awards & honors", "honors & awards", "honours & awards",
+  "achievements", "certifications", "certificates", "licenses and certifications", "volunteer", "volunteering",
+  "volunteer experience", "leadership", "leadership experience", "activities", "extracurriculars",
+  "extracurricular activities", "involvement", "publications", "interests", "hobbies", "summary", "profile", "about",
+  "about me", "objective", "hackathons", "contact", "references",
 ];
-
-const EDUCATION = new Set(["education", "academic background", "academics", "academic history", "education and training", "education & training"]);
 
 const normalizeHeading = (line: string) =>
   line
@@ -79,46 +53,49 @@ const normalizeHeading = (line: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** The heading this line is, or null. Headings are short lines like "EDUCATION" or "Work Experience:". */
-export function headingOf(line: string): string | null {
+/** Which section this line starts, or null if it isn't a heading. Headings are short lines like "PROJECTS" or "Work Experience:". */
+export function headingOf(line: string): Section | null {
   if (line.trim().length > 40) return null;
   const heading = normalizeHeading(line);
-  return HEADINGS.includes(heading) ? heading : null;
+  return SECTIONS[heading] ?? (OTHER_HEADINGS.includes(heading) ? "other" : null);
 }
 
-// Degree and grade lines say where and how far along someone is in school.
-const DEGREE_LINE =
-  /\b(?:c?gpa|b\.?\s?sc|b\.?\s?eng|b\.?\s?a\.?\s?sc|b\.?\s?comm?|b\.?\s?tech|m\.?\s?sc|m\.?\s?eng|m\.?\s?b\.?\s?a|ph\.?\s?d|bachelor'?s?|master'?s?|diploma|degree|associate'?s? of|honou?rs (?:bachelor|degree|program|student)|dean'?s list|deans list|graduat(?:e|ed|ion|ing)|class of|expected (?:grad|20\d\d)|coursework|cumulative|undergrad(?:uate)?|high school|secondary school|year [1-6]\b|(?:first|second|third|fourth|1st|2nd|3rd|4th)[ -]year)\b|\bB\.A\.|\bM\.A\./i;
+// Links and emails can carry a name (github.com/janedoe), so they're dropped quietly.
+const LINK = /\b(?:https?:\/\/|www\.)\S+|\S+@\S+\.[a-z]{2,}|\b(?:github|gitlab|linkedin|devpost)\.com\/\S*/gi;
 
-/** Drops the Education section (heading to the next heading) and any line mentioning GPA or a degree. */
-export function removeEducation(text: string): string {
-  const kept: string[] = [];
-  let inEducation = false;
-  for (const line of text.split(/\r?\n/)) {
-    const heading = headingOf(line);
-    if (heading) inEducation = EDUCATION.has(heading);
-    if (inEducation || DEGREE_LINE.test(line)) continue;
-    kept.push(line);
-  }
-  return kept.join("\n");
-}
+const tidy = (line: string) =>
+  line
+    .replace(LINK, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/^[\s|·•,-]+$/, "")
+    .trim();
 
 const meaningfulChars = (text: string) => (text.match(/[\p{L}\p{N}]/gu) ?? []).length;
 
-export function cleanResumeText(text: string, scrub: (text: string) => string): CleanResume {
-  if (meaningfulChars(text) < MIN_RESUME_CHARS) {
-    return { ok: false, reason: "The resume has almost no readable text (it may be a scanned image)." };
+/** Keeps only the Experience and Projects sections (heading to the next heading). */
+export function extractSections(text: string): ResumeSections {
+  const out: Record<keyof ResumeSections, string[]> = { experience: [], projects: [] };
+  let current: Section | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const heading = headingOf(line);
+    if (heading) {
+      current = heading;
+      continue;
+    }
+    if (current === "experience" || current === "projects") {
+      const cleaned = tidy(line);
+      if (cleaned) out[current].push(cleaned);
+    }
   }
-  const cleaned = scrub(removeEducation(text))
-    .split("\n")
-    .map((line) => line.replace(/[ \t]+/g, " ").trim())
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  if (meaningfulChars(cleaned.replaceAll("[removed]", "")) < MIN_RESUME_CHARS) {
-    return { ok: false, reason: "Too little was left after removing identifying details." };
+  return { experience: out.experience.join("\n"), projects: out.projects.join("\n") };
+}
+
+export function cleanResumeText(text: string): CleanResume {
+  const sections = extractSections(text);
+  if (meaningfulChars(sections.experience + sections.projects) < MIN_SECTION_CHARS) {
+    return { ok: false, reason: "Couldn't find an Experience or Projects section (it may be a scanned image or an unusual layout)." };
   }
-  return { ok: true, text: cleaned };
+  return { ok: true, ...sections };
 }
 
 type TextItem = { str: string; hasEOL?: boolean; transform?: number[] };
