@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import type { Tier } from "@/lib/hive/tier";
-import { loadOutcomes, loadSettings, loadTierProgress, poolStats } from "@/lib/review/summary";
+import { loadOutcomes, loadPoolCounts, loadTierProgress, poolStats } from "@/lib/review/summary";
 import { TierBadge } from "../hive/TierBadge";
 import { PoolBars, ReviewHeader } from "./ReviewChrome";
 
@@ -18,7 +18,7 @@ export default function ReviewPage() {
     <main className="mx-auto max-w-5xl">
       <ReviewHeader
         active="review"
-        description="Two admins vote on each applicant without seeing who they are. 2 Yes places them in a seat pool, 2 No declines them, and a split goes to a third admin. Nothing is emailed until it's released from Results."
+        description="Two admins vote on each applicant without seeing who they are. 2 Yes places them in a seat pool, 2 No declines them, and a split goes to a third admin. This only places people: decisions are released and emailed from the Decisions page."
       />
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading reviews…</p>}>
         <Overview />
@@ -29,9 +29,9 @@ export default function ReviewPage() {
 
 async function Overview() {
   const session = await requireAdmin("/admin/review");
-  const [settings, outcomes] = await Promise.all([loadSettings(session), loadOutcomes(session)]);
+  const [pools, outcomes] = await Promise.all([loadPoolCounts(session), loadOutcomes(session)]);
   const progress = outcomes.data ? await loadTierProgress(session, outcomes.data) : null;
-  if (!outcomes.data || !progress) {
+  if (!outcomes.data || !progress || !pools) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
         <h2 className="font-semibold">Reviews couldn&apos;t be loaded</h2>
@@ -42,7 +42,7 @@ async function Overview() {
 
   return (
     <>
-      <PoolBars stats={poolStats(settings, outcomes.data)} />
+      <PoolBars stats={poolStats(pools, outcomes.data)} />
 
       <section aria-label="Tiers" className="grid gap-4 md:grid-cols-3">
         {ORDER.map((tier) => {

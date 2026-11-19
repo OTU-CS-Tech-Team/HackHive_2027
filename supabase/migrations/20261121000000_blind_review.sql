@@ -1,12 +1,14 @@
 -- Blind Reviewer: two admins vote Yes/No on each scored applicant without
--- seeing who they are. 2 Yes places them in a seat pool (OTU, then 1st/2nd
--- year, then General, then the waitlist), 2 No rejects them, and a 1-1 split
--- waits for a third admin. Nothing is emailed until an admin releases the
--- outcome from the Results page (that sets applications.decision).
+-- seeing who they are. 2 Yes places them in a seat pool (Ontario Tech, then
+-- lower years, then everyone else, then the waitlist), 2 No rejects them, and
+-- a 1-1 split waits for a third admin.
+--
+-- This only decides and places. Nothing here touches applications.decision or
+-- sends email: the Decisions page (release waves) stages and releases them.
 --
 -- Admins read everything here through RLS. Votes, claims and outcomes are only
 -- written by the security definer functions below; notes are inserted directly
--- (RLS checks the author). Seat numbers live in the one review_settings row:
+-- (RLS checks the author). Seat targets live in the one review_settings row:
 -- edit it in the SQL editor if the seat count changes.
 --
 -- Safe to run more than once, in a single transaction.
@@ -14,23 +16,62 @@
 begin;
 
 -- Applicant numbers ------------------------------------------------------------
--- What reviewers see instead of a name ("#0427"). Generated always, so hackers
--- (who can write their own draft row) can't pick theirs.
+-- What reviewers see instead of a name ("#0427"). Handed out when an
+-- application is submitted (not on every draft autosave, which would burn
+-- numbers), and only by the trigger, so hackers can't pick theirs.
 
-alter table public.applications add column if not exists applicant_no integer generated always as identity;
+alter table public.applications add column if not exists applicant_no integer;
+-- An earlier draft of this migration made it an identity column.
+alter table public.applications alter column applicant_no drop identity if exists;
 create unique index if not exists applications_applicant_no_idx on public.applications (applicant_no);
 
+create sequence if not exists public.applicant_no_seq as integer owned by public.applications.applicant_no;
+select setval('public.applicant_no_seq', coalesce((select max(applicant_no) from public.applications), 0) + 1, false);
+
+-- Number anyone already submitted, oldest first.
+do $$
+declare
+  v_id uuid;
+begin
+  for v_id in
+    select id from public.applications
+    where status = 'submitted' and applicant_no is null
+    order by submitted_at nulls last, id
+  loop
+    update public.applications set applicant_no = nextval('public.applicant_no_seq') where id = v_id;
+  end loop;
+end;
+$$;
+
+create or replace function public.assign_applicant_no()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- Nobody sets or changes it by hand.
+  new.applicant_no := case when tg_op = 'UPDATE' then old.applicant_no end;
+  if new.status = 'submitted' and new.applicant_no is null then
+    new.applicant_no := nextval('public.applicant_no_seq');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists applications_assign_applicant_no on public.applications;
+create trigger applications_assign_applicant_no
+  before insert or update on public.applications
+  for each row execute function public.assign_applicant_no();
+
 -- Settings (a single row) ------------------------------------------------------
+-- Seats per pool: 375 seats split 30% / 15% / the rest. Keep in step with the
+-- Decisions page trackers.
 
 create table if not exists public.review_settings (
   id smallint primary key default 1 check (id = 1),
-  seats int not null default 375 check (seats > 0),
-  -- Percent of seats. General gets whatever OTU and 1st/2nd year don't, so
-  -- rounding never loses a seat; general_pct is kept for reference.
-  otu_pct numeric not null default 30 check (otu_pct between 0 and 100),
-  early_pct numeric not null default 15 check (early_pct between 0 and 100),
-  general_pct numeric not null default 55 check (general_pct between 0 and 100),
-  constraint review_settings_adds_up check (otu_pct + early_pct + general_pct = 100)
+  otu_seats int not null default 113 check (otu_seats >= 0),
+  lower_years_seats int not null default 56 check (lower_years_seats >= 0),
+  general_seats int not null default 206 check (general_seats >= 0)
 );
 
 insert into public.review_settings (id) values (1) on conflict (id) do nothing;
@@ -78,16 +119,25 @@ create index if not exists review_notes_application_idx on public.review_notes (
 create table if not exists public.review_outcomes (
   application_id uuid primary key references public.applications on delete cascade,
   outcome text not null check (outcome in ('accepted', 'waitlisted', 'rejected')),
-  pool text check (pool in ('otu', 'early', 'general')),
+  pool text check (pool in ('otu', 'lower_years', 'general')),
   waitlist_position int check (waitlist_position > 0),
   decided_at timestamptz not null default now(),
-  released_at timestamptz,
-  released_by uuid references public.profiles on delete set null,
   constraint review_outcomes_pool_if_accepted check ((outcome = 'accepted') = (pool is not null)),
   constraint review_outcomes_place_if_waitlisted check ((outcome = 'waitlisted') = (waitlist_position is not null))
 );
 
 create index if not exists review_outcomes_pool_idx on public.review_outcomes (pool) where outcome = 'accepted';
+
+-- Resume cache -----------------------------------------------------------------
+-- The cleaned Experience/Projects sections per resume file, so the queue page
+-- doesn't download and parse the PDF on every render. Server (service role) only.
+
+create table if not exists public.review_resume_cache (
+  resume_path text primary key,
+  version int not null,
+  result jsonb not null,
+  created_at timestamptz not null default now()
+);
 
 -- Row Level Security -----------------------------------------------------------
 
@@ -96,6 +146,7 @@ alter table public.review_votes enable row level security;
 alter table public.review_claims enable row level security;
 alter table public.review_notes enable row level security;
 alter table public.review_outcomes enable row level security;
+alter table public.review_resume_cache enable row level security; -- no policies: service role only
 
 drop policy if exists "review_settings_admin_read" on public.review_settings;
 create policy "review_settings_admin_read" on public.review_settings
@@ -122,18 +173,100 @@ create policy "review_notes_admin_insert" on public.review_notes
   for insert to authenticated
   with check ((select public.is_admin()) and author_id = (select auth.uid()));
 
-revoke all on public.review_settings, public.review_votes, public.review_claims, public.review_notes, public.review_outcomes from anon;
+revoke all on public.review_settings, public.review_votes, public.review_claims, public.review_notes, public.review_outcomes, public.review_resume_cache from anon;
+revoke all on public.review_resume_cache from authenticated;
 revoke insert, update, delete on public.review_settings, public.review_votes, public.review_claims, public.review_outcomes from authenticated;
 revoke update, delete on public.review_notes from authenticated;
 grant select on public.review_settings, public.review_votes, public.review_claims, public.review_notes, public.review_outcomes to authenticated;
 grant insert on public.review_notes to authenticated;
 
+-- Pool rules -------------------------------------------------------------------
+-- Ontario Tech by the saved school (the picker saves "Ontario Tech University";
+-- the rest are what people type under "Other", as in src/lib/schools.ts).
+-- Lower years: year_of_study "1" or "2".
+
+create or replace function public.review_is_otu(p_university text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select coalesce(regexp_replace(lower(p_university), '[^a-z]', '', 'g') in (
+    'ontariotechuniversity', 'ontariotech', 'ontariotechu', 'otu', 'uoit', 'universityofontarioinstituteoftechnology'
+  ), false);
+$$;
+
+create or replace function public.review_is_lower_year(p_year text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select coalesce(btrim(p_year) in ('1', '2'), false);
+$$;
+
+-- review_pool_counts -----------------------------------------------------------
+-- Seats taken per pool. Counts review placements, plus anyone accepted by hand
+-- (on the Applicants or Decisions page) without a review placement, so manual
+-- accepts use up seats too. Those are slotted in by the same rule (Ontario Tech,
+-- then lower years, then everyone else), oldest submission first; once every
+-- pool they fit is full they count towards everyone else, even past its target.
+
+create or replace function public.review_pool_counts()
+returns table (pool text, filled int, target int)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_settings public.review_settings%rowtype;
+  v_otu int;
+  v_lower int;
+  v_general int;
+  v_app record;
+begin
+  if not coalesce(public.is_admin(), false) then
+    raise exception 'Admins only' using errcode = '42501';
+  end if;
+  select * into v_settings from public.review_settings where id = 1;
+
+  select
+    count(*) filter (where o.pool = 'otu'),
+    count(*) filter (where o.pool = 'lower_years'),
+    count(*) filter (where o.pool = 'general')
+  into v_otu, v_lower, v_general
+  from public.review_outcomes o where o.outcome = 'accepted';
+
+  for v_app in
+    select a.university, a.year_of_study
+    from public.applications a
+    where a.decision = 'accepted'
+      and not exists (select 1 from public.review_outcomes o where o.application_id = a.id and o.outcome = 'accepted')
+    order by a.submitted_at nulls last, a.id
+  loop
+    if public.review_is_otu(v_app.university) and v_otu < v_settings.otu_seats then
+      v_otu := v_otu + 1;
+    elsif public.review_is_lower_year(v_app.year_of_study) and v_lower < v_settings.lower_years_seats then
+      v_lower := v_lower + 1;
+    else
+      v_general := v_general + 1;
+    end if;
+  end loop;
+
+  return query values
+    ('otu'::text, v_otu, v_settings.otu_seats),
+    ('lower_years'::text, v_lower, v_settings.lower_years_seats),
+    ('general'::text, v_general, v_settings.general_seats);
+end;
+$$;
+
 -- claim_next_review ------------------------------------------------------------
 -- Your next applicant in a tier. The same one again if you already have one
 -- open there (so refreshing never skips anyone); otherwise someone scored, in
--- the tier, with no outcome or decision, that you haven't voted on or skipped
--- and nobody else has open. People who already have a vote come first, then
--- it's random. No row = nothing left you can review.
+-- the tier, with no outcome or decision, that isn't you, that you haven't voted
+-- on or skipped, and that nobody else has open. People who already have a vote
+-- come first, then it's random. No row = nothing left you can review.
 
 create or replace function public.claim_next_review(p_tier text)
 returns table (application_id uuid, applicant_no int)
@@ -161,6 +294,7 @@ begin
   where c.admin_id = v_uid and c.tier = p_tier
     and s.status = 'scored' and s.tier = p_tier
     and a.status = 'submitted' and a.decision is null
+    and a.user_id is distinct from v_uid
     and not exists (select 1 from public.review_outcomes o where o.application_id = c.application_id)
     and not exists (select 1 from public.review_votes v where v.application_id = c.application_id and v.admin_id = v_uid)
   order by c.claimed_at desc
@@ -182,6 +316,7 @@ begin
     join public.hive_scores s on s.application_id = a.id
     left join public.review_claims c on c.application_id = a.id
     where a.status = 'submitted' and a.decision is null
+      and a.user_id is distinct from v_uid
       and s.status = 'scored' and s.tier = p_tier
       and not exists (select 1 from public.review_outcomes o where o.application_id = a.id)
       and not exists (select 1 from public.review_votes v where v.application_id = a.id and v.admin_id = v_uid)
@@ -214,20 +349,14 @@ $$;
 
 -- cast_review_vote -------------------------------------------------------------
 -- Records your vote on the applicant you have open, then decides if it can:
--- 2 Yes = accepted into a pool (or waitlisted when all three are full),
--- 2 No = rejected, otherwise they wait for another vote. Returns what happened:
--- skipped | pending | accepted | waitlisted | rejected, or not_claimed /
--- already_voted / decided when the vote couldn't count.
---
--- p_is_otu / p_is_early_year are worked out by the server from the application
--- (src/app/admin/review/actions.ts), so school matching stays in one place.
+-- 2 Yes = accepted into a pool (or waitlisted when every pool they fit is
+-- full), 2 No = rejected, otherwise they wait for another vote. Returns what
+-- happened: skipped | pending | accepted | waitlisted | rejected, or
+-- not_claimed / already_voted / decided / own_application when it couldn't count.
 
-create or replace function public.cast_review_vote(
-  p_application_id uuid,
-  p_vote text,
-  p_is_otu boolean default false,
-  p_is_early_year boolean default false
-)
+drop function if exists public.cast_review_vote(uuid, text, boolean, boolean);
+
+create or replace function public.cast_review_vote(p_application_id uuid, p_vote text)
 returns table (result text, pool text, waitlist_position int)
 language plpgsql
 security definer
@@ -235,16 +364,11 @@ set search_path = ''
 as $$
 declare
   v_uid uuid := (select auth.uid());
-  v_settings public.review_settings%rowtype;
+  v_app public.applications%rowtype;
   v_owner uuid;
   v_yes int;
   v_no int;
-  v_otu_target int;
-  v_early_target int;
-  v_general_target int;
-  v_otu int;
-  v_early int;
-  v_general int;
+  v_counts record;
   v_pool text;
   v_position int;
 begin
@@ -257,13 +381,22 @@ begin
 
   -- One vote at a time, everywhere: the 2-vote count and the pool counts below
   -- can't race, so two votes landing together never overfill a pool.
-  select * into v_settings from public.review_settings where id = 1 for update;
+  perform 1 from public.review_settings where id = 1 for update;
   if not found then
     raise exception 'review_settings is missing its row';
   end if;
 
-  if exists (select 1 from public.review_outcomes o where o.application_id = p_application_id) then
+  select * into v_app from public.applications a where a.id = p_application_id;
+  if not found
+     or v_app.decision is not null
+     or exists (select 1 from public.review_outcomes o where o.application_id = p_application_id) then
+    delete from public.review_claims c where c.application_id = p_application_id and c.admin_id = v_uid;
     return query select 'decided'::text, null::text, null::int;
+    return;
+  end if;
+  if v_app.user_id = v_uid then
+    delete from public.review_claims c where c.application_id = p_application_id;
+    return query select 'own_application'::text, null::text, null::int;
     return;
   end if;
 
@@ -303,23 +436,21 @@ begin
     return;
   end if;
 
-  -- Keep in sync with poolTargets() in src/lib/review/pools.ts.
-  v_otu_target := round(v_settings.seats * v_settings.otu_pct / 100.0);
-  v_early_target := round(v_settings.seats * v_settings.early_pct / 100.0);
-  v_general_target := greatest(v_settings.seats - v_otu_target - v_early_target, 0);
-
   select
-    count(*) filter (where o.pool = 'otu'),
-    count(*) filter (where o.pool = 'early'),
-    count(*) filter (where o.pool = 'general')
-  into v_otu, v_early, v_general
-  from public.review_outcomes o where o.outcome = 'accepted';
+    max(c.filled) filter (where c.pool = 'otu') as otu,
+    max(c.target) filter (where c.pool = 'otu') as otu_target,
+    max(c.filled) filter (where c.pool = 'lower_years') as lower_years,
+    max(c.target) filter (where c.pool = 'lower_years') as lower_years_target,
+    max(c.filled) filter (where c.pool = 'general') as general,
+    max(c.target) filter (where c.pool = 'general') as general_target
+  into v_counts
+  from public.review_pool_counts() c;
 
-  if p_is_otu and v_otu < v_otu_target then
+  if public.review_is_otu(v_app.university) and v_counts.otu < v_counts.otu_target then
     v_pool := 'otu';
-  elsif p_is_early_year and v_early < v_early_target then
-    v_pool := 'early';
-  elsif v_general < v_general_target then
+  elsif public.review_is_lower_year(v_app.year_of_study) and v_counts.lower_years < v_counts.lower_years_target then
+    v_pool := 'lower_years';
+  elsif v_counts.general < v_counts.general_target then
     v_pool := 'general';
   end if;
 
@@ -336,8 +467,10 @@ end;
 $$;
 
 -- reopen_review ----------------------------------------------------------------
--- Undo an outcome that hasn't been released: clears it and its votes (which
--- frees the pool seat) so the applicant goes back in the queue. Notes stay.
+-- Undo an outcome so the applicant goes back in the queue: clears the outcome
+-- and the Yes/No votes (freeing the pool seat). "I know this person" skips and
+-- notes stay. Refused once a decision has been set or staged for them, so
+-- nobody who's been (or is about to be) emailed disappears from the results.
 
 create or replace function public.reopen_review(p_application_id uuid)
 returns boolean
@@ -345,6 +478,8 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_staged boolean := false;
 begin
   if (select auth.uid()) is null or not public.is_admin() then
     raise exception 'Admins only' using errcode = '42501';
@@ -352,47 +487,36 @@ begin
   -- Same lock as voting, so a seat isn't freed halfway through a placement.
   perform 1 from public.review_settings where id = 1 for update;
 
-  delete from public.review_outcomes o where o.application_id = p_application_id and o.released_at is null;
+  if exists (select 1 from public.applications a where a.id = p_application_id and a.decision is not null) then
+    return false;
+  end if;
+  -- staged_decisions comes with the Decisions page, which may not be set up yet.
+  if to_regclass('public.staged_decisions') is not null then
+    execute 'select exists (select 1 from public.staged_decisions where application_id = $1)' into v_staged using p_application_id;
+    if v_staged then
+      return false;
+    end if;
+  end if;
+
+  delete from public.review_outcomes o where o.application_id = p_application_id;
   if not found then
     return false;
   end if;
-  delete from public.review_votes v where v.application_id = p_application_id;
+  delete from public.review_votes v where v.application_id = p_application_id and v.vote in ('yes', 'no');
   delete from public.review_claims c where c.application_id = p_application_id;
   return true;
 end;
 $$;
 
--- mark_review_released ---------------------------------------------------------
--- Called by the release action after it has set applications.decision (and
--- sent the email). Returns the ones it marked; already-released ones are skipped.
+drop function if exists public.mark_review_released(uuid[]);
 
-create or replace function public.mark_review_released(p_application_ids uuid[])
-returns setof uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_uid uuid := (select auth.uid());
-begin
-  if v_uid is null or not public.is_admin() then
-    raise exception 'Admins only' using errcode = '42501';
-  end if;
-  return query
-    update public.review_outcomes o
-    set released_at = now(), released_by = v_uid
-    where o.application_id = any(p_application_ids) and o.released_at is null
-    returning o.application_id;
-end;
-$$;
-
+revoke all on function public.review_pool_counts() from public, anon;
 revoke all on function public.claim_next_review(text) from public, anon;
-revoke all on function public.cast_review_vote(uuid, text, boolean, boolean) from public, anon;
+revoke all on function public.cast_review_vote(uuid, text) from public, anon;
 revoke all on function public.reopen_review(uuid) from public, anon;
-revoke all on function public.mark_review_released(uuid[]) from public, anon;
+grant execute on function public.review_pool_counts() to authenticated;
 grant execute on function public.claim_next_review(text) to authenticated;
-grant execute on function public.cast_review_vote(uuid, text, boolean, boolean) to authenticated;
+grant execute on function public.cast_review_vote(uuid, text) to authenticated;
 grant execute on function public.reopen_review(uuid) to authenticated;
-grant execute on function public.mark_review_released(uuid[]) to authenticated;
 
 commit;

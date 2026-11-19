@@ -3,23 +3,20 @@ import { Suspense } from "react";
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { isTier } from "@/lib/hive/tier";
-import { VOTE_LABELS, type Vote } from "@/lib/review/pools";
-import { loadOutcomes, loadSettings, poolStats } from "@/lib/review/summary";
+import { VOTE_LABELS, type Outcome, type Vote } from "@/lib/review/pools";
+import { loadOutcomes, loadPoolCounts, poolStats } from "@/lib/review/summary";
 import { formatDateTime } from "@/lib/time";
 import { PoolBars, ReviewHeader } from "../ReviewChrome";
 import { ResultsTable, type ResultRow } from "./ResultsTable";
 
 export const metadata: Metadata = { title: "Review results | HackHive 2027" };
 
-// Releasing a wave sends one email per applicant from a server action on this page.
-export const maxDuration = 60;
-
 export default function ResultsPage() {
   return (
     <main className="mx-auto max-w-6xl">
       <ReviewHeader
         active="results"
-        description="Names come back here. Outcomes are held until you release them: releasing sets their decision and emails them. Reopen undoes an outcome that hasn't been released."
+        description="Names come back here. Review outcomes are handed to the Decisions page, which stages and releases them. Reopen sends someone back to the queue, until a decision has been set or staged for them."
       />
       <Suspense fallback={<p role="status" className="rounded-lg border border-neutral-200 p-5">Loading results…</p>}>
         <Results />
@@ -29,7 +26,7 @@ export default function ResultsPage() {
 }
 
 type Session = Awaited<ReturnType<typeof requireAdmin>>;
-type App = { id: string; first_name: string | null; last_name: string | null; preferred_name: string | null; email: string; university: string | null };
+type App = { id: string; first_name: string | null; last_name: string | null; preferred_name: string | null; email: string; university: string | null; decision: Outcome | null };
 type VoteRow = { application_id: string; admin_id: string; vote: Vote; created_at: string };
 
 const PAGE_SIZE = 1000;
@@ -51,13 +48,13 @@ async function loadVotes(session: Session) {
 
 async function Results() {
   const session = await requireAdmin("/admin/review/results");
-  const [settings, outcomes, apps, scores, votes] = await Promise.all([
-    loadSettings(session),
+  const [pools, outcomes, apps, scores, votes] = await Promise.all([
+    loadPoolCounts(session),
     loadOutcomes(session),
     loadAllByKeyset<App>((after) => {
       const query = session
         .from("applications")
-        .select("id, first_name, last_name, preferred_name, email, university")
+        .select("id, first_name, last_name, preferred_name, email, university, decision")
         .eq("status", "submitted")
         .order("id")
         .limit(PAGE_SIZE);
@@ -72,7 +69,7 @@ async function Results() {
     ),
     loadVotes(session),
   ]);
-  if (!outcomes.data || !apps.data || !scores.data || !votes) {
+  if (!pools || !outcomes.data || !apps.data || !scores.data || !votes) {
     return (
       <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-5">
         <h2 className="font-semibold">Results couldn&apos;t be loaded</h2>
@@ -92,7 +89,7 @@ async function Results() {
   for (const vote of votes) votesById.set(vote.application_id, [...(votesById.get(vote.application_id) ?? []), vote]);
 
   const rows: ResultRow[] = outcomes.data
-    .toSorted((a, b) => Number(!!a.released_at) - Number(!!b.released_at) || b.decided_at.localeCompare(a.decided_at))
+    .toSorted((a, b) => b.decided_at.localeCompare(a.decided_at))
     .map((outcome) => {
       const app = appById.get(outcome.application_id);
       const tier = tierById.get(outcome.application_id);
@@ -109,13 +106,13 @@ async function Results() {
         pool: outcome.pool,
         waitlistPosition: outcome.waitlist_position,
         decidedAt: formatDateTime(outcome.decided_at),
-        releasedAt: outcome.released_at ? formatDateTime(outcome.released_at) : null,
+        decision: app?.decision ?? null,
       };
     });
 
   return (
     <>
-      <PoolBars stats={poolStats(settings, outcomes.data)} />
+      <PoolBars stats={poolStats(pools, outcomes.data)} />
       <ResultsTable rows={rows} />
     </>
   );

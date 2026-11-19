@@ -59,7 +59,7 @@ export function PoolBars({ stats }: { stats: PoolStats }) {
         <p className="text-sm font-medium">Waitlist</p>
         <p className="mt-1 text-xl font-bold tabular-nums">{stats.waitlisted}</p>
         <p className="mt-1 text-sm text-neutral-600 tabular-nums">
-          {stats.rejected} not accepted · {stats.unreleased} not released yet
+          {stats.rejected} not accepted
         </p>
       </div>
     </section>

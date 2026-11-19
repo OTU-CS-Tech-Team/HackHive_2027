@@ -3,7 +3,7 @@ import "server-only";
 import { loadAllByKeyset } from "@/lib/admin/applicants";
 import type { createClient } from "@/lib/supabase/server";
 import { TIERS, isTier, type Tier } from "@/lib/hive/tier";
-import { DEFAULT_SETTINGS, POOLS, poolTargets, type Outcome, type Pool, type ReviewSettings } from "./pools";
+import { POOLS, isPool, type Outcome, type Pool } from "./pools";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -15,19 +15,28 @@ export type OutcomeRow = {
   pool: Pool | null;
   waitlist_position: number | null;
   decided_at: string;
-  released_at: string | null;
 };
+
+export type PoolCount = { pool: Pool; count: number; target: number };
 
 export type PoolStats = {
-  pools: { pool: Pool; count: number; target: number }[];
+  pools: PoolCount[];
   waitlisted: number;
   rejected: number;
-  unreleased: number;
 };
 
-export async function loadSettings(session: Supabase): Promise<ReviewSettings> {
-  const { data } = await session.from("review_settings").select("seats, otu_pct, early_pct, general_pct").eq("id", 1).maybeSingle();
-  return data ? { seats: data.seats, otu_pct: Number(data.otu_pct), early_pct: Number(data.early_pct), general_pct: Number(data.general_pct) } : DEFAULT_SETTINGS;
+/**
+ * Seats taken per pool, from review_pool_counts() (the same numbers voting
+ * places people by, including anyone accepted by hand). Null if it fails.
+ */
+export async function loadPoolCounts(session: Supabase): Promise<PoolCount[] | null> {
+  const { data, error } = await session.rpc("review_pool_counts");
+  if (error || !data) return null;
+  const rows = data as { pool: string; filled: number; target: number }[];
+  return POOLS.map((pool) => {
+    const row = rows.find((candidate) => isPool(candidate.pool) && candidate.pool === pool);
+    return { pool, count: row?.filled ?? 0, target: row?.target ?? 0 };
+  });
 }
 
 export function loadOutcomes(session: Supabase) {
@@ -35,7 +44,7 @@ export function loadOutcomes(session: Supabase) {
     (after) => {
       const query = session
         .from("review_outcomes")
-        .select("application_id, outcome, pool, waitlist_position, decided_at, released_at")
+        .select("application_id, outcome, pool, waitlist_position, decided_at")
         .order("application_id")
         .limit(PAGE_SIZE);
       return after ? query.gt("application_id", after) : query;
@@ -44,17 +53,11 @@ export function loadOutcomes(session: Supabase) {
   );
 }
 
-export function poolStats(settings: ReviewSettings, outcomes: OutcomeRow[]): PoolStats {
-  const targets = poolTargets(settings);
+export function poolStats(pools: PoolCount[], outcomes: OutcomeRow[]): PoolStats {
   return {
-    pools: POOLS.map((pool) => ({
-      pool,
-      count: outcomes.filter((row) => row.outcome === "accepted" && row.pool === pool).length,
-      target: targets[pool],
-    })),
+    pools,
     waitlisted: outcomes.filter((row) => row.outcome === "waitlisted").length,
     rejected: outcomes.filter((row) => row.outcome === "rejected").length,
-    unreleased: outcomes.filter((row) => !row.released_at).length,
   };
 }
 

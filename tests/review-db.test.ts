@@ -22,7 +22,8 @@ beforeAll(async () => {
       select coalesce(nullif(current_setting('test.admin', true), ''), 'false')::boolean;
     $$;
     create table public.profiles(id uuid primary key);
-    create table public.applications(id uuid primary key, status text not null, decision text);
+    create table public.applications(id uuid primary key, user_id uuid, status text not null, decision text,
+      university text, year_of_study text, submitted_at timestamptz);
     grant usage on schema public to anon, authenticated, service_role;
     grant usage on schema auth to anon, authenticated, service_role;
     grant select on public.applications to authenticated;
@@ -34,8 +35,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.exec('begin;');
-  await db.exec(`insert into public.applications (id, status) select
-      ('00000000-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid, 'submitted' from generate_series(1, 6) n;
+  await db.exec(`insert into public.applications (id, status, submitted_at) select
+      ('00000000-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid, 'submitted', now() - n * interval '1 minute' from generate_series(1, 6) n;
     insert into public.hive_scores (application_id, status, built_it, shipped, impact, beyond_tutorial,
       experience, creativity, quality, suggested_tier, scored_at)
     select id, 'scored', true, true, true, true, 5, 4, 4, 'queen', now() from public.applications;`);
@@ -54,20 +55,25 @@ const claim = async (uid: string, tier = 'queen') => {
   return rows[0]?.application_id ?? null;
 };
 type Vote = { result: string; pool: string | null; waitlist_position: number | null };
-const vote = async (uid: string, id: string, choice: string, otu = false, early = false) => {
+const vote = async (uid: string, id: string, choice: string) => {
   await as(uid);
-  const { rows } = await db.query<Vote>(`select * from public.cast_review_vote('${id}', '${choice}', ${otu}, ${early})`);
+  const { rows } = await db.query<Vote>(`select * from public.cast_review_vote('${id}', '${choice}')`);
   return rows[0];
 };
+/** Sets the school and year the pools are worked out from. */
+const profile = (id: string, otu: boolean, lower: boolean) =>
+  db.exec(`reset role; update public.applications set university = ${otu ? "'Ontario Tech University'" : "'McMaster University'"},
+    year_of_study = '${lower ? '1' : '3'}' where id = '${id}';`);
 /** Claims then votes, as the queue page does. Asserts the claim gives `id`. */
-const claimAndVote = async (uid: string, id: string, choice: string, otu = false, early = false) => {
-  await asOwner();
+const claimAndVote = async (uid: string, id: string, choice: string, otu = false, lower = false) => {
+  await profile(id, otu, lower);
   // Point the claim straight at `id` so tests don't depend on the random order.
   await db.exec(`delete from public.review_claims where application_id = '${id}';
     insert into public.review_claims (application_id, admin_id, tier) values ('${id}', '${uid}', 'queen');`);
-  return vote(uid, id, choice, otu, early);
+  return vote(uid, id, choice);
 };
-const setSeats = (seats: number) => db.exec(`reset role; update public.review_settings set seats = ${seats};`);
+const setSeats = (otu: number, lower: number, general: number) =>
+  db.exec(`reset role; update public.review_settings set otu_seats = ${otu}, lower_years_seats = ${lower}, general_seats = ${general};`);
 const outcome = async (id: string) => {
   await asOwner();
   const { rows } = await db.query<{ outcome: string; pool: string | null; waitlist_position: number | null }>(
@@ -81,10 +87,24 @@ const onlyQueens = (...ns: number[]) =>
     where application_id not in (${ns.map((n) => `'${app(n)}'`).join(',')});`);
 
 describe('applicant numbers', () => {
-  it('numbers every application, uniquely', async () => {
+  it('numbers every submitted application, uniquely', async () => {
     const { rows } = await db.query<{ applicant_no: number }>('select applicant_no from public.applications');
     expect(new Set(rows.map((row) => row.applicant_no)).size).toBe(6);
     expect(rows.every((row) => Number.isInteger(row.applicant_no))).toBe(true);
+  });
+
+  it('hands out a number on submit only, and nobody can change it', async () => {
+    const draft = app(50);
+    await db.exec(`insert into public.applications (id, status) values ('${draft}', 'draft');
+      update public.applications set university = 'x' where id = '${draft}';`);
+    const no = async () =>
+      (await db.query<{ applicant_no: number | null }>(`select applicant_no from public.applications where id = '${draft}'`)).rows[0].applicant_no;
+    expect(await no()).toBeNull(); // autosaves don't use up numbers
+    await db.exec(`update public.applications set status = 'submitted' where id = '${draft}';`);
+    const given = await no();
+    expect(given).toEqual(expect.any(Number));
+    await db.exec(`update public.applications set applicant_no = 1 where id = '${draft}';`);
+    expect(await no()).toBe(given);
   });
 });
 
@@ -142,6 +162,13 @@ describe('claim_next_review', () => {
     expect(await claim(A, 'queen')).toBe(app(3));
   });
 
+  it('never gives you your own application', async () => {
+    await onlyQueens(1);
+    await db.exec(`reset role; update public.applications set user_id = '${A}' where id = '${app(1)}';`);
+    expect(await claim(A)).toBeNull();
+    expect(await claim(B)).toBe(app(1));
+  });
+
   it('refuses non-admins and bad tiers', async () => {
     await as(A, false);
     await expect(db.query(`select * from public.claim_next_review('queen')`)).rejects.toThrow(/Admins only/);
@@ -163,26 +190,41 @@ describe('cast_review_vote', () => {
     expect(await claimAndVote(B, app(1), 'yes', true, true)).toEqual({ result: 'accepted', pool: 'otu', waitlist_position: null });
   });
 
-  it('fills OTU, then 1st/2nd year, then General, then the waitlist', async () => {
-    // 10 seats: OTU 3, early 2 (1.5 rounds up), general 5.
-    await setSeats(10);
+  it('fills Ontario Tech, then lower years, then everyone else, then the waitlist', async () => {
+    await setSeats(3, 2, 5);
     await asOwner();
     await db.exec(`insert into public.applications (id, status) select
         ('00000000-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid, 'submitted' from generate_series(7, 20) n;`);
-    const place = async (n: number, otu: boolean, early: boolean) => {
-      await claimAndVote(A, app(n), 'yes', otu, early);
-      return claimAndVote(B, app(n), 'yes', otu, early);
+    const place = async (n: number, otu: boolean, lower: boolean) => {
+      await claimAndVote(A, app(n), 'yes', otu, lower);
+      return claimAndVote(B, app(n), 'yes', otu, lower);
     };
     const results = [];
     for (let n = 1; n <= 4; n++) results.push(await place(n, true, true)); // 3 OTU, then early
-    for (let n = 5; n <= 6; n++) results.push(await place(n, false, true)); // 1 early, then general
+    for (let n = 5; n <= 6; n++) results.push(await place(n, false, true)); // 1 lower year, then general
     for (let n = 7; n <= 11; n++) results.push(await place(n, false, false)); // general fills at 5
     results.push(await place(12, true, true)); // all full
     results.push(await place(13, false, false));
     expect(results.map((r) => r.pool ?? `waitlist #${r.waitlist_position}`)).toEqual([
-      'otu', 'otu', 'otu', 'early', 'early', 'general', 'general', 'general', 'general', 'general',
+      'otu', 'otu', 'otu', 'lower_years', 'lower_years', 'general', 'general', 'general', 'general', 'general',
       'waitlist #1', 'waitlist #2', 'waitlist #3',
     ]);
+  });
+
+  it('counts people accepted by hand towards the pools', async () => {
+    await setSeats(1, 1, 5);
+    await asOwner();
+    await db.exec(`update public.applications set decision = 'accepted', university = 'UOIT', year_of_study = '1' where id in ('${app(5)}', '${app(6)}');`);
+    // app(6) submitted first: takes the one OTU seat; app(5) (also OTU) overflows into lower years.
+    await as(A);
+    const { rows } = await db.query<{ pool: string; filled: number; target: number }>('select * from public.review_pool_counts()');
+    expect(rows).toEqual([
+      { pool: 'otu', filled: 1, target: 1 },
+      { pool: 'lower_years', filled: 1, target: 1 },
+      { pool: 'general', filled: 0, target: 5 },
+    ]);
+    await claimAndVote(A, app(1), 'yes', true, true);
+    expect(await claimAndVote(B, app(1), 'yes', true, true)).toMatchObject({ result: 'accepted', pool: 'general' });
   });
 
   it('2 No rejects', async () => {
@@ -213,6 +255,16 @@ describe('cast_review_vote', () => {
     expect(await claimAndVote(C, app(1), 'no')).toMatchObject({ result: 'decided' });
   });
 
+  it("won't count a vote on someone already decided by hand, or on your own application", async () => {
+    await db.exec(`reset role; update public.applications set decision = 'accepted' where id = '${app(2)}';
+      update public.applications set user_id = '${A}' where id = '${app(3)}';`);
+    expect(await claimAndVote(A, app(2), 'no')).toMatchObject({ result: 'decided' });
+    expect(await claimAndVote(A, app(3), 'yes')).toMatchObject({ result: 'own_application' });
+    await asOwner();
+    const { rows } = await db.query(`select 1 from public.review_votes where application_id in ('${app(2)}', '${app(3)}')`);
+    expect(rows).toEqual([]);
+  });
+
   it('closes your claim when you vote', async () => {
     const id = (await claim(A))!;
     await vote(A, id, 'yes');
@@ -224,12 +276,12 @@ describe('cast_review_vote', () => {
   it('locks the settings row so two votes landing together cannot overfill a pool', async () => {
     // PGlite has one connection, so the race itself can't be run here; check the lock is taken
     // before anything is counted, and that a full pool overflows to the next one.
-    const { rows } = await db.query<{ def: string }>(`select pg_get_functiondef('public.cast_review_vote(uuid,text,boolean,boolean)'::regprocedure) as def`);
+    const { rows } = await db.query<{ def: string }>(`select pg_get_functiondef('public.cast_review_vote(uuid,text)'::regprocedure) as def`);
     const def = rows[0].def;
     expect(def).toMatch(/from public\.review_settings where id = 1 for update/);
     expect(def.indexOf('for update')).toBeLessThan(def.indexOf('count(*)'));
 
-    await setSeats(1); // OTU 0, early 0, general 1
+    await setSeats(0, 0, 1);
     await claimAndVote(A, app(1), 'yes', true);
     expect(await claimAndVote(B, app(1), 'yes', true)).toMatchObject({ pool: 'general' });
     await claimAndVote(A, app(2), 'yes');
@@ -253,18 +305,21 @@ describe('cast_review_vote', () => {
   });
 });
 
-describe('reopen_review and mark_review_released', () => {
+describe('reopen_review', () => {
   const accept = async (n: number) => {
     await claimAndVote(A, app(n), 'yes');
     await claimAndVote(B, app(n), 'yes');
   };
-
-  it('reopen clears the outcome and its votes, freeing the seat', async () => {
-    await setSeats(1);
-    await accept(1);
+  const reopen = async (n: number) => {
     await as(A);
-    const { rows } = await db.query<{ reopen_review: boolean }>(`select public.reopen_review('${app(1)}')`);
-    expect(rows[0].reopen_review).toBe(true);
+    const { rows } = await db.query<{ reopen_review: boolean }>(`select public.reopen_review('${app(n)}')`);
+    return rows[0].reopen_review;
+  };
+
+  it('clears the outcome and the Yes/No votes, freeing the seat', async () => {
+    await setSeats(0, 0, 1);
+    await accept(1);
+    expect(await reopen(1)).toBe(true);
     expect(await outcome(app(1))).toBeNull();
     const { rows: votes } = await db.query(`select 1 from public.review_votes where application_id = '${app(1)}'`);
     expect(votes).toEqual([]);
@@ -272,15 +327,25 @@ describe('reopen_review and mark_review_released', () => {
     expect(await outcome(app(2))).toMatchObject({ outcome: 'accepted', pool: 'general' });
   });
 
-  it("released outcomes can't be reopened or released twice", async () => {
+  it('keeps "I know this person" skips, so that admin still never gets them', async () => {
+    await onlyQueens(1);
+    await claimAndVote(C, app(1), 'skip');
     await accept(1);
-    await as(A);
-    const first = await db.query<{ id: string }>(`select id from public.mark_review_released(array['${app(1)}']::uuid[]) id`);
-    expect(first.rows).toEqual([{ id: app(1) }]);
-    const again = await db.query(`select * from public.mark_review_released(array['${app(1)}']::uuid[])`);
-    expect(again.rows).toEqual([]);
-    const { rows } = await db.query<{ reopen_review: boolean }>(`select public.reopen_review('${app(1)}')`);
-    expect(rows[0].reopen_review).toBe(false);
+    expect(await reopen(1)).toBe(true);
+    expect(await claim(C)).toBeNull();
+    expect(await claim(A)).toBe(app(1));
+  });
+
+  it('refuses once a decision is set or staged for them', async () => {
+    await accept(1);
+    await accept(2);
+    await db.exec(`reset role; update public.applications set decision = 'accepted' where id = '${app(1)}';
+      create table public.staged_decisions (application_id uuid primary key, decision text);
+      insert into public.staged_decisions values ('${app(2)}', 'accepted');`);
+    expect(await reopen(1)).toBe(false);
+    expect(await reopen(2)).toBe(false);
+    expect(await outcome(app(1))).not.toBeNull();
+    expect(await outcome(app(2))).not.toBeNull();
   });
 
   it('refuses non-admins', async () => {
@@ -288,7 +353,7 @@ describe('reopen_review and mark_review_released', () => {
     await expect(db.query(`select public.reopen_review('${app(1)}')`)).rejects.toThrow(/Admins only/);
     await db.exec('rollback; begin;');
     await as(A, false);
-    await expect(db.query(`select * from public.mark_review_released(array['${app(1)}']::uuid[])`)).rejects.toThrow(/Admins only/);
+    await expect(db.query(`select * from public.review_pool_counts()`)).rejects.toThrow(/Admins only/);
   });
 });
 

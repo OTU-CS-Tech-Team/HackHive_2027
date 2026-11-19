@@ -1,24 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { applyDecision } from "@/lib/admin/decisions";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { isTier, type Tier } from "@/lib/hive/tier";
 import { applicationIdFor } from "@/lib/review/blind";
-import { WAVE_LIMIT, formatApplicantNo, isEarlyYear, isVote, type Outcome, type Vote } from "@/lib/review/pools";
-import { isOntarioTech } from "@/lib/schools";
+import { formatApplicantNo, isVote, type Vote } from "@/lib/review/pools";
 import { formatDateTime } from "@/lib/time";
 import { overrideTier } from "../actions";
 
 // Blind review. The queue pages only know an applicant by their number, never
 // the application id (which would open the full application), so these look
 // the id up on the server. Results-page actions take ids: names are shown there.
+// Nothing here sets applications.decision or emails anyone: that's the
+// Decisions page.
 
 export type ReviewResult = { ok: boolean; message: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isIdList = (ids: unknown): ids is string[] =>
-  Array.isArray(ids) && ids.length > 0 && ids.every((id) => typeof id === "string" && UUID.test(id));
 
 type Session = Awaited<ReturnType<typeof requireAdmin>>;
 
@@ -42,10 +40,11 @@ async function hasVoted(session: Session, applicationId: string, userId: string)
 const VOTE_MESSAGES: Record<string, string> = {
   skipped: "Skipped. Someone else will review them.",
   pending: "Vote saved. They need another vote.",
-  accepted: "Vote saved. That's 2 Yes: they're in (held until released).",
-  waitlisted: "Vote saved. That's 2 Yes, but the pools are full: waitlisted (held until released).",
-  rejected: "Vote saved. That's 2 No: not accepted (held until released).",
+  accepted: "Vote saved. That's 2 Yes: they're placed in a pool, ready for the Decisions page.",
+  waitlisted: "Vote saved. That's 2 Yes, but the pools they fit are full: waitlisted.",
+  rejected: "Vote saved. That's 2 No: not accepted.",
   decided: "Someone already decided this one. Here's your next applicant.",
+  own_application: "That's your own application, so it's been taken out of your queue.",
   not_claimed: "This applicant was handed to someone else after 15 minutes. Here's your next one.",
   already_voted: "You already voted on this one. Here's your next applicant.",
 };
@@ -56,14 +55,8 @@ export async function castVote(applicantNo: number, vote: Vote): Promise<ReviewR
   const id = await applicationIdFor(session, applicantNo);
   if (!id) return { ok: false, message: "Applicant not found. Refresh the page." };
 
-  // Worked out here, not in the browser, so the card never needs the school or year.
-  const { data: app } = await session.from("applications").select("university, year_of_study").eq("id", id).maybeSingle();
-  const { data, error } = await session.rpc("cast_review_vote", {
-    p_application_id: id,
-    p_vote: vote,
-    p_is_otu: isOntarioTech(app?.university ?? ""),
-    p_is_early_year: isEarlyYear(app?.year_of_study),
-  });
+  // The pool (school and year) is worked out in SQL, so the card never needs them.
+  const { data, error } = await session.rpc("cast_review_vote", { p_application_id: id, p_vote: vote });
   revalidatePath("/admin/review", "layout");
   if (error) return { ok: false, message: error.message };
   const result = (data as { result: string }[] | null)?.[0]?.result ?? "";
@@ -129,52 +122,13 @@ export async function moveTier(applicantNo: number, tier: Tier, reason: string):
   return { ok: true, message: `${formatApplicantNo(applicantNo)}: ${result.message} Here's your next applicant.` };
 }
 
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * Releases a wave: sets each applicant's decision and emails them (the same
- * code as a single decision), then marks the outcome released. One at a time,
- * a little apart, to stay under the email provider's rate limit.
- */
-export async function releaseOutcomes(ids: string[]): Promise<ReviewResult> {
-  const session = await requireAdmin("/admin/review/results");
-  if (!isIdList(ids)) return { ok: false, message: "Nothing selected." };
-  if (ids.length > WAVE_LIMIT) return { ok: false, message: `Release at most ${WAVE_LIMIT} at a time.` };
-
-  const { data: outcomes, error } = await session
-    .from("review_outcomes")
-    .select("application_id, outcome")
-    .in("application_id", ids)
-    .is("released_at", null);
-  if (error) return { ok: false, message: error.message };
-  if (!outcomes.length) return { ok: false, message: "Those were already released. Refresh the page." };
-
-  const released: string[] = [];
-  const problems: string[] = [];
-  for (const [i, { application_id, outcome }] of outcomes.entries()) {
-    if (i > 0) await pause(400);
-    const result = await applyDecision(session, application_id, outcome as Outcome);
-    if (result.saved) released.push(application_id);
-    if (!result.ok) problems.push(result.message);
-  }
-
-  if (released.length) {
-    const { error: markError } = await session.rpc("mark_review_released", { p_application_ids: released });
-    if (markError) problems.push(`Decisions were saved, but couldn't be marked released (${markError.message}).`);
-    revalidatePath("/admin", "layout");
-  }
-
-  const summary = `Released ${released.length} of ${outcomes.length}.`;
-  return problems.length ? { ok: false, message: [summary, ...new Set(problems)].join(" ") } : { ok: true, message: `${summary} Emails sent.` };
-}
-
-/** Clears an unreleased outcome and its votes (freeing the seat) so the applicant is reviewed again. */
+/** Clears an outcome and its Yes/No votes (freeing the seat) so the applicant is reviewed again. Skips stay. */
 export async function reopenOutcome(id: string): Promise<ReviewResult> {
   const session = await requireAdmin("/admin/review/results");
   if (!UUID.test(id)) return { ok: false, message: "Applicant not found." };
   const { data, error } = await session.rpc("reopen_review", { p_application_id: id });
   if (error) return { ok: false, message: error.message };
-  if (!data) return { ok: false, message: "Already released, so it can't be reopened. Change it from the Applicants page instead." };
+  if (!data) return { ok: false, message: "Can't reopen: a decision has already been set or staged for them. Change it from the Decisions or Applicants page instead." };
   revalidatePath("/admin", "layout");
   return { ok: true, message: "Reopened. They're back in the queue." };
 }
