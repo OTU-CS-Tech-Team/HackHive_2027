@@ -4,10 +4,10 @@ const CLUB_EMAIL = "otu.csclub@gmail.com";
 
 const footerLinks = [
   { href: "/#about", label: "About" },
+  { href: "/hackhive/archive", label: "HackHive history" },
   { href: "/#sponsors", label: "Sponsors" },
   { href: "/#judges", label: "Judges" },
   { href: "/#faq", label: "FAQs" },
-  { href: "/hackhive/archive", label: "HackHive history" },
 ] as const;
 
 export function SiteFooter() {
