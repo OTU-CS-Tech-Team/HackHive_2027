@@ -1,0 +1,323 @@
+/* Black stage as in the Figma; honey frames, chips and glow as on the passport. */
+.page {
+  min-height: 100dvh;
+  padding: 5.5rem 1rem 3rem;
+  background: #000;
+  color: #fff;
+}
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  font-family: var(--font-terminal), monospace;
+}
+
+.title {
+  margin: 0;
+  color: #f4b942;
+  font-family: var(--font-pixel), monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Phones: the bee stays in view under the navbar while you pick. */
+.stage {
+  position: sticky;
+  top: 64px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 0.5rem 0;
+  background: radial-gradient(closest-side, rgb(244 185 66 / 0.16), transparent) #000;
+}
+
+.preview {
+  display: block;
+  height: min(32dvh, 240px);
+  aspect-ratio: 200 / 280;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 560px) 340px;
+    grid-template-areas:
+      "title title"
+      "panel stage"
+      "panel actions";
+    justify-content: center;
+    align-items: start;
+    column-gap: 3.5rem;
+  }
+
+  .title {
+    grid-area: title;
+  }
+
+  .panel {
+    grid-area: panel;
+  }
+
+  .stage {
+    grid-area: stage;
+    position: static;
+  }
+
+  .actions {
+    grid-area: actions;
+  }
+
+  .preview {
+    height: 470px;
+  }
+}
+
+.panel {
+  min-width: 0;
+  padding: 14px;
+  border: 3px solid #f4b942;
+  border-radius: 14px;
+  background: #0d0d10;
+  box-shadow: 2px 2px 8.5px 0 #f4b942;
+}
+
+.panel fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Honey chips with pointed ends, like the Figma's tile labels. Clip-path
+   swallows outlines, so focus shows as a white chip instead. */
+.tab,
+.label,
+.save {
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  background: #1d1d22;
+  color: #f4b942;
+  font-size: 20px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.tab:has(:checked) {
+  background: #f4b942;
+  color: #000;
+}
+
+.tab:has(:focus-visible) {
+  background: #fff;
+  color: #000;
+}
+
+.items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px !important;
+}
+
+.item {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 4px;
+  aspect-ratio: 1 / 1.05;
+  padding: 6px 6px 8px;
+  border: 2px solid #2c2c33;
+  border-radius: 10px;
+  background: #17171b;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .item:hover {
+    border-color: rgb(244 185 66 / 0.6);
+  }
+}
+
+.item:has(:checked) {
+  border-color: #f4b942;
+  box-shadow: 0 0 14px rgb(244 185 66 / 0.45);
+}
+
+.item:has(:focus-visible) {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.thumb {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.label {
+  justify-self: center;
+  max-width: 100%;
+  padding: 3px 12px 2px;
+  background: #f4b942;
+  color: #000;
+  font-size: 16px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 14px !important;
+  transition: opacity 150ms ease;
+}
+
+.colors:disabled {
+  opacity: 0.35;
+}
+
+.colorsTitle {
+  margin-bottom: 4px;
+  color: #f4b942;
+  font-size: 18px;
+  text-transform: uppercase;
+}
+
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 44px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.colors:disabled .swatch {
+  cursor: not-allowed;
+}
+
+/* A hex ring (grey, white when picked) around the colour itself. */
+.hex {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 38px;
+  background: #3a3a42;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  transition: background-color 150ms ease;
+}
+
+.hex::after {
+  content: "";
+  width: 26px;
+  height: 30px;
+  background: var(--paint);
+  clip-path: inherit;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swatch:hover .hex {
+    background: #f4b942;
+  }
+}
+
+.swatch:has(:checked) .hex {
+  background: #fff;
+}
+
+.swatch:has(:focus-visible),
+.back:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.actions {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.save {
+  min-height: 52px;
+  padding: 0 2.25rem;
+  border: 0;
+  background: #f4b942;
+  color: #000;
+  font-family: var(--font-pixel), monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+
+.save:focus-visible {
+  background: #fff;
+}
+
+.save:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .save:hover {
+    filter: brightness(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .item,
+  .save {
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      filter 150ms ease,
+      transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .item:active,
+  .save:active {
+    transform: scale(0.97);
+  }
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #f4b942;
+  font-size: 20px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.message {
+  min-height: 1.5em;
+  margin: 0;
+  color: #ffd36b;
+  font-size: 18px;
+}

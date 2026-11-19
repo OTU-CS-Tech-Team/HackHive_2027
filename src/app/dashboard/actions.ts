@@ -2,6 +2,8 @@
 
 import QRCode from "qrcode";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { parseAvatar } from "@/lib/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { parseSlackProfileUrl } from "@/lib/team/profiles";
 import { LISTING_COLUMNS, teammateListingIssue } from "@/lib/team/listing";
@@ -90,6 +92,17 @@ export async function saveEmergencyInfo(formData: FormData) {
   if (error) return error.message;
   revalidatePath("/dashboard");
   return "Saved.";
+}
+
+// Returns a message on failure; on success it goes back to the passport.
+export async function saveAvatar(avatar: unknown) {
+  const { supabase, user } = await requireHubUser();
+  const valid = parseAvatar(avatar);
+  if (!valid) return "Something on your bee isn't in the wardrobe. Reload and try again.";
+  const { error } = await supabase.from("profiles").update({ avatar: valid }).eq("id", user.id);
+  if (error) return "Your avatar couldn't be saved. Try again.";
+  revalidatePath("/dashboard");
+  redirect("/dashboard?tab=passport");
 }
 
 // The browser uploads to Storage itself (RLS keeps hackers in their own

@@ -1,14 +1,14 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- fixed design art (cropped by CSS) and Storage avatars */
-import { Press_Start_2P, VT323 } from "next/font/google";
+import Link from "next/link";
 import { useRef, useState, type ReactNode, type RefObject } from "react";
+import type { Avatar } from "@/lib/avatar";
 import { HEX_COUNT, hexesFilled, shortName } from "@/lib/passport";
+import { Bee } from "./avatar/Bee";
 import { CheckinQr } from "./CheckinQr";
+import { pixel, terminal } from "./fonts";
 import styles from "./passport.module.css";
-
-const pixel = Press_Start_2P({ weight: "400", subsets: ["latin"], variable: "--font-pixel", display: "swap" });
-const terminal = VT323({ weight: "400", subsets: ["latin"], variable: "--font-terminal", display: "swap" });
 
 // A badge is an event the hacker was scanned into for points; id is the event id.
 export type PassportBadge = { id: string; label: string };
@@ -115,6 +115,7 @@ function Popup({ dialogRef, title, className, children }: { dialogRef: RefObject
 export function Passport({
   fullName,
   avatarUrl,
+  avatar,
   points,
   badges,
   missions,
@@ -122,6 +123,7 @@ export function Passport({
 }: {
   fullName: string | null;
   avatarUrl: string | null;
+  avatar: Avatar;
   points: number;
   badges: PassportBadge[];
   missions: PassportMission[];
@@ -144,10 +146,11 @@ export function Passport({
           <Decos items={CARD_DECOS} />
           <img className={styles.logo} src="/passport/hackhive-logo.png" alt="HackHive" />
 
-          <div className={styles.badgeBox}>
-            {/* The first badge earned, as in the design. */}
-            <BadgeArt index={0} badge={badges[0]} className={styles.badgeLarge} />
-          </div>
+          <Link href="/dashboard/avatar" className={`${styles.badgeBox} ${styles.press}`} aria-label="Edit your avatar">
+            {/* Full width, so beating wings never clip; the square's height sets the size. */}
+            <Bee avatar={avatar} viewBox="0 2 200 274" className={styles.bee} />
+            <span className={styles.editTag} aria-hidden="true">EDIT</span>
+          </Link>
 
           <header className={styles.header}>
             <h2 className={styles.headerTitle}>Hacker Profile</h2>

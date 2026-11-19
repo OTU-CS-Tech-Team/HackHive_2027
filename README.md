@@ -126,6 +126,19 @@ Use **Refresh stats** for current numbers. **Review applications** returns to th
 existing admin application controls. Application and decision editing continue
 to work as before.
 
+## Bee avatar
+
+Accepted hackers build a bee on `/dashboard/avatar` (tap the square under the
+logo on the passport): a top, bottom, shoes, hat, headphones, glasses and LED
+face, each in a colour. The bee is SVG drawn in code
+(`src/app/dashboard/avatar/Bee.tsx`), so every piece mixes with every other; the
+pieces and colours are listed in `src/lib/avatar.ts`.
+
+Apply `supabase/migrations/20261121000000_avatar.sql` before deploying. Until it
+is applied, passports show the default bee, the wardrobe page says it couldn't
+load, and nothing else breaks. A retired piece in a saved avatar shows the
+default piece instead.
+
 ## HackHive Museum
 
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or
