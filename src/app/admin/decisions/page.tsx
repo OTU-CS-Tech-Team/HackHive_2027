@@ -21,7 +21,7 @@ export const maxDuration = 60;
 
 export default function DecisionsPage() {
   return (
-    <main className="mx-auto max-w-3xl">
+    <main className="mx-auto max-w-3xl mt-6">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Decisions</h1>
         <p className="mt-1 text-sm text-neutral-600">Nobody hears anything until you release a wave.</p>
