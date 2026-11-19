@@ -7,11 +7,17 @@ Open **Review applicants** from `/admin`, or visit `/admin/applicants`. Pending
 applicants are listed oldest first. Use the tabs to switch status, and search by
 name, email or school. **View application** shows the full application and resume.
 
-**Accept**, **Waitlist** and **Reject** save straight away and email the applicant
-through Resend, so they ask for confirmation first. Only accepted applicants (and
-admins) get the full `/dashboard`; the email to accepted applicants links to it.
-**Move to pending** emails nobody. If an email fails the decision stays saved and
-the page says so; use **Resend email** to try again.
+**Accept**, **Waitlist** and **Reject** only *stage* a decision ("Staged: Accept ·
+not sent yet", with **Undo**); nobody is emailed. Staged decisions go out together
+when an admin releases a wave on `/admin/decisions`: the decisions are saved, the
+emails go out through Resend in batches, and rejections are held back until the
+final wave. Only accepted applicants (and admins) get the full `/dashboard`; the
+email to accepted applicants links to it. If an email fails, the wave history shows
+it; use **Retry unsent** there, or **Resend email** on an applicant.
+
+`/admin/decisions` also shows seat-target trackers (Ontario Tech, 1st/2nd years,
+everyone else; display only, set in `src/lib/decisions/pools.ts`) and can stage
+accepts for the top of the waitlist by Hive Mind rank.
 
 **Delete** permanently removes someone's account, application, profile, points,
 team posts and uploaded files, after you type `DELETE` to confirm. It can't be
