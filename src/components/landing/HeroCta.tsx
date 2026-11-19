@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
-// The same lemon-to-orange gradient as the HackHive title. White text
+// A lemon-to-orange gradient, warmer than the flat yellow title. White text
 // can't sit on yellow this light, so the label is deep brown #3b2400:
 // about 11:1 on the lemon and 5.4:1 on the orange corner (AA either way).
 // Hover brightens the glow, not the fill, so the contrast holds.

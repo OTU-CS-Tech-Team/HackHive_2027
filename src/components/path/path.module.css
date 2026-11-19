@@ -196,10 +196,10 @@
   display: grid;
   margin: 0;
   color: #fff;
-  /* About a third of a wide frame, heavy enough that the gradient holds over the peaks. */
+  /* About a third of a wide frame, heavy enough that the yellow holds over the peaks. */
   font-size: clamp(3rem, 7.4vw, 8.75rem);
-  font-weight: 600;
-  letter-spacing: -0.055em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   line-height: 0.88;
 }
 
@@ -207,33 +207,18 @@
   content: "\00a0";
 }
 
-/* Lemon-to-orange letters, the same gradient as the join button. Each line
-   carries its own gradient so a phone's two lines match. No outline; a soft
-   warm shadow lifts them off the sky. It is a filter, not text-shadow,
-   which would paint over clipped text. */
+/* Flat pollen yellow, one colour across both lines. A hard, dark amber edge
+   under each letter (in em, so it scales with the title) keeps them crisp
+   on the pale sky and the green hill, with a faint soft shadow under that. */
 .heroFace {
   grid-area: 1 / 1;
-  color: #ffc000;
-  filter: drop-shadow(0 2px 6px rgba(110, 40, 0, 0.28));
+  color: #ffc414;
+  filter: drop-shadow(0 0.035em 0 #a35f00) drop-shadow(0 0.06em 0.08em rgba(90, 40, 0, 0.22));
 }
 
 .heroLine,
 .heroYear {
   padding-bottom: 0.06em;
-  /* A lemon glow at the top centre, over amber running to orange at the bottom right. */
-  background-image:
-    radial-gradient(
-      ellipse 80% 120% at 55% 0%,
-      #ffdd01 0%,
-      #ffc000 45%,
-      rgba(255, 170, 1, 0) 80%
-    ),
-    linear-gradient(160deg, #ffaa01 0%, #ffa402 45%, #ff7400 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  color: transparent;
 }
 
 /* Date and place: dark and heavy, the firmest line under the title. */
