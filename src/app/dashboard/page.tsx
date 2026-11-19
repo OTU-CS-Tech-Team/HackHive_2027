@@ -262,14 +262,24 @@ async function CheckoutTab({ supabase, userId }: { supabase: Supabase; userId: s
 
 // The hacker's pending item requests with their place in the queue, and the form to
 // send another, up to MAX_PENDING_REQUESTS waiting. Once an organizer accepts or
-// rejects a request it drops off here; the hacker hears the decision by email.
+// rejects a request it leaves the queue; the hacker hears the decision by email, and
+// it's kept under a collapsed "Past requests" in case that email goes missing.
 async function ItemRequests({ supabase, userId }: { supabase: Supabase; userId: string }) {
-  const [{ data: pendingRequests }, { data: queuePositions }] = await Promise.all([
-    supabase.from("item_requests").select("id, items, created_at").eq("user_id", userId).eq("status", "pending").order("queue_number"),
+  const [{ data: requests }, { data: queuePositions }] = await Promise.all([
+    supabase
+      .from("item_requests")
+      .select("id, items, created_at, status, reviewed_at, admin_note")
+      .eq("user_id", userId)
+      .order("queue_number"),
     supabase.rpc("my_item_request_positions"),
   ]);
 
-  const pending = pendingRequests ?? [];
+  const pending = (requests ?? []).filter((request) => request.status === "pending");
+  // Reviewed ones leave the queue but stay on record below, newest first, in case the
+  // decision email never arrives.
+  const past = (requests ?? [])
+    .filter((request) => request.status !== "pending")
+    .sort((a, b) => (b.reviewed_at ?? "").localeCompare(a.reviewed_at ?? ""));
   const positionOf = new Map(
     ((queuePositions ?? []) as { id: string; queue_position: number }[]).map((row) => [row.id, row.queue_position]),
   );
@@ -322,6 +332,40 @@ async function ItemRequests({ supabase, userId }: { supabase: Supabase; userId: 
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           You have {MAX_PENDING_REQUESTS} requests in the queue. You can send another once an organizer has reviewed one of them.
         </p>
+      )}
+      {past.length > 0 && (
+        <details className="mt-6 border-t border-neutral-200 pt-4">
+          <summary className="cursor-pointer text-sm font-semibold text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+            Past requests <span className="tabular-nums opacity-70">{past.length}</span>
+          </summary>
+          <ul className="mt-3 divide-y divide-neutral-200 border-y border-neutral-200">
+            {past.map((request) => (
+              <li key={request.id} className="py-3 [overflow-wrap:anywhere]">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600">
+                  <span
+                    className={`${pill} ${request.status === "accepted" ? "bg-green-50 text-green-800 ring-green-300" : "bg-red-50 text-red-800 ring-red-300"}`}
+                  >
+                    {request.status === "accepted" ? "Accepted" : "Not accepted"}
+                  </span>
+                  {request.reviewed_at && <span>Reviewed {formatDateTime(request.reviewed_at)}</span>}
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-2" aria-label="Items">
+                  {(request.items as { name: string; quantity: number }[]).map((item, i) => (
+                    <li key={i} className="inline-flex items-baseline gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-sm">
+                      <span className="font-semibold tabular-nums">{item.quantity}×</span>
+                      {item.name}
+                    </li>
+                  ))}
+                </ul>
+                {request.admin_note && (
+                  <p className="mt-2 text-sm">
+                    <span className="font-medium">Organizer note:</span> {request.admin_note}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );
