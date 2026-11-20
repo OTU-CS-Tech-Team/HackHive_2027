@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { ApplicationView, applicantStatus } from "@/components/ApplicationView";
 import { bySubmittedAt, loadAllByKeyset } from "@/lib/admin/applicants";
@@ -14,6 +15,8 @@ import { deleteApplicants } from "../actions";
 import { DeleteButton, SelectBox, Selection } from "../Selection";
 import { MinorPill, TierBadge } from "../hive/TierBadge";
 import { DecisionControls, ReviewNotice } from "./DecisionControls";
+import { nextReminderAt } from "@/lib/admin/draft-reminders";
+import { DraftReminder } from "./DraftReminder";
 
 export const metadata: Metadata = { title: "Applicants | HackHive 2027" };
 
@@ -144,6 +147,16 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
         </form>
       </div>
 
+      {filter === "draft" && (
+        <>
+          {/* Every draft, not just the ones matching the search. */}
+          <Reminders
+            session={session}
+            ids={((data ?? []) as Application[]).filter((app) => applicantStatus(app) === "draft").map((app) => app.id)}
+          />
+        </>
+      )}
+
       {shown.length ? (
         <Selection
           items={shown.map((app) => ({ id: app.id, label: fullName(app) || app.email }))}
@@ -162,6 +175,67 @@ async function Applicants({ searchParams }: { searchParams: SearchParams }) {
         </p>
       )}
     </ReviewNotice>
+  );
+}
+
+// "Days ago" depends on the time, so it's worked out per request.
+async function requestTime() {
+  await connection();
+  return Date.now();
+}
+
+// "today", "yesterday", "3 days ago", next to the reminder's date.
+function daysAgo(iso: string, now: number) {
+  const day = (time: number) => new Date(time).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const days = Math.round((Date.parse(day(now)) - Date.parse(day(Date.parse(iso)))) / 86_400_000);
+  return days <= 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+}
+
+// The "remind every draft" box, then when the last reminder went out, who sent it, and
+// how it went. The last run also sets the cooldown before the next one can go out.
+async function Reminders({ session, ids }: { session: Awaited<ReturnType<typeof requireAdmin>>; ids: string[] }) {
+  const { data: run, error } = await session
+    .from("draft_reminder_runs")
+    .select("started_at, recipients, sent, failed, skipped, sender:profiles!sent_by(full_name, email)")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const now = await requestTime();
+
+  type Sender = { full_name: string | null; email: string | null };
+  const joined = run?.sender as Sender | Sender[] | null | undefined;
+  const sender = Array.isArray(joined) ? joined[0] : joined;
+  const handled = run ? run.sent + run.failed + run.skipped : 0;
+  const next = nextReminderAt(run?.started_at);
+  const cooldown = next && next > now ? { until: next, label: formatDateTime(new Date(next).toISOString()) } : null;
+
+  return (
+    <>
+      <DraftReminder ids={ids} now={now} cooldown={cooldown} />
+      <section aria-labelledby="last-reminder-heading" className="mb-4 rounded-lg border border-neutral-200 p-5">
+        <h2 id="last-reminder-heading" className="text-sm font-medium text-neutral-600">
+          Last reminder
+        </h2>
+        {error ? (
+          <p className="mt-1 text-sm text-red-700">Couldn&apos;t load it. Check the draft_reminder_runs migration has been applied.</p>
+        ) : !run ? (
+          <p className="mt-1 font-semibold">No reminders sent yet.</p>
+        ) : (
+          <>
+            <p className="mt-1 font-semibold">
+              {formatDateTime(run.started_at)} <span className="font-normal text-neutral-600">({daysAgo(run.started_at, now)})</span>
+            </p>
+            <p className="mt-1 text-sm text-neutral-600">
+              {sender && <>By {sender.full_name || sender.email} · </>}
+              {run.sent} of {run.recipients} sent
+              {run.failed > 0 && ` · ${run.failed} failed`}
+              {run.skipped > 0 && ` · ${run.skipped} skipped (already submitted)`}
+              {handled < run.recipients && ` · still sending, or stopped early`}
+            </p>
+          </>
+        )}
+      </section>
+    </>
   );
 }
 

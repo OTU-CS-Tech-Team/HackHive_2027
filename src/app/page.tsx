@@ -37,7 +37,8 @@ export default function Home() {
   }
 
   return (
-    <main>
+    // id="top" is where the navbar's Home link goes (components/navbar/links.ts).
+    <main id="top">
       <IntroOverlay />
       <HeroScroll poster={HAS_POSTER} goldBand={false}>
         <Suspense fallback={<HeroCtaFallback />}>

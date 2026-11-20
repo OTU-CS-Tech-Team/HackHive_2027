@@ -13,6 +13,31 @@
   transform: translateY(-100%);
 }
 
+/* The MLH badge hangs below the bar, so moving the bar up its own height would leave
+   the bottom of the badge showing. It moves up its own height as well, at the same pace. */
+.header [data-mlh-badge] {
+  transition: transform 300ms ease-in-out;
+}
+
+.header[data-hidden="true"] [data-mlh-badge] {
+  transform: translateY(-100%);
+}
+
+.header:has([data-mobile-menu][open]) [data-mlh-badge],
+.header:focus-within [data-mlh-badge] {
+  transform: none;
+}
+
+.header:focus-within [data-mlh-badge] {
+  transition-duration: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header [data-mlh-badge] {
+    transition-duration: 0.01ms;
+  }
+}
+
 .header:has([data-mobile-menu][open]) {
   transform: none;
 }

@@ -290,6 +290,8 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Service-Role Only Functions', ()
       p_share_resume_with_sponsors: null,
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: `${testUser.id}/indemnification.pdf`,
       p_stamped_at: new Date().toISOString(),
       p_email: testUser.email.toLowerCase(),
@@ -366,6 +368,8 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Service-Role Only Functions', ()
       p_share_resume_with_sponsors: null,
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: `${testUser.id}/indemnification.pdf`,
       p_stamped_at: new Date().toISOString(),
       p_email: testUser.email.toLowerCase(),
@@ -440,6 +444,8 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service R
       p_share_resume_with_sponsors: null,
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: `${testUser.id}/indemnification.pdf`,
       p_stamped_at: new Date().toISOString(),
       p_email: testUser.email.toLowerCase(),
@@ -487,6 +493,8 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service R
       p_share_resume_with_sponsors: null,
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: `${testUser.id}/indemnification.pdf`,
       p_stamped_at: new Date().toISOString(),
       p_email: testUser.email.toLowerCase(),
@@ -551,6 +559,8 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Submit Application via Service R
       p_share_resume_with_sponsors: null,
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: `${testUser.id}/indemnification.pdf`,
       p_stamped_at: new Date().toISOString(),
       p_email: testUser.email.toLowerCase(),
@@ -623,6 +633,8 @@ describe.skipIf(!process.env.SUPABASE_RUNNING)('Deadline Lock', () => {
       p_share_resume_with_sponsors: null,
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: `${testUser.id}/indemnification.pdf`,
       p_stamped_at: new Date().toISOString(),
       p_email: testUser.email.toLowerCase(),
@@ -811,6 +823,8 @@ describe('Schema Validation', () => {
       consent_privacy: true,
       consent_indemnification: true,
       consent_esignature: true,
+      consent_mlh_coc: true,
+      consent_mlh_share: true,
       guardian_name: 'Parent Name',
       guardian_phone: '9876543210',
       guardian_relationship: 'Parent',
@@ -866,6 +880,8 @@ describe('Schema Validation', () => {
       consent_privacy: false,
       consent_indemnification: true,
       consent_esignature: true,
+      consent_mlh_coc: true,
+      consent_mlh_share: true,
     });
 
     expect(noPrivacy.success).toBe(false);
@@ -915,6 +931,8 @@ describe('Schema Validation', () => {
       consent_privacy: true,
       consent_indemnification: true,
       consent_esignature: false,
+      consent_mlh_coc: true,
+      consent_mlh_share: true,
     });
 
     expect(noEsignature.success).toBe(false);
@@ -979,6 +997,8 @@ describe('Schema Validation', () => {
       consent_privacy: true,
       consent_indemnification: true,
       consent_esignature: true,
+      consent_mlh_coc: true,
+      consent_mlh_share: true,
     };
 
     expect(applicationSubmitSchema.safeParse(baseValidSubmission).success).toBe(true);

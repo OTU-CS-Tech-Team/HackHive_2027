@@ -509,6 +509,9 @@ export async function submitApplication(input: {
       p_share_resume_with_sponsors: data.share_resume_with_sponsors ?? null,
       p_consent_indemnification: data.consent_indemnification,
       p_consent_esignature: data.consent_esignature,
+      p_consent_mlh_coc: data.consent_mlh_coc,
+      p_consent_mlh_share: data.consent_mlh_share,
+      p_consent_mlh_emails: data.consent_mlh_emails ?? false,
       p_indemnification_path: indemnificationPath,
       p_stamped_at: stampedAt.toISOString(),
       p_email: user.email.toLowerCase(),
@@ -540,6 +543,10 @@ export async function submitApplication(input: {
       if (response.error === 'esignature_required') {
         const message = 'You must agree that electronic signatures are legally binding';
         return { ok: false, code: 'validation', error: message, fieldErrors: { consent_esignature: [message] } };
+      }
+      if (response.error === 'mlh_required') {
+        const message = 'You must agree to the MLH Code of Conduct and to sharing your information with MLH';
+        return { ok: false, code: 'validation', error: message, fieldErrors: { consent_mlh_coc: [message] } };
       }
       return { ok: false, code: 'server', error: response.error };
     }
