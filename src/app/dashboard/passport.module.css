@@ -71,11 +71,6 @@
   opacity: 0.35;
 }
 
-.badgeLarge {
-  width: 91px;
-  height: 91px;
-}
-
 .badgeSmall {
   width: 62px;
   height: 62px;
@@ -93,6 +88,32 @@
   border-radius: 14px;
   background: #000;
   box-shadow: 2px 2px 8.5px 0 #f4b942;
+}
+
+.badgeBox:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+/* The hacker's bee (see avatar/Bee.tsx), head to toe. */
+.bee {
+  width: 96px;
+  height: 108px;
+}
+
+/* Hangs off the bottom edge, like the wardrobe's tile labels. */
+.editTag {
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 4px 10px 3px;
+  background: #f4b942;
+  color: #000;
+  font-family: var(--font-pixel), monospace;
+  font-size: 7px;
+  line-height: 1;
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
 }
 
 /* ── Profile header ───────────────────────────────────────────────────────── */

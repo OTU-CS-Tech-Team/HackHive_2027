@@ -9,6 +9,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { ApplicationAnswers, ApplicationStatus } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { getMyApplication } from "@/lib/application/api";
+import { avatarOf } from "@/lib/avatar";
 import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
 import { formatDateTime, formatDay, formatTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
@@ -203,10 +204,12 @@ async function PassportTab({
   userId: string;
   profile: { full_name: string | null; avatar_url: string | null } | null;
 }) {
-  const [{ data: balance }, { data: earned }, { data: events }, qr] = await Promise.all([
+  const [{ data: balance }, { data: earned }, { data: events }, { data: bee }, qr] = await Promise.all([
     supabase.from("point_balances").select("balance").eq("user_id", userId).maybeSingle(),
     supabase.from("point_transactions").select("event_id, reason").eq("user_id", userId).not("event_id", "is", null).order("created_at"),
     supabase.from("events").select("id, title, points, starts_at").gt("points", 0).order("starts_at"),
+    // Its own query: if the avatar column isn't there yet, only the bee falls back to the default.
+    supabase.from("profiles").select("avatar").eq("id", userId).maybeSingle(),
     mintCheckinToken(),
   ]);
 
@@ -214,6 +217,7 @@ async function PassportTab({
     <Passport
       fullName={profile?.full_name ?? null}
       avatarUrl={profile?.avatar_url ?? null}
+      avatar={avatarOf(bee?.avatar)}
       points={balance?.balance ?? 0}
       badges={(earned ?? []).map((row) => ({ id: row.event_id as string, label: row.reason }))}
       missions={(events ?? []).map((event) => ({
