@@ -25,6 +25,11 @@ export async function Navbar() {
               {link.label}
             </Link>
           ))}
+           {isSignedIn && (
+            <Link href="/dashboard" className="text-md font-medium whitespace-nowrap text-neutral-900">
+              Dashboard
+            </Link>
+          )}
         </nav>
           {isSignedIn ? (
           <>
