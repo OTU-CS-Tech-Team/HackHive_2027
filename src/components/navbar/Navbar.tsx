@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getVerifiedUser } from "@/lib/auth/helpers";
+import { getVerifiedUser, getAppliedUser } from "@/lib/auth/helpers";
 import { signOut } from "@/app/actions/auth";
 import { getAccountLinks, links } from "@/components/navbar/links";
 import MobileNavMenu from "@/components/navbar/MobileNavMenu";
@@ -9,6 +9,7 @@ export async function Navbar() {
   // Same check the pages use, so an unverified account doesn't show "Log out"
   // while every page treats it as signed out.
   const isSignedIn = !!(await getVerifiedUser());
+  const hasApplied = !!(await getAppliedUser());
   const accountLinks = getAccountLinks(isSignedIn);
 
   return (
@@ -25,14 +26,19 @@ export async function Navbar() {
               {link.label}
             </Link>
           ))}
-          {isSignedIn && (
-            <Link href="/dashboard" className="text-md font-medium whitespace-nowrap text-neutral-900">
-              Dashboard
-            </Link>
-          )}
         </nav>
-        {isSignedIn ? (
+          {isSignedIn ? (
           <>
+            {!hasApplied && (
+              <Link
+                href="/signup"
+                data-nav-cta
+                className="rounded-lg bg-hive-ink px-3 py-2 text-sm font-semibold text-white hover:bg-[#1c4258] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-ink sm:px-4"
+              >
+                Apply
+              </Link>
+            )}
+
             <form action={signOut}>
               <button
                 type="submit"
@@ -44,13 +50,12 @@ export async function Navbar() {
             </form>
           </>
         ) : (
-          // Returning hackers reach log in from the signup page.
           <Link
             href="/signup"
             data-nav-cta
             className="rounded-lg bg-hive-ink px-3 py-2 text-sm font-semibold text-white hover:bg-[#1c4258] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hive-ink sm:px-4"
           >
-            Apply
+            Sign up
           </Link>
         )}
         {/* MLH trust badge: required on MLH member events, in the top right. It hangs
