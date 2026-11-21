@@ -16,6 +16,7 @@ import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
+import { DashboardSidebar, getAccess, TABS, type Tab } from "@/components/DashboardSidebar";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -24,17 +25,7 @@ const input = "w-full rounded border border-neutral-300 px-3 py-2";
 const muted = "text-sm text-neutral-600";
 
 // Sidebar entries; the panel on the right is picked by ?tab=, schedule by default.
-const TABS = {
-  schedule: "Schedule",
-  application: "Application",
-  team: "Looking for group",
-  checkout: "Hardware checkout",
-  hunt: "Scavenger hunt",
-  shop: "Points shop",
-  profile: "Profile",
-  passport: "Passport",
-} as const;
-type Tab = keyof typeof TABS;
+
 
 const ICONS: Record<Tab, LucideIcon> = {
   schedule: CalendarDays,
@@ -69,16 +60,12 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
   } = await supabase.auth.getUser();
   if (!user) redirect(`/auth/login?next=${encodeURIComponent(wanted === "schedule" ? "/dashboard" : `/dashboard?tab=${wanted}`)}`);
 
-  const [{ data: profile }, { data: admin }, { data: application }] = await Promise.all([
-    supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
-    supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
-    supabase.from("applications").select("decision").eq("user_id", user.id).maybeSingle(),
-  ]);
-  // Accepted hackers and admins get the whole hub; everyone else only sees their application and its status.
-  const allowed = admin || application?.decision === "accepted" ? (Object.keys(TABS) as Tab[]) : (["application"] as Tab[]);
+  const [{ data: profile }, { admin, allowed }] = await Promise.all([
+  supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
+  getAccess(supabase, user.id),
+          ]);
   const tab = allowed.includes(wanted) ? wanted : allowed[0];
   if (tab === "team") redirect("/dashboard/team");
-
   return (
     <main className="pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
       {/* Pinned to the left edge of the screen; the tab content centres in the rest. */}
