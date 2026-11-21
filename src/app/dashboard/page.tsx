@@ -69,43 +69,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
   return (
     <main className="pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
       {/* Pinned to the left edge of the screen; the tab content centres in the rest. */}
-      <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
-          <p className={`hidden md:block ${sidebarLabel}`}>HackHive 2027</p>
-          <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
-            {/* The passport has its own button in the header instead. */}
-            {allowed.filter((key) => key !== "passport").map((key) => {
-              const Icon = ICONS[key];
-              const active = tab === key;
-              return (
-                <Link
-                  key={key}
-                  href={key === "team" ? "/dashboard/team" : key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
-                    active ? "bg-amber-50 text-amber-900" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-                  }`}
-                >
-                  <Icon className={`size-6 shrink-0 ${active ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
-                  {TABS[key]}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Phones already get Log out in the top navbar. */}
-          <div className="mt-auto hidden pt-8 md:block">
-            <p className={sidebarLabel}>Account</p>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-              >
-                <LogOut className="size-6 shrink-0 text-neutral-400" aria-hidden />
-                Log out
-              </button>
-            </form>
-          </div>
-        </aside>
+      <DashboardSidebar allowed={allowed} active={tab} />
 
         <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
           <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">

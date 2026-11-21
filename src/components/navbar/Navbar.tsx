@@ -4,6 +4,7 @@ import { getVerifiedUser, getAppliedUser } from "@/lib/auth/helpers";
 import { signOut } from "@/app/actions/auth";
 import { getAccountLinks, links } from "@/components/navbar/links";
 import MobileNavMenu from "@/components/navbar/MobileNavMenu";
+import DashboardLogo from "@/components/navbar/DashboardLogo";
 
 export async function Navbar() {
   // Same check the pages use, so an unverified account doesn't show "Log out"
@@ -14,9 +15,12 @@ export async function Navbar() {
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <MobileNavMenu links={links} accountLinks={accountLinks} />
-       
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <MobileNavMenu links={links} accountLinks={accountLinks} />
+          <DashboardLogo />
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         <nav aria-label="Page sections" className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
@@ -25,13 +29,13 @@ export async function Navbar() {
               {link.label}
             </Link>
           ))}
-           {isSignedIn && (
+          {isSignedIn && (
             <Link href="/dashboard" className="text-md font-medium whitespace-nowrap text-neutral-900">
               Dashboard
             </Link>
           )}
         </nav>
-          {isSignedIn ? (
+        {isSignedIn ? (
           <>
             {!hasApplied && (
               <Link
