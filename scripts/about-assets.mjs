@@ -1,5 +1,5 @@
-// Builds the About section's images in public/about/ from the original photos at the repo root
-// (hackhive_photo*.JPG/.jpg, which are too big to commit and are git-ignored).
+// Builds the About section's images in public/about/ from the original photos in
+// assets/about-originals/ (too big to commit, so that folder is git-ignored).
 //
 //   node scripts/about-assets.mjs
 //
@@ -11,6 +11,7 @@ import path from "node:path";
 import sharp from "sharp";
 
 const root = path.resolve(import.meta.dirname, "..");
+const originals = path.join(root, "assets/about-originals");
 const out = path.join(root, "public/about");
 mkdirSync(out, { recursive: true });
 
@@ -34,14 +35,15 @@ const PHOTOS = [
     widths: [1600, 800],
   },
   {
-    // Two hackers demoing, thumbs up: the "projects" stat. Only 400x267 (already 3:2), upscaled once.
-    src: "hackhive_photo2.jpg",
+    // Two hackers at their hardware build and laptop: the "projects" stat. 4000x3000, cropped above
+    // the blurred foreground desk.
+    src: "projects_picture.jpg",
     name: "projects",
-    crop: { left: 0, top: 0, width: 1 },
+    crop: { left: 0.05, top: 0.08, width: 0.9 },
     aspect: 3 / 2,
-    widths: [800],
+    widths: [1600, 800],
   },
-  // Polaroids (16:9). Originals sit at the repo root and are git-ignored like the photos above.
+  // Polaroids (16:9).
   {
     // NeuroDetect: two hackers at their laptops. Only 400x267, upscaled once.
     src: "neurodetect.png",
@@ -93,9 +95,9 @@ function tiny(image, width) {
 
 async function main() {
   for (const photo of PHOTOS) {
-    const file = path.join(root, photo.src);
+    const file = path.join(originals, photo.src);
     if (!existsSync(file)) {
-      console.warn(`skip ${photo.src}: not found at the repo root`);
+      console.warn(`skip ${photo.src}: not found in assets/about-originals/`);
       continue;
     }
     const image = await cropped(file, photo.crop, photo.aspect);
