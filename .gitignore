@@ -51,7 +51,4 @@ next-env.d.ts
 scripts/hive-eval.local.json
 
 # Original About photos (16-19 MB each); scripts/about-assets.mjs builds public/about/ from them.
-/hackhive_photo*.JPG
-/hackhive_photo*.jpg
-/neurodetect.png
-/cutos.png
+/assets/about-originals/

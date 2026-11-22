@@ -69,9 +69,9 @@ export const ABOUT_STATS: readonly AboutStat[] = [
     label: "projects built over the weekend",
     image: {
       base: "/about/projects",
-      widths: [800],
+      widths: [1600, 800],
       ascii: "/about/projects-ascii.png",
-      alt: "Two hackers giving a thumbs up beside their hardware demo.",
+      alt: "Two hackers working on a hardware build wired to a laptop at HackHive 2026.",
     },
   },
 ];
