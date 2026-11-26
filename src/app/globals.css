@@ -237,3 +237,5 @@ body {
     scroll-behavior: auto;
   }
 }
+[data-panel] { transition: opacity 0.25s ease, visibility 0.25s; }
+html[data-hide-panel] [data-panel] { opacity: 0; visibility: hidden; pointer-events: none; }
