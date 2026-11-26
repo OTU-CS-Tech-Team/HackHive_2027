@@ -16,7 +16,7 @@ import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
-import { DashboardSidebar, getAccess, TABS, type Tab } from "@/components/DashboardSidebar";
+import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { WaterfallBackdrop } from "@/components/WaterfallBackdrop";
 import { PcbBackdrop } from "@/components/PcbBackdrop";
 import { BackgroundToggle } from "@/components/BackgroundToggle";

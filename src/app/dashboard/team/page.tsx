@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { DashboardSidebar, getAccess } from '@/components/DashboardSidebar';
+import { createClient } from '@/lib/supabase/server';
 import { loadTeamDirectory } from '@/lib/team/load-directory';
 import { TeamHub } from './TeamHub';
 import { TeamHero } from './TeamHero';
 import styles from './team.module.css';
 import { WaterfallBackdrop } from "@/components/WaterfallBackdrop";
-import { BackgroundToggle } from "@/components/BackgroundToggle";
+import { BackgroundToggle} from "@/components/BackgroundToggle";
 export const metadata: Metadata = { title: 'Find your hive | HackHive 2027', description: 'Meet hackers, discover complementary skills, and build your HackHive team.' };
 export default function TeamPage() {
   return (
