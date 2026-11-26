@@ -16,6 +16,7 @@ import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
+import { DashboardSidebar, getAccess, TABS, type Tab } from "@/components/DashboardSidebar";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -26,17 +27,7 @@ const muted = "text-sm text-neutral-600";
 const pill = "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset";
 
 // Sidebar entries; the panel on the right is picked by ?tab=, schedule by default.
-const TABS = {
-  schedule: "Schedule",
-  application: "Application",
-  team: "Looking for group",
-  checkout: "Hardware checkout",
-  hunt: "Scavenger hunt",
-  shop: "Points shop",
-  profile: "Profile",
-  passport: "Passport",
-} as const;
-type Tab = keyof typeof TABS;
+
 
 const ICONS: Record<Tab, LucideIcon> = {
   schedule: CalendarDays,
@@ -71,56 +62,16 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
   } = await supabase.auth.getUser();
   if (!user) redirect(`/auth/login?next=${encodeURIComponent(wanted === "schedule" ? "/dashboard" : `/dashboard?tab=${wanted}`)}`);
 
-  const [{ data: profile }, { data: admin }, { data: application }] = await Promise.all([
-    supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
-    supabase.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle(),
-    supabase.from("applications").select("decision").eq("user_id", user.id).maybeSingle(),
-  ]);
-  // Accepted hackers and admins get the whole hub; everyone else only sees their application and its status.
-  const allowed = admin || application?.decision === "accepted" ? (Object.keys(TABS) as Tab[]) : (["application"] as Tab[]);
+  const [{ data: profile }, { admin, allowed }] = await Promise.all([
+  supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).single(),
+  getAccess(supabase, user.id),
+          ]);
   const tab = allowed.includes(wanted) ? wanted : allowed[0];
   if (tab === "team") redirect("/dashboard/team");
-
   return (
     <main className="pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
       {/* Pinned to the left edge of the screen; the tab content centres in the rest. */}
-      <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
-          <p className={`hidden md:block ${sidebarLabel}`}>HackHive 2027</p>
-          <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
-            {/* The passport has its own button in the header instead. */}
-            {allowed.filter((key) => key !== "passport").map((key) => {
-              const Icon = ICONS[key];
-              const active = tab === key;
-              return (
-                <Link
-                  key={key}
-                  href={key === "team" ? "/dashboard/team" : key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
-                    active ? "bg-amber-50 text-amber-900" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-                  }`}
-                >
-                  <Icon className={`size-6 shrink-0 ${active ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
-                  {TABS[key]}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Phones already get Log out in the top navbar. */}
-          <div className="mt-auto hidden pt-8 md:block">
-            <p className={sidebarLabel}>Account</p>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-              >
-                <LogOut className="size-6 shrink-0 text-neutral-400" aria-hidden />
-                Log out
-              </button>
-            </form>
-          </div>
-        </aside>
+      <DashboardSidebar allowed={allowed} active={tab} />
 
         <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
           <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
