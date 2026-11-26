@@ -17,7 +17,6 @@ import { AvatarUpload } from "@/components/AvatarUpload";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
 import { DashboardSidebar, getAccess, TABS, type Tab } from "@/components/DashboardSidebar";
-import { WaterfallBackdrop } from "@/components/WaterfallBackdrop";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -67,15 +66,13 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           ]);
   const tab = allowed.includes(wanted) ? wanted : allowed[0];
   if (tab === "team") redirect("/dashboard/team");
-  const region = tab === "schedule" ? "top" : tab === "application" ? "middle" : undefined;
-  
   return (
     <main className="pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
-      {region && <WaterfallBackdrop region={region} />}
+      {/* Pinned to the left edge of the screen; the tab content centres in the rest. */}
       <DashboardSidebar allowed={allowed} active={tab} />
 
-{/* <div className="fixed top-20 left-2 z-50 rounded bg-red-600 px-2 py-1 text-xs text-white">region: {String(region)}</div> */}
-<div className={`relative z-10 mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8 ${region ? "rounded-xl bg-white/75 py-4 shadow-lg backdrop-blur-sm" : ""}`}>          <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
+        <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
+          <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <AvatarUpload avatarUrl={profile?.avatar_url ?? null} />
               <h1 className="truncate text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>

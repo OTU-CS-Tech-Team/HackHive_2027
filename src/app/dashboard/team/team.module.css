@@ -186,39 +186,3 @@
 }
 @media(max-width:360px) { .tab { font-size:.7rem; } .resultRow .inlineActions { width:100%; justify-content:space-between; } }
 @media(prefers-reduced-motion:reduce) { .page *,.selectMenu { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
-/* One frosted pane for the whole page */
-.page { background: transparent; min-height: 0; padding: 1.5rem 1.25rem 4rem; }
-.container {
-  padding: 1.5rem;
-  border-radius: 1.5rem;
-  border: 1px solid rgb(255 255 255 / 0.6);
-  background: rgb(255 255 255 / 0.62);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
-  box-shadow: 0 10px 30px rgb(19 47 64 / 0.15);
-}
-
-/* Inside the pane: no fills, shadows or blur of their own */
-.sectionHead, .searchRow, .resultRow, .activeFilters, .tabs, .back {
-  background: none; box-shadow: none; backdrop-filter: none; padding-inline: 0;
-}
-
-/* Cards and controls: light tiles on the pane, rounded, no nested blur */
-.card, .ownPanel, .editorPanel, .empty, .skeleton {
-  background: rgb(255 255 255 / 0.55);
-  border-radius: 1.25rem;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-.search, .selectTrigger, .form input:not([type=checkbox]), .form textarea, .textarea, .choice, .close {
-  background: rgb(255 255 255 / 0.9);
-  border-radius: 0.85rem;
-  backdrop-filter: none;
-}
-.discoveryHero { border-radius: 1.25rem; }
-.chip, .badge, .count, .role { border-radius: 9999px; }
-
-@media (max-width: 700px) {
-  .page { padding: 1rem 0.75rem 3rem; }
-  .container { padding: 1rem; border-radius: 1.25rem; }
-}

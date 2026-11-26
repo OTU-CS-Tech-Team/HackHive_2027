@@ -44,7 +44,8 @@ const sidebarLabel = "mb-3 px-3 text-sm font-bold tracking-wider text-neutral-50
 
 export function DashboardSidebar({ allowed, active }: { allowed: Tab[]; active: Tab }) {
   return (
-<aside className="bg-white/75 px-4 backdrop-blur-sm md:sticky md:top-[7.5rem] md:-mb-16 md:h-[calc(100dvh-7.5rem)] md:flex md:flex-col md:border-r md:border-neutral-200 md:px-5 md:pb-4 rounded-2xl">      
+    <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
+      
       <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
         {/* The passport has its own button in the header instead. */}
         {allowed.filter((key) => key !== "passport").map((key) => {
