@@ -7,7 +7,7 @@ import { loadTeamDirectory } from '@/lib/team/load-directory';
 import { TeamHub } from './TeamHub';
 import { TeamHero } from './TeamHero';
 import styles from './team.module.css';
-
+import { WaterfallBackdrop } from "@/components/WaterfallBackdrop";
 export const metadata: Metadata = { title: 'Find your hive | HackHive 2027', description: 'Meet hackers, discover complementary skills, and build your HackHive team.' };
 
 export default function TeamPage() {
@@ -27,14 +27,18 @@ async function TeamShell() {
   if (!allowed.includes('team')) redirect('/dashboard');
 
   return (
-    <div className="pt-24 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
-      <DashboardSidebar allowed={allowed} active="team" />
+  <div className="pt-24 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
+    <WaterfallBackdrop region="bottom" />
+    <DashboardSidebar allowed={allowed} active="team" />
+    {/* translucent rounded panel; its own div so the module CSS can't override it */}
+    <div className="mx-4 mt-6 overflow-hidden rounded-2xl bg-white/60 shadow-lg backdrop-blur-sm md:mx-8 md:mt-0">
       <main className={`${styles.page} min-w-0`}><div className={styles.container}>
         <TeamHero />
         <Suspense fallback={<><p role="status" className={`${styles.small} mb-4`}>Finding your next collaboration…</p><div className={styles.grid} aria-hidden="true">{[1, 2, 3].map(value => <div key={value} className={styles.skeleton} />)}</div></>}><TeamContent /></Suspense>
       </div></main>
     </div>
-  );
+  </div>
+);
 }
 
 async function TeamContent() {

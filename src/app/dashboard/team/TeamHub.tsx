@@ -20,15 +20,56 @@ export function TeamHub({ data }: { data: TeamDirectoryData }) {
     { id: 'mine', label: 'Your team', count: 0 },
   ] : [])];
   const returnTo = '/dashboard/team' + (params.toString() ? `?${params.toString()}` : '');
-  return <>
-    <ListingControl profile={data.own} listed={data.listed} found={data.found} upgraded={data.upgraded} hasTeam={hasTeam}
-      editorHref={`/dashboard/team/profile?returnTo=${encodeURIComponent(returnTo)}`} />
-    {!data.upgraded && <p className={styles.notice}>Richer profiles and team recruitment are coming soon. You can still browse hackers and manage your listing.</p>}
-    <nav className={styles.tabs} aria-label="Teammate finder views">{tabs.map(tab => {
-      const query = new URLSearchParams(params.toString()); query.set('view', tab.id); query.delete('shown');
-      return <a key={tab.id} href={`?${query}`} className={styles.tab} aria-current={view === tab.id ? 'page' : undefined}
-        onClick={event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); updateTeamQuery({ view: tab.id === 'people' ? null : tab.id }); }}>{tab.label}{tab.count > 0 && <span className={styles.count}>{tab.count.toLocaleString('en-US')}</span>}</a>;
-    })}</nav>
-    {view === 'people' || view === 'saved' ? <TeamDirectory profiles={data.profiles} own={data.own} bookmarks={data.bookmarks} upgraded={data.upgraded} savedOnly={view === 'saved'} /> : <RecruitingBoard data={data} mine={view === 'mine'} />}
-  </>;
+
+  return (
+    <>
+      <ListingControl
+        profile={data.own}
+        listed={data.listed}
+        found={data.found}
+        upgraded={data.upgraded}
+        hasTeam={hasTeam}
+        editorHref={`/dashboard/team/profile?returnTo=${encodeURIComponent(returnTo)}`}
+      />
+      {!data.upgraded && (
+        <p className={styles.notice}>
+          Richer profiles and team recruitment are coming soon. You can still browse hackers and manage your listing.
+        </p>
+      )}
+      <nav className={styles.tabs} aria-label="Teammate finder views">
+        {tabs.map(tab => {
+          const query = new URLSearchParams(params.toString());
+          query.set('view', tab.id);
+          query.delete('shown');
+          return (
+            <a
+              key={tab.id}
+              href={`?${query}`}
+              className={styles.tab}
+              aria-current={view === tab.id ? 'page' : undefined}
+              onClick={event => {
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                updateTeamQuery({ view: tab.id === 'people' ? null : tab.id });
+              }}
+            >
+              {tab.label}
+              {tab.count > 0 && <span className={styles.count}>{tab.count.toLocaleString('en-US')}</span>}
+            </a>
+          );
+        })}
+      </nav>
+      {view === 'people' || view === 'saved' ? (
+        <TeamDirectory
+          profiles={data.profiles}
+          own={data.own}
+          bookmarks={data.bookmarks}
+          upgraded={data.upgraded}
+          savedOnly={view === 'saved'}
+        />
+      ) : (
+        <RecruitingBoard data={data} mine={view === 'mine'} />
+      )}
+    </>
+  );
 }
