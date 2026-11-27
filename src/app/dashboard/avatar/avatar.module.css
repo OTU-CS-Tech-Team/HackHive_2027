@@ -1,87 +1,358 @@
-/* Black stage as in the Figma; honey frames, chips and glow as on the passport. */
+/* The wardrobe as a HUD: a lit stage on the left, the wardrobe on the right.
+   Honey is the only accent: frames, the picked piece, the save button. */
+.page,
+.embed {
+  /* One honeycomb tile (24x42), scaled up for the page, down for the panel. */
+  --comb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='42'%3E%3Cpath d='M12 0L24 7V21L12 28L0 21V7ZM12 28V42' fill='none' stroke='%23f4b942' stroke-width='.5'/%3E%3C/svg%3E");
+  position: relative;
+  isolation: isolate;
+}
+
 .page {
   min-height: 100dvh;
   padding: 5.5rem 1rem 3rem;
-  background: #000;
+  background:
+    radial-gradient(56rem 34rem at 100% 0, rgb(244 185 66 / 0.09), transparent 70%),
+    #0a0a0c;
   color: #fff;
+}
+
+/* Honeycomb fading in from the right edge and the bottom left corner. */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--comb) 0 0 / 56px 98px;
+  mask-image:
+    radial-gradient(34rem 28rem at 100% 24%, #000, transparent 70%),
+    radial-gradient(22rem 18rem at 0 100%, #000, transparent 70%);
+  opacity: 0.3;
+  pointer-events: none;
 }
 
 .layout {
   display: grid;
-  gap: 1rem;
-  max-width: 1000px;
+  gap: 16px;
+  max-width: 1080px;
   margin: 0 auto;
-  font-family: var(--font-terminal), monospace;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 .title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title h1 {
   margin: 0;
-  color: #f4b942;
-  font-family: var(--font-pixel), monospace;
-  font-size: 14px;
-  line-height: 1.4;
-  text-align: center;
+  font-family: var(--font-grotesk), var(--font-sans), sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  /* A 24-letter name with no spaces still fits a phone. */
+  overflow-wrap: anywhere;
+}
+
+.title > div {
+  min-width: 0;
+}
+
+.mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 0 10px rgb(244 185 66 / 0.45));
+}
+
+.kicker {
+  margin: 4px 0 0;
+  color: #8a8a93;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-/* Phones: the bee stays in view under the navbar while you pick. */
+/* Phones: the bee stays in view under the navbar while you pick. The padding
+   leaves room for the brackets, which sit outside the frame. */
 .stage {
   position: sticky;
   top: 64px;
   z-index: 1;
-  display: grid;
-  place-items: center;
-  padding: 0.5rem 0;
-  background: radial-gradient(closest-side, rgb(244 185 66 / 0.16), transparent) #000;
+  padding: 12px 0;
+  background: #0a0a0c;
 }
 
+/* The frame: a faint grid, a pool of light round the plinth, and a beam. */
+.hud {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  height: min(38dvh, 340px);
+  border: 1px solid #26262c;
+  border-radius: 8px;
+  background:
+    radial-gradient(40% 14% at 50% 86%, rgb(244 185 66 / 0.22), transparent),
+    linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px) 50% 0 / 32px 32px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px) 50% 0 / 32px 32px,
+    radial-gradient(farthest-corner at 50% 40%, #17171c, #0c0c0f);
+}
+
+/* The beam the bee stands in, widening upward from the plinth. */
+.hud::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 12%;
+  width: 66%;
+  height: 84%;
+  translate: -50% 0;
+  background: linear-gradient(to top, rgb(244 185 66 / 0.2), rgb(244 185 66 / 0.04) 70%, transparent);
+  clip-path: polygon(30% 100%, 70% 100%, 100% 0, 0 0);
+  pointer-events: none;
+}
+
+/* Glowing corner brackets, side rails with a diamond, and short top and
+   bottom rails. Drawn 4px in from this box, so the diamonds aren't cut off. */
+.hud::after {
+  content: "";
+  position: absolute;
+  inset: -11px;
+  z-index: 1;
+  --diamond: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M5 0L10 5L5 10L0 5Z' fill='%23f4b942'/%3E%3C/svg%3E");
+  background:
+    linear-gradient(#f4b942 0 0) left 4px top 4px / 36px 3px,
+    linear-gradient(#f4b942 0 0) left 4px top 4px / 3px 36px,
+    linear-gradient(#f4b942 0 0) right 4px top 4px / 36px 3px,
+    linear-gradient(#f4b942 0 0) right 4px top 4px / 3px 36px,
+    linear-gradient(#f4b942 0 0) left 4px bottom 4px / 36px 3px,
+    linear-gradient(#f4b942 0 0) left 4px bottom 4px / 3px 36px,
+    linear-gradient(#f4b942 0 0) right 4px bottom 4px / 36px 3px,
+    linear-gradient(#f4b942 0 0) right 4px bottom 4px / 3px 36px,
+    var(--diamond) left 0.5px center / 10px 10px,
+    var(--diamond) right 0.5px center / 10px 10px,
+    linear-gradient(rgb(244 185 66 / 0.5) 0 0) left 5px center / 1px 32%,
+    linear-gradient(rgb(244 185 66 / 0.5) 0 0) right 5px center / 1px 32%,
+    linear-gradient(rgb(244 185 66 / 0.5) 0 0) left 52px top 5px / 15% 1px,
+    linear-gradient(rgb(244 185 66 / 0.5) 0 0) right 52px top 5px / 15% 1px,
+    linear-gradient(rgb(244 185 66 / 0.5) 0 0) left 52px bottom 5px / 15% 1px,
+    linear-gradient(rgb(244 185 66 / 0.5) 0 0) right 52px bottom 5px / 15% 1px;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgb(244 185 66 / 0.7));
+  pointer-events: none;
+}
+
+.viewer {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+/* Sideways drags turn the bee; up and down still scroll the page. */
+.canvas {
+  min-height: 0;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+.turns {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px 14px;
+}
+
+.turn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #34343b;
+  border-radius: 6px;
+  background: rgb(16 16 20 / 0.9);
+  color: #e4e4e7;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* The flat bee, when there's no WebGL. */
 .preview {
   display: block;
+  place-self: center;
   height: min(32dvh, 240px);
   aspect-ratio: 200 / 280;
 }
 
+/* Motes rising off the plinth, behind the bee. Hidden without motion. */
+.mote {
+  position: absolute;
+  z-index: -1;
+  bottom: 16%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffd36b;
+  box-shadow: 0 0 6px 1px rgb(244 185 66 / 0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The bees' corner under the buttons, desktop only: phones have no empty
+   space to fill. A fixed size, so switching tabs never rescales the bees. */
+.flight {
+  display: none;
+  height: 180px;
+  pointer-events: none;
+}
+
+.flight svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The wardrobe page only: the registration form's step always stacks. */
 @media (min-width: 900px) {
   .layout {
-    grid-template-columns: minmax(0, 560px) 340px;
+    grid-template-columns: minmax(0, 1fr) 400px;
     grid-template-areas:
       "title title"
-      "panel stage"
-      "panel actions";
-    justify-content: center;
+      "stage panel"
+      "stage actions"
+      "stage flight";
+    grid-template-rows: auto auto auto 1fr;
+    column-gap: 32px;
     align-items: start;
-    column-gap: 3.5rem;
   }
 
-  .title {
+  .layout .title {
     grid-area: title;
+    margin-bottom: 12px;
   }
 
-  .panel {
+  .layout .stage {
+    grid-area: stage;
+    top: 88px;
+    padding: 0;
+    background: none;
+  }
+
+  /* Fits under the title on arrival, not only once it sticks. */
+  .layout .hud {
+    height: min(640px, calc(100dvh - 220px));
+  }
+
+  .layout .preview {
+    height: 470px;
+  }
+
+  .layout .panel {
     grid-area: panel;
   }
 
-  .stage {
-    grid-area: stage;
-    position: static;
-  }
-
-  .actions {
+  .layout .actions {
     grid-area: actions;
   }
 
-  .preview {
-    height: 470px;
+  .layout .flight {
+    display: block;
+    grid-area: flight;
   }
 }
 
-.panel {
-  min-width: 0;
-  padding: 14px;
-  border: 3px solid #f4b942;
+/* The registration form's "Your bee" step: the same stage and panel, stacked
+   in a dark card. Nothing sits above it, so the stage sticks to the top. */
+.embed {
+  display: grid;
+  gap: 12px;
+  padding: 0 12px 12px;
   border-radius: 14px;
-  background: #0d0d10;
-  box-shadow: 2px 2px 8.5px 0 #f4b942;
+  background: #0a0a0c;
+  color: #fff;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.embed .stage {
+  top: 0;
+}
+
+.embed .note {
+  margin: 0;
+  color: #f4b942;
+  font-size: 13px;
+}
+
+.nameField {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c4c4cc;
+}
+
+.optional {
+  margin-left: 6px;
+  color: #8a8a94;
+  font-weight: 400;
+}
+
+.nameField input {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #2e2e35;
+  border-radius: 6px;
+  background: #1a1a1f;
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+}
+
+.nameField input::placeholder {
+  color: #6b6b75;
+}
+
+.nameField input:focus-visible {
+  border-color: #f4b942;
+  outline: 2px solid #f4b942;
+  outline-offset: 2px;
+}
+
+/* Honeycomb in the top right corner, under a fade to the panel's colour. */
+.panel {
+  position: relative;
+  min-width: 0;
+  padding: 18px 16px 16px;
+  border: 1px solid #26262c;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 100% 0, rgb(18 18 21 / 0.45), #121215 9rem),
+    var(--comb) 100% 0 / 28px 49px,
+    #121215;
+}
+
+/* A lit notch on the top edge. */
+.panel::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 96px;
+  height: 3px;
+  translate: -50% 0;
+  border-radius: 0 0 3px 3px;
+  background: #f4b942;
+  box-shadow: 0 0 12px rgb(244 185 66 / 0.7);
 }
 
 .panel fieldset {
@@ -91,14 +362,6 @@
   border: 0;
 }
 
-/* Honey chips with pointed ends, like the Figma's tile labels. Clip-path
-   swallows outlines, so focus shows as a white chip instead. */
-.tab,
-.label,
-.save {
-  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
-}
-
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -106,66 +369,85 @@
 }
 
 .tab {
-  flex: none;
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 12px;
-  background: #1d1d22;
-  color: #f4b942;
-  font-size: 20px;
-  text-transform: uppercase;
+  border: 1px solid #2e2e35;
+  border-radius: 6px;
+  background: #1a1a1f;
+  color: #c4c4cc;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
 }
 
 .tab:has(:checked) {
-  background: #f4b942;
-  color: #000;
+  border-color: #f4b942;
+  background: rgb(244 185 66 / 0.12);
+  color: #fff;
+  box-shadow: 0 0 12px -2px rgb(244 185 66 / 0.5);
 }
 
-.tab:has(:focus-visible) {
-  background: #fff;
-  color: #000;
+.tab:has(:focus-visible),
+.swatch:has(:focus-visible),
+.turn:focus-visible,
+.save:focus-visible,
+.back:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .items {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px !important;
+  margin-top: 16px !important;
 }
 
 .item {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 4px;
-  aspect-ratio: 1 / 1.05;
-  padding: 6px 6px 8px;
-  border: 2px solid #2c2c33;
-  border-radius: 10px;
-  background: #17171b;
+  aspect-ratio: 1 / 1.1;
+  padding: 8px 6px;
+  border: 1px solid #2c2c33;
+  border-radius: 8px;
+  background: linear-gradient(#1b1b20, #141418);
   cursor: pointer;
-  transition:
-    border-color 150ms ease,
-    box-shadow 150ms ease;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .item:hover {
-    border-color: rgb(244 185 66 / 0.6);
-  }
+/* A tab on the top edge that lights with the pick. */
+.item::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 36%;
+  height: 3px;
+  translate: -50% 0;
+  border-radius: 0 0 3px 3px;
+  background: #34343c;
 }
 
 .item:has(:checked) {
   border-color: #f4b942;
-  box-shadow: 0 0 14px rgb(244 185 66 / 0.45);
+  background:
+    radial-gradient(90% 60% at 50% 0, rgb(244 185 66 / 0.2), transparent),
+    linear-gradient(#1f1d19, #16151a);
+  box-shadow:
+    0 0 16px -4px rgb(244 185 66 / 0.6),
+    inset 0 0 0 1px rgb(244 185 66 / 0.35);
+}
+
+.item:has(:checked)::before {
+  background: #f4b942;
+  box-shadow: 0 0 8px rgb(244 185 66 / 0.9);
 }
 
 .item:has(:focus-visible) {
-  outline: 3px solid #fff;
+  outline: 2px solid #fff;
   outline-offset: 2px;
 }
 
@@ -176,22 +458,21 @@
 }
 
 .label {
-  justify-self: center;
-  max-width: 100%;
-  padding: 3px 12px 2px;
-  background: #f4b942;
-  color: #000;
-  font-size: 16px;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.item:has(:checked) .label {
+  color: #fff;
 }
 
 .colors {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 14px !important;
+  margin-top: 20px !important;
   transition: opacity 150ms ease;
 }
 
@@ -200,19 +481,28 @@
 }
 
 .colorsTitle {
-  margin-bottom: 4px;
-  color: #f4b942;
-  font-size: 18px;
-  text-transform: uppercase;
+  margin-bottom: 10px;
+  color: #8a8a93;
+  font-size: 13px;
 }
 
+.colorName {
+  margin-left: 2px;
+  color: #fff;
+}
+
+/* The picked colour glows in itself (--paint, set per swatch). */
 .swatch {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 44px;
-  border-radius: 8px;
+  width: 40px;
+  height: 46px;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.swatch:has(:checked) {
+  filter: drop-shadow(0 0 6px var(--paint));
 }
 
 .colors:disabled .swatch {
@@ -225,7 +515,7 @@
   place-items: center;
   width: 34px;
   height: 38px;
-  background: #3a3a42;
+  background: #2e2e35;
   clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
   transition: background-color 150ms ease;
 }
@@ -238,44 +528,31 @@
   clip-path: inherit;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .swatch:hover .hex {
-    background: #f4b942;
-  }
-}
-
 .swatch:has(:checked) .hex {
   background: #fff;
 }
 
-.swatch:has(:focus-visible),
-.back:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-
 .actions {
-  display: grid;
-  justify-items: center;
-  gap: 0.5rem;
-  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
 }
 
 .save {
-  min-height: 52px;
-  padding: 0 2.25rem;
-  border: 0;
-  background: #f4b942;
-  color: #000;
-  font-family: var(--font-pixel), monospace;
-  font-size: 13px;
-  text-transform: uppercase;
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1px solid #ffdd8a;
+  border-radius: 6px;
+  background: linear-gradient(#ffcb5c, #f0b03a);
+  color: #1a1206;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: filter 150ms ease;
-}
-
-.save:focus-visible {
-  background: #fff;
+  box-shadow:
+    0 0 0 3px rgb(244 185 66 / 0.16),
+    0 0 24px rgb(244 185 66 / 0.4);
 }
 
 .save:disabled {
@@ -283,41 +560,88 @@
   cursor: progress;
 }
 
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: #f4b942;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.message {
+  flex-basis: 100%;
+  min-height: 1.4em;
+  margin: 0;
+  color: #f4b942;
+  font-size: 14px;
+}
+
 @media (hover: hover) and (pointer: fine) {
+  .tab:hover:not(:has(:checked)) {
+    border-color: #45454e;
+    color: #fff;
+  }
+
+  .back:hover {
+    color: #ffd36b;
+  }
+
+  .turn:hover {
+    border-color: #4a4a52;
+    color: #fff;
+  }
+
+  .item:hover:not(:has(:checked)) {
+    border-color: #3d3d45;
+  }
+
+  .swatch:hover .hex {
+    background: #5a5a62;
+  }
+
   .save:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.08);
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .tab,
   .item,
-  .save {
+  .turn,
+  .back {
     transition:
       border-color 150ms ease,
-      box-shadow 150ms ease,
+      color 150ms ease,
+      transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .save {
+    transition:
       filter 150ms ease,
       transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   .item:active,
-  .save:active {
+  .save:active,
+  .turn:active {
     transform: scale(0.97);
+  }
+
+  /* Constant motion, so linear: each mote fades in, rises, fades out. */
+  .mote {
+    animation: rise 4s linear infinite;
   }
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: #f4b942;
-  font-size: 20px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+@keyframes rise {
+  20% {
+    opacity: 0.9;
+  }
 
-.message {
-  min-height: 1.5em;
-  margin: 0;
-  color: #ffd36b;
-  font-size: 18px;
+  to {
+    opacity: 0;
+    transform: translateY(-160px);
+  }
 }

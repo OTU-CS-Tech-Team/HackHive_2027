@@ -43,6 +43,10 @@ export default function ConfirmationPage() {
               <span className="text-neutral-400">3.</span>
               If accepted, you&apos;ll need to confirm your attendance
             </li>
+            <li className="flex gap-2">
+              <span className="text-neutral-400">4.</span>
+              If you&apos;re accepted, your bee will be waiting on your passport.
+            </li>
           </ul>
         </div>
 

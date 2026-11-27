@@ -7,6 +7,7 @@ import { getMyApplication } from "@/lib/application/api";
 import { createClient } from "@/lib/supabase/server";
 import { ApplyForm } from "@/components/apply/ApplyForm";
 import { APPLICATION_DEADLINE } from "@/lib/constants";
+import { avatarOf, beeName } from "@/lib/avatar";
 
 async function getServerTime(): Promise<number> {
   await headers();
@@ -32,9 +33,11 @@ async function ApplyPageContent() {
   }
 
   const supabase = await createClient();
-  const [result, { data: profile }] = await Promise.all([
+  const [result, { data: profile }, { data: saved }] = await Promise.all([
     getMyApplication(),
     supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle(),
+    // Its own query: if the avatar column isn't there yet, only the bee falls back to the default.
+    supabase.from("profiles").select("avatar").eq("id", user.id).maybeSingle(),
   ]);
   
   if (result.ok && result.application?.status === "submitted") {
@@ -135,6 +138,8 @@ async function ApplyPageContent() {
       serverNow={serverNow}
       deadlinePassed={deadlinePassed}
       deadlineLabel={deadlineLabel}
+      bee={avatarOf(saved?.avatar)}
+      beeName={beeName(saved?.avatar)}
     />
   );
 }

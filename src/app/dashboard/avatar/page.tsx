@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { avatarOf } from "@/lib/avatar";
+import { avatarOf, beeName } from "@/lib/avatar";
 import { requireTeamAccess } from "@/lib/team/access";
 import { AvatarPicker } from "./AvatarPicker";
 import styles from "./avatar.module.css";
@@ -33,5 +33,5 @@ async function Wardrobe() {
       </p>
     );
   }
-  return <AvatarPicker saved={avatarOf(data?.avatar)} />;
+  return <AvatarPicker saved={avatarOf(data?.avatar)} savedName={beeName(data?.avatar)} />;
 }

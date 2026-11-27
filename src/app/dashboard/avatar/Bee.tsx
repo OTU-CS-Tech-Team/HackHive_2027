@@ -15,9 +15,9 @@ export const PAINT: Record<ColorId, [fill: string, trim: string]> = {
   purple: ["#8657e2", "#f4b942"],
 };
 
-const HONEY = "#f4b942";
-const LINE = "#0b0b0e";
-const SOLE = "#f3ecd9";
+export const HONEY = "#f4b942";
+export const LINE = "#0b0b0e";
+export const SOLE = "#f3ecd9";
 
 // The whole bee, and the close-ups the wardrobe tiles show.
 export const VIEW = "0 0 200 280";
@@ -32,7 +32,7 @@ export const CROPS: Record<Slot, string> = {
 };
 
 // Flat-topped hexagon; pointy-topped when turned 30°.
-function hex(x: number, y: number, r: number, pointy = false) {
+export function hex(x: number, y: number, r: number, pointy = false) {
   const turn = pointy ? Math.PI / 6 : 0;
   const corners = Array.from({ length: 6 }, (_, i) => {
     const a = (Math.PI / 3) * i + turn;
@@ -41,7 +41,7 @@ function hex(x: number, y: number, r: number, pointy = false) {
   return `M${corners.join("L")}Z`;
 }
 
-const rr = (x: number, y: number, w: number, h: number, r: number) =>
+export const rr = (x: number, y: number, w: number, h: number, r: number) =>
   `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`;
 
 const COMB = [[0, 0], [12, 0], [0, 6.93], [12, 6.93], [6, 3.46]].map(([x, y]) => hex(x, y, 4)).join("");
@@ -88,7 +88,28 @@ const logo = (x: number, y: number, r: number) => (
   </>
 );
 
-const heart = (x: number, y: number, s: number) =>
+// The mark's bee seen from above, nose along +x: the wardrobe's header, and
+// the bees flying round it (buzz beats the wings).
+export const topBee = (buzz = false) => (
+  <g className={buzz ? styles.buzz : undefined}>
+    <g className={styles.wingUp}>
+      <ellipse cx={-1.5} cy={-5.4} rx={4.2} ry={5.6} transform="rotate(-28 -1.5 -5.4)" fill="#cfe9ff" fillOpacity={0.85} stroke={LINE} strokeWidth={1} />
+    </g>
+    <g className={styles.wingDown}>
+      <ellipse cx={-1.5} cy={5.4} rx={4.2} ry={5.6} transform="rotate(28 -1.5 5.4)" fill="#cfe9ff" fillOpacity={0.85} stroke={LINE} strokeWidth={1} />
+    </g>
+    <path d="M-9.2 -1.4L-12.4 0L-9.2 1.4Z" fill={LINE} />
+    <ellipse cx={-2} rx={7.6} ry={5} fill={HONEY} />
+    <path d="M-4.6 -4.8V4.8M-0.9 -5V5" stroke="#2a2a31" strokeWidth={2.1} />
+    <ellipse cx={-2} rx={7.6} ry={5} fill="none" stroke={LINE} strokeWidth={1.3} />
+    <path d="M9 -1.6Q11.8 -3.2 12.8 -5.6M9 1.6Q11.8 3.2 12.8 5.6" fill="none" stroke="#2a2a31" strokeWidth={1.1} strokeLinecap="round" />
+    <circle cx={6.6} r={3.7} fill="#2a2a31" stroke={LINE} strokeWidth={1.1} />
+    <circle cx={7.9} cy={-1.5} r={0.9} fill={HONEY} />
+    <circle cx={7.9} cy={1.5} r={0.9} fill={HONEY} />
+  </g>
+);
+
+export const heart = (x: number, y: number, s: number) =>
   `M${x} ${y + s * 0.9}C${x - s * 1.6} ${y - s * 0.1} ${x - s * 0.6} ${y - s * 1.3} ${x} ${y - s * 0.35}C${x + s * 0.6} ${y - s * 1.3} ${x + s * 1.6} ${y - s * 0.1} ${x} ${y + s * 0.9}Z`;
 
 const TORSO = "M86 121H114Q128 123 136 131L139 150L137 197Q100 203 63 197L61 150L64 131Q72 123 86 121Z";
@@ -162,6 +183,7 @@ const BOTTOMS: Record<Avatar["bottom"]["item"], Art> = {
         <path d="M65.5 194L68.5 249" stroke={t} strokeWidth={3} />
         {shape(p, rr(64, 206, 13, 20, 2), c)}
         <path d="M64 211.5H77" stroke={LINE} strokeWidth={1.6} />
+        <circle cx={70.5} cy={209} r={1.7} fill={t} stroke={LINE} strokeWidth={0.8} />
       </Pair>
     </>
   ),
@@ -182,8 +204,9 @@ const SHOES: Record<Avatar["shoes"]["item"], Art> = {
     <Pair>
       {shape(p, "M67 247Q67 235 81 235Q95 235 95 247L98 261H64Z", c)}
       <path d="M69.5 240.5Q81 233.5 92.5 240.5" fill="none" stroke={t} strokeWidth={2.8} strokeLinecap="round" />
-      <path d="M76 245H86M75.5 249.5H86.5" stroke={t} strokeOpacity={0.85} strokeWidth={2} strokeLinecap="round" />
-      <path d="M65.5 256Q81 250.5 96.5 256" fill="none" stroke={t} strokeWidth={3} />
+      <path d="M76 243.5H86M75.5 247.5H86.5" stroke={t} strokeOpacity={0.85} strokeWidth={2} strokeLinecap="round" />
+      {/* The rubber toe cap. */}
+      {shape(p, "M70 259Q70 250.5 81 250.5Q92 250.5 92 259Z", SOLE)}
       <rect x={62.5} y={257.5} width={36} height={11.5} rx={5.75} fill={SOLE} stroke={LINE} strokeWidth={2.4} />
       <path d="M66.5 263.25H94.5" stroke={HONEY} strokeWidth={2} strokeLinecap="round" />
     </Pair>
@@ -290,6 +313,7 @@ export function Bee({
   pop,
   viewBox = VIEW,
   className = "",
+  headOnly = false,
 }: {
   avatar: Avatar;
   // Hovers in place unless still (the wardrobe tiles).
@@ -298,6 +322,8 @@ export function Bee({
   pop?: Slot;
   viewBox?: string;
   className?: string;
+  // Just the head and what it wears (the passport's headshot).
+  headOnly?: boolean;
 }) {
   // Gradient ids must be unique per bee: the wardrobe shows several at once.
   const uid = useId().replace(/[^\w-]/g, "");
@@ -316,6 +342,29 @@ export function Bee({
     const [fill, trim] = PAINT[color];
     return piece(slot, arts[item](fill, trim, p));
   };
+
+  // Left side only; it goes in a Pair.
+  const antenna = (
+    <g className={styles.antenna}>
+      <path d="M88 42Q82 28 71 18" fill="none" stroke={LINE} strokeWidth={6.5} strokeLinecap="round" />
+      <path d="M88 42Q82 28 71 18" fill="none" stroke="#45454f" strokeWidth={3} strokeLinecap="round" />
+      <path d={hex(69, 15, 9)} fill={p.honey} stroke={LINE} strokeWidth={2.4} strokeLinejoin="round" />
+    </g>
+  );
+  const head = (
+    <>
+      <ellipse cx={100} cy={74} rx={56} ry={45} fill={p.honey} />
+      <path d="M62 42Q100 22 138 42" fill="none" stroke="#2a2a31" strokeWidth={8} clipPath={p.head} />
+      <ellipse cx={100} cy={74} rx={56} ry={45} fill="none" stroke={LINE} strokeWidth={2.6} />
+      <ellipse cx={77} cy={46} rx={13} ry={6} fill="#fff" opacity={0.45} transform="rotate(-22 77 46)" />
+      <path d={rr(59, 52, 82, 60, 27)} fill={p.visor} stroke={LINE} strokeWidth={2.6} />
+      <path d="M68 68Q72 59.5 85 58.5" fill="none" stroke="#fff" strokeOpacity={0.3} strokeWidth={3} strokeLinecap="round" />
+      {piece("face", <g filter={p.glow}>{FACES[avatar.face.item](PAINT[avatar.face.color][0])}</g>)}
+      {dress("glasses", GLASSES)}
+      {dress("hat", HATS)}
+      {dress("ears", HEADPHONES)}
+    </>
+  );
 
   return (
     <svg viewBox={viewBox} className={`${still ? "" : styles.alive} ${className}`} aria-hidden="true">
@@ -356,50 +405,42 @@ export function Bee({
         </filter>
       </defs>
 
-      <ellipse className={styles.shadow} cx="100" cy="272" rx="46" ry="5" fill={HONEY} opacity="0.16" />
+      {headOnly ? (
+        <>
+          <Pair>{antenna}</Pair>
+          {head}
+        </>
+      ) : (
+        <>
+          <ellipse className={styles.shadow} cx="100" cy="272" rx="46" ry="5" fill={HONEY} opacity="0.16" />
 
-      <g className={styles.body}>
-        <Pair>
-          <g className={styles.antenna}>
-            <path d="M88 42Q82 28 71 18" fill="none" stroke={LINE} strokeWidth={6.5} strokeLinecap="round" />
-            <path d="M88 42Q82 28 71 18" fill="none" stroke="#45454f" strokeWidth={3} strokeLinecap="round" />
-            <path d={hex(69, 15, 9)} fill={p.honey} stroke={LINE} strokeWidth={2.4} strokeLinejoin="round" />
+          <g className={styles.body}>
+            <Pair>
+              {antenna}
+              {[UPPER_WING, LOWER_WING].map((d, i) => (
+                <g key={d} className={i ? styles.lowerWing : styles.upperWing}>
+                  <path d={d} fill={p.wing} />
+                  <path d={d} fill={p.comb} />
+                  <path d={d} fill="none" stroke={HONEY} strokeWidth={2.2} strokeLinejoin="round" />
+                </g>
+              ))}
+              {limb(LEG, HONEY, 15)}
+            </Pair>
+
+            {dress("bottom", BOTTOMS)}
+            {dress("shoes", SHOES)}
+
+            <Pair>{limb(ARM, HONEY, 13)}</Pair>
+            <path d={rr(91, 110, 18, 16, 4)} fill="#c98a1c" stroke={LINE} strokeWidth={2.4} />
+            {dress("top", TOPS)}
+            <Pair>
+              <circle cx={50} cy={189} r={8.5} fill={p.honey} stroke={LINE} strokeWidth={2.4} />
+            </Pair>
+
+            {head}
           </g>
-          {[UPPER_WING, LOWER_WING].map((d, i) => (
-            <g key={d} className={i ? styles.lowerWing : styles.upperWing}>
-              <path d={d} fill={p.wing} />
-              <path d={d} fill={p.comb} />
-              <path d={d} fill="none" stroke={HONEY} strokeWidth={2.2} strokeLinejoin="round" />
-            </g>
-          ))}
-          {limb(LEG, HONEY, 15)}
-        </Pair>
-
-        {dress("bottom", BOTTOMS)}
-        {dress("shoes", SHOES)}
-
-        <Pair>{limb(ARM, HONEY, 13)}</Pair>
-        <path d={rr(91, 110, 18, 16, 4)} fill="#c98a1c" stroke={LINE} strokeWidth={2.4} />
-        {dress("top", TOPS)}
-        <Pair>
-          <circle cx={50} cy={189} r={8.5} fill={p.honey} stroke={LINE} strokeWidth={2.4} />
-        </Pair>
-
-        <ellipse cx={100} cy={74} rx={56} ry={45} fill={p.honey} />
-        <path d="M62 42Q100 22 138 42" fill="none" stroke="#2a2a31" strokeWidth={8} clipPath={p.head} />
-        <ellipse cx={100} cy={74} rx={56} ry={45} fill="none" stroke={LINE} strokeWidth={2.6} />
-        <ellipse cx={77} cy={46} rx={13} ry={6} fill="#fff" opacity={0.45} transform="rotate(-22 77 46)" />
-        <path d={rr(59, 52, 82, 60, 27)} fill={p.visor} stroke={LINE} strokeWidth={2.6} />
-        <path d="M68 68Q72 59.5 85 58.5" fill="none" stroke="#fff" strokeOpacity={0.3} strokeWidth={3} strokeLinecap="round" />
-
-        {piece(
-          "face",
-          <g filter={p.glow}>{FACES[avatar.face.item](PAINT[avatar.face.color][0])}</g>,
-        )}
-        {dress("glasses", GLASSES)}
-        {dress("hat", HATS)}
-        {dress("ears", HEADPHONES)}
-      </g>
+        </>
+      )}
     </svg>
   );
 }

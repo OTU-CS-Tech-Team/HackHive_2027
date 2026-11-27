@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -25,6 +26,7 @@ import { signOut } from "@/app/actions/auth";
 import { HideSiteNavbar } from "@/components/PageStyle";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { ApplicationDetails, type ApplicationAnswersData } from "@/components/ApplicationView";
+import type { Avatar } from "@/lib/avatar";
 import {
   saveDraft,
   submitApplication,
@@ -194,6 +196,13 @@ const STEPS: {
     ],
   },
   {
+    id: "bee",
+    title: "Your bee",
+    blurb: "Build the bee you'll meet on your passport if you get in. It's optional, and saves as you go.",
+    sections: [{ id: "bee", title: "Build your bee" }],
+    fields: [],
+  },
+  {
     id: "review",
     title: "Review",
     blurb: "Read it over once before you send it. Use Edit to fix anything.",
@@ -224,6 +233,10 @@ const STEPS: {
 
 const LAST_STEP = STEPS.length - 1;
 const REVIEW_STEP = LAST_STEP - 1;
+const BEE_STEP = REVIEW_STEP - 1;
+
+// The bee builder, and three.js with it, only loads once "Your bee" is opened.
+const BeeStep = dynamic(() => import("./BeeStep"), { ssr: false });
 
 const HEX = "[clip-path:polygon(50%_0,100%_25%,100%_75%,50%_100%,0_75%,0_25%)]";
 
@@ -239,6 +252,9 @@ interface ApplyFormProps {
   serverNow: number;
   deadlinePassed: boolean;
   deadlineLabel: string;
+  // Their saved bee and its name, from profiles.avatar.
+  bee: Avatar;
+  beeName: string;
 }
 
 function createInitialFormData(
@@ -405,6 +421,8 @@ export function ApplyForm({
   serverNow,
   deadlinePassed,
   deadlineLabel,
+  bee,
+  beeName,
 }: ApplyFormProps) {
   const router = useRouter();
   const formStartedAt = useRef<number>(serverNow);
@@ -420,8 +438,10 @@ export function ApplyForm({
     createInitialFormData(initialDraft),
   );
   const [step, setStep] = useState(0);
-  // Review has nothing to fill in, so it only counts as done once they've opened it.
-  const [reviewed, setReviewed] = useState(false);
+  // Review and Your bee have nothing to fill in, so they only count as done once opened.
+  const [seen, setSeen] = useState<number[]>([]);
+  // The bee as last built, so reopening "Your bee" shows it, not the bee the page loaded with.
+  const [builtBee, setBuiltBee] = useState({ avatar: bee, name: beeName });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -602,7 +622,7 @@ export function ApplyForm({
   // The security check only lives on the last step, so its token goes when they leave.
   const changeStep = (index: number) => {
     if (index !== LAST_STEP) setTurnstileToken(null);
-    if (index === REVIEW_STEP) setReviewed(true);
+    setSeen((s) => (s.includes(index) ? s : [...s, index]));
     setStep(index);
   };
 
@@ -624,7 +644,7 @@ export function ApplyForm({
     (s) => s.fields.filter((f) => liveErrors[f]).length,
   );
   const stepDone = (i: number) =>
-    i === REVIEW_STEP ? reviewed : missingPerStep[i] === 0;
+    STEPS[i].fields.length ? missingPerStep[i] === 0 : seen.includes(i);
 
   const validateForm = (): boolean => {
     const newErrors = getErrors(formData);
@@ -1470,6 +1490,15 @@ export function ApplyForm({
                 />
               </FormSection>
             </>,
+          )}
+
+          {panel(
+            BEE_STEP,
+            step === BEE_STEP && (
+              <FormSection id={sectionId("bee")} title="Build your bee">
+                <BeeStep saved={builtBee.avatar} savedName={builtBee.name} onChange={setBuiltBee} />
+              </FormSection>
+            ),
           )}
 
           {panel(

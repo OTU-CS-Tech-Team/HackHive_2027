@@ -63,3 +63,19 @@ export function parseAvatar(value: unknown): Avatar | null {
   const raw = record(value);
   return SLOT_IDS.every((s) => pieceOf(s, raw[s])) ? avatarOf(raw) : null;
 }
+
+// The bee's name rides along in profiles.avatar as "name". Optional; counted
+// in code points so an emoji is never cut in half.
+export const NAME_MAX = 24;
+
+export const cleanName = (value: unknown) =>
+  typeof value === "string" ? Array.from(value.replace(/\s+/g, " ").trim()).slice(0, NAME_MAX).join("").trim() : "";
+
+export const beeName = (stored: unknown) => cleanName(record(stored).name);
+
+// What gets stored: the slots, plus the name unless it's blank. Null if the bee isn't valid.
+export function beeRecord(avatar: unknown, name: unknown): (Avatar & { name?: string }) | null {
+  const bee = parseAvatar(avatar);
+  const clean = cleanName(name);
+  return bee && (clean ? { ...bee, name: clean } : bee);
+}

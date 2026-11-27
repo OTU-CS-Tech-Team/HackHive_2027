@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AVATAR, avatarOf, parseAvatar } from '../src/lib/avatar';
+import { DEFAULT_AVATAR, avatarOf, beeName, beeRecord, cleanName, parseAvatar } from '../src/lib/avatar';
 
 const custom = { ...DEFAULT_AVATAR, top: { item: 'varsity', color: 'red' }, hat: { item: 'cap', color: 'honey' } };
 
@@ -29,5 +29,36 @@ describe('avatar', () => {
     delete missingHat.hat;
     expect(parseAvatar(missingHat)).toBeNull();
     expect(parseAvatar('hoodie')).toBeNull();
+  });
+});
+
+describe('bee names', () => {
+  it('trims, keeps one space between words, and caps at 24 characters', () => {
+    expect(cleanName('  Sir   Buzz\n the Third  ')).toBe('Sir Buzz the Third');
+    expect(cleanName('B'.repeat(30))).toBe('B'.repeat(24));
+  });
+
+  it('never cuts an emoji in half', () => {
+    expect(cleanName('🐝'.repeat(30))).toBe('🐝'.repeat(24));
+  });
+
+  it('is blank for anything that is not text', () => {
+    for (const junk of [null, undefined, 42, {}, ['Buzz'], '   ']) expect(cleanName(junk)).toBe('');
+  });
+
+  it('reads the name back from a stored bee', () => {
+    expect(beeName({ ...DEFAULT_AVATAR, name: ' Buzz ' })).toBe('Buzz');
+    expect(beeName(DEFAULT_AVATAR)).toBe('');
+    expect(beeName(null)).toBe('');
+  });
+
+  it('stores the slots with the name, and leaves a blank name out', () => {
+    expect(beeRecord(custom, ' Buzz ')).toEqual({ ...custom, name: 'Buzz' });
+    expect(beeRecord(custom, '   ')).toEqual(custom);
+    expect(beeRecord({ ...custom, top: { item: 'cape', color: 'red' } }, 'Buzz')).toBeNull();
+  });
+
+  it('never lets a stored name change what the bee wears', () => {
+    expect(avatarOf({ ...custom, name: 'Buzz' })).toEqual(custom);
   });
 });

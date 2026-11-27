@@ -95,10 +95,16 @@
   outline-offset: 3px;
 }
 
-/* The hacker's bee (see avatar/Bee.tsx), head to toe. */
+/* The hacker's bee, head only: flat, or in 3D (BeeHead in avatar/Bee3D.tsx),
+   which sits on top and hides the flat one once its canvas is in. */
 .bee {
+  grid-area: 1 / 1;
   width: 96px;
-  height: 108px;
+  height: 111px;
+}
+
+.badgeBox:has(canvas) > svg {
+  display: none;
 }
 
 /* Hangs off the bottom edge, like the wardrobe's tile labels. */

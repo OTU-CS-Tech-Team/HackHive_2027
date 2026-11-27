@@ -51,6 +51,22 @@
     animation: beat 1.4s ease-in-out infinite;
   }
 
+  /* The flying bees' wings, seen from above: a fast blur of a beat, each wing
+     folding toward the body. */
+  .buzz .wingUp,
+  .buzz .wingDown {
+    transform-box: fill-box;
+    animation: buzz 60ms ease-in-out infinite alternate;
+  }
+
+  .buzz .wingUp {
+    transform-origin: 50% 100%;
+  }
+
+  .buzz .wingDown {
+    transform-origin: 50% 0;
+  }
+
   /* easeOutBack, the curve the passport's buttons spring back with. */
   .pop {
     transform-box: fill-box;
@@ -76,6 +92,12 @@
 @keyframes flap {
   to {
     transform: rotate(6deg);
+  }
+}
+
+@keyframes buzz {
+  to {
+    transform: scaleY(0.45);
   }
 }
 

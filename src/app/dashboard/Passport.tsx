@@ -1,14 +1,28 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- fixed design art (cropped by CSS) and Storage avatars */
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { webglAvailable } from "@/components/landing/meadow/quality";
 import type { Avatar } from "@/lib/avatar";
 import { HEX_COUNT, hexesFilled, shortName } from "@/lib/passport";
 import { Bee } from "./avatar/Bee";
 import { CheckinQr } from "./CheckinQr";
 import { pixel, terminal } from "./fonts";
 import styles from "./passport.module.css";
+
+// The bee's head in 3D, turning to look at the cursor. three.js only loads
+// where that can happen: a mouse, motion allowed, WebGL. Everywhere else, and
+// until it draws, the flat head stands in.
+const BeeHead = dynamic(() => import("./avatar/Bee3D").then((m) => m.BeeHead), { ssr: false });
+let looks: boolean | undefined;
+const canLook = () =>
+  (looks ??= matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches && webglAvailable());
+const noSubscribe = () => () => {};
+// The flat head's crop: the wardrobe's hat crop with room round it, so ear
+// cups clear the box. BeeHead frames the 3D head the same.
+const HEADSHOT = "18 -7 164 138";
 
 // A badge is an event the hacker was scanned into for points; id is the event id.
 export type PassportBadge = { id: string; label: string };
@@ -132,6 +146,7 @@ export function Passport({
   const qrRef = useRef<HTMLDialogElement>(null);
   const missionsRef = useRef<HTMLDialogElement>(null);
   const socialsRef = useRef<HTMLDialogElement>(null);
+  const look = useSyncExternalStore(noSubscribe, canLook, () => false);
 
   const filled = hexesFilled(points);
   const badgeIndex = new Map(badges.map((badge, i) => [badge.id, i]));
@@ -147,8 +162,8 @@ export function Passport({
           <img className={styles.logo} src="/passport/hackhive-logo.png" alt="HackHive" />
 
           <Link href="/dashboard/avatar" className={`${styles.badgeBox} ${styles.press}`} aria-label="Edit your avatar">
-            {/* Full width, so beating wings never clip; the square's height sets the size. */}
-            <Bee avatar={avatar} viewBox="0 2 200 274" className={styles.bee} />
+            <Bee avatar={avatar} headOnly viewBox={HEADSHOT} className={styles.bee} />
+            {look && <BeeHead avatar={avatar} className={styles.bee} />}
             <span className={styles.editTag} aria-hidden="true">EDIT</span>
           </Link>
 
