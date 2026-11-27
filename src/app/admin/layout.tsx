@@ -5,7 +5,7 @@ import { AdminNav } from "./AdminNav";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-white pt-16 md:flex md:pt-0">
-      <HideSiteNavbar />
+      {/* <HideSiteNavbar /> */}
       <AdminNav />
       <div className="min-w-0 flex-1 px-4 py-6 sm:px-8 md:py-10">{children}</div>
     </div>

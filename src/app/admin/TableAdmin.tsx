@@ -8,7 +8,25 @@ import { deleteRows, saveRow } from "./actions";
 import { DeleteButton, SelectBox, Selection } from "./Selection";
 import { TABLES, type Field, type Row, type TableName } from "./tables";
 
-const input = "w-full rounded border border-neutral-300 px-3 py-2";
+const input =
+  "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600";
+
+// A small preview of the row's picture (logo, photo, product shot), or its first
+// letter when it has none, so items are easy to tell apart at a glance.
+function Thumbnail({ src, name }: { src: unknown; name: string }) {
+  return (
+    <div className="mt-1 grid size-12 shrink-0 place-items-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-50">
+      {typeof src === "string" && src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- uploads come from Storage
+        <img src={src} alt="" className="size-full object-cover" />
+      ) : (
+        <span className="text-lg font-bold text-neutral-300" aria-hidden>
+          {name.trim()[0]?.toUpperCase() ?? "?"}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // Uploads to the public "media" bucket (admin-only writes) and drops the URL
 // into the field; pasting a URL works too.
@@ -99,6 +117,7 @@ function Fields({ table, row }: { table: TableName; row?: Row }) {
 export function TableAdmin({ table, rows }: { table: TableName; rows: Row[] }) {
   const config = TABLES[table];
   const save = saveRow.bind(null, table);
+  const imageField = config.fields.find((field: Field) => field.type === "image")?.name;
   return (
     <>
       <details className="group mb-6 rounded-lg border border-neutral-200 bg-neutral-50/60 open:bg-white">
@@ -120,6 +139,7 @@ export function TableAdmin({ table, rows }: { table: TableName; rows: Row[] }) {
             {rows.map((row) => (
               <li key={row.id} className="flex gap-3 px-3 py-2 has-[[data-select]:checked]:bg-amber-50/60">
                 <SelectBox id={row.id} label={String(row.name)} />
+                {imageField && <Thumbnail src={row[imageField]} name={String(row.name)} />}
                 <div className="min-w-0 flex-1 py-1">
                   <p className="font-semibold break-words">{String(row.name)}</p>
                   <p className="text-sm text-neutral-600">{config.summary(row)}</p>

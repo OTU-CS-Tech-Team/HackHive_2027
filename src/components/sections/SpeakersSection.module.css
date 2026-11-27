@@ -5,7 +5,7 @@
   background: #0a1207;
   color: #fff6e0;
   padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 3vw, 3rem);
-  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
   position: relative;
   isolation: isolate;
   overflow: clip; /* clip, not hidden: hidden makes this a scroll container and can break sticky */

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { HeroCta, HeroCtaFallback } from "@/components/landing/HeroCta";
 import { HeroScroll } from "@/components/landing/HeroScroll";
 import { IntroOverlay } from "@/components/landing/intro/IntroOverlay";
+import { AboutSection } from "@/components/sections/about/AboutSection";
 import { CombEdge } from "@/components/sections/CombEdge";
 import { FaqSection } from "@/components/sections/FaqSection";
 import { SiteFooter } from "@/components/sections/SiteFooter";
@@ -36,13 +37,15 @@ export default function Home() {
   }
 
   return (
-    <main>
+    // id="top" is where the navbar's Home link goes (components/navbar/links.ts).
+    <main id="top">
       <IntroOverlay />
-      <HeroScroll poster={HAS_POSTER}>
+      <HeroScroll poster={HAS_POSTER} goldBand={false}>
         <Suspense fallback={<HeroCtaFallback />}>
           <HeroCta />
         </Suspense>
       </HeroScroll>
+      <AboutSection />
       <SponsorsSection />
       {/* colour must match the top of Speakers (its code stage, #0a1207), or the comb ends on a visible line. */}
       <CombEdge colour="#0a1207" tip="#0b2419" seed={500} />

@@ -18,6 +18,7 @@ const full: Application = {
   guardian_name: 'Byron', guardian_phone: '905-555-0199', guardian_relationship: 'Father',
   consent_coc: true, consent_privacy: true, consent_indemnification: true, indemnification_path: 'user-id/form.pdf',
   consent_esignature: true, consent_photo: true, share_resume_with_sponsors: true,
+  consent_mlh_coc: true, consent_mlh_share: true, consent_mlh_emails: false,
 };
 
 describe('buildHiveInput', () => {

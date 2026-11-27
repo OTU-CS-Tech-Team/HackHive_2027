@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Hive Mind eval answers (real or hand-scored): never commit
 scripts/hive-eval.local.json
+
+# Original About photos (16-19 MB each); scripts/about-assets.mjs builds public/about/ from them.
+/assets/about-originals/

@@ -37,6 +37,9 @@ export interface DraftFormData {
   consent_esignature: boolean;
   consent_photo: boolean;
   share_resume_with_sponsors: boolean;
+  consent_mlh_coc: boolean;
+  consent_mlh_share: boolean;
+  consent_mlh_emails: boolean;
 }
 
 export const initialFormData: DraftFormData = {
@@ -78,6 +81,9 @@ export const initialFormData: DraftFormData = {
   consent_esignature: false,
   consent_photo: false,
   share_resume_with_sponsors: false,
+  consent_mlh_coc: false,
+  consent_mlh_share: false,
+  consent_mlh_emails: false,
 };
 
 /** Drops the empty boxes left by "Add another link", and any link entered twice. */
@@ -126,5 +132,8 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
     consent_esignature: data.consent_esignature,
     consent_photo: data.consent_photo,
     share_resume_with_sponsors: data.share_resume_with_sponsors,
+    consent_mlh_coc: data.consent_mlh_coc,
+    consent_mlh_share: data.consent_mlh_share,
+    consent_mlh_emails: data.consent_mlh_emails,
   };
 }

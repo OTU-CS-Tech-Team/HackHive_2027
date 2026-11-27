@@ -27,7 +27,10 @@ export function ActionForm({
     >
       {children}
       <div className="flex items-center gap-3">
-        <button disabled={pending} className="rounded bg-neutral-900 px-4 py-2 text-white disabled:opacity-50">
+        <button
+          disabled={pending}
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
           {pending ? "Saving…" : submitLabel}
         </button>
         {message && (

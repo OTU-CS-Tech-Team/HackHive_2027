@@ -59,14 +59,36 @@ const CODE_OF_CONDUCT_URL =
   "https://docs.google.com/document/d/1QBaoQ1ohf4nnto3Gptz6SJzoHe3rNQJM7Rsc2Vbk0S8/edit?usp=sharing";
 
 // Everything the "Agree to all" box ticks. Code of Conduct and Privacy Policy
-// share one checkbox, so they move together.
+// share one checkbox, so they move together. MLH's marketing-emails box is left
+// out on purpose: it's optional, so hackers opt in to it themselves.
 const CONSENT_FIELDS = [
   "consent_coc",
   "consent_privacy",
   "consent_indemnification",
   "consent_esignature",
   "share_resume_with_sponsors",
+  "consent_mlh_coc",
+  "consent_mlh_share",
 ] as const;
+
+// The three checkboxes MLH requires on member events' registration forms, in MLH's
+// wording (https://guide.mlh.com/general-information/managing-registrations/registrations).
+// If MLH updates the wording, change it here and nowhere else.
+const MLH_LINKS = {
+  codeOfConduct: "https://github.com/MLH/mlh-policies/blob/main/code-of-conduct.md",
+  contestTerms: "https://github.com/MLH/mlh-policies/blob/main/contest-terms.md",
+  privacyPolicy: "https://github.com/MLH/mlh-policies/blob/main/privacy-policy.md",
+};
+
+// Sits above the card's click area (see CheckboxField), so it opens the policy
+// instead of ticking the box.
+function MlhLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={`relative z-10 ${linkClass}`}>
+      {children}
+    </a>
+  );
+}
 
 const YEAR_OF_STUDY_OPTIONS = [
   { value: "1", label: "1st year" },
@@ -193,6 +215,9 @@ const STEPS: {
       "consent_esignature",
       "consent_photo",
       "share_resume_with_sponsors",
+      "consent_mlh_coc",
+      "consent_mlh_share",
+      "consent_mlh_emails",
     ],
   },
 ];
@@ -327,6 +352,11 @@ export function getErrors(data: FormData): Record<string, string> {
   if (!data.consent_esignature)
     errors.consent_esignature =
       "You must agree that electronic signatures are legally binding";
+  if (!data.consent_mlh_coc)
+    errors.consent_mlh_coc = "You must agree to the MLH Code of Conduct";
+  if (!data.consent_mlh_share)
+    errors.consent_mlh_share =
+      "You must agree to share your information with MLH and to its terms";
 
   if (isUnder18(data)) {
     if (!data.guardian_name.trim())
@@ -681,6 +711,9 @@ export function ApplyForm({
           consent_photo: formData.consent_photo || null,
           share_resume_with_sponsors:
             formData.share_resume_with_sponsors || null,
+          consent_mlh_coc: formData.consent_mlh_coc,
+          consent_mlh_share: formData.consent_mlh_share,
+          consent_mlh_emails: formData.consent_mlh_emails,
         },
         turnstileToken,
         startedAt: formStartedAt.current || Date.now(),
@@ -1580,6 +1613,52 @@ export function ApplyForm({
                   checked={formData.share_resume_with_sponsors}
                   onChange={(v) => updateField("share_resume_with_sponsors", v)}
                 />
+
+                <div className="space-y-3 border-t border-hive-line pt-5">
+                  <div>
+                    <h3 className="text-sm font-semibold text-hive-ink">Major League Hacking (MLH)</h3>
+                    <p className="mt-0.5 text-[13px] text-hive-muted">
+                      HackHive is an MLH Member Event. MLH asks every hacker to agree to the first two.
+                    </p>
+                  </div>
+                  <CheckboxField
+                    label={
+                      <>
+                        I have read and agree to the{" "}
+                        <MlhLink href={MLH_LINKS.codeOfConduct}>MLH Code of Conduct</MlhLink>.
+                      </>
+                    }
+                    name="consent_mlh_coc"
+                    checked={formData.consent_mlh_coc}
+                    onChange={(v) => updateField("consent_mlh_coc", v)}
+                    required
+                    error={errors.consent_mlh_coc}
+                  />
+                  <CheckboxField
+                    label={
+                      <>
+                        I authorize you to share my application/registration information with Major League Hacking for
+                        event administration, ranking, and MLH administration in-line with the{" "}
+                        <MlhLink href={MLH_LINKS.privacyPolicy}>MLH Privacy Policy</MlhLink>. I further agree to the
+                        terms of both the{" "}
+                        <MlhLink href={MLH_LINKS.contestTerms}>MLH Contest Terms and Conditions</MlhLink> and the{" "}
+                        <MlhLink href={MLH_LINKS.privacyPolicy}>MLH Privacy Policy</MlhLink>.
+                      </>
+                    }
+                    name="consent_mlh_share"
+                    checked={formData.consent_mlh_share}
+                    onChange={(v) => updateField("consent_mlh_share", v)}
+                    required
+                    error={errors.consent_mlh_share}
+                  />
+                  <CheckboxField
+                    label="I authorize MLH + DEV to send me occasional emails about relevant events, career opportunities, and community announcements."
+                    description="Optional."
+                    name="consent_mlh_emails"
+                    checked={formData.consent_mlh_emails}
+                    onChange={(v) => updateField("consent_mlh_emails", v)}
+                  />
+                </div>
               </FormSection>
             </>,
           )}

@@ -32,7 +32,19 @@ html [data-navbar-shell]::before {
   mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
 }`;
 
-export function HeroScroll({ poster, children }: { poster: boolean; children: ReactNode }) {
+/**
+ * goldBand: the honey band that rises over the meadow's foot to meet Sponsors' gold. Off when
+ * another section (About) follows the hero instead.
+ */
+export function HeroScroll({
+  poster,
+  goldBand = true,
+  children,
+}: {
+  poster: boolean;
+  goldBand?: boolean;
+  children: ReactNode;
+}) {
   const rootRef = useRef<HTMLElement>(null);
   const progressRef = useRef(0);
   // MeadowScene still reads this for camera aim. We leave it at rest so the
@@ -84,7 +96,7 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
       else walk += (target - walk) * (1 - Math.exp(-dt * WALK_GLIDE));
       if (Math.abs(target - walk) < 1e-5) walk = target;
       progressRef.current = walk;
-      const background = veilBackground(progress);
+      const background = goldBand ? veilBackground(progress) : "transparent";
       if (veil && background !== lastVeil) {
         veil.style.background = background;
         lastVeil = background;
@@ -115,7 +127,7 @@ export function HeroScroll({ poster, children }: { poster: boolean; children: Re
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [goldBand]);
 
   return (
     <section ref={rootRef} className={styles.heroScroll} data-hero-scroll="" aria-label="HackHive 2027">

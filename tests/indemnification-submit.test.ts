@@ -94,6 +94,8 @@ const fields = {
   consent_privacy: true,
   consent_indemnification: true,
   consent_esignature: true,
+  consent_mlh_coc: true,
+  consent_mlh_share: true,
 };
 
 const submit = () => submitApplication({
@@ -135,6 +137,8 @@ describe('submitApplication with the indemnification form', () => {
     expect(args).toMatchObject({
       p_consent_indemnification: true,
       p_consent_esignature: true,
+      p_consent_mlh_coc: true,
+      p_consent_mlh_share: true,
       p_indemnification_path: path,
       p_email: 'ada@example.com',
       p_user_id: USER_ID,
