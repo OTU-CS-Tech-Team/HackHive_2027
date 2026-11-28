@@ -31,6 +31,11 @@ export function isUndergradLevel(value: string | null | undefined): boolean {
   return value === "undergrad_2_year" || value === "undergrad_3_plus_year";
 }
 
+/** Expected graduation is asked of everyone except people who aren't currently students. */
+export function asksGradDate(value: string | null | undefined): boolean {
+  return value !== "not_a_student";
+}
+
 // year_of_study: "1".."5" (5 = 5th year+). "6" (Graduate) is no longer offered,
 // since level of study covers it, but older applications may still hold it.
 export const YEAR_OF_STUDY_OPTIONS = [

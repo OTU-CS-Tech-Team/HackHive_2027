@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LEVEL_OF_STUDY_VALUES, isUndergradLevel } from './level-of-study';
+import { LEVEL_OF_STUDY_VALUES, asksGradDate, isUndergradLevel } from './level-of-study';
 
 const MAX_WORDS_Q1_Q2 = 200;
 const RECOMMENDED_WORDS_Q1_Q2 = 150;
@@ -355,8 +355,13 @@ export const applicationSubmitSchema = z
       }
     }
   })
-  // Year of study is only asked for undergraduate levels; never save one otherwise.
-  .transform((data) => (isUndergradLevel(data.level_of_study) ? data : { ...data, year_of_study: undefined }));
+  // Year of study is only asked for undergraduate levels, and expected graduation
+  // isn't asked of people who aren't students; never save either otherwise.
+  .transform((data) => ({
+    ...data,
+    year_of_study: isUndergradLevel(data.level_of_study) ? data.year_of_study : undefined,
+    grad_date: asksGradDate(data.level_of_study) ? data.grad_date : undefined,
+  }));
 
 export const indemnificationPreviewSchema = z.object({
   first_name: z.string().max(100),

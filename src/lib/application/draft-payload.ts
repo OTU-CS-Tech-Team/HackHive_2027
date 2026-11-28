@@ -1,4 +1,4 @@
-import { isUndergradLevel } from "./level-of-study";
+import { asksGradDate, isUndergradLevel } from "./level-of-study";
 
 export interface DraftFormData {
   first_name: string;
@@ -104,6 +104,12 @@ export function yearOfStudyToSave(data: Pick<DraftFormData, "level_of_study" | "
   return data.year_of_study || null;
 }
 
+/** Expected graduation is saved as null for people who aren't currently students. */
+export function gradDateToSave(data: Pick<DraftFormData, "level_of_study" | "grad_date">): string | null {
+  if (!asksGradDate(data.level_of_study)) return null;
+  return data.grad_date || null;
+}
+
 export function buildDraftPayload(data: DraftFormData): Record<string, unknown> {
   return {
     first_name: data.first_name || "",
@@ -118,7 +124,7 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
     program: data.program || "",
     level_of_study: data.level_of_study || null,
     year_of_study: yearOfStudyToSave(data),
-    grad_date: data.grad_date || null,
+    grad_date: gradDateToSave(data),
     hackathons_count: data.hackathons_count && data.hackathons_count !== "0" ? parseInt(data.hackathons_count, 10) : null,
     linkedin_url: data.linkedin_url || "",
     github_url: data.github_url || "",
