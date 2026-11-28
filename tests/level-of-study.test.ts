@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   LEVEL_OF_STUDY_OPTIONS,
+  asksGradDate,
   isUndergradLevel,
   levelOfStudyLabel,
   yearOfStudyLabel,
 } from '@/lib/application/level-of-study';
 import { applicationDraftSchema, applicationSubmitSchema } from '@/lib/application/schema';
-import { buildDraftPayload, initialFormData, yearOfStudyToSave } from '@/lib/application/draft-payload';
+import { buildDraftPayload, gradDateToSave, initialFormData, yearOfStudyToSave } from '@/lib/application/draft-payload';
 
 const submission = {
   first_name: 'Ada',
@@ -131,5 +132,29 @@ describe('drafts', () => {
     // An older draft with a year but no level yet keeps its year.
     expect(payload('', '2')).toMatchObject({ level_of_study: null, year_of_study: '2' });
     expect(yearOfStudyToSave({ level_of_study: 'secondary', year_of_study: '' })).toBeNull();
+  });
+});
+
+describe('expected graduation for non-students', () => {
+  it('is only skipped for "I\'m not currently a student"', () => {
+    expect(LEVEL_OF_STUDY_OPTIONS.filter((o) => !asksGradDate(o.value)).map((o) => o.value)).toEqual(['not_a_student']);
+  });
+
+  it('is not required, and dropped if sent, for non-students', () => {
+    const result = applicationSubmitSchema.safeParse({ ...submission, level_of_study: 'not_a_student', year_of_study: '', grad_date: '2030-04-01' });
+    expect(result.success).toBe(true);
+    expect(result.data?.grad_date).toBeUndefined();
+    expect(applicationSubmitSchema.safeParse({ ...submission, level_of_study: 'not_a_student', year_of_study: '', grad_date: null }).success).toBe(true);
+  });
+
+  it('is kept for students', () => {
+    const result = applicationSubmitSchema.safeParse({ ...submission, grad_date: '2030-04-01' });
+    expect(result.data?.grad_date).toBeInstanceOf(Date);
+  });
+
+  it('saves null on drafts for non-students only', () => {
+    expect(gradDateToSave({ level_of_study: 'not_a_student', grad_date: '2030-04' })).toBeNull();
+    expect(gradDateToSave({ level_of_study: 'graduate', grad_date: '2030-04' })).toBe('2030-04');
+    expect(gradDateToSave({ level_of_study: '', grad_date: '2030-04' })).toBe('2030-04');
   });
 });
