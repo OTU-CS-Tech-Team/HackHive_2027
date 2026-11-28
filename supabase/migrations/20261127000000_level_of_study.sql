@@ -2,7 +2,7 @@
 -- events' registration forms). Stored as a stable slug; the labels live in
 -- src/lib/application/level-of-study.ts. Saved on drafts like the other fields;
 -- the app requires it on submit. year_of_study stays, but is now only asked for
--- the two undergraduate levels and saved as null otherwise.
+-- "University or College" (undergrad) and saved as null otherwise.
 --
 -- Deploy together with the app code that reads this column: the apply form's
 -- draft save writes it, so code without this migration fails to save drafts.

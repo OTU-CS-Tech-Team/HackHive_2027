@@ -62,8 +62,8 @@ describe('reg_submit_application with level of study', () => {
   });
 
   it('stores the level of study with the year', async () => {
-    expect((await submit({ p_level_of_study: 'undergrad_3_plus_year' })).ok).toBe(true);
-    expect(await saved()).toEqual({ level_of_study: 'undergrad_3_plus_year', year_of_study: '3' });
+    expect((await submit({ p_level_of_study: 'undergrad' })).ok).toBe(true);
+    expect(await saved()).toEqual({ level_of_study: 'undergrad', year_of_study: '3' });
   });
 
   it('stores a level without a year', async () => {
@@ -73,7 +73,7 @@ describe('reg_submit_application with level of study', () => {
 
   it('overwrites a draft level when submitting', async () => {
     await db.exec(`insert into public.applications(user_id, email, level_of_study, year_of_study)
-      values ('${USER}', 'ada@example.com', 'undergrad_2_year', '1')`);
+      values ('${USER}', 'ada@example.com', 'undergrad', '1')`);
     expect((await submit({ p_level_of_study: 'bootcamp', p_year_of_study: null })).ok).toBe(true);
     expect(await saved()).toEqual({ level_of_study: 'bootcamp', year_of_study: null });
   });

@@ -96,7 +96,7 @@ export function cleanLinks(links: string[] | null | undefined): string[] {
 }
 
 /**
- * Year of study is only asked for undergraduate levels. Once another level is
+ * Year of study is only asked for University or College. Once another level is
  * picked it's saved as null; with no level picked yet (older drafts) it's kept.
  */
 export function yearOfStudyToSave(data: Pick<DraftFormData, "level_of_study" | "year_of_study">): string | null {

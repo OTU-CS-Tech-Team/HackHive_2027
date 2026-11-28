@@ -320,7 +320,7 @@ export function getErrors(data: FormData): Record<string, string> {
     errors.university = "Pick your school from the list, or choose “Other”";
   if (!data.program.trim()) errors.program = "Program is required";
   if (!data.level_of_study) errors.level_of_study = "Level of study is required";
-  // Year of study is only asked for undergraduate levels. An older draft can hold
+  // Year of study is only asked for University or College. An older draft can hold
   // a year the picker no longer offers ("Graduate"), so that counts as unanswered.
   else if (
     isUndergradLevel(data.level_of_study) &&
