@@ -1,7 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
-import { exactSchoolMatches, searchSchools } from "@/lib/schools";
+import { useEffect, useId, useState } from "react";
 import { errorClass, hintClass, inputClass, labelClass, linkClass } from "./styles";
 
 interface SchoolFieldProps {
@@ -12,8 +11,51 @@ interface SchoolFieldProps {
 }
 
 const NOT_LISTED = "Other";
+const DEBOUNCE_MS = 150;
 
-// A search box over the school list. Picking a school saves its exact name;
+type Lookup = { query: string; schools: string[]; failed: boolean };
+
+/**
+ * Asks /api/schools about `text`, debounced. MLH's school list is too big to
+ * send to the browser, so the search runs on the server. A newer query aborts
+ * the older request, so a slow, stale answer can never replace a newer one.
+ * While a query is in flight the last answer stays on screen, with `loading` set.
+ */
+function useSchoolLookup(text: string, mode: "search" | "exact", enabled: boolean) {
+  const [data, setData] = useState<Lookup>({ query: "", schools: [], failed: false });
+  const query = text.trim();
+  const active = enabled && query !== "";
+
+  useEffect(() => {
+    if (!active) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const params = new URLSearchParams(mode === "exact" ? { q: query, mode } : { q: query });
+      try {
+        const res = await fetch(`/api/schools?${params}`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`School search failed: ${res.status}`);
+        const body: unknown = await res.json();
+        const list = (body as { schools?: unknown })?.schools;
+        const schools = Array.isArray(list) ? list.filter((s): s is string => typeof s === "string") : [];
+        if (!controller.signal.aborted) setData({ query, schools, failed: false });
+      } catch {
+        if (!controller.signal.aborted) setData({ query, schools: [], failed: true });
+      }
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [active, query, mode]);
+
+  return {
+    schools: active ? data.schools : [],
+    loading: active && data.query !== query,
+    failed: active && data.query === query && data.failed,
+  };
+}
+
+// A search box over MLH's school list. Picking a school saves its exact name;
 // "Other" swaps in a free-text box. Typing without picking
 // leaves the value empty, so the form asks them to choose.
 export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldProps) {
@@ -37,9 +79,14 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
     if (value !== "" && !isOther) setQuery(value);
   }
 
-  const results = useMemo(() => searchSchools(query), [query]);
-  const options = [...results.map((school) => school.name), NOT_LISTED];
+  const results = useSchoolLookup(query, "search", open && !isOther);
+  // "Did you mean": what they typed under "Other" is exactly a listed school or alias.
+  const suggestion = useSchoolLookup(value, "exact", isOther).schools[0];
+
+  const options = [...results.schools, NOT_LISTED];
   const showList = open && query.trim() !== "";
+  // Results can shrink when an answer arrives; keep the highlight on a real option.
+  const activeIndex = Math.min(active, options.length - 1);
   const describedBy = [hintId, error ? errorId : null].filter(Boolean).join(" ");
 
   const choose = (option: string) => {
@@ -74,7 +121,6 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
   );
 
   if (isOther) {
-    const suggestion = exactSchoolMatches(value)[0];
     return (
       <div className="space-y-2">
         {label(id)}
@@ -101,10 +147,10 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
             Did you mean{" "}
             <button
               type="button"
-              onClick={() => backToList(suggestion.name)}
+              onClick={() => backToList(suggestion)}
               className={linkClass}
             >
-              {suggestion.name}
+              {suggestion}
             </button>
             ?
           </p>
@@ -113,6 +159,12 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
       </div>
     );
   }
+
+  const status = results.loading && results.schools.length === 0
+    ? "Searching…"
+    : results.failed
+      ? "Couldn't search schools right now. Try again, or pick Other to type it."
+      : null;
 
   return (
     <div className="space-y-2">
@@ -139,13 +191,14 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
             if (e.key === "ArrowDown") {
               e.preventDefault();
               setOpen(true);
-              setActive((i) => Math.min(i + 1, options.length - 1));
+              setActive(Math.min(activeIndex + 1, options.length - 1));
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
-              setActive((i) => Math.max(i - 1, 0));
-            } else if (e.key === "Enter" && showList && active >= 0) {
+              setActive(Math.max(activeIndex - 1, 0));
+            } else if (e.key === "Enter" && showList && activeIndex >= 0) {
               e.preventDefault();
-              choose(options[active]);
+              // Don't pick from an answer to an older query; the fresh one is a moment away.
+              if (!results.loading) choose(options[activeIndex]);
             } else if (e.key === "Escape") {
               setOpen(false);
             }
@@ -156,7 +209,7 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
           aria-autocomplete="list"
           aria-expanded={showList}
           aria-controls={listId}
-          aria-activedescendant={showList && active >= 0 ? `${listId}-${active}` : undefined}
+          aria-activedescendant={showList && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={describedBy}
           className={inputClass(error)}
@@ -166,22 +219,28 @@ export function SchoolField({ value, onChange, maxLength, error }: SchoolFieldPr
             id={listId}
             role="listbox"
             aria-label="Schools"
+            aria-busy={results.loading || undefined}
             className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-hive-line bg-white p-1 shadow-[0_12px_32px_-8px_rgba(19,47,64,0.18)]"
           >
+            {status && (
+              <li role="presentation" className="px-3 py-2 text-sm text-hive-muted">
+                {status}
+              </li>
+            )}
             {options.map((option, i) => (
               <li
-                key={option}
+                key={i === options.length - 1 ? `${listId}-other` : option}
                 id={`${listId}-${i}`}
                 role="option"
-                aria-selected={i === active}
+                aria-selected={i === activeIndex}
                 // mousedown, not click: picking must happen before the input's blur closes the list.
                 onMouseDown={(e) => {
                   e.preventDefault();
                   choose(option);
                 }}
                 onMouseEnter={() => setActive(i)}
-                className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${i === active ? "bg-hive-honey-soft" : ""} ${
-                  option === NOT_LISTED ? "text-hive-muted" : "font-medium text-hive-ink"
+                className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${i === activeIndex ? "bg-hive-honey-soft" : ""} ${
+                  i === options.length - 1 ? "text-hive-muted" : "font-medium text-hive-ink"
                 }`}
               >
                 {option}

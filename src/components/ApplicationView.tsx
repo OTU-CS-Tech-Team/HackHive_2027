@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, ChevronDown, ExternalLink, FileSignature, FileText, PencilLine } from "lucide-react";
 import type { Application } from "@/lib/application/schema";
 import { formatDay } from "@/lib/time";
+import { levelOfStudyLabel, yearOfStudyLabel } from "@/lib/application/level-of-study";
 
 const BADGES = {
   draft: ["Draft", "bg-neutral-100 text-neutral-800"],
@@ -27,15 +28,6 @@ const NEXT_STEPS: Record<Status, string> = {
   accepted: "The full hacker dashboard is unlocked: schedule, your passport, teammates, hardware and points.",
   waitlisted: "We'll email you if a spot opens up.",
   rejected: "We couldn't offer you a spot this year. We hope to see you next time.",
-};
-
-const YEAR_LABELS: Record<string, string> = {
-  "1": "1st year",
-  "2": "2nd year",
-  "3": "3rd year",
-  "4": "4th year",
-  "5": "5th year+",
-  "6": "Graduate",
 };
 
 const TEAM_LABELS: Record<string, string> = {
@@ -247,7 +239,7 @@ function Group({ title, onEdit, children }: { title: string; onEdit?: () => void
 export type ApplicationAnswersData = Pick<
   Application,
   | "first_name" | "last_name" | "preferred_name" | "email" | "phone" | "age" | "pronouns" | "city" | "country"
-  | "university" | "program" | "year_of_study" | "grad_date"
+  | "university" | "program" | "level_of_study" | "year_of_study" | "grad_date"
   | "hackathons_count" | "resume_path" | "linkedin_url" | "github_url" | "portfolio_url" | "other_links"
   | "q_proud" | "q_hack" | "q_anything_else"
   | "team_status" | "teammate_emails" | "tshirt_size" | "needs_travel_help" | "dietary" | "accessibility"
@@ -283,7 +275,8 @@ export function ApplicationDetails({
       <Group title="Education" onEdit={edit("school")}>
         <Field label="School Name">{application.university}</Field>
         <Field label="Program">{application.program}</Field>
-        <Field label="Year of study">{application.year_of_study && (YEAR_LABELS[application.year_of_study] ?? application.year_of_study)}</Field>
+        <Field label="Level of study">{levelOfStudyLabel(application.level_of_study)}</Field>
+        <Field label="Year of study">{yearOfStudyLabel(application.year_of_study)}</Field>
         <Field label="Expected graduation">{monthYear(application.grad_date)}</Field>
       </Group>
 

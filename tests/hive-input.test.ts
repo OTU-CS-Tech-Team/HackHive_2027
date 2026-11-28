@@ -9,7 +9,7 @@ const full: Application = {
   submitted_at: '2026-11-01', created_at: '2026-11-01', updated_at: '2026-11-01',
   first_name: 'Ada', last_name: 'Lovelace', preferred_name: 'Countess', phone: '905-555-0100', age: 16,
   pronouns: 'she/her', city: 'Oshawa', country: 'Canada', university: 'Ontario Tech University',
-  program: 'Computer Science', year_of_study: '1', grad_date: '2030-04-01', hackathons_count: 7,
+  program: 'Computer Science', level_of_study: 'undergrad_3_plus_year', year_of_study: '1', grad_date: '2030-04-01', hackathons_count: 7,
   linkedin_url: 'https://linkedin.com/in/ada', github_url: 'https://github.com/ada', portfolio_url: 'https://ada.dev',
   other_links: ['https://devpost.com/ada'], resume_path: 'user-id/resume.pdf',
   q_proud: '  I built a compiler.  ', q_hack: 'Reused a router.', q_anything_else: 'Need a visa letter.',
