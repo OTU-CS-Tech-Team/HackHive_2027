@@ -141,6 +141,34 @@ Use **Refresh stats** for current numbers. **Review applications** returns to th
 existing admin application controls. Application and decision editing continue
 to work as before.
 
+## Bee avatar
+
+Accepted hackers build a bee in the dashboard's **Your bee** tab (`/dashboard?tab=bee`, or tap the square under the
+logo on the passport): a top, bottom, shoes, hat, headphones, glasses and LED
+face, each in a colour. The bee is SVG drawn in code
+(`src/app/dashboard/avatar/Bee.tsx`), so every piece mixes with every other; the
+pieces and colours are listed in `src/lib/avatar.ts`. The wardrobe shows the same
+bee in 3D (`src/app/dashboard/avatar/Bee3D.tsx`, three.js), which you can drag to
+turn; a new piece needs drawing in both files. Without WebGL the wardrobe shows
+the SVG bee. The passport shows just the head: in 3D (`BeeHead` in `Bee3D.tsx`),
+turning to look at the cursor when it comes near (out to the Hacker Profile
+box), or flat on touch screens, with reduced motion, and without WebGL.
+
+Applicants can also build their bee, and name it, in the application form's
+optional "Your bee" step (just before Review). It saves straight to their
+profile as they go, not to the draft, and a failed save never blocks submitting;
+once they're accepted it's the bee on their passport and in the wardrobe. The
+name is optional (24 characters at most), is stored with the bee in
+`profiles.avatar`, and is the Your bee tab's title, where it can be
+changed. On phones and weaker machines the step shows the flat bee, so the form
+isn't driving a 3D canvas. Applicants who submitted before this step existed build theirs after
+they're accepted. There's no new migration.
+
+Apply `supabase/migrations/20261127120000_avatar.sql` before deploying. Until it
+is applied, passports show the default bee, the Your bee tab says it couldn't
+load, and nothing else breaks. A retired piece in a saved avatar shows the
+default piece instead.
+
 ## HackHive Museum
 
 Select **Visit the HackHive Museum** in the homepage's past-HackHive section, or

@@ -2,6 +2,8 @@
 
 import QRCode from "qrcode";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { beeRecord } from "@/lib/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { parseSlackProfileUrl } from "@/lib/team/profiles";
 import { LISTING_COLUMNS, teammateListingIssue } from "@/lib/team/listing";
@@ -90,6 +92,35 @@ export async function saveEmergencyInfo(formData: FormData) {
   if (error) return error.message;
   revalidatePath("/dashboard");
   return "Saved.";
+}
+
+// Returns a message on failure; on success it goes back to the passport.
+export async function saveAvatar(avatar: unknown, name: unknown) {
+  const { supabase, user } = await requireHubUser();
+  const valid = beeRecord(avatar, name);
+  if (!valid) return "Something on your bee isn't in the wardrobe. Reload and try again.";
+  const { error } = await supabase.from("profiles").update({ avatar: valid }).eq("id", user.id);
+  if (error) return "Your avatar couldn't be saved. Try again.";
+  revalidatePath("/dashboard");
+  redirect("/dashboard?tab=passport");
+}
+
+// The registration form's bee step: any signed-in account, accepted or not,
+// like the photo below. True once saved; never throws, so the bee can't get in
+// the way of an application.
+export async function saveBee(avatar: unknown, name: unknown) {
+  try {
+    const bee = beeRecord(avatar, name);
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!bee || !user) return false;
+    const { error } = await supabase.from("profiles").update({ avatar: bee }).eq("id", user.id);
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 // The browser uploads to Storage itself (RLS keeps hackers in their own

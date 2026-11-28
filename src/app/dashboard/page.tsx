@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ArrowLeft, CalendarDays, ClipboardList, Cpu, Hexagon, IdCard, LogOut, MapPin, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, Cpu, Hexagon, IdCard, LogOut, MapPin, Shirt, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import { signOut } from "@/app/actions/auth";
 import { ActionForm } from "@/components/ActionForm";
 import { ApplicationAnswers, ApplicationStatus } from "@/components/ApplicationView";
 import { ScheduleSection } from "@/components/sections/ScheduleSection";
 import { getMyApplication } from "@/lib/application/api";
+import { avatarOf, beeName } from "@/lib/avatar";
 import { MAX_PENDING_REQUESTS } from "@/lib/itemRequests";
 import { formatDateTime, formatDay, formatTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +17,8 @@ import { saveEmergencyInfo, saveProfile, mintCheckinToken } from "./actions";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { ItemRequestForm } from "./ItemRequestForm";
 import { Passport } from "./Passport";
+import { AvatarPicker } from "./avatar/AvatarPicker";
+import beeStyles from "./avatar/avatar.module.css";
 
 export const metadata: Metadata = { title: "Dashboard | HackHive 2027" };
 
@@ -34,6 +37,7 @@ const TABS = {
   hunt: "Scavenger hunt",
   shop: "Points shop",
   profile: "Profile",
+  bee: "Your bee",
   passport: "Passport",
 } as const;
 type Tab = keyof typeof TABS;
@@ -47,9 +51,13 @@ const ICONS: Record<Tab, LucideIcon> = {
   hunt: MapPin,
   shop: ShoppingBag,
   profile: IdCard,
+  bee: Shirt,
 };
 
-const sidebarLabel = "mb-3 px-3 text-sm font-bold tracking-wider text-neutral-500 uppercase";
+// The bee tab puts the whole hub on the wardrobe's dark honeycomb (`dark` on <main>).
+const sidebarLabel = "mb-3 px-3 text-sm font-bold tracking-wider text-neutral-500 uppercase dark:text-neutral-400";
+const idle = "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-white";
+const idleIcon = "text-neutral-400 dark:text-neutral-500";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -82,9 +90,9 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
   if (tab === "team") redirect("/dashboard/team");
 
   return (
-    <main className="pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
+    <main className={`pt-24 pb-16 md:grid md:grid-cols-[17rem_minmax(0,1fr)] ${tab === "bee" ? `dark ${beeStyles.page}` : ""}`}>
       {/* Pinned to the left edge of the screen; the tab content centres in the rest. */}
-      <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5">
+      <aside className="px-4 md:sticky md:top-24 md:flex md:h-[calc(100dvh-8rem)] md:flex-col md:border-r md:border-neutral-200 md:px-5 dark:md:border-white/10">
           <p className={`hidden md:block ${sidebarLabel}`}>HackHive 2027</p>
           <nav aria-label="Dashboard" className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
             {/* The passport has its own button in the header instead. */}
@@ -97,10 +105,10 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
                   href={key === "team" ? "/dashboard/team" : key === "schedule" ? "/dashboard" : `/dashboard?tab=${key}`}
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-12 items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
-                    active ? "bg-amber-50 text-amber-900" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                    active ? "bg-amber-50 text-amber-900 dark:bg-amber-400/10 dark:text-amber-300" : idle
                   }`}
                 >
-                  <Icon className={`size-6 shrink-0 ${active ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
+                  <Icon className={`size-6 shrink-0 ${active ? "text-amber-600 dark:text-amber-400" : idleIcon}`} aria-hidden />
                   {TABS[key]}
                 </Link>
               );
@@ -113,9 +121,9 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+                className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${idle}`}
               >
-                <LogOut className="size-6 shrink-0 text-neutral-400" aria-hidden />
+                <LogOut className={`size-6 shrink-0 ${idleIcon}`} aria-hidden />
                 Log out
               </button>
             </form>
@@ -123,7 +131,7 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
         </aside>
 
         <div className="mx-auto mt-6 w-full max-w-4xl min-w-0 px-4 md:mt-0 md:px-8">
-          <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4">
+          <header className="mb-6 flex items-center gap-3 border-b border-neutral-200 pb-4 dark:border-white/10">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <AvatarUpload avatarUrl={profile?.avatar_url ?? null} />
               <h1 className="truncate text-xl font-bold">Hey {profile?.full_name ?? "hacker"}</h1>
@@ -133,15 +141,15 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
                 href="/dashboard?tab=passport"
                 aria-current={tab === "passport" ? "page" : undefined}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 ${
-                  tab === "passport" ? "border-amber-300 bg-amber-50 text-amber-900" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                  tab === "passport" ? "border-amber-300 bg-amber-50 text-amber-900" : `border-neutral-200 dark:border-white/15 ${idle}`
                 }`}
               >
-                <Hexagon className={`size-5 shrink-0 ${tab === "passport" ? "text-amber-600" : "text-neutral-400"}`} aria-hidden />
+                <Hexagon className={`size-5 shrink-0 ${tab === "passport" ? "text-amber-600" : idleIcon}`} aria-hidden />
                 {TABS.passport}
               </Link>
             )}
             {admin && (
-              <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
+              <Link href="/admin" className="rounded border px-4 py-2 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 dark:border-white/15 dark:hover:border-white dark:hover:bg-white dark:hover:text-neutral-900">
                 Admin
               </Link>
             )}
@@ -165,9 +173,27 @@ async function Dashboard({ searchParams }: { searchParams: Promise<{ tab?: strin
           {tab === "hunt" && <HuntTab supabase={supabase} />}
           {tab === "shop" && <ShopTab supabase={supabase} userId={user.id} />}
           {tab === "profile" && <ProfileTab supabase={supabase} userId={user.id} email={user.email} />}
+          {tab === "bee" && <BeeTab supabase={supabase} userId={user.id} />}
         </div>
     </main>
   );
+}
+
+// The wardrobe. Unlike the passport, a missing avatar column is an error here:
+// there'd be nowhere to save the bee.
+async function BeeTab({ supabase, userId }: { supabase: Supabase; userId: string }) {
+  const { data, error } = await supabase.from("profiles").select("avatar").eq("id", userId).maybeSingle();
+  if (error) {
+    return (
+      <p role="alert">
+        Your wardrobe couldn&apos;t be loaded.{" "}
+        <Link href="/dashboard?tab=passport" className="underline">
+          Back to your passport
+        </Link>
+      </p>
+    );
+  }
+  return <AvatarPicker saved={avatarOf(data?.avatar)} savedName={beeName(data?.avatar)} />;
 }
 
 async function ApplicationTab() {
@@ -203,10 +229,12 @@ async function PassportTab({
   userId: string;
   profile: { full_name: string | null; avatar_url: string | null } | null;
 }) {
-  const [{ data: balance }, { data: earned }, { data: events }, qr] = await Promise.all([
+  const [{ data: balance }, { data: earned }, { data: events }, { data: bee }, qr] = await Promise.all([
     supabase.from("point_balances").select("balance").eq("user_id", userId).maybeSingle(),
     supabase.from("point_transactions").select("event_id, reason").eq("user_id", userId).not("event_id", "is", null).order("created_at"),
     supabase.from("events").select("id, title, points, starts_at").gt("points", 0).order("starts_at"),
+    // Its own query: if the avatar column isn't there yet, only the bee falls back to the default.
+    supabase.from("profiles").select("avatar").eq("id", userId).maybeSingle(),
     mintCheckinToken(),
   ]);
 
@@ -214,6 +242,7 @@ async function PassportTab({
     <Passport
       fullName={profile?.full_name ?? null}
       avatarUrl={profile?.avatar_url ?? null}
+      avatar={avatarOf(bee?.avatar)}
       points={balance?.balance ?? 0}
       badges={(earned ?? []).map((row) => ({ id: row.event_id as string, label: row.reason }))}
       missions={(events ?? []).map((event) => ({

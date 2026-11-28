@@ -1,14 +1,28 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- fixed design art (cropped by CSS) and Storage avatars */
-import { Press_Start_2P, VT323 } from "next/font/google";
-import { useRef, useState, type ReactNode, type RefObject } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { webglAvailable } from "@/components/landing/meadow/quality";
+import type { Avatar } from "@/lib/avatar";
 import { HEX_COUNT, hexesFilled, shortName } from "@/lib/passport";
+import { Bee } from "./avatar/Bee";
 import { CheckinQr } from "./CheckinQr";
+import { pixel, terminal } from "./fonts";
 import styles from "./passport.module.css";
 
-const pixel = Press_Start_2P({ weight: "400", subsets: ["latin"], variable: "--font-pixel", display: "swap" });
-const terminal = VT323({ weight: "400", subsets: ["latin"], variable: "--font-terminal", display: "swap" });
+// The bee's head in 3D, turning to look at the cursor. three.js only loads
+// where that can happen: a mouse, motion allowed, WebGL. Everywhere else, and
+// until it draws, the flat head stands in.
+const BeeHead = dynamic(() => import("./avatar/Bee3D").then((m) => m.BeeHead), { ssr: false });
+let looks: boolean | undefined;
+const canLook = () =>
+  (looks ??= matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches && webglAvailable());
+const noSubscribe = () => () => {};
+// The flat head's crop: the wardrobe's hat crop with room round it, so ear
+// cups clear the box. BeeHead frames the 3D head the same.
+const HEADSHOT = "18 -7 164 138";
 
 // A badge is an event the hacker was scanned into for points; id is the event id.
 export type PassportBadge = { id: string; label: string };
@@ -115,6 +129,7 @@ function Popup({ dialogRef, title, className, children }: { dialogRef: RefObject
 export function Passport({
   fullName,
   avatarUrl,
+  avatar,
   points,
   badges,
   missions,
@@ -122,6 +137,7 @@ export function Passport({
 }: {
   fullName: string | null;
   avatarUrl: string | null;
+  avatar: Avatar;
   points: number;
   badges: PassportBadge[];
   missions: PassportMission[];
@@ -130,6 +146,7 @@ export function Passport({
   const qrRef = useRef<HTMLDialogElement>(null);
   const missionsRef = useRef<HTMLDialogElement>(null);
   const socialsRef = useRef<HTMLDialogElement>(null);
+  const look = useSyncExternalStore(noSubscribe, canLook, () => false);
 
   const filled = hexesFilled(points);
   const badgeIndex = new Map(badges.map((badge, i) => [badge.id, i]));
@@ -144,10 +161,11 @@ export function Passport({
           <Decos items={CARD_DECOS} />
           <img className={styles.logo} src="/passport/hackhive-logo.png" alt="HackHive" />
 
-          <div className={styles.badgeBox}>
-            {/* The first badge earned, as in the design. */}
-            <BadgeArt index={0} badge={badges[0]} className={styles.badgeLarge} />
-          </div>
+          <Link href="/dashboard?tab=bee" className={`${styles.badgeBox} ${styles.press}`} aria-label="Edit your avatar">
+            <Bee avatar={avatar} headOnly viewBox={HEADSHOT} className={styles.bee} />
+            {look && <BeeHead avatar={avatar} className={styles.bee} />}
+            <span className={styles.editTag} aria-hidden="true">EDIT</span>
+          </Link>
 
           <header className={styles.header}>
             <h2 className={styles.headerTitle}>Hacker Profile</h2>
