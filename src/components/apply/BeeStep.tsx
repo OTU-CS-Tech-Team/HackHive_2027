@@ -59,7 +59,7 @@ export default function BeeStep({
 
   return (
     <div className={styles.embed}>
-      <BeeBuilder avatar={avatar} onAvatar={(next) => change({ avatar: next, name })} name={name} onName={(next) => change({ avatar, name: next })} />
+      <BeeBuilder lite avatar={avatar} onAvatar={(next) => change({ avatar: next, name })} name={name} onName={(next) => change({ avatar, name: next })} />
       <p role="status" className={styles.note}>
         {failed ? "Your bee couldn't be saved. You can build it after you're accepted." : ""}
       </p>

@@ -161,7 +161,7 @@ export function Passport({
           <Decos items={CARD_DECOS} />
           <img className={styles.logo} src="/passport/hackhive-logo.png" alt="HackHive" />
 
-          <Link href="/dashboard/avatar" className={`${styles.badgeBox} ${styles.press}`} aria-label="Edit your avatar">
+          <Link href="/dashboard?tab=bee" className={`${styles.badgeBox} ${styles.press}`} aria-label="Edit your avatar">
             <Bee avatar={avatar} headOnly viewBox={HEADSHOT} className={styles.bee} />
             {look && <BeeHead avatar={avatar} className={styles.bee} />}
             <span className={styles.editTag} aria-hidden="true">EDIT</span>

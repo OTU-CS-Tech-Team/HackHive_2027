@@ -8,9 +8,9 @@
   isolation: isolate;
 }
 
+/* The dashboard's <main> while the Your bee tab is open; it keeps its own padding. */
 .page {
   min-height: 100dvh;
-  padding: 5.5rem 1rem 3rem;
   background:
     radial-gradient(56rem 34rem at 100% 0, rgb(244 185 66 / 0.09), transparent 70%),
     #0a0a0c;
@@ -45,7 +45,7 @@
   gap: 12px;
 }
 
-.title h1 {
+.title h2 {
   margin: 0;
   font-family: var(--font-grotesk), var(--font-sans), sans-serif;
   font-size: 28px;
@@ -146,14 +146,18 @@
   pointer-events: none;
 }
 
+/* min-width 0 on both: otherwise the canvas, still sized for a wider window,
+   holds the stage open when the window narrows. */
 .viewer {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
   min-height: 0;
 }
 
 /* Sideways drags turn the bee; up and down still scroll the page. */
 .canvas {
+  min-width: 0;
   min-height: 0;
   cursor: grab;
   touch-action: pan-y;
@@ -221,8 +225,9 @@
   height: 100%;
 }
 
-/* The wardrobe page only: the registration form's step always stacks. */
-@media (min-width: 900px) {
+/* The wardrobe tab only: the registration form's step always stacks. Wide
+   enough that, next to the dashboard sidebar, the stage keeps ~430px. */
+@media (min-width: 1200px) {
   .layout {
     grid-template-columns: minmax(0, 1fr) 400px;
     grid-template-areas:
@@ -247,9 +252,9 @@
     background: none;
   }
 
-  /* Fits under the title on arrival, not only once it sticks. */
+  /* Fits under the dashboard header and title on arrival, not only once it sticks. */
   .layout .hud {
-    height: min(640px, calc(100dvh - 220px));
+    height: min(640px, calc(100dvh - 310px));
   }
 
   .layout .preview {
@@ -271,7 +276,8 @@
 }
 
 /* The registration form's "Your bee" step: the same stage and panel, stacked
-   in a dark card. Nothing sits above it, so the stage sticks to the top. */
+   in a dark card. The form hides the site navbar from 768px up, so the stage
+   sticks under it on phones and to the very top past that. */
 .embed {
   display: grid;
   gap: 12px;
@@ -283,7 +289,13 @@
 }
 
 .embed .stage {
-  top: 0;
+  top: 4rem;
+}
+
+@media (min-width: 768px) {
+  .embed .stage {
+    top: 0;
+  }
 }
 
 .embed .note {

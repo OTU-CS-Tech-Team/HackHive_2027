@@ -1,12 +1,12 @@
 "use client";
 
 // The bee builder itself: the lit stage and the wardrobe panel, with the name
-// field on top. The wardrobe page lays these two out side by side; the
+// field on top. The Your bee tab lays these two out side by side; the
 // registration form's "Your bee" step stacks them.
 
 import dynamic from "next/dynamic";
 import { useState, useSyncExternalStore, type CSSProperties } from "react";
-import { webglAvailable } from "@/components/landing/meadow/quality";
+import { detectQuality, webglAvailable } from "@/components/landing/meadow/quality";
 import { COLORS, NAME_MAX, SLOTS, SLOT_IDS, type Avatar, type ColorId, type Slot } from "@/lib/avatar";
 import { Bee, CROPS, PAINT } from "./Bee";
 import styles from "./avatar.module.css";
@@ -17,6 +17,10 @@ type Change = { item?: string; color?: ColorId };
 const Bee3D = dynamic(() => import("./Bee3D"), { ssr: false, loading: () => <div className={styles.viewer} /> });
 let gl: boolean | undefined;
 const hasWebgl = () => (gl ??= webglAvailable());
+// The registration form's step only: its canvas would animate the whole time
+// they fill in the form, so phones and weaker machines get the flat bee there.
+let fast: boolean | undefined;
+const hasFastWebgl = () => (fast ??= detectQuality() === "high");
 const noSubscribe = () => () => {};
 
 // Motes rising off the plinth: [left %, seconds a rise, seconds already risen].
@@ -38,15 +42,17 @@ export function BeeBuilder({
   onAvatar,
   name,
   onName,
+  lite = false,
 }: {
   avatar: Avatar;
   onAvatar: (next: Avatar) => void;
   name: string;
   onName: (next: string) => void;
+  lite?: boolean;
 }) {
   const [slot, setSlot] = useState<Slot>("top");
   const [changed, setChanged] = useState<Slot>();
-  const webgl = useSyncExternalStore(noSubscribe, hasWebgl, () => false);
+  const webgl = useSyncExternalStore(noSubscribe, lite ? hasFastWebgl : hasWebgl, () => false);
 
   const current = avatar[slot];
   // The bee as it is, with one change in the open slot.

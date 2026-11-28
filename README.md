@@ -143,7 +143,7 @@ to work as before.
 
 ## Bee avatar
 
-Accepted hackers build a bee on `/dashboard/avatar` (tap the square under the
+Accepted hackers build a bee in the dashboard's **Your bee** tab (`/dashboard?tab=bee`, or tap the square under the
 logo on the passport): a top, bottom, shoes, hat, headphones, glasses and LED
 face, each in a colour. The bee is SVG drawn in code
 (`src/app/dashboard/avatar/Bee.tsx`), so every piece mixes with every other; the
@@ -159,12 +159,13 @@ optional "Your bee" step (just before Review). It saves straight to their
 profile as they go, not to the draft, and a failed save never blocks submitting;
 once they're accepted it's the bee on their passport and in the wardrobe. The
 name is optional (24 characters at most), is stored with the bee in
-`profiles.avatar`, and is the Build your bee page's title, where it can be
-changed. Applicants who submitted before this step existed build theirs after
+`profiles.avatar`, and is the Your bee tab's title, where it can be
+changed. On phones and weaker machines the step shows the flat bee, so the form
+isn't driving a 3D canvas. Applicants who submitted before this step existed build theirs after
 they're accepted. There's no new migration.
 
-Apply `supabase/migrations/20261126120000_avatar.sql` before deploying. Until it
-is applied, passports show the default bee, the wardrobe page says it couldn't
+Apply `supabase/migrations/20261127120000_avatar.sql` before deploying. Until it
+is applied, passports show the default bee, the Your bee tab says it couldn't
 load, and nothing else breaks. A retired piece in a saved avatar shows the
 default piece instead.
 

@@ -13,7 +13,7 @@ import styles from "./avatar.module.css";
 // Decoration only, so it waits for the browser.
 const Flight = dynamic(() => import("./Flight"), { ssr: false });
 
-// The wardrobe page: the builder, titled with the bee's name, and a Save that
+// The dashboard's Your bee tab: the builder, titled with the bee's name, and a Save that
 // goes back to the passport.
 export function AvatarPicker({ saved, savedName }: { saved: Avatar; savedName: string }) {
   const [avatar, setAvatar] = useState(saved);
@@ -28,7 +28,7 @@ export function AvatarPicker({ saved, savedName }: { saved: Avatar; savedName: s
           <g transform="rotate(-90)">{topBee()}</g>
         </svg>
         <div>
-          <h1>{name.trim() || "Build your bee"}</h1>
+          <h2>{name.trim() || "Build your bee"}</h2>
           <p className={styles.kicker}>HackHive avatar customizer</p>
         </div>
       </header>
