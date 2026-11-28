@@ -60,6 +60,25 @@ describe('indemnification form filler', () => {
     },
   );
 
+  // Both of Ontario Tech's names are in MLH's school list; either, however typed
+  // (including through "Other"), is an Ontario Tech student.
+  it.each(['ONTARIO TECH UNIVERSITY', 'university of ontario institute of technology', ' University of Ontario  Institute of Technology ', 'uoit', 'Ontario Tech U'])(
+    'leaves the guest block blank for Ontario Tech spelled %j',
+    async (university) => {
+      const pages = await pageItems(await previewFilledForm(applicant(university), at));
+      expect(lineAfter(pages[4], 'External Guest Signature')).toEqual([]);
+    },
+  );
+
+  // Everyone else signs as an external guest: other MLH schools and free text.
+  it.each(['Durham College', 'Trent University', 'University of Western Ontario', 'University of Waterloo', 'Ontario Tech Univeristy', 'My Local High School'])(
+    'signs the external guest block for %j',
+    async (university) => {
+      const pages = await pageItems(await previewFilledForm(applicant(university), at));
+      expect(lineAfter(pages[4], 'External Guest Signature')).toEqual(['Ada Lovelace']);
+    },
+  );
+
   it('treats a blank university as an external guest', async () => {
     const pages = await pageItems(await previewFilledForm(applicant('   '), at));
     expect(lineAfter(pages[4], 'External Guest Signature')).toEqual(['Ada Lovelace']);

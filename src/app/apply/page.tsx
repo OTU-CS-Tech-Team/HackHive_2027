@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ApplyForm } from "@/components/apply/ApplyForm";
 import { APPLICATION_DEADLINE } from "@/lib/constants";
 import { avatarOf, beeName } from "@/lib/avatar";
+import { canonicalSchoolName } from "@/lib/schools-server";
 
 async function getServerTime(): Promise<number> {
   await headers();
@@ -82,8 +83,9 @@ async function ApplyPageContent() {
     pronouns: result.application.pronouns || "",
     city: result.application.city || "",
     country: result.application.country || "",
-    university: result.application.university || "",
+    university: canonicalSchoolName(result.application.university || ""),
     program: result.application.program || "",
+    level_of_study: result.application.level_of_study || "",
     year_of_study: result.application.year_of_study || "",
     grad_date: result.application.grad_date || "",
     hackathons_count: result.application.hackathons_count?.toString() || "0",

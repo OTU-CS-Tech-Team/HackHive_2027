@@ -52,8 +52,16 @@ import {
   buildDraftPayload,
   cleanLinks,
   initialFormData,
+  gradDateToSave,
+  yearOfStudyToSave,
   type DraftFormData as FormData,
 } from "@/lib/application/draft-payload";
+import {
+  LEVEL_OF_STUDY_OPTIONS,
+  YEAR_OF_STUDY_OPTIONS,
+  asksGradDate,
+  isUndergradLevel,
+} from "@/lib/application/level-of-study";
 
 const TSHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
@@ -91,15 +99,6 @@ function MlhLink({ href, children }: { href: string; children: React.ReactNode }
     </a>
   );
 }
-
-const YEAR_OF_STUDY_OPTIONS = [
-  { value: "1", label: "1st year" },
-  { value: "2", label: "2nd year" },
-  { value: "3", label: "3rd year" },
-  { value: "4", label: "4th year" },
-  { value: "5", label: "5th year+" },
-  { value: "6", label: "Graduate" },
-];
 
 const TEAM_STATUS_OPTIONS = [
   { value: "solo", label: "I'm going solo" },
@@ -145,7 +144,7 @@ const STEPS: {
     title: "School",
     blurb: "Where you study and what you're working toward.",
     sections: [{ id: "education", title: "Education" }],
-    fields: ["university", "program", "year_of_study", "grad_date"],
+    fields: ["university", "program", "level_of_study", "year_of_study", "grad_date"],
   },
   {
     id: "experience",
@@ -338,12 +337,22 @@ export function getErrors(data: FormData): Record<string, string> {
   if (!data.university.trim())
     errors.university = "Pick your school from the list, or choose “Other”";
   if (!data.program.trim()) errors.program = "Program is required";
-  if (!data.year_of_study) errors.year_of_study = "Year of study is required";
-  if (!data.grad_date)
-    errors.grad_date = "Expected graduation date is required";
-  // An older draft can still hold a year the picker no longer offers.
-  else if (parseInt(data.grad_date, 10) < GRAD_YEAR_MIN)
-    errors.grad_date = `Pick a month in ${GRAD_YEAR_MIN} or later`;
+  if (!data.level_of_study) errors.level_of_study = "Level of study is required";
+  // Year of study is only asked for undergraduate levels. An older draft can hold
+  // a year the picker no longer offers ("Graduate"), so that counts as unanswered.
+  else if (
+    isUndergradLevel(data.level_of_study) &&
+    !YEAR_OF_STUDY_OPTIONS.some((o) => o.value === data.year_of_study)
+  )
+    errors.year_of_study = "Year of study is required";
+  // Not asked of people who aren't currently students.
+  if (asksGradDate(data.level_of_study)) {
+    if (!data.grad_date)
+      errors.grad_date = "Expected graduation date is required";
+    // An older draft can still hold a year the picker no longer offers.
+    else if (parseInt(data.grad_date, 10) < GRAD_YEAR_MIN)
+      errors.grad_date = `Pick a month in ${GRAD_YEAR_MIN} or later`;
+  }
   if (!data.resume_path) errors.resume_path = "Resume is required";
   if (!data.q_proud.trim()) errors.q_proud = "This answer is required";
   else if (countWords(data.q_proud) > WORD_LIMITS.q_proud)
@@ -696,8 +705,9 @@ export function ApplyForm({
           country: formData.country,
           university: formData.university,
           program: formData.program,
-          year_of_study: formData.year_of_study,
-          grad_date: formData.grad_date,
+          level_of_study: formData.level_of_study,
+          year_of_study: yearOfStudyToSave(formData),
+          grad_date: gradDateToSave(formData),
           hackathons_count: parseInt(formData.hackathons_count, 10) || null,
           linkedin_url: formData.linkedin_url || null,
           github_url: formData.github_url || null,
@@ -809,6 +819,8 @@ export function ApplyForm({
   // The Review step shows the draft in the same layout hackers see after submitting.
   const reviewData: ApplicationAnswersData = {
     ...formData,
+    year_of_study: yearOfStudyToSave(formData),
+    grad_date: gradDateToSave(formData),
     email: userEmail,
     age: formData.age ? Number(formData.age) : null,
     hackathons_count: Number(formData.hackathons_count) || 0,
@@ -1208,24 +1220,40 @@ export function ApplyForm({
                 maxLength={FIELD_LIMITS.program}
                 error={errors.program}
               />
+              <SelectField
+                label="Level of study"
+                name="level_of_study"
+                value={formData.level_of_study}
+                onChange={(v) => updateField("level_of_study", v)}
+                options={LEVEL_OF_STUDY_OPTIONS}
+                required
+                placeholder="Select your level of study"
+                error={errors.level_of_study}
+              />
               <div className="grid gap-5 sm:grid-cols-2">
-                <SelectField
-                  label="Year of study"
-                  name="year_of_study"
-                  value={formData.year_of_study}
-                  onChange={(v) => updateField("year_of_study", v)}
-                  options={YEAR_OF_STUDY_OPTIONS}
-                  required
-                  placeholder="Select your year"
-                  error={errors.year_of_study}
-                />
-                <MonthPicker
-                  label="Expected graduation"
-                  name="grad_date"
-                  value={formData.grad_date}
-                  onChange={(v) => updateField("grad_date", v)}
-                  error={errors.grad_date}
-                />
+                {/* Only undergrads pick a year; for anyone else it's saved as empty. */}
+                {isUndergradLevel(formData.level_of_study) && (
+                  <SelectField
+                    label="Year of study"
+                    name="year_of_study"
+                    value={formData.year_of_study}
+                    onChange={(v) => updateField("year_of_study", v)}
+                    options={YEAR_OF_STUDY_OPTIONS}
+                    required
+                    placeholder="Select your year"
+                    error={errors.year_of_study}
+                  />
+                )}
+                {/* Not asked of people who aren't currently students; saved as empty for them. */}
+                {asksGradDate(formData.level_of_study) && (
+                  <MonthPicker
+                    label="Expected graduation"
+                    name="grad_date"
+                    value={formData.grad_date}
+                    onChange={(v) => updateField("grad_date", v)}
+                    error={errors.grad_date}
+                  />
+                )}
               </div>
             </FormSection>,
           )}

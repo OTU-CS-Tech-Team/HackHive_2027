@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LEVEL_OF_STUDY_VALUES, asksGradDate, isUndergradLevel } from './level-of-study';
 
 const MAX_WORDS_Q1_Q2 = 200;
 const RECOMMENDED_WORDS_Q1_Q2 = 150;
@@ -150,6 +151,11 @@ const gradDateSchema = z.preprocess(
   z.coerce.date().optional().nullable()
 );
 
+const levelOfStudyForDraft = z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.enum(LEVEL_OF_STUDY_VALUES).optional().nullable()
+);
+
 const teamStatusSchema = z.preprocess(
   (val) => (val === '' ? null : val),
   z.enum(['solo', 'has_team', 'looking']).optional().nullable()
@@ -167,6 +173,7 @@ export const applicationDraftSchema = z.object({
   
   university: optionalStringForDraft(200, normalizeUnicode),
   program: optionalStringForDraft(200, normalizeUnicode),
+  level_of_study: levelOfStudyForDraft,
   year_of_study: optionalStringForDraft(50),
   grad_date: gradDateSchema,
   hackathons_count: emptyToNull(z.coerce.number().int().min(0)),
@@ -244,7 +251,9 @@ export const applicationSubmitSchema = z
 
     university: requiredText(200).transform(normalizeUnicode),
     program: requiredText(200).transform(normalizeUnicode),
-    year_of_study: requiredText(50),
+    level_of_study: z.enum(LEVEL_OF_STUDY_VALUES, { error: 'Please select your level of study' }),
+    // Required for the undergraduate levels only (see superRefine); dropped for the rest.
+    year_of_study: optionalStringForSubmit(50),
     grad_date: z.coerce.date().optional().nullable(),
     hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
 
@@ -303,6 +312,14 @@ export const applicationSubmitSchema = z
     consent_mlh_emails: z.boolean().optional().nullable(),
   })
   .superRefine((data, ctx) => {
+    if (isUndergradLevel(data.level_of_study) && !data.year_of_study?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Year of study is required',
+        path: ['year_of_study'],
+      });
+    }
+
     if (data.age < 18) {
       if (!data.guardian_name || data.guardian_name.trim() === '') {
         ctx.addIssue({
@@ -337,7 +354,14 @@ export const applicationSubmitSchema = z
         });
       }
     }
-  });
+  })
+  // Year of study is only asked for undergraduate levels, and expected graduation
+  // isn't asked of people who aren't students; never save either otherwise.
+  .transform((data) => ({
+    ...data,
+    year_of_study: isUndergradLevel(data.level_of_study) ? data.year_of_study : undefined,
+    grad_date: asksGradDate(data.level_of_study) ? data.grad_date : undefined,
+  }));
 
 export const indemnificationPreviewSchema = z.object({
   first_name: z.string().max(100),
@@ -398,6 +422,8 @@ export type Application = {
   country: string | null;
   university: string | null;
   program: string | null;
+  /** A LEVEL_OF_STUDY_OPTIONS value; null on applications from before it was asked. */
+  level_of_study: string | null;
   year_of_study: string | null;
   grad_date: string | null;
   hackathons_count: number | null;

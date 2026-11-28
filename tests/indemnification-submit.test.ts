@@ -78,6 +78,7 @@ const fields = {
   country: 'Canada',
   university: 'University of Toronto',
   program: 'CS',
+  level_of_study: 'undergrad_3_plus_year',
   year_of_study: '3',
   grad_date: '2028-05-01',
   linkedin_url: 'https://linkedin.com/in/ada',

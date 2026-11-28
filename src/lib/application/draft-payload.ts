@@ -1,3 +1,5 @@
+import { asksGradDate, isUndergradLevel } from "./level-of-study";
+
 export interface DraftFormData {
   first_name: string;
   last_name: string;
@@ -9,6 +11,7 @@ export interface DraftFormData {
   country: string;
   university: string;
   program: string;
+  level_of_study: string;
   year_of_study: string;
   grad_date: string;
   hackathons_count: string;
@@ -53,6 +56,7 @@ export const initialFormData: DraftFormData = {
   country: "",
   university: "",
   program: "",
+  level_of_study: "",
   year_of_study: "",
   grad_date: "",
   hackathons_count: "0",
@@ -91,6 +95,21 @@ export function cleanLinks(links: string[] | null | undefined): string[] {
   return [...new Set((links ?? []).map((link) => link.trim()).filter(Boolean))];
 }
 
+/**
+ * Year of study is only asked for undergraduate levels. Once another level is
+ * picked it's saved as null; with no level picked yet (older drafts) it's kept.
+ */
+export function yearOfStudyToSave(data: Pick<DraftFormData, "level_of_study" | "year_of_study">): string | null {
+  if (data.level_of_study && !isUndergradLevel(data.level_of_study)) return null;
+  return data.year_of_study || null;
+}
+
+/** Expected graduation is saved as null for people who aren't currently students. */
+export function gradDateToSave(data: Pick<DraftFormData, "level_of_study" | "grad_date">): string | null {
+  if (!asksGradDate(data.level_of_study)) return null;
+  return data.grad_date || null;
+}
+
 export function buildDraftPayload(data: DraftFormData): Record<string, unknown> {
   return {
     first_name: data.first_name || "",
@@ -103,8 +122,9 @@ export function buildDraftPayload(data: DraftFormData): Record<string, unknown> 
     country: data.country || "",
     university: data.university || "",
     program: data.program || "",
-    year_of_study: data.year_of_study || null,
-    grad_date: data.grad_date || null,
+    level_of_study: data.level_of_study || null,
+    year_of_study: yearOfStudyToSave(data),
+    grad_date: gradDateToSave(data),
     hackathons_count: data.hackathons_count && data.hackathons_count !== "0" ? parseInt(data.hackathons_count, 10) : null,
     linkedin_url: data.linkedin_url || "",
     github_url: data.github_url || "",
