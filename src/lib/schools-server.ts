@@ -13,3 +13,13 @@ export function schoolSearch(): SchoolSearch {
   search ??= createSchoolSearch(MLH_SCHOOLS);
   return search;
 }
+
+/**
+ * The listed name for a saved school, so drafts saved under an older spelling
+ * ("University of British Columbia") come back as the MLH name ("The University
+ * of British Columbia"). Left as saved when it matches no school, or more than one.
+ */
+export function canonicalSchoolName(saved: string): string {
+  const matches = schoolSearch().exact(saved);
+  return matches.length === 1 ? matches[0] : saved;
+}
