@@ -81,6 +81,7 @@ async function ApplyPageContent() {
     country: result.application.country || "",
     university: result.application.university || "",
     program: result.application.program || "",
+    level_of_study: result.application.level_of_study || "",
     year_of_study: result.application.year_of_study || "",
     grad_date: result.application.grad_date || "",
     hackathons_count: result.application.hackathons_count?.toString() || "0",

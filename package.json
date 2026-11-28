@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "team:seed": "node --env-file=.env scripts/seed-teammates.mjs",
-    "team:seed:clean": "node --env-file=.env scripts/seed-teammates.mjs --clean"
+    "team:seed:clean": "node --env-file=.env scripts/seed-teammates.mjs --clean",
+    "schools:build": "node scripts/build-mlh-schools.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
