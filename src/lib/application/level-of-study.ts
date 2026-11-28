@@ -1,10 +1,10 @@
-// Level of study, from MLH's registration options. MLH's two undergraduate
-// options (2 year college / 3+ year university) are merged into one
-// "University or College" choice. The stored value is a stable slug; show `levelOfStudyLabel`.
+// Level of study, using MLH's registration options (labels and order exactly as
+// MLH lists them). The stored value is a stable slug; show `levelOfStudyLabel`.
 export const LEVEL_OF_STUDY_OPTIONS = [
   { value: "less_than_secondary", label: "Less than Secondary / High School" },
   { value: "secondary", label: "Secondary / High School" },
-  { value: "undergrad", label: "University or College" },
+  { value: "undergrad_2_year", label: "Undergraduate University (2 year - community college or similar)" },
+  { value: "undergrad_3_plus_year", label: "Undergraduate University (3+ year)" },
   { value: "graduate", label: "Graduate University (Masters, Professional, Doctoral, etc)" },
   { value: "bootcamp", label: "Code School / Bootcamp" },
   { value: "vocational", label: "Other Vocational / Trade Program or Apprenticeship" },
@@ -26,9 +26,9 @@ export function levelOfStudyLabel(value: string | null | undefined): string | nu
   return LABELS[value] ?? value;
 }
 
-/** Year of study is only asked (and only required) for university or college students. */
+/** Year of study is only asked (and only required) for the two undergraduate levels. */
 export function isUndergradLevel(value: string | null | undefined): boolean {
-  return value === "undergrad";
+  return value === "undergrad_2_year" || value === "undergrad_3_plus_year";
 }
 
 // year_of_study: "1".."5" (5 = 5th year+). "6" (Graduate) is no longer offered,

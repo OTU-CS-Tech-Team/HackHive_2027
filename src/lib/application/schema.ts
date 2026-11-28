@@ -252,7 +252,7 @@ export const applicationSubmitSchema = z
     university: requiredText(200).transform(normalizeUnicode),
     program: requiredText(200).transform(normalizeUnicode),
     level_of_study: z.enum(LEVEL_OF_STUDY_VALUES, { error: 'Please select your level of study' }),
-    // Required for University or College only (see superRefine); dropped for the rest.
+    // Required for the undergraduate levels only (see superRefine); dropped for the rest.
     year_of_study: optionalStringForSubmit(50),
     grad_date: z.coerce.date().optional().nullable(),
     hackathons_count: z.coerce.number().int().min(0).optional().nullable(),
@@ -355,7 +355,7 @@ export const applicationSubmitSchema = z
       }
     }
   })
-  // Year of study is only asked for University or College; never save one otherwise.
+  // Year of study is only asked for undergraduate levels; never save one otherwise.
   .transform((data) => (isUndergradLevel(data.level_of_study) ? data : { ...data, year_of_study: undefined }));
 
 export const indemnificationPreviewSchema = z.object({

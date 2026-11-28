@@ -17,7 +17,7 @@ const submission = {
   country: 'Canada',
   university: 'University of Toronto',
   program: 'CS',
-  level_of_study: 'undergrad',
+  level_of_study: 'undergrad_3_plus_year',
   year_of_study: '3',
   resume_path: 'user/resume.pdf',
   q_proud: 'a',
@@ -40,11 +40,12 @@ const issuesFor = (data: Record<string, unknown>) => {
 };
 
 describe('level of study options', () => {
-  it("uses MLH's labels in MLH's order, with the two undergraduate options merged", () => {
+  it("uses MLH's labels, in MLH's order", () => {
     expect(LEVEL_OF_STUDY_OPTIONS.map((o) => o.label)).toEqual([
       'Less than Secondary / High School',
       'Secondary / High School',
-      'University or College',
+      'Undergraduate University (2 year - community college or similar)',
+      'Undergraduate University (3+ year)',
       'Graduate University (Masters, Professional, Doctoral, etc)',
       'Code School / Bootcamp',
       'Other Vocational / Trade Program or Apprenticeship',
@@ -61,9 +62,10 @@ describe('level of study options', () => {
     for (const value of values) expect(value.length).toBeLessThanOrEqual(50);
   });
 
-  it('only treats University or College as undergrad', () => {
+  it('only treats the two undergraduate levels as undergrad', () => {
     expect(LEVEL_OF_STUDY_OPTIONS.filter((o) => isUndergradLevel(o.value)).map((o) => o.label)).toEqual([
-      'University or College',
+      'Undergraduate University (2 year - community college or similar)',
+      'Undergraduate University (3+ year)',
     ]);
     expect(isUndergradLevel(null)).toBe(false);
     expect(isUndergradLevel('')).toBe(false);
@@ -84,7 +86,7 @@ describe('submit validation', () => {
   it('accepts an undergrad with a year', () => {
     const result = applicationSubmitSchema.safeParse(submission);
     expect(result.success).toBe(true);
-    expect(result.data?.level_of_study).toBe('undergrad');
+    expect(result.data?.level_of_study).toBe('undergrad_3_plus_year');
     expect(result.data?.year_of_study).toBe('3');
   });
 
@@ -94,8 +96,8 @@ describe('submit validation', () => {
     expect(issuesFor({ ...submission, level_of_study: 'Undergraduate' })).toContain('level_of_study');
   });
 
-  it('requires a year for university or college', () => {
-    for (const level of ['undergrad']) {
+  it('requires a year for both undergraduate levels', () => {
+    for (const level of ['undergrad_2_year', 'undergrad_3_plus_year']) {
       expect(issuesFor({ ...submission, level_of_study: level, year_of_study: '' })).toEqual(['year_of_study']);
       expect(issuesFor({ ...submission, level_of_study: level, year_of_study: null })).toEqual(['year_of_study']);
     }
@@ -124,7 +126,7 @@ describe('drafts', () => {
   it('saves the year as null once a non-undergraduate level is picked', () => {
     const payload = (level_of_study: string, year_of_study: string) =>
       buildDraftPayload({ ...initialFormData, level_of_study, year_of_study });
-    expect(payload('undergrad', '1')).toMatchObject({ level_of_study: 'undergrad', year_of_study: '1' });
+    expect(payload('undergrad_2_year', '1')).toMatchObject({ level_of_study: 'undergrad_2_year', year_of_study: '1' });
     expect(payload('graduate', '3')).toMatchObject({ level_of_study: 'graduate', year_of_study: null });
     // An older draft with a year but no level yet keeps its year.
     expect(payload('', '2')).toMatchObject({ level_of_study: null, year_of_study: '2' });

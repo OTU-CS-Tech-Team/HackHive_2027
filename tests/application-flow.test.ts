@@ -101,7 +101,7 @@ const validFields = {
   country: 'Canada',
   university: 'Ontario Tech',
   program: 'CS',
-  level_of_study: 'undergrad',
+  level_of_study: 'undergrad_3_plus_year',
   year_of_study: '3',
   grad_date: '2027-05-01',
   resume_path: 'user-1/resume-1.pdf',
